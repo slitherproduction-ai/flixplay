@@ -17,9 +17,56 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Radii, Shadows } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
-import { authenticateXtream } from "@/services/xtream";
+import { authenticateXtream, XtreamApiError } from "@/services/xtream";
+import type { XtreamUserInfo } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
+
+interface DiagInfo {
+  testedUrl: string;
+  alternateProtocol: "HTTPS" | "HTTP";
+  alternateUrl: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pure module-level helpers — extracted to keep performConnect simple
+// ---------------------------------------------------------------------------
+
+/** Returns true when the Xtream server confirmed a successful authentication. */
+function checkXtreamAuth(userInfo: XtreamUserInfo | null): userInfo is XtreamUserInfo {
+  if (!userInfo) return false;
+  const v = userInfo.auth;
+  if (v === 1 || v === "1" || v === true) return true;
+  // Some servers omit the auth field entirely but still return a username on success
+  return v === undefined && !!userInfo.username;
+}
+
+/** Builds a DiagInfo from a caught error, or null when not an XtreamApiError. */
+function buildDiagInfoFromError(err: unknown): DiagInfo | null {
+  if (!(err instanceof XtreamApiError) || !err.testedUrl) return null;
+  const base = err.testedUrl;
+  const isHttp = base.startsWith("http://");
+  return {
+    testedUrl: base,
+    alternateProtocol: isHttp ? "HTTPS" : "HTTP",
+    alternateUrl: isHttp
+      ? base.replace("http://", "https://")
+      : base.replace("https://", "http://"),
+  };
+}
+
+/** Maps a successfully authenticated user_info into the profile fields to persist. */
+function buildProfileUpdate(userInfo: XtreamUserInfo) {
+  const hasM3u8 =
+    Array.isArray(userInfo.allowed_output_formats) &&
+    userInfo.allowed_output_formats.includes("m3u8");
+  return {
+    expiryDate: parseExpiryDisplay(userInfo.exp_date ?? null),
+    maxConnections: Number(userInfo.max_connections) || 1,
+    activeConnections: Number(userInfo.active_cons) || 0,
+    format: (hasM3u8 ? "HLS" : "TS") as ServerProfile["format"],
+  };
+}
 
 function normalizeUrl(input: string): string {
   let url = input.trim();
@@ -216,15 +263,23 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [diagInfo, setDiagInfo] = useState<DiagInfo | null>(null);
   const [showSavedLists, setShowSavedLists] = useState(false);
 
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const listNameRef = useRef<TextInput>(null);
 
-  const handleConnect = useCallback(async () => {
+  /**
+   * Core connect logic. Accepts an explicit `effectiveHost` so both the main
+   * button and the "try alternate protocol" quick action can call it without
+   * waiting for a React state flush.
+   */
+  const performConnect = useCallback(async (effectiveHost: string) => {
     setError(null);
-    const validationError = validateLoginFields(host, username, password);
+    setDiagInfo(null);
+
+    const validationError = validateLoginFields(effectiveHost, username, password);
     if (validationError) {
       setError(validationError);
       return;
@@ -235,7 +290,7 @@ export default function LoginScreen() {
       const profile: ServerProfile = {
         id: `server-${Date.now()}`,
         name: listName.trim() || username.trim(),
-        serverUrl: normalizeUrl(host),
+        serverUrl: normalizeUrl(effectiveHost),
         username: username.trim(),
         password,
         isActive: true,
@@ -249,17 +304,7 @@ export default function LoginScreen() {
       const authResult = await authenticateXtream(profile);
       const userInfo = authResult.user_info;
 
-      // Validate auth: servers return auth=1/"1"/true on success, auth=0/"0"/false on failure.
-      // Some servers omit the auth field but still return a populated user_info on success.
-      const authValue = userInfo?.auth;
-      const isAuthenticated =
-        authValue === 1 ||
-        authValue === "1" ||
-        authValue === true ||
-        // Fallback: no auth field but username is present (server authenticated successfully)
-        (authValue === undefined && !!userInfo?.username);
-
-      if (!userInfo || !isAuthenticated) {
+      if (!checkXtreamAuth(userInfo)) {
         setError("Usuário ou senha incorretos. Verifique suas credenciais e o endereço do servidor.");
         return;
       }
@@ -270,24 +315,31 @@ export default function LoginScreen() {
         return;
       }
 
-      const hasM3u8 =
-        Array.isArray(userInfo.allowed_output_formats) &&
-        userInfo.allowed_output_formats.includes("m3u8");
-      addServer({
-        ...profile,
-        expiryDate: parseExpiryDisplay(userInfo.exp_date ?? null),
-        maxConnections: Number(userInfo.max_connections) || 1,
-        activeConnections: Number(userInfo.active_cons) || 0,
-        format: hasM3u8 ? "HLS" : "TS",
-      });
+      addServer({ ...profile, ...buildProfileUpdate(userInfo) });
       router.replace("/(tabs)");
     } catch (connectError) {
       console.error("Falha ao conectar servidor Xtream", connectError);
       setError(mapConnectError(connectError));
+      const diag = buildDiagInfoFromError(connectError);
+      if (diag) setDiagInfo(diag);
     } finally {
       setLoading(false);
     }
-  }, [addServer, host, listName, password, router, username]);
+  }, [addServer, listName, password, router, username]);
+
+  const handleConnect = useCallback(
+    () => performConnect(host),
+    [host, performConnect],
+  );
+
+  /** Switches the host field to the alternate protocol and immediately retries. */
+  const handleTryAlternateProtocol = useCallback(
+    (alternateUrl: string) => {
+      setHost(alternateUrl);
+      performConnect(alternateUrl);
+    },
+    [performConnect],
+  );
 
   const handleDemo = useCallback(() => {
     const demoServer = servers.find((s) => s.id === "demo-premium");
@@ -532,7 +584,37 @@ export default function LoginScreen() {
               {error ? (
                 <View style={styles.errorBox}>
                   <Ionicons name="alert-circle" size={17} color="#FF8B91" />
-                  <AppText style={styles.errorText}>{error}</AppText>
+                  <AppText style={styles.errorText} selectable>{error}</AppText>
+                </View>
+              ) : null}
+
+              {/* Diagnostic card — shown after a connection error */}
+              {diagInfo ? (
+                <View style={styles.diagCard}>
+                  <View style={styles.diagHeader}>
+                    <Ionicons name="analytics-outline" size={14} color={Colors.amber} />
+                    <AppText style={styles.diagTitle}>Diagnóstico de Conexão</AppText>
+                  </View>
+                  <View style={styles.diagUrlRow}>
+                    <AppText style={styles.diagUrlLabel}>URL testada:</AppText>
+                    <AppText style={styles.diagUrl} selectable numberOfLines={1}>
+                      {diagInfo.testedUrl}
+                    </AppText>
+                  </View>
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Tentar com ${diagInfo.alternateProtocol}`}
+                    onPress={() => handleTryAlternateProtocol(diagInfo.alternateUrl)}
+                    style={({ pressed }) => [styles.diagBtn, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="swap-horizontal-outline" size={14} color={Colors.blueBright} />
+                    <AppText style={styles.diagBtnText}>
+                      Tentar com {diagInfo.alternateProtocol}{" "}
+                      <AppText style={styles.diagBtnHint}>
+                        ({diagInfo.alternateUrl})
+                      </AppText>
+                    </AppText>
+                  </TVFocusable>
                 </View>
               ) : null}
 
@@ -884,6 +966,64 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  diagCard: {
+    borderRadius: Radii.small,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.28)",
+    backgroundColor: "rgba(245,158,11,0.07)",
+    padding: 12,
+    gap: 8,
+  },
+  diagHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  diagTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    letterSpacing: 0.4,
+    color: Colors.amber,
+  },
+  diagUrlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  diagUrlLabel: {
+    fontSize: 11,
+    color: Colors.subtle,
+    fontFamily: "Inter_400Regular",
+  },
+  diagUrl: {
+    fontSize: 11,
+    color: Colors.muted,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+  },
+  diagBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "rgba(96,165,250,0.1)",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.22)",
+  },
+  diagBtnText: {
+    fontSize: 12,
+    color: Colors.blueBright,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+  },
+  diagBtnHint: {
+    fontSize: 11,
+    color: Colors.subtle,
+    fontFamily: "Inter_400Regular",
   },
 });
 

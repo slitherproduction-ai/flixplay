@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": 1789982660011,
+  "generatedAt": 1789984165667,
   "entries": {
     "MoviesScreen@app/(tabs)/movies.tsx:44": {
       "element": {
@@ -13294,2998 +13294,6 @@
         }
       ]
     },
-    "SavedListsModal@app/login.tsx:106": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 106
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.screen",
-          "file": "app/login.tsx",
-          "defLine": 891,
-          "properties": {
-            "flex": {
-              "line": 892,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "minHeight": {
-              "line": 896,
-              "col": 15,
-              "endCol": 18,
-              "raw": "400"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:107": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 107
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.header",
-          "file": "app/login.tsx",
-          "defLine": 898,
-          "properties": {
-            "paddingHorizontal": {
-              "line": 899,
-              "col": 23,
-              "endCol": 25,
-              "raw": "20"
-            },
-            "paddingTop": {
-              "line": 900,
-              "col": 16,
-              "endCol": 18,
-              "raw": "14"
-            },
-            "paddingBottom": {
-              "line": 901,
-              "col": 19,
-              "endCol": 21,
-              "raw": "16"
-            },
-            "borderBottomWidth": {
-              "line": 902,
-              "col": 23,
-              "endCol": 24,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:108": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 108
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.grabber",
-          "file": "app/login.tsx",
-          "defLine": 905,
-          "properties": {
-            "alignSelf": {
-              "line": 906,
-              "col": 15,
-              "endCol": 23,
-              "raw": "\"center\""
-            },
-            "width": {
-              "line": 907,
-              "col": 11,
-              "endCol": 13,
-              "raw": "36"
-            },
-            "height": {
-              "line": 908,
-              "col": 12,
-              "endCol": 13,
-              "raw": "4"
-            },
-            "borderRadius": {
-              "line": 909,
-              "col": 18,
-              "endCol": 19,
-              "raw": "2"
-            },
-            "marginBottom": {
-              "line": 911,
-              "col": 18,
-              "endCol": 20,
-              "raw": "16"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:109": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 109
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.titleRow",
-          "file": "app/login.tsx",
-          "defLine": 913,
-          "properties": {
-            "flexDirection": {
-              "line": 914,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 915,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "gap": {
-              "line": 916,
-              "col": 9,
-              "endCol": 11,
-              "raw": "10"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:110": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 110
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.title",
-          "file": "app/login.tsx",
-          "defLine": 918,
-          "properties": {
-            "fontFamily": {
-              "line": 919,
-              "col": 16,
-              "endCol": 31,
-              "raw": "\"Inter_700Bold\""
-            },
-            "fontSize": {
-              "line": 920,
-              "col": 14,
-              "endCol": 16,
-              "raw": "19"
-            },
-            "letterSpacing": {
-              "line": 922,
-              "col": 19,
-              "endCol": 23,
-              "raw": "-0.3"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:111": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 111
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.countBadge",
-          "file": "app/login.tsx",
-          "defLine": 924,
-          "properties": {
-            "minWidth": {
-              "line": 925,
-              "col": 14,
-              "endCol": 16,
-              "raw": "24"
-            },
-            "height": {
-              "line": 926,
-              "col": 12,
-              "endCol": 14,
-              "raw": "24"
-            },
-            "paddingHorizontal": {
-              "line": 927,
-              "col": 23,
-              "endCol": 24,
-              "raw": "6"
-            },
-            "borderRadius": {
-              "line": 928,
-              "col": 18,
-              "endCol": 20,
-              "raw": "12"
-            },
-            "alignItems": {
-              "line": 929,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 930,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "backgroundColor": {
-              "line": 931,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(59,130,246,0.18)\""
-            },
-            "borderWidth": {
-              "line": 932,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "borderColor": {
-              "line": 933,
-              "col": 17,
-              "endCol": 39,
-              "raw": "\"rgba(96,165,250,0.3)\""
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:112": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 112
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.countText",
-          "file": "app/login.tsx",
-          "defLine": 935,
-          "properties": {
-            "fontFamily": {
-              "line": 936,
-              "col": 16,
-              "endCol": 31,
-              "raw": "\"Inter_700Bold\""
-            },
-            "fontSize": {
-              "line": 937,
-              "col": 14,
-              "endCol": 16,
-              "raw": "11"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:115": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 115
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.closeBtn",
-          "file": "app/login.tsx",
-          "defLine": 940,
-          "properties": {
-            "position": {
-              "line": 941,
-              "col": 14,
-              "endCol": 24,
-              "raw": "\"absolute\""
-            },
-            "right": {
-              "line": 942,
-              "col": 11,
-              "endCol": 13,
-              "raw": "20"
-            },
-            "bottom": {
-              "line": 943,
-              "col": 12,
-              "endCol": 14,
-              "raw": "16"
-            },
-            "width": {
-              "line": 944,
-              "col": 11,
-              "endCol": 13,
-              "raw": "34"
-            },
-            "height": {
-              "line": 945,
-              "col": 12,
-              "endCol": 14,
-              "raw": "34"
-            },
-            "alignItems": {
-              "line": 946,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 947,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderRadius": {
-              "line": 948,
-              "col": 18,
-              "endCol": 20,
-              "raw": "17"
-            },
-            "backgroundColor": {
-              "line": 949,
-              "col": 21,
-              "endCol": 45,
-              "raw": "\"rgba(255,255,255,0.07)\""
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:130": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 130
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.emptyState",
-          "file": "app/login.tsx",
-          "defLine": 956,
-          "properties": {
-            "alignItems": {
-              "line": 957,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "paddingVertical": {
-              "line": 958,
-              "col": 21,
-              "endCol": 23,
-              "raw": "48"
-            },
-            "gap": {
-              "line": 959,
-              "col": 9,
-              "endCol": 11,
-              "raw": "10"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:131": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 131
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.emptyIcon",
-          "file": "app/login.tsx",
-          "defLine": 961,
-          "properties": {
-            "width": {
-              "line": 962,
-              "col": 11,
-              "endCol": 13,
-              "raw": "60"
-            },
-            "height": {
-              "line": 963,
-              "col": 12,
-              "endCol": 14,
-              "raw": "60"
-            },
-            "borderRadius": {
-              "line": 964,
-              "col": 18,
-              "endCol": 20,
-              "raw": "30"
-            },
-            "alignItems": {
-              "line": 965,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 966,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "backgroundColor": {
-              "line": 967,
-              "col": 21,
-              "endCol": 45,
-              "raw": "\"rgba(255,255,255,0.05)\""
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:134": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 134
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.emptyTitle",
-          "file": "app/login.tsx",
-          "defLine": 969,
-          "properties": {
-            "fontFamily": {
-              "line": 970,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 971,
-              "col": 14,
-              "endCol": 16,
-              "raw": "16"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:135": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 135
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.emptyBody",
-          "file": "app/login.tsx",
-          "defLine": 974,
-          "properties": {
-            "maxWidth": {
-              "line": 975,
-              "col": 14,
-              "endCol": 17,
-              "raw": "260"
-            },
-            "textAlign": {
-              "line": 976,
-              "col": 15,
-              "endCol": 23,
-              "raw": "\"center\""
-            },
-            "fontSize": {
-              "line": 977,
-              "col": 14,
-              "endCol": 16,
-              "raw": "13"
-            },
-            "lineHeight": {
-              "line": 979,
-              "col": 16,
-              "endCol": 18,
-              "raw": "19"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:141": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 141
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverRow",
-          "file": "app/login.tsx",
-          "defLine": 981,
-          "properties": {
-            "flexDirection": {
-              "line": 982,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 983,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "gap": {
-              "line": 984,
-              "col": 9,
-              "endCol": 10,
-              "raw": "0"
-            },
-            "borderWidth": {
-              "line": 986,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "overflow": {
-              "line": 989,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:142": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 142
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:148": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 148
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverIcon",
-          "file": "app/login.tsx",
-          "defLine": 999,
-          "properties": {
-            "width": {
-              "line": 1000,
-              "col": 11,
-              "endCol": 13,
-              "raw": "38"
-            },
-            "height": {
-              "line": 1001,
-              "col": 12,
-              "endCol": 14,
-              "raw": "38"
-            },
-            "alignItems": {
-              "line": 1002,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 1003,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderRadius": {
-              "line": 1004,
-              "col": 18,
-              "endCol": 20,
-              "raw": "11"
-            },
-            "backgroundColor": {
-              "line": 1005,
-              "col": 21,
-              "endCol": 45,
-              "raw": "\"rgba(255,255,255,0.06)\""
-            },
-            "flexShrink": {
-              "line": 1006,
-              "col": 16,
-              "endCol": 17,
-              "raw": "0"
-            }
-          }
-        },
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:155": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 155
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverInfo",
-          "file": "app/login.tsx",
-          "defLine": 1011,
-          "properties": {
-            "flex": {
-              "line": 1012,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "gap": {
-              "line": 1013,
-              "col": 9,
-              "endCol": 10,
-              "raw": "3"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:156": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 156
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverNameRow",
-          "file": "app/login.tsx",
-          "defLine": 1015,
-          "properties": {
-            "flexDirection": {
-              "line": 1016,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 1017,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "gap": {
-              "line": 1018,
-              "col": 9,
-              "endCol": 10,
-              "raw": "7"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:157": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 157
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverName",
-          "file": "app/login.tsx",
-          "defLine": 1020,
-          "properties": {
-            "fontFamily": {
-              "line": 1021,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 1022,
-              "col": 14,
-              "endCol": 16,
-              "raw": "13"
-            },
-            "flex": {
-              "line": 1024,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:161": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 161
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.activeBadge",
-          "file": "app/login.tsx",
-          "defLine": 1026,
-          "properties": {
-            "paddingHorizontal": {
-              "line": 1027,
-              "col": 23,
-              "endCol": 24,
-              "raw": "6"
-            },
-            "paddingVertical": {
-              "line": 1028,
-              "col": 21,
-              "endCol": 22,
-              "raw": "3"
-            },
-            "borderRadius": {
-              "line": 1029,
-              "col": 18,
-              "endCol": 19,
-              "raw": "5"
-            },
-            "backgroundColor": {
-              "line": 1030,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(16,185,129,0.16)\""
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:162": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 162
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.activeBadgeText",
-          "file": "app/login.tsx",
-          "defLine": 1032,
-          "properties": {
-            "fontFamily": {
-              "line": 1033,
-              "col": 16,
-              "endCol": 31,
-              "raw": "\"Inter_700Bold\""
-            },
-            "fontSize": {
-              "line": 1034,
-              "col": 14,
-              "endCol": 15,
-              "raw": "8"
-            },
-            "letterSpacing": {
-              "line": 1035,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.4"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:166": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 166
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverUrl",
-          "file": "app/login.tsx",
-          "defLine": 1038,
-          "properties": {
-            "fontSize": {
-              "line": 1039,
-              "col": 14,
-              "endCol": 16,
-              "raw": "11"
-            },
-            "fontFamily": {
-              "line": 1041,
-              "col": 16,
-              "endCol": 34,
-              "raw": "\"Inter_400Regular\""
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:169": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 169
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.serverMeta",
-          "file": "app/login.tsx",
-          "defLine": 1043,
-          "properties": {
-            "fontSize": {
-              "line": 1044,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            }
-          }
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:175": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 175
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:188": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 188
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "SavedListsModal@app/login.tsx:195": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 195
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "modalStyles.deleteAllText",
-          "file": "app/login.tsx",
-          "defLine": 1072,
-          "properties": {
-            "fontFamily": {
-              "line": 1073,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 1074,
-              "col": 14,
-              "endCol": 16,
-              "raw": "13"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:360": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 360
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.screen",
-          "file": "app/login.tsx",
-          "defLine": 638,
-          "properties": {
-            "flex": {
-              "line": 639,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:362": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 362
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.orb1",
-          "file": "app/login.tsx",
-          "defLine": 642,
-          "properties": {
-            "position": {
-              "line": 643,
-              "col": 14,
-              "endCol": 24,
-              "raw": "\"absolute\""
-            },
-            "top": {
-              "line": 644,
-              "col": 9,
-              "endCol": 12,
-              "raw": "-80"
-            },
-            "left": {
-              "line": 645,
-              "col": 10,
-              "endCol": 13,
-              "raw": "-60"
-            },
-            "width": {
-              "line": 646,
-              "col": 11,
-              "endCol": 14,
-              "raw": "260"
-            },
-            "height": {
-              "line": 647,
-              "col": 12,
-              "endCol": 15,
-              "raw": "260"
-            },
-            "borderRadius": {
-              "line": 648,
-              "col": 18,
-              "endCol": 21,
-              "raw": "130"
-            },
-            "backgroundColor": {
-              "line": 649,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(59,130,246,0.13)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:363": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 363
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.orb2",
-          "file": "app/login.tsx",
-          "defLine": 651,
-          "properties": {
-            "position": {
-              "line": 652,
-              "col": 14,
-              "endCol": 24,
-              "raw": "\"absolute\""
-            },
-            "bottom": {
-              "line": 653,
-              "col": 12,
-              "endCol": 14,
-              "raw": "80"
-            },
-            "right": {
-              "line": 654,
-              "col": 11,
-              "endCol": 14,
-              "raw": "-80"
-            },
-            "width": {
-              "line": 655,
-              "col": 11,
-              "endCol": 14,
-              "raw": "300"
-            },
-            "height": {
-              "line": 656,
-              "col": 12,
-              "endCol": 15,
-              "raw": "300"
-            },
-            "borderRadius": {
-              "line": 657,
-              "col": 18,
-              "endCol": 21,
-              "raw": "150"
-            },
-            "backgroundColor": {
-              "line": 658,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(96,165,250,0.07)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:364": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 364
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.orb3",
-          "file": "app/login.tsx",
-          "defLine": 660,
-          "properties": {
-            "position": {
-              "line": 661,
-              "col": 14,
-              "endCol": 24,
-              "raw": "\"absolute\""
-            },
-            "top": {
-              "line": 662,
-              "col": 9,
-              "endCol": 14,
-              "raw": "\"40%\""
-            },
-            "left": {
-              "line": 663,
-              "col": 10,
-              "endCol": 15,
-              "raw": "\"50%\""
-            },
-            "width": {
-              "line": 664,
-              "col": 11,
-              "endCol": 14,
-              "raw": "200"
-            },
-            "height": {
-              "line": 665,
-              "col": 12,
-              "endCol": 15,
-              "raw": "200"
-            },
-            "borderRadius": {
-              "line": 666,
-              "col": 18,
-              "endCol": 21,
-              "raw": "100"
-            },
-            "backgroundColor": {
-              "line": 667,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(139,92,246,0.05)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:366": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 366
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.keyboardView",
-          "file": "app/login.tsx",
-          "defLine": 669,
-          "properties": {
-            "flex": {
-              "line": 670,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:379": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 379
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.logoArea",
-          "file": "app/login.tsx",
-          "defLine": 677,
-          "properties": {
-            "alignItems": {
-              "line": 678,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "gap": {
-              "line": 679,
-              "col": 9,
-              "endCol": 11,
-              "raw": "10"
-            },
-            "paddingBottom": {
-              "line": 680,
-              "col": 19,
-              "endCol": 20,
-              "raw": "4"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:380": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 380
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.logoIconWrapper",
-          "file": "app/login.tsx",
-          "defLine": 682,
-          "properties": {
-            "alignItems": {
-              "line": 683,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 684,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "width": {
-              "line": 685,
-              "col": 11,
-              "endCol": 13,
-              "raw": "72"
-            },
-            "height": {
-              "line": 686,
-              "col": 12,
-              "endCol": 14,
-              "raw": "72"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:381": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 381
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.logoIconGlow",
-          "file": "app/login.tsx",
-          "defLine": 688,
-          "properties": {
-            "position": {
-              "line": 689,
-              "col": 14,
-              "endCol": 24,
-              "raw": "\"absolute\""
-            },
-            "width": {
-              "line": 690,
-              "col": 11,
-              "endCol": 13,
-              "raw": "72"
-            },
-            "height": {
-              "line": 691,
-              "col": 12,
-              "endCol": 14,
-              "raw": "72"
-            },
-            "borderRadius": {
-              "line": 692,
-              "col": 18,
-              "endCol": 20,
-              "raw": "36"
-            },
-            "backgroundColor": {
-              "line": 693,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(59,130,246,0.28)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:382": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 382
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.logoIconInner",
-          "file": "app/login.tsx",
-          "defLine": 695,
-          "properties": {
-            "width": {
-              "line": 696,
-              "col": 11,
-              "endCol": 13,
-              "raw": "62"
-            },
-            "height": {
-              "line": 697,
-              "col": 12,
-              "endCol": 14,
-              "raw": "62"
-            },
-            "borderRadius": {
-              "line": 698,
-              "col": 18,
-              "endCol": 20,
-              "raw": "20"
-            },
-            "alignItems": {
-              "line": 699,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 700,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderWidth": {
-              "line": 701,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "borderColor": {
-              "line": 702,
-              "col": 17,
-              "endCol": 40,
-              "raw": "\"rgba(96,165,250,0.55)\""
-            },
-            "backgroundColor": {
-              "line": 703,
-              "col": 21,
-              "endCol": 44,
-              "raw": "\"rgba(59,130,246,0.22)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:386": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 386
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.logoTitle",
-          "file": "app/login.tsx",
-          "defLine": 705,
-          "properties": {
-            "fontFamily": {
-              "line": 706,
-              "col": 16,
-              "endCol": 31,
-              "raw": "\"Inter_700Bold\""
-            },
-            "fontSize": {
-              "line": 707,
-              "col": 14,
-              "endCol": 16,
-              "raw": "28"
-            },
-            "letterSpacing": {
-              "line": 708,
-              "col": 19,
-              "endCol": 23,
-              "raw": "-0.6"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:387": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 387
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.logoSubtitle",
-          "file": "app/login.tsx",
-          "defLine": 711,
-          "properties": {
-            "fontFamily": {
-              "line": 712,
-              "col": 16,
-              "endCol": 33,
-              "raw": "\"Inter_500Medium\""
-            },
-            "fontSize": {
-              "line": 713,
-              "col": 14,
-              "endCol": 16,
-              "raw": "12"
-            },
-            "letterSpacing": {
-              "line": 714,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.2"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:391": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 391
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.card",
-          "file": "app/login.tsx",
-          "defLine": 717,
-          "properties": {
-            "overflow": {
-              "line": 718,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            },
-            "borderWidth": {
-              "line": 720,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "borderColor": {
-              "line": 721,
-              "col": 17,
-              "endCol": 41,
-              "raw": "\"rgba(255,255,255,0.12)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:392": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 392
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:393": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 393
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.cardInner",
-          "file": "app/login.tsx",
-          "defLine": 725,
-          "properties": {
-            "gap": {
-              "line": 726,
-              "col": 9,
-              "endCol": 11,
-              "raw": "14"
-            },
-            "padding": {
-              "line": 727,
-              "col": 13,
-              "endCol": 15,
-              "raw": "20"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:394": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 394
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.cardTitle",
-          "file": "app/login.tsx",
-          "defLine": 729,
-          "properties": {
-            "fontFamily": {
-              "line": 730,
-              "col": 16,
-              "endCol": 31,
-              "raw": "\"Inter_700Bold\""
-            },
-            "fontSize": {
-              "line": 731,
-              "col": 14,
-              "endCol": 16,
-              "raw": "19"
-            },
-            "letterSpacing": {
-              "line": 733,
-              "col": 19,
-              "endCol": 23,
-              "raw": "-0.3"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:395": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 395
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.cardSubtitle",
-          "file": "app/login.tsx",
-          "defLine": 735,
-          "properties": {
-            "fontSize": {
-              "line": 736,
-              "col": 14,
-              "endCol": 16,
-              "raw": "13"
-            },
-            "marginTop": {
-              "line": 738,
-              "col": 15,
-              "endCol": 17,
-              "raw": "-8"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:400": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 400
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldGroup",
-          "file": "app/login.tsx",
-          "defLine": 740,
-          "properties": {
-            "gap": {
-              "line": 741,
-              "col": 9,
-              "endCol": 10,
-              "raw": "6"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:401": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 401
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldLabel",
-          "file": "app/login.tsx",
-          "defLine": 743,
-          "properties": {
-            "fontFamily": {
-              "line": 744,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 745,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            },
-            "letterSpacing": {
-              "line": 746,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.8"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:402": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 402
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputWrapper",
-          "file": "app/login.tsx",
-          "defLine": 755,
-          "properties": {
-            "height": {
-              "line": 756,
-              "col": 12,
-              "endCol": 14,
-              "raw": "50"
-            },
-            "flexDirection": {
-              "line": 757,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 758,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "borderWidth": {
-              "line": 760,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "backgroundColor": {
-              "line": 762,
-              "col": 21,
-              "endCol": 39,
-              "raw": "\"rgba(7,9,14,0.5)\""
-            },
-            "overflow": {
-              "line": 763,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:403": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 403
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputIconBox",
-          "file": "app/login.tsx",
-          "defLine": 765,
-          "properties": {
-            "width": {
-              "line": 766,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 767,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 768,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 769,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderRightWidth": {
-              "line": 770,
-              "col": 22,
-              "endCol": 23,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:406": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 406
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.input",
-          "file": "app/login.tsx",
-          "defLine": 773,
-          "properties": {
-            "flex": {
-              "line": 774,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "height": {
-              "line": 775,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "paddingHorizontal": {
-              "line": 776,
-              "col": 23,
-              "endCol": 25,
-              "raw": "12"
-            },
-            "fontFamily": {
-              "line": 777,
-              "col": 16,
-              "endCol": 34,
-              "raw": "\"Inter_400Regular\""
-            },
-            "fontSize": {
-              "line": 778,
-              "col": 14,
-              "endCol": 16,
-              "raw": "14"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:419": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 419
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputClearBtn",
-          "file": "app/login.tsx",
-          "defLine": 781,
-          "properties": {
-            "width": {
-              "line": 782,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 783,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 784,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 785,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:428": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 428
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldHint",
-          "file": "app/login.tsx",
-          "defLine": 787,
-          "properties": {
-            "fontSize": {
-              "line": 788,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            },
-            "lineHeight": {
-              "line": 790,
-              "col": 16,
-              "endCol": 18,
-              "raw": "14"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:434": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 434
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldGroup",
-          "file": "app/login.tsx",
-          "defLine": 740,
-          "properties": {
-            "gap": {
-              "line": 741,
-              "col": 9,
-              "endCol": 10,
-              "raw": "6"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:435": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 435
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldLabel",
-          "file": "app/login.tsx",
-          "defLine": 743,
-          "properties": {
-            "fontFamily": {
-              "line": 744,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 745,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            },
-            "letterSpacing": {
-              "line": 746,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.8"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:436": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 436
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputWrapper",
-          "file": "app/login.tsx",
-          "defLine": 755,
-          "properties": {
-            "height": {
-              "line": 756,
-              "col": 12,
-              "endCol": 14,
-              "raw": "50"
-            },
-            "flexDirection": {
-              "line": 757,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 758,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "borderWidth": {
-              "line": 760,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "backgroundColor": {
-              "line": 762,
-              "col": 21,
-              "endCol": 39,
-              "raw": "\"rgba(7,9,14,0.5)\""
-            },
-            "overflow": {
-              "line": 763,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:437": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 437
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputIconBox",
-          "file": "app/login.tsx",
-          "defLine": 765,
-          "properties": {
-            "width": {
-              "line": 766,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 767,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 768,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 769,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderRightWidth": {
-              "line": 770,
-              "col": 22,
-              "endCol": 23,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:440": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 440
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.input",
-          "file": "app/login.tsx",
-          "defLine": 773,
-          "properties": {
-            "flex": {
-              "line": 774,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "height": {
-              "line": 775,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "paddingHorizontal": {
-              "line": 776,
-              "col": 23,
-              "endCol": 25,
-              "raw": "12"
-            },
-            "fontFamily": {
-              "line": 777,
-              "col": 16,
-              "endCol": 34,
-              "raw": "\"Inter_400Regular\""
-            },
-            "fontSize": {
-              "line": 778,
-              "col": 14,
-              "endCol": 16,
-              "raw": "14"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:453": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 453
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputClearBtn",
-          "file": "app/login.tsx",
-          "defLine": 781,
-          "properties": {
-            "width": {
-              "line": 782,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 783,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 784,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 785,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:465": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 465
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldGroup",
-          "file": "app/login.tsx",
-          "defLine": 740,
-          "properties": {
-            "gap": {
-              "line": 741,
-              "col": 9,
-              "endCol": 10,
-              "raw": "6"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:466": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 466
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldLabel",
-          "file": "app/login.tsx",
-          "defLine": 743,
-          "properties": {
-            "fontFamily": {
-              "line": 744,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 745,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            },
-            "letterSpacing": {
-              "line": 746,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.8"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:467": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 467
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputWrapper",
-          "file": "app/login.tsx",
-          "defLine": 755,
-          "properties": {
-            "height": {
-              "line": 756,
-              "col": 12,
-              "endCol": 14,
-              "raw": "50"
-            },
-            "flexDirection": {
-              "line": 757,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 758,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "borderWidth": {
-              "line": 760,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "backgroundColor": {
-              "line": 762,
-              "col": 21,
-              "endCol": 39,
-              "raw": "\"rgba(7,9,14,0.5)\""
-            },
-            "overflow": {
-              "line": 763,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:468": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 468
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputIconBox",
-          "file": "app/login.tsx",
-          "defLine": 765,
-          "properties": {
-            "width": {
-              "line": 766,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 767,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 768,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 769,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderRightWidth": {
-              "line": 770,
-              "col": 22,
-              "endCol": 23,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:471": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 471
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.input",
-          "file": "app/login.tsx",
-          "defLine": 773,
-          "properties": {
-            "flex": {
-              "line": 774,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "height": {
-              "line": 775,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "paddingHorizontal": {
-              "line": 776,
-              "col": 23,
-              "endCol": 25,
-              "raw": "12"
-            },
-            "fontFamily": {
-              "line": 777,
-              "col": 16,
-              "endCol": 34,
-              "raw": "\"Inter_400Regular\""
-            },
-            "fontSize": {
-              "line": 778,
-              "col": 14,
-              "endCol": 16,
-              "raw": "14"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:484": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 484
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputClearBtn",
-          "file": "app/login.tsx",
-          "defLine": 781,
-          "properties": {
-            "width": {
-              "line": 782,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 783,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 784,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 785,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:499": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 499
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldGroup",
-          "file": "app/login.tsx",
-          "defLine": 740,
-          "properties": {
-            "gap": {
-              "line": 741,
-              "col": 9,
-              "endCol": 10,
-              "raw": "6"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:500": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 500
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.fieldLabel",
-          "file": "app/login.tsx",
-          "defLine": 743,
-          "properties": {
-            "fontFamily": {
-              "line": 744,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 745,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            },
-            "letterSpacing": {
-              "line": 746,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.8"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:502": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 502
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.optionalTag",
-          "file": "app/login.tsx",
-          "defLine": 749,
-          "properties": {
-            "fontFamily": {
-              "line": 750,
-              "col": 16,
-              "endCol": 34,
-              "raw": "\"Inter_400Regular\""
-            },
-            "fontSize": {
-              "line": 751,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            },
-            "letterSpacing": {
-              "line": 752,
-              "col": 19,
-              "endCol": 22,
-              "raw": "0.4"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:504": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 504
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputWrapper",
-          "file": "app/login.tsx",
-          "defLine": 755,
-          "properties": {
-            "height": {
-              "line": 756,
-              "col": 12,
-              "endCol": 14,
-              "raw": "50"
-            },
-            "flexDirection": {
-              "line": 757,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 758,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "borderWidth": {
-              "line": 760,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "backgroundColor": {
-              "line": 762,
-              "col": 21,
-              "endCol": 39,
-              "raw": "\"rgba(7,9,14,0.5)\""
-            },
-            "overflow": {
-              "line": 763,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:505": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 505
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputIconBox",
-          "file": "app/login.tsx",
-          "defLine": 765,
-          "properties": {
-            "width": {
-              "line": 766,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 767,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 768,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 769,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "borderRightWidth": {
-              "line": 770,
-              "col": 22,
-              "endCol": 23,
-              "raw": "1"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:508": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 508
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.input",
-          "file": "app/login.tsx",
-          "defLine": 773,
-          "properties": {
-            "flex": {
-              "line": 774,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "height": {
-              "line": 775,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "paddingHorizontal": {
-              "line": 776,
-              "col": 23,
-              "endCol": 25,
-              "raw": "12"
-            },
-            "fontFamily": {
-              "line": 777,
-              "col": 16,
-              "endCol": 34,
-              "raw": "\"Inter_400Regular\""
-            },
-            "fontSize": {
-              "line": 778,
-              "col": 14,
-              "endCol": 16,
-              "raw": "14"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:520": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 520
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.inputClearBtn",
-          "file": "app/login.tsx",
-          "defLine": 781,
-          "properties": {
-            "width": {
-              "line": 782,
-              "col": 11,
-              "endCol": 13,
-              "raw": "44"
-            },
-            "height": {
-              "line": 783,
-              "col": 12,
-              "endCol": 18,
-              "raw": "\"100%\""
-            },
-            "alignItems": {
-              "line": 784,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 785,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:533": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 533
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.errorBox",
-          "file": "app/login.tsx",
-          "defLine": 792,
-          "properties": {
-            "flexDirection": {
-              "line": 793,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 794,
-              "col": 16,
-              "endCol": 28,
-              "raw": "\"flex-start\""
-            },
-            "gap": {
-              "line": 795,
-              "col": 9,
-              "endCol": 10,
-              "raw": "8"
-            },
-            "padding": {
-              "line": 796,
-              "col": 13,
-              "endCol": 15,
-              "raw": "12"
-            },
-            "backgroundColor": {
-              "line": 798,
-              "col": 21,
-              "endCol": 41,
-              "raw": "\"rgba(229,9,20,0.1)\""
-            },
-            "borderWidth": {
-              "line": 799,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "borderColor": {
-              "line": 800,
-              "col": 17,
-              "endCol": 37,
-              "raw": "\"rgba(229,9,20,0.2)\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:535": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 535
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.errorText",
-          "file": "app/login.tsx",
-          "defLine": 802,
-          "properties": {
-            "flex": {
-              "line": 803,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "fontSize": {
-              "line": 804,
-              "col": 14,
-              "endCol": 16,
-              "raw": "12"
-            },
-            "lineHeight": {
-              "line": 805,
-              "col": 16,
-              "endCol": 18,
-              "raw": "17"
-            },
-            "color": {
-              "line": 806,
-              "col": 11,
-              "endCol": 20,
-              "raw": "\"#FF8B91\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:540": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 540
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:557": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 557
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.connectBtnText",
-          "file": "app/login.tsx",
-          "defLine": 818,
-          "properties": {
-            "fontFamily": {
-              "line": 819,
-              "col": 16,
-              "endCol": 35,
-              "raw": "\"Inter_600SemiBold\""
-            },
-            "fontSize": {
-              "line": 820,
-              "col": 14,
-              "endCol": 16,
-              "raw": "15"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:564": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 564
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.securityRow",
-          "file": "app/login.tsx",
-          "defLine": 830,
-          "properties": {
-            "flexDirection": {
-              "line": 831,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 832,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 833,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            },
-            "gap": {
-              "line": 834,
-              "col": 9,
-              "endCol": 10,
-              "raw": "5"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:566": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 566
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.securityText",
-          "file": "app/login.tsx",
-          "defLine": 836,
-          "properties": {
-            "fontSize": {
-              "line": 837,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:574": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 574
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.secondaryRow",
-          "file": "app/login.tsx",
-          "defLine": 840,
-          "properties": {
-            "flexDirection": {
-              "line": 841,
-              "col": 19,
-              "endCol": 24,
-              "raw": "\"row\""
-            },
-            "alignItems": {
-              "line": 842,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "gap": {
-              "line": 843,
-              "col": 9,
-              "endCol": 10,
-              "raw": "0"
-            },
-            "borderWidth": {
-              "line": 845,
-              "col": 17,
-              "endCol": 18,
-              "raw": "1"
-            },
-            "overflow": {
-              "line": 848,
-              "col": 14,
-              "endCol": 22,
-              "raw": "\"hidden\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:575": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 575
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:582": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 582
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.secondaryBtnText",
-          "file": "app/login.tsx",
-          "defLine": 864,
-          "properties": {
-            "fontFamily": {
-              "line": 865,
-              "col": 16,
-              "endCol": 33,
-              "raw": "\"Inter_500Medium\""
-            },
-            "fontSize": {
-              "line": 866,
-              "col": 14,
-              "endCol": 16,
-              "raw": "13"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:584": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 584
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.secondaryBadge",
-          "file": "app/login.tsx",
-          "defLine": 869,
-          "properties": {
-            "minWidth": {
-              "line": 870,
-              "col": 14,
-              "endCol": 16,
-              "raw": "20"
-            },
-            "height": {
-              "line": 871,
-              "col": 12,
-              "endCol": 14,
-              "raw": "20"
-            },
-            "paddingHorizontal": {
-              "line": 872,
-              "col": 23,
-              "endCol": 24,
-              "raw": "5"
-            },
-            "borderRadius": {
-              "line": 873,
-              "col": 18,
-              "endCol": 20,
-              "raw": "10"
-            },
-            "alignItems": {
-              "line": 874,
-              "col": 16,
-              "endCol": 24,
-              "raw": "\"center\""
-            },
-            "justifyContent": {
-              "line": 875,
-              "col": 20,
-              "endCol": 28,
-              "raw": "\"center\""
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:585": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 585
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.secondaryBadgeText",
-          "file": "app/login.tsx",
-          "defLine": 878,
-          "properties": {
-            "fontFamily": {
-              "line": 879,
-              "col": 16,
-              "endCol": 31,
-              "raw": "\"Inter_700Bold\""
-            },
-            "fontSize": {
-              "line": 880,
-              "col": 14,
-              "endCol": 16,
-              "raw": "10"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:590": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 590
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.secondaryDivider",
-          "file": "app/login.tsx",
-          "defLine": 859,
-          "properties": {
-            "width": {
-              "line": 860,
-              "col": 11,
-              "endCol": 12,
-              "raw": "1"
-            },
-            "height": {
-              "line": 861,
-              "col": 12,
-              "endCol": 14,
-              "raw": "28"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:592": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 592
-      },
-      "styles": [
-        {
-          "origin": "dynamic",
-          "resolvable": false
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:599": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 599
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.secondaryBtnText",
-          "file": "app/login.tsx",
-          "defLine": 864,
-          "properties": {
-            "fontFamily": {
-              "line": 865,
-              "col": 16,
-              "endCol": 33,
-              "raw": "\"Inter_500Medium\""
-            },
-            "fontSize": {
-              "line": 866,
-              "col": 14,
-              "endCol": 16,
-              "raw": "13"
-            }
-          }
-        }
-      ]
-    },
-    "LoginScreen@app/login.tsx:614": {
-      "element": {
-        "file": "app/login.tsx",
-        "line": 614
-      },
-      "styles": [
-        {
-          "origin": "stylesheet",
-          "ref": "styles.modalOverlay",
-          "file": "app/login.tsx",
-          "defLine": 883,
-          "properties": {
-            "flex": {
-              "line": 884,
-              "col": 10,
-              "endCol": 11,
-              "raw": "1"
-            },
-            "justifyContent": {
-              "line": 885,
-              "col": 20,
-              "endCol": 30,
-              "raw": "\"flex-end\""
-            },
-            "backgroundColor": {
-              "line": 886,
-              "col": 21,
-              "endCol": 38,
-              "raw": "\"rgba(0,0,0,0.6)\""
-            }
-          }
-        }
-      ]
-    },
     "AppText@components/ui.tsx:21": {
       "element": {
         "file": "components/ui.tsx",
@@ -17723,6 +14731,3288 @@
               "col": 14,
               "endCol": 16,
               "raw": "13"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:153": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 153
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.screen",
+          "file": "app/login.tsx",
+          "defLine": 1031,
+          "properties": {
+            "flex": {
+              "line": 1032,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "minHeight": {
+              "line": 1036,
+              "col": 15,
+              "endCol": 18,
+              "raw": "400"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:154": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 154
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.header",
+          "file": "app/login.tsx",
+          "defLine": 1038,
+          "properties": {
+            "paddingHorizontal": {
+              "line": 1039,
+              "col": 23,
+              "endCol": 25,
+              "raw": "20"
+            },
+            "paddingTop": {
+              "line": 1040,
+              "col": 16,
+              "endCol": 18,
+              "raw": "14"
+            },
+            "paddingBottom": {
+              "line": 1041,
+              "col": 19,
+              "endCol": 21,
+              "raw": "16"
+            },
+            "borderBottomWidth": {
+              "line": 1042,
+              "col": 23,
+              "endCol": 24,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:155": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 155
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.grabber",
+          "file": "app/login.tsx",
+          "defLine": 1045,
+          "properties": {
+            "alignSelf": {
+              "line": 1046,
+              "col": 15,
+              "endCol": 23,
+              "raw": "\"center\""
+            },
+            "width": {
+              "line": 1047,
+              "col": 11,
+              "endCol": 13,
+              "raw": "36"
+            },
+            "height": {
+              "line": 1048,
+              "col": 12,
+              "endCol": 13,
+              "raw": "4"
+            },
+            "borderRadius": {
+              "line": 1049,
+              "col": 18,
+              "endCol": 19,
+              "raw": "2"
+            },
+            "marginBottom": {
+              "line": 1051,
+              "col": 18,
+              "endCol": 20,
+              "raw": "16"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:156": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 156
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.titleRow",
+          "file": "app/login.tsx",
+          "defLine": 1053,
+          "properties": {
+            "flexDirection": {
+              "line": 1054,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 1055,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 1056,
+              "col": 9,
+              "endCol": 11,
+              "raw": "10"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:157": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 157
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.title",
+          "file": "app/login.tsx",
+          "defLine": 1058,
+          "properties": {
+            "fontFamily": {
+              "line": 1059,
+              "col": 16,
+              "endCol": 31,
+              "raw": "\"Inter_700Bold\""
+            },
+            "fontSize": {
+              "line": 1060,
+              "col": 14,
+              "endCol": 16,
+              "raw": "19"
+            },
+            "letterSpacing": {
+              "line": 1062,
+              "col": 19,
+              "endCol": 23,
+              "raw": "-0.3"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:158": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 158
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.countBadge",
+          "file": "app/login.tsx",
+          "defLine": 1064,
+          "properties": {
+            "minWidth": {
+              "line": 1065,
+              "col": 14,
+              "endCol": 16,
+              "raw": "24"
+            },
+            "height": {
+              "line": 1066,
+              "col": 12,
+              "endCol": 14,
+              "raw": "24"
+            },
+            "paddingHorizontal": {
+              "line": 1067,
+              "col": 23,
+              "endCol": 24,
+              "raw": "6"
+            },
+            "borderRadius": {
+              "line": 1068,
+              "col": 18,
+              "endCol": 20,
+              "raw": "12"
+            },
+            "alignItems": {
+              "line": 1069,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 1070,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "backgroundColor": {
+              "line": 1071,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(59,130,246,0.18)\""
+            },
+            "borderWidth": {
+              "line": 1072,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "borderColor": {
+              "line": 1073,
+              "col": 17,
+              "endCol": 39,
+              "raw": "\"rgba(96,165,250,0.3)\""
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:159": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 159
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.countText",
+          "file": "app/login.tsx",
+          "defLine": 1075,
+          "properties": {
+            "fontFamily": {
+              "line": 1076,
+              "col": 16,
+              "endCol": 31,
+              "raw": "\"Inter_700Bold\""
+            },
+            "fontSize": {
+              "line": 1077,
+              "col": 14,
+              "endCol": 16,
+              "raw": "11"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:162": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 162
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.closeBtn",
+          "file": "app/login.tsx",
+          "defLine": 1080,
+          "properties": {
+            "position": {
+              "line": 1081,
+              "col": 14,
+              "endCol": 24,
+              "raw": "\"absolute\""
+            },
+            "right": {
+              "line": 1082,
+              "col": 11,
+              "endCol": 13,
+              "raw": "20"
+            },
+            "bottom": {
+              "line": 1083,
+              "col": 12,
+              "endCol": 14,
+              "raw": "16"
+            },
+            "width": {
+              "line": 1084,
+              "col": 11,
+              "endCol": 13,
+              "raw": "34"
+            },
+            "height": {
+              "line": 1085,
+              "col": 12,
+              "endCol": 14,
+              "raw": "34"
+            },
+            "alignItems": {
+              "line": 1086,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 1087,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderRadius": {
+              "line": 1088,
+              "col": 18,
+              "endCol": 20,
+              "raw": "17"
+            },
+            "backgroundColor": {
+              "line": 1089,
+              "col": 21,
+              "endCol": 45,
+              "raw": "\"rgba(255,255,255,0.07)\""
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:177": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 177
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.emptyState",
+          "file": "app/login.tsx",
+          "defLine": 1096,
+          "properties": {
+            "alignItems": {
+              "line": 1097,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "paddingVertical": {
+              "line": 1098,
+              "col": 21,
+              "endCol": 23,
+              "raw": "48"
+            },
+            "gap": {
+              "line": 1099,
+              "col": 9,
+              "endCol": 11,
+              "raw": "10"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:178": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 178
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.emptyIcon",
+          "file": "app/login.tsx",
+          "defLine": 1101,
+          "properties": {
+            "width": {
+              "line": 1102,
+              "col": 11,
+              "endCol": 13,
+              "raw": "60"
+            },
+            "height": {
+              "line": 1103,
+              "col": 12,
+              "endCol": 14,
+              "raw": "60"
+            },
+            "borderRadius": {
+              "line": 1104,
+              "col": 18,
+              "endCol": 20,
+              "raw": "30"
+            },
+            "alignItems": {
+              "line": 1105,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 1106,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "backgroundColor": {
+              "line": 1107,
+              "col": 21,
+              "endCol": 45,
+              "raw": "\"rgba(255,255,255,0.05)\""
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:181": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 181
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.emptyTitle",
+          "file": "app/login.tsx",
+          "defLine": 1109,
+          "properties": {
+            "fontFamily": {
+              "line": 1110,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 1111,
+              "col": 14,
+              "endCol": 16,
+              "raw": "16"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:182": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 182
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.emptyBody",
+          "file": "app/login.tsx",
+          "defLine": 1114,
+          "properties": {
+            "maxWidth": {
+              "line": 1115,
+              "col": 14,
+              "endCol": 17,
+              "raw": "260"
+            },
+            "textAlign": {
+              "line": 1116,
+              "col": 15,
+              "endCol": 23,
+              "raw": "\"center\""
+            },
+            "fontSize": {
+              "line": 1117,
+              "col": 14,
+              "endCol": 16,
+              "raw": "13"
+            },
+            "lineHeight": {
+              "line": 1119,
+              "col": 16,
+              "endCol": 18,
+              "raw": "19"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:188": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 188
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverRow",
+          "file": "app/login.tsx",
+          "defLine": 1121,
+          "properties": {
+            "flexDirection": {
+              "line": 1122,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 1123,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 1124,
+              "col": 9,
+              "endCol": 10,
+              "raw": "0"
+            },
+            "borderWidth": {
+              "line": 1126,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "overflow": {
+              "line": 1129,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:189": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 189
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:195": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 195
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverIcon",
+          "file": "app/login.tsx",
+          "defLine": 1139,
+          "properties": {
+            "width": {
+              "line": 1140,
+              "col": 11,
+              "endCol": 13,
+              "raw": "38"
+            },
+            "height": {
+              "line": 1141,
+              "col": 12,
+              "endCol": 14,
+              "raw": "38"
+            },
+            "alignItems": {
+              "line": 1142,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 1143,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderRadius": {
+              "line": 1144,
+              "col": 18,
+              "endCol": 20,
+              "raw": "11"
+            },
+            "backgroundColor": {
+              "line": 1145,
+              "col": 21,
+              "endCol": 45,
+              "raw": "\"rgba(255,255,255,0.06)\""
+            },
+            "flexShrink": {
+              "line": 1146,
+              "col": 16,
+              "endCol": 17,
+              "raw": "0"
+            }
+          }
+        },
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:202": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 202
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverInfo",
+          "file": "app/login.tsx",
+          "defLine": 1151,
+          "properties": {
+            "flex": {
+              "line": 1152,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "gap": {
+              "line": 1153,
+              "col": 9,
+              "endCol": 10,
+              "raw": "3"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:203": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 203
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverNameRow",
+          "file": "app/login.tsx",
+          "defLine": 1155,
+          "properties": {
+            "flexDirection": {
+              "line": 1156,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 1157,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 1158,
+              "col": 9,
+              "endCol": 10,
+              "raw": "7"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:204": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 204
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverName",
+          "file": "app/login.tsx",
+          "defLine": 1160,
+          "properties": {
+            "fontFamily": {
+              "line": 1161,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 1162,
+              "col": 14,
+              "endCol": 16,
+              "raw": "13"
+            },
+            "flex": {
+              "line": 1164,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:208": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 208
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.activeBadge",
+          "file": "app/login.tsx",
+          "defLine": 1166,
+          "properties": {
+            "paddingHorizontal": {
+              "line": 1167,
+              "col": 23,
+              "endCol": 24,
+              "raw": "6"
+            },
+            "paddingVertical": {
+              "line": 1168,
+              "col": 21,
+              "endCol": 22,
+              "raw": "3"
+            },
+            "borderRadius": {
+              "line": 1169,
+              "col": 18,
+              "endCol": 19,
+              "raw": "5"
+            },
+            "backgroundColor": {
+              "line": 1170,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(16,185,129,0.16)\""
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:209": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 209
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.activeBadgeText",
+          "file": "app/login.tsx",
+          "defLine": 1172,
+          "properties": {
+            "fontFamily": {
+              "line": 1173,
+              "col": 16,
+              "endCol": 31,
+              "raw": "\"Inter_700Bold\""
+            },
+            "fontSize": {
+              "line": 1174,
+              "col": 14,
+              "endCol": 15,
+              "raw": "8"
+            },
+            "letterSpacing": {
+              "line": 1175,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.4"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:213": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 213
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverUrl",
+          "file": "app/login.tsx",
+          "defLine": 1178,
+          "properties": {
+            "fontSize": {
+              "line": 1179,
+              "col": 14,
+              "endCol": 16,
+              "raw": "11"
+            },
+            "fontFamily": {
+              "line": 1181,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:216": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 216
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.serverMeta",
+          "file": "app/login.tsx",
+          "defLine": 1183,
+          "properties": {
+            "fontSize": {
+              "line": 1184,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            }
+          }
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:222": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 222
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:235": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 235
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "SavedListsModal@app/login.tsx:242": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 242
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "modalStyles.deleteAllText",
+          "file": "app/login.tsx",
+          "defLine": 1212,
+          "properties": {
+            "fontFamily": {
+              "line": 1213,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 1214,
+              "col": 14,
+              "endCol": 16,
+              "raw": "13"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:412": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 412
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.screen",
+          "file": "app/login.tsx",
+          "defLine": 720,
+          "properties": {
+            "flex": {
+              "line": 721,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:414": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 414
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.orb1",
+          "file": "app/login.tsx",
+          "defLine": 724,
+          "properties": {
+            "position": {
+              "line": 725,
+              "col": 14,
+              "endCol": 24,
+              "raw": "\"absolute\""
+            },
+            "top": {
+              "line": 726,
+              "col": 9,
+              "endCol": 12,
+              "raw": "-80"
+            },
+            "left": {
+              "line": 727,
+              "col": 10,
+              "endCol": 13,
+              "raw": "-60"
+            },
+            "width": {
+              "line": 728,
+              "col": 11,
+              "endCol": 14,
+              "raw": "260"
+            },
+            "height": {
+              "line": 729,
+              "col": 12,
+              "endCol": 15,
+              "raw": "260"
+            },
+            "borderRadius": {
+              "line": 730,
+              "col": 18,
+              "endCol": 21,
+              "raw": "130"
+            },
+            "backgroundColor": {
+              "line": 731,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(59,130,246,0.13)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:415": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 415
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.orb2",
+          "file": "app/login.tsx",
+          "defLine": 733,
+          "properties": {
+            "position": {
+              "line": 734,
+              "col": 14,
+              "endCol": 24,
+              "raw": "\"absolute\""
+            },
+            "bottom": {
+              "line": 735,
+              "col": 12,
+              "endCol": 14,
+              "raw": "80"
+            },
+            "right": {
+              "line": 736,
+              "col": 11,
+              "endCol": 14,
+              "raw": "-80"
+            },
+            "width": {
+              "line": 737,
+              "col": 11,
+              "endCol": 14,
+              "raw": "300"
+            },
+            "height": {
+              "line": 738,
+              "col": 12,
+              "endCol": 15,
+              "raw": "300"
+            },
+            "borderRadius": {
+              "line": 739,
+              "col": 18,
+              "endCol": 21,
+              "raw": "150"
+            },
+            "backgroundColor": {
+              "line": 740,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(96,165,250,0.07)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:416": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 416
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.orb3",
+          "file": "app/login.tsx",
+          "defLine": 742,
+          "properties": {
+            "position": {
+              "line": 743,
+              "col": 14,
+              "endCol": 24,
+              "raw": "\"absolute\""
+            },
+            "top": {
+              "line": 744,
+              "col": 9,
+              "endCol": 14,
+              "raw": "\"40%\""
+            },
+            "left": {
+              "line": 745,
+              "col": 10,
+              "endCol": 15,
+              "raw": "\"50%\""
+            },
+            "width": {
+              "line": 746,
+              "col": 11,
+              "endCol": 14,
+              "raw": "200"
+            },
+            "height": {
+              "line": 747,
+              "col": 12,
+              "endCol": 15,
+              "raw": "200"
+            },
+            "borderRadius": {
+              "line": 748,
+              "col": 18,
+              "endCol": 21,
+              "raw": "100"
+            },
+            "backgroundColor": {
+              "line": 749,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(139,92,246,0.05)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:418": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 418
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.keyboardView",
+          "file": "app/login.tsx",
+          "defLine": 751,
+          "properties": {
+            "flex": {
+              "line": 752,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:431": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 431
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.logoArea",
+          "file": "app/login.tsx",
+          "defLine": 759,
+          "properties": {
+            "alignItems": {
+              "line": 760,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 761,
+              "col": 9,
+              "endCol": 11,
+              "raw": "10"
+            },
+            "paddingBottom": {
+              "line": 762,
+              "col": 19,
+              "endCol": 20,
+              "raw": "4"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:432": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 432
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.logoIconWrapper",
+          "file": "app/login.tsx",
+          "defLine": 764,
+          "properties": {
+            "alignItems": {
+              "line": 765,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 766,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "width": {
+              "line": 767,
+              "col": 11,
+              "endCol": 13,
+              "raw": "72"
+            },
+            "height": {
+              "line": 768,
+              "col": 12,
+              "endCol": 14,
+              "raw": "72"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:433": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 433
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.logoIconGlow",
+          "file": "app/login.tsx",
+          "defLine": 770,
+          "properties": {
+            "position": {
+              "line": 771,
+              "col": 14,
+              "endCol": 24,
+              "raw": "\"absolute\""
+            },
+            "width": {
+              "line": 772,
+              "col": 11,
+              "endCol": 13,
+              "raw": "72"
+            },
+            "height": {
+              "line": 773,
+              "col": 12,
+              "endCol": 14,
+              "raw": "72"
+            },
+            "borderRadius": {
+              "line": 774,
+              "col": 18,
+              "endCol": 20,
+              "raw": "36"
+            },
+            "backgroundColor": {
+              "line": 775,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(59,130,246,0.28)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:434": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 434
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.logoIconInner",
+          "file": "app/login.tsx",
+          "defLine": 777,
+          "properties": {
+            "width": {
+              "line": 778,
+              "col": 11,
+              "endCol": 13,
+              "raw": "62"
+            },
+            "height": {
+              "line": 779,
+              "col": 12,
+              "endCol": 14,
+              "raw": "62"
+            },
+            "borderRadius": {
+              "line": 780,
+              "col": 18,
+              "endCol": 20,
+              "raw": "20"
+            },
+            "alignItems": {
+              "line": 781,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 782,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderWidth": {
+              "line": 783,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "borderColor": {
+              "line": 784,
+              "col": 17,
+              "endCol": 40,
+              "raw": "\"rgba(96,165,250,0.55)\""
+            },
+            "backgroundColor": {
+              "line": 785,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(59,130,246,0.22)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:438": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 438
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.logoTitle",
+          "file": "app/login.tsx",
+          "defLine": 787,
+          "properties": {
+            "fontFamily": {
+              "line": 788,
+              "col": 16,
+              "endCol": 31,
+              "raw": "\"Inter_700Bold\""
+            },
+            "fontSize": {
+              "line": 789,
+              "col": 14,
+              "endCol": 16,
+              "raw": "28"
+            },
+            "letterSpacing": {
+              "line": 790,
+              "col": 19,
+              "endCol": 23,
+              "raw": "-0.6"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:439": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 439
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.logoSubtitle",
+          "file": "app/login.tsx",
+          "defLine": 793,
+          "properties": {
+            "fontFamily": {
+              "line": 794,
+              "col": 16,
+              "endCol": 33,
+              "raw": "\"Inter_500Medium\""
+            },
+            "fontSize": {
+              "line": 795,
+              "col": 14,
+              "endCol": 16,
+              "raw": "12"
+            },
+            "letterSpacing": {
+              "line": 796,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.2"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:443": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 443
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.card",
+          "file": "app/login.tsx",
+          "defLine": 799,
+          "properties": {
+            "overflow": {
+              "line": 800,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            },
+            "borderWidth": {
+              "line": 802,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "borderColor": {
+              "line": 803,
+              "col": 17,
+              "endCol": 41,
+              "raw": "\"rgba(255,255,255,0.12)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:444": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 444
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:445": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 445
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.cardInner",
+          "file": "app/login.tsx",
+          "defLine": 807,
+          "properties": {
+            "gap": {
+              "line": 808,
+              "col": 9,
+              "endCol": 11,
+              "raw": "14"
+            },
+            "padding": {
+              "line": 809,
+              "col": 13,
+              "endCol": 15,
+              "raw": "20"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:446": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 446
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.cardTitle",
+          "file": "app/login.tsx",
+          "defLine": 811,
+          "properties": {
+            "fontFamily": {
+              "line": 812,
+              "col": 16,
+              "endCol": 31,
+              "raw": "\"Inter_700Bold\""
+            },
+            "fontSize": {
+              "line": 813,
+              "col": 14,
+              "endCol": 16,
+              "raw": "19"
+            },
+            "letterSpacing": {
+              "line": 815,
+              "col": 19,
+              "endCol": 23,
+              "raw": "-0.3"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:447": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 447
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.cardSubtitle",
+          "file": "app/login.tsx",
+          "defLine": 817,
+          "properties": {
+            "fontSize": {
+              "line": 818,
+              "col": 14,
+              "endCol": 16,
+              "raw": "13"
+            },
+            "marginTop": {
+              "line": 820,
+              "col": 15,
+              "endCol": 17,
+              "raw": "-8"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:452": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 452
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldGroup",
+          "file": "app/login.tsx",
+          "defLine": 822,
+          "properties": {
+            "gap": {
+              "line": 823,
+              "col": 9,
+              "endCol": 10,
+              "raw": "6"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:453": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 453
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldLabel",
+          "file": "app/login.tsx",
+          "defLine": 825,
+          "properties": {
+            "fontFamily": {
+              "line": 826,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 827,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            },
+            "letterSpacing": {
+              "line": 828,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.8"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:454": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 454
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputWrapper",
+          "file": "app/login.tsx",
+          "defLine": 837,
+          "properties": {
+            "height": {
+              "line": 838,
+              "col": 12,
+              "endCol": 14,
+              "raw": "50"
+            },
+            "flexDirection": {
+              "line": 839,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 840,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "borderWidth": {
+              "line": 842,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "backgroundColor": {
+              "line": 844,
+              "col": 21,
+              "endCol": 39,
+              "raw": "\"rgba(7,9,14,0.5)\""
+            },
+            "overflow": {
+              "line": 845,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:455": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 455
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputIconBox",
+          "file": "app/login.tsx",
+          "defLine": 847,
+          "properties": {
+            "width": {
+              "line": 848,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 849,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 850,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 851,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderRightWidth": {
+              "line": 852,
+              "col": 22,
+              "endCol": 23,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:458": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 458
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.input",
+          "file": "app/login.tsx",
+          "defLine": 855,
+          "properties": {
+            "flex": {
+              "line": 856,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "height": {
+              "line": 857,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "paddingHorizontal": {
+              "line": 858,
+              "col": 23,
+              "endCol": 25,
+              "raw": "12"
+            },
+            "fontFamily": {
+              "line": 859,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            },
+            "fontSize": {
+              "line": 860,
+              "col": 14,
+              "endCol": 16,
+              "raw": "14"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:471": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 471
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputClearBtn",
+          "file": "app/login.tsx",
+          "defLine": 863,
+          "properties": {
+            "width": {
+              "line": 864,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 865,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 866,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 867,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:480": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 480
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldHint",
+          "file": "app/login.tsx",
+          "defLine": 869,
+          "properties": {
+            "fontSize": {
+              "line": 870,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            },
+            "lineHeight": {
+              "line": 872,
+              "col": 16,
+              "endCol": 18,
+              "raw": "14"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:486": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 486
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldGroup",
+          "file": "app/login.tsx",
+          "defLine": 822,
+          "properties": {
+            "gap": {
+              "line": 823,
+              "col": 9,
+              "endCol": 10,
+              "raw": "6"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:487": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 487
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldLabel",
+          "file": "app/login.tsx",
+          "defLine": 825,
+          "properties": {
+            "fontFamily": {
+              "line": 826,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 827,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            },
+            "letterSpacing": {
+              "line": 828,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.8"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:488": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 488
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputWrapper",
+          "file": "app/login.tsx",
+          "defLine": 837,
+          "properties": {
+            "height": {
+              "line": 838,
+              "col": 12,
+              "endCol": 14,
+              "raw": "50"
+            },
+            "flexDirection": {
+              "line": 839,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 840,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "borderWidth": {
+              "line": 842,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "backgroundColor": {
+              "line": 844,
+              "col": 21,
+              "endCol": 39,
+              "raw": "\"rgba(7,9,14,0.5)\""
+            },
+            "overflow": {
+              "line": 845,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:489": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 489
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputIconBox",
+          "file": "app/login.tsx",
+          "defLine": 847,
+          "properties": {
+            "width": {
+              "line": 848,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 849,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 850,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 851,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderRightWidth": {
+              "line": 852,
+              "col": 22,
+              "endCol": 23,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:492": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 492
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.input",
+          "file": "app/login.tsx",
+          "defLine": 855,
+          "properties": {
+            "flex": {
+              "line": 856,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "height": {
+              "line": 857,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "paddingHorizontal": {
+              "line": 858,
+              "col": 23,
+              "endCol": 25,
+              "raw": "12"
+            },
+            "fontFamily": {
+              "line": 859,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            },
+            "fontSize": {
+              "line": 860,
+              "col": 14,
+              "endCol": 16,
+              "raw": "14"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:505": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 505
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputClearBtn",
+          "file": "app/login.tsx",
+          "defLine": 863,
+          "properties": {
+            "width": {
+              "line": 864,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 865,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 866,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 867,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:517": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 517
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldGroup",
+          "file": "app/login.tsx",
+          "defLine": 822,
+          "properties": {
+            "gap": {
+              "line": 823,
+              "col": 9,
+              "endCol": 10,
+              "raw": "6"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:518": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 518
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldLabel",
+          "file": "app/login.tsx",
+          "defLine": 825,
+          "properties": {
+            "fontFamily": {
+              "line": 826,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 827,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            },
+            "letterSpacing": {
+              "line": 828,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.8"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:519": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 519
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputWrapper",
+          "file": "app/login.tsx",
+          "defLine": 837,
+          "properties": {
+            "height": {
+              "line": 838,
+              "col": 12,
+              "endCol": 14,
+              "raw": "50"
+            },
+            "flexDirection": {
+              "line": 839,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 840,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "borderWidth": {
+              "line": 842,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "backgroundColor": {
+              "line": 844,
+              "col": 21,
+              "endCol": 39,
+              "raw": "\"rgba(7,9,14,0.5)\""
+            },
+            "overflow": {
+              "line": 845,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:520": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 520
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputIconBox",
+          "file": "app/login.tsx",
+          "defLine": 847,
+          "properties": {
+            "width": {
+              "line": 848,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 849,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 850,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 851,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderRightWidth": {
+              "line": 852,
+              "col": 22,
+              "endCol": 23,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:523": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 523
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.input",
+          "file": "app/login.tsx",
+          "defLine": 855,
+          "properties": {
+            "flex": {
+              "line": 856,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "height": {
+              "line": 857,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "paddingHorizontal": {
+              "line": 858,
+              "col": 23,
+              "endCol": 25,
+              "raw": "12"
+            },
+            "fontFamily": {
+              "line": 859,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            },
+            "fontSize": {
+              "line": 860,
+              "col": 14,
+              "endCol": 16,
+              "raw": "14"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:536": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 536
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputClearBtn",
+          "file": "app/login.tsx",
+          "defLine": 863,
+          "properties": {
+            "width": {
+              "line": 864,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 865,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 866,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 867,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:551": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 551
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldGroup",
+          "file": "app/login.tsx",
+          "defLine": 822,
+          "properties": {
+            "gap": {
+              "line": 823,
+              "col": 9,
+              "endCol": 10,
+              "raw": "6"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:552": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 552
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.fieldLabel",
+          "file": "app/login.tsx",
+          "defLine": 825,
+          "properties": {
+            "fontFamily": {
+              "line": 826,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 827,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            },
+            "letterSpacing": {
+              "line": 828,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.8"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:554": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 554
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.optionalTag",
+          "file": "app/login.tsx",
+          "defLine": 831,
+          "properties": {
+            "fontFamily": {
+              "line": 832,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            },
+            "fontSize": {
+              "line": 833,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            },
+            "letterSpacing": {
+              "line": 834,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.4"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:556": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 556
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputWrapper",
+          "file": "app/login.tsx",
+          "defLine": 837,
+          "properties": {
+            "height": {
+              "line": 838,
+              "col": 12,
+              "endCol": 14,
+              "raw": "50"
+            },
+            "flexDirection": {
+              "line": 839,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 840,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "borderWidth": {
+              "line": 842,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "backgroundColor": {
+              "line": 844,
+              "col": 21,
+              "endCol": 39,
+              "raw": "\"rgba(7,9,14,0.5)\""
+            },
+            "overflow": {
+              "line": 845,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:557": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 557
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputIconBox",
+          "file": "app/login.tsx",
+          "defLine": 847,
+          "properties": {
+            "width": {
+              "line": 848,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 849,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 850,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 851,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "borderRightWidth": {
+              "line": 852,
+              "col": 22,
+              "endCol": 23,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:560": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 560
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.input",
+          "file": "app/login.tsx",
+          "defLine": 855,
+          "properties": {
+            "flex": {
+              "line": 856,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "height": {
+              "line": 857,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "paddingHorizontal": {
+              "line": 858,
+              "col": 23,
+              "endCol": 25,
+              "raw": "12"
+            },
+            "fontFamily": {
+              "line": 859,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            },
+            "fontSize": {
+              "line": 860,
+              "col": 14,
+              "endCol": 16,
+              "raw": "14"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:572": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 572
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.inputClearBtn",
+          "file": "app/login.tsx",
+          "defLine": 863,
+          "properties": {
+            "width": {
+              "line": 864,
+              "col": 11,
+              "endCol": 13,
+              "raw": "44"
+            },
+            "height": {
+              "line": 865,
+              "col": 12,
+              "endCol": 18,
+              "raw": "\"100%\""
+            },
+            "alignItems": {
+              "line": 866,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 867,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:585": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 585
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.errorBox",
+          "file": "app/login.tsx",
+          "defLine": 874,
+          "properties": {
+            "flexDirection": {
+              "line": 875,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 876,
+              "col": 16,
+              "endCol": 28,
+              "raw": "\"flex-start\""
+            },
+            "gap": {
+              "line": 877,
+              "col": 9,
+              "endCol": 10,
+              "raw": "8"
+            },
+            "padding": {
+              "line": 878,
+              "col": 13,
+              "endCol": 15,
+              "raw": "12"
+            },
+            "backgroundColor": {
+              "line": 880,
+              "col": 21,
+              "endCol": 41,
+              "raw": "\"rgba(229,9,20,0.1)\""
+            },
+            "borderWidth": {
+              "line": 881,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "borderColor": {
+              "line": 882,
+              "col": 17,
+              "endCol": 37,
+              "raw": "\"rgba(229,9,20,0.2)\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:587": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 587
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.errorText",
+          "file": "app/login.tsx",
+          "defLine": 884,
+          "properties": {
+            "flex": {
+              "line": 885,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "fontSize": {
+              "line": 886,
+              "col": 14,
+              "endCol": 16,
+              "raw": "12"
+            },
+            "lineHeight": {
+              "line": 887,
+              "col": 16,
+              "endCol": 18,
+              "raw": "17"
+            },
+            "color": {
+              "line": 888,
+              "col": 11,
+              "endCol": 20,
+              "raw": "\"#FF8B91\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:593": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 593
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagCard",
+          "file": "app/login.tsx",
+          "defLine": 970,
+          "properties": {
+            "borderWidth": {
+              "line": 972,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "borderColor": {
+              "line": 973,
+              "col": 17,
+              "endCol": 40,
+              "raw": "\"rgba(245,158,11,0.28)\""
+            },
+            "backgroundColor": {
+              "line": 974,
+              "col": 21,
+              "endCol": 44,
+              "raw": "\"rgba(245,158,11,0.07)\""
+            },
+            "padding": {
+              "line": 975,
+              "col": 13,
+              "endCol": 15,
+              "raw": "12"
+            },
+            "gap": {
+              "line": 976,
+              "col": 9,
+              "endCol": 10,
+              "raw": "8"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:594": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 594
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagHeader",
+          "file": "app/login.tsx",
+          "defLine": 978,
+          "properties": {
+            "flexDirection": {
+              "line": 979,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 980,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 981,
+              "col": 9,
+              "endCol": 10,
+              "raw": "6"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:596": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 596
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagTitle",
+          "file": "app/login.tsx",
+          "defLine": 983,
+          "properties": {
+            "fontFamily": {
+              "line": 984,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 985,
+              "col": 14,
+              "endCol": 16,
+              "raw": "11"
+            },
+            "letterSpacing": {
+              "line": 986,
+              "col": 19,
+              "endCol": 22,
+              "raw": "0.4"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:598": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 598
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagUrlRow",
+          "file": "app/login.tsx",
+          "defLine": 989,
+          "properties": {
+            "flexDirection": {
+              "line": 990,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 991,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 992,
+              "col": 9,
+              "endCol": 10,
+              "raw": "6"
+            },
+            "flexWrap": {
+              "line": 993,
+              "col": 14,
+              "endCol": 20,
+              "raw": "\"wrap\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:599": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 599
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagUrlLabel",
+          "file": "app/login.tsx",
+          "defLine": 995,
+          "properties": {
+            "fontSize": {
+              "line": 996,
+              "col": 14,
+              "endCol": 16,
+              "raw": "11"
+            },
+            "fontFamily": {
+              "line": 998,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:600": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 600
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagUrl",
+          "file": "app/login.tsx",
+          "defLine": 1000,
+          "properties": {
+            "fontSize": {
+              "line": 1001,
+              "col": 14,
+              "endCol": 16,
+              "raw": "11"
+            },
+            "fontFamily": {
+              "line": 1003,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            },
+            "flex": {
+              "line": 1004,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:604": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 604
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:611": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 611
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagBtnText",
+          "file": "app/login.tsx",
+          "defLine": 1017,
+          "properties": {
+            "fontSize": {
+              "line": 1018,
+              "col": 14,
+              "endCol": 16,
+              "raw": "12"
+            },
+            "fontFamily": {
+              "line": 1020,
+              "col": 16,
+              "endCol": 33,
+              "raw": "\"Inter_500Medium\""
+            },
+            "flex": {
+              "line": 1021,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:613": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 613
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.diagBtnHint",
+          "file": "app/login.tsx",
+          "defLine": 1023,
+          "properties": {
+            "fontSize": {
+              "line": 1024,
+              "col": 14,
+              "endCol": 16,
+              "raw": "11"
+            },
+            "fontFamily": {
+              "line": 1026,
+              "col": 16,
+              "endCol": 34,
+              "raw": "\"Inter_400Regular\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:622": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 622
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:639": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 639
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.connectBtnText",
+          "file": "app/login.tsx",
+          "defLine": 900,
+          "properties": {
+            "fontFamily": {
+              "line": 901,
+              "col": 16,
+              "endCol": 35,
+              "raw": "\"Inter_600SemiBold\""
+            },
+            "fontSize": {
+              "line": 902,
+              "col": 14,
+              "endCol": 16,
+              "raw": "15"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:646": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 646
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.securityRow",
+          "file": "app/login.tsx",
+          "defLine": 912,
+          "properties": {
+            "flexDirection": {
+              "line": 913,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 914,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 915,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 916,
+              "col": 9,
+              "endCol": 10,
+              "raw": "5"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:648": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 648
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.securityText",
+          "file": "app/login.tsx",
+          "defLine": 918,
+          "properties": {
+            "fontSize": {
+              "line": 919,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:656": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 656
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.secondaryRow",
+          "file": "app/login.tsx",
+          "defLine": 922,
+          "properties": {
+            "flexDirection": {
+              "line": 923,
+              "col": 19,
+              "endCol": 24,
+              "raw": "\"row\""
+            },
+            "alignItems": {
+              "line": 924,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "gap": {
+              "line": 925,
+              "col": 9,
+              "endCol": 10,
+              "raw": "0"
+            },
+            "borderWidth": {
+              "line": 927,
+              "col": 17,
+              "endCol": 18,
+              "raw": "1"
+            },
+            "overflow": {
+              "line": 930,
+              "col": 14,
+              "endCol": 22,
+              "raw": "\"hidden\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:657": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 657
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:664": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 664
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.secondaryBtnText",
+          "file": "app/login.tsx",
+          "defLine": 946,
+          "properties": {
+            "fontFamily": {
+              "line": 947,
+              "col": 16,
+              "endCol": 33,
+              "raw": "\"Inter_500Medium\""
+            },
+            "fontSize": {
+              "line": 948,
+              "col": 14,
+              "endCol": 16,
+              "raw": "13"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:666": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 666
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.secondaryBadge",
+          "file": "app/login.tsx",
+          "defLine": 951,
+          "properties": {
+            "minWidth": {
+              "line": 952,
+              "col": 14,
+              "endCol": 16,
+              "raw": "20"
+            },
+            "height": {
+              "line": 953,
+              "col": 12,
+              "endCol": 14,
+              "raw": "20"
+            },
+            "paddingHorizontal": {
+              "line": 954,
+              "col": 23,
+              "endCol": 24,
+              "raw": "5"
+            },
+            "borderRadius": {
+              "line": 955,
+              "col": 18,
+              "endCol": 20,
+              "raw": "10"
+            },
+            "alignItems": {
+              "line": 956,
+              "col": 16,
+              "endCol": 24,
+              "raw": "\"center\""
+            },
+            "justifyContent": {
+              "line": 957,
+              "col": 20,
+              "endCol": 28,
+              "raw": "\"center\""
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:667": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 667
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.secondaryBadgeText",
+          "file": "app/login.tsx",
+          "defLine": 960,
+          "properties": {
+            "fontFamily": {
+              "line": 961,
+              "col": 16,
+              "endCol": 31,
+              "raw": "\"Inter_700Bold\""
+            },
+            "fontSize": {
+              "line": 962,
+              "col": 14,
+              "endCol": 16,
+              "raw": "10"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:672": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 672
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.secondaryDivider",
+          "file": "app/login.tsx",
+          "defLine": 941,
+          "properties": {
+            "width": {
+              "line": 942,
+              "col": 11,
+              "endCol": 12,
+              "raw": "1"
+            },
+            "height": {
+              "line": 943,
+              "col": 12,
+              "endCol": 14,
+              "raw": "28"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:674": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 674
+      },
+      "styles": [
+        {
+          "origin": "dynamic",
+          "resolvable": false
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:681": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 681
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.secondaryBtnText",
+          "file": "app/login.tsx",
+          "defLine": 946,
+          "properties": {
+            "fontFamily": {
+              "line": 947,
+              "col": 16,
+              "endCol": 33,
+              "raw": "\"Inter_500Medium\""
+            },
+            "fontSize": {
+              "line": 948,
+              "col": 14,
+              "endCol": 16,
+              "raw": "13"
+            }
+          }
+        }
+      ]
+    },
+    "LoginScreen@app/login.tsx:696": {
+      "element": {
+        "file": "app/login.tsx",
+        "line": 696
+      },
+      "styles": [
+        {
+          "origin": "stylesheet",
+          "ref": "styles.modalOverlay",
+          "file": "app/login.tsx",
+          "defLine": 965,
+          "properties": {
+            "flex": {
+              "line": 966,
+              "col": 10,
+              "endCol": 11,
+              "raw": "1"
+            },
+            "justifyContent": {
+              "line": 967,
+              "col": 20,
+              "endCol": 30,
+              "raw": "\"flex-end\""
+            },
+            "backgroundColor": {
+              "line": 968,
+              "col": 21,
+              "endCol": 38,
+              "raw": "\"rgba(0,0,0,0.6)\""
             }
           }
         }

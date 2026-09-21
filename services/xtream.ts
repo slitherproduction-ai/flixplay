@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import type { ChannelItem, ServerProfile } from "@/store/types";
 
 export interface XtreamCategory {
@@ -82,16 +83,21 @@ export interface M3uEntry {
 
 export class XtreamApiError extends Error {
   status: number;
+  /** Base server URL that was tested — used by the login screen for diagnostics. */
+  testedUrl?: string;
 
-  constructor(message: string, status = 0) {
+  constructor(message: string, status = 0, testedUrl?: string) {
     super(message);
     this.name = "XtreamApiError";
     this.status = status;
+    this.testedUrl = testedUrl;
   }
 }
 
-/** Timeout in ms before aborting the request */
+/** Total timeout per individual fetch attempt */
 const REQUEST_TIMEOUT_MS = 15000;
+/** Shorter timeout for CORS proxy attempts (already a fallback) */
+const PROXY_TIMEOUT_MS = 10000;
 
 /**
  * User-Agent widely accepted by IPTV servers.
@@ -101,6 +107,17 @@ const XTREAM_HEADERS: Record<string, string> = {
   "User-Agent": "IPTVSmartersPro/3.1.5",
   Accept: "application/json, text/plain, */*",
 };
+
+/**
+ * Public CORS proxies used as fallback on the web preview.
+ * On the web, browsers running under HTTPS block plain-HTTP IPTV requests
+ * (Mixed Content) and enforce same-origin policy (CORS). These proxies relay
+ * the request from an HTTPS origin so the browser accepts the response.
+ */
+const CORS_PROXIES = [
+  "https://corsproxy.io/?url=",
+  "https://api.allorigins.win/raw?url=",
+] as const;
 
 function buildApiUrl(
   profile: ServerProfile,
@@ -117,6 +134,100 @@ function buildApiUrl(
   return `${base}/player_api.php?${query.toString()}`;
 }
 
+/** Fetch with an independent AbortController timeout so retries get a fresh clock. */
+async function timedFetch(url: string, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { headers: XTREAM_HEADERS, signal: ctrl.signal });
+    clearTimeout(tid);
+    return res;
+  } catch (err) {
+    clearTimeout(tid);
+    throw err;
+  }
+}
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
+/**
+ * Web strategy: direct attempt first, then CORS proxy chain.
+ * Timeout on the direct attempt means the server is genuinely unreachable —
+ * no point routing through a proxy in that case.
+ */
+async function fetchWebWithProxies(url: string): Promise<Response> {
+  try {
+    return await timedFetch(url, REQUEST_TIMEOUT_MS);
+  } catch (directErr) {
+    if (isAbortError(directErr)) {
+      throw new XtreamApiError(
+        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
+        0,
+      );
+    }
+  }
+
+  // Direct failed (likely CORS / Mixed Content) — try proxies
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
+      const res = await timedFetch(proxyUrl, PROXY_TIMEOUT_MS);
+      if (res.status < 500) return res;
+    } catch {
+      // try next proxy
+    }
+  }
+
+  throw new XtreamApiError(
+    "Conexão bloqueada pelo navegador (CORS / Mixed Content). " +
+      "Tente HTTPS no campo Host, ou use o aplicativo nativo para conexões HTTP.",
+    0,
+  );
+}
+
+/**
+ * Native strategy: direct first, then swap protocol (http↔https) once.
+ * Timeout on first attempt = server unreachable, no swap.
+ */
+async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
+  try {
+    return await timedFetch(url, REQUEST_TIMEOUT_MS);
+  } catch (firstErr) {
+    if (isAbortError(firstErr)) {
+      throw new XtreamApiError(
+        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
+        0,
+      );
+    }
+    if (firstErr instanceof XtreamApiError) throw firstErr;
+  }
+
+  const altUrl = url.startsWith("https://")
+    ? url.replace("https://", "http://")
+    : url.replace("http://", "https://");
+
+  try {
+    return await timedFetch(altUrl, REQUEST_TIMEOUT_MS);
+  } catch (altErr) {
+    if (isAbortError(altErr)) {
+      throw new XtreamApiError(
+        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
+        0,
+      );
+    }
+    if (altErr instanceof XtreamApiError) throw altErr;
+    throw new XtreamApiError("Não foi possível alcançar o servidor Xtream Codes.", 0);
+  }
+}
+
+function fetchWithFallbacks(url: string): Promise<Response> {
+  return Platform.OS === "web"
+    ? fetchWebWithProxies(url)
+    : fetchNativeWithProtocolSwap(url);
+}
+
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */
 async function parseXtreamResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -127,7 +238,7 @@ async function parseXtreamResponse<T>(response: Response): Promise<T> {
     throw new XtreamApiError(msg, response.status);
   }
 
-  // Read raw text — some servers prepend a BOM or extra whitespace
+  // Read raw text first — some servers prepend a BOM or extra whitespace
   const text = await response.text();
   const cleanText = text.replace(/^﻿/, "").trim();
 
@@ -156,30 +267,27 @@ async function parseXtreamResponse<T>(response: Response): Promise<T> {
   return body as T;
 }
 
-/** Map a low-level fetch/network error to a user-friendly XtreamApiError. */
+/** Safety net: re-map any unhandled low-level error to XtreamApiError. */
 function mapFetchError(err: unknown): never {
   if (err instanceof XtreamApiError) throw err;
-
-  if (err instanceof Error) {
-    if (err.name === "AbortError") {
-      throw new XtreamApiError(
-        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
-        0,
-      );
-    }
-    const lc = err.message.toLowerCase();
-    if (
-      lc.includes("network request failed") ||
-      lc.includes("network") ||
-      lc.includes("failed to fetch")
-    ) {
-      throw new XtreamApiError(
-        "Erro de rede. Verifique se o servidor aceita conexões HTTP e sua internet está funcionando.",
-        0,
-      );
-    }
+  if (isAbortError(err)) {
+    throw new XtreamApiError(
+      "Host não respondeu (Timeout). Verifique a URL e sua conexão.",
+      0,
+    );
   }
-
+  const msg =
+    err instanceof Error ? err.message.toLowerCase() : "";
+  if (
+    msg.includes("network request failed") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("network")
+  ) {
+    throw new XtreamApiError(
+      "Erro de rede. Verifique se o servidor aceita conexões HTTP e sua internet está funcionando.",
+      0,
+    );
+  }
   throw new XtreamApiError("Não foi possível alcançar o servidor Xtream Codes.", 0);
 }
 
@@ -188,21 +296,17 @@ async function requestXtream<T>(
   action?: string,
   params: Record<string, string> = {},
 ): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
+  const url = buildApiUrl(profile, action, params);
   try {
-    const url = buildApiUrl(profile, action, params);
-    const response = await fetch(url, {
-      headers: XTREAM_HEADERS,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    const response = await fetchWithFallbacks(url);
     return await parseXtreamResponse<T>(response);
-  } catch (requestError) {
-    clearTimeout(timeoutId);
-    console.error("Falha na requisição Xtream Codes", requestError);
-    mapFetchError(requestError);
+  } catch (err) {
+    console.error("Falha na requisição Xtream Codes", err);
+    // Attach the clean base URL for diagnostics if not already set
+    if (err instanceof XtreamApiError && !err.testedUrl) {
+      err.testedUrl = profile.serverUrl;
+    }
+    mapFetchError(err);
   }
 }
 
@@ -212,10 +316,7 @@ export const authenticateXtream = (profile: ServerProfile) =>
 export const getLiveCategories = (profile: ServerProfile) =>
   requestXtream<XtreamCategory[]>(profile, "get_live_categories");
 
-export const getLiveStreams = (
-  profile: ServerProfile,
-  categoryId?: string,
-) =>
+export const getLiveStreams = (profile: ServerProfile, categoryId?: string) =>
   requestXtream<XtreamLiveStream[]>(
     profile,
     "get_live_streams",
@@ -288,10 +389,8 @@ export function parseM3uPlaylist(text: string): M3uEntry[] {
     if (!url || url.startsWith("#")) continue;
     const title =
       metadata.split(",").slice(1).join(",").trim() || "Canal sem nome";
-    const group =
-      metadata.match(/group-title="([^"]*)"/)?.[1] ?? "Geral";
-    const logo =
-      metadata.match(/tvg-logo="([^"]*)"/)?.[1] ?? "";
+    const group = metadata.match(/group-title="([^"]*)"/)?.[1] ?? "Geral";
+    const logo = metadata.match(/tvg-logo="([^"]*)"/)?.[1] ?? "";
     const id =
       metadata.match(/tvg-id="([^"]*)"/)?.[1] ?? `m3u-${entries.length + 1}`;
     entries.push({ id, name: title, logo, group, url });

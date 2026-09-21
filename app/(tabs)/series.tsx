@@ -22,6 +22,109 @@ function seasonsMeta(count: number, genre: string): string {
   return `${count} temporada${count !== 1 ? "s" : ""} · ${genre}`;
 }
 
+const FAVORITES_LABEL = "Favoritos";
+
+// ---------------------------------------------------------------------------
+// Static header (no SearchField here)
+// ---------------------------------------------------------------------------
+
+interface SeriesHeaderProps {
+  isSyncing: boolean;
+  syncError: string | null;
+  syncProgress: string | null;
+  genres: string[];
+  genre: string;
+  filteredCount: number;
+  totalCount: number;
+  refresh: () => void;
+  setGenre: (g: string) => void;
+}
+
+function SeriesHeader({
+  isSyncing, syncError, syncProgress, genres, genre,
+  filteredCount, totalCount, refresh, setGenre,
+}: SeriesHeaderProps) {
+  return (
+    <View style={styles.headerBlock}>
+      {isSyncing ? (
+        <View style={styles.syncBanner}>
+          <ActivityIndicator size="small" color={Colors.red} />
+          <AppText style={styles.syncText}>{syncProgress ?? "Carregando séries..."}</AppText>
+        </View>
+      ) : null}
+
+      {syncError ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={15} color="#FF8B91" />
+          <AppText style={styles.errorBannerText} numberOfLines={2}>
+            {syncError}
+          </AppText>
+          <TVFocusable
+            onPress={refresh}
+            style={styles.retryBtn}
+            accessibilityLabel="Tentar novamente"
+          >
+            <AppText style={styles.retryText}>Tentar</AppText>
+          </TVFocusable>
+        </View>
+      ) : null}
+
+      <View style={styles.heading}>
+        <View style={styles.headingCopy}>
+          <AppText style={styles.kicker}>TEMPORADAS COMPLETAS</AppText>
+          <AppText style={Type.display}>Séries</AppText>
+          <AppText style={styles.subtitle}>
+            {isSyncing
+              ? (syncProgress ?? "Carregando...")
+              : `${totalCount} séries disponíveis`}
+          </AppText>
+        </View>
+        <TVFocusable
+          onPress={refresh}
+          style={styles.libraryIcon}
+          accessibilityLabel="Atualizar catálogo de séries"
+        >
+          <Ionicons name="refresh" size={22} color={Colors.red} />
+        </TVFocusable>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.genreScroller}
+        contentContainerStyle={styles.genreContent}
+      >
+        {genres.map((item, index) => (
+          <Chip
+            key={item}
+            label={item}
+            selected={genre === item}
+            hasTVPreferredFocus={index === 0}
+            onPress={() => setGenre(item)}
+            icon={item === FAVORITES_LABEL ? "star" : undefined}
+          />
+        ))}
+      </ScrollView>
+
+      {genre !== FAVORITES_LABEL ? (
+        <SectionHeader
+          title="Séries para maratonar"
+          subtitle={`${filteredCount} resultados`}
+        />
+      ) : (
+        <SectionHeader
+          title={`${filteredCount} favoritos`}
+          subtitle="Séries que você quer maratonar"
+        />
+      )}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
+
 export default function SeriesScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -29,7 +132,6 @@ export default function SeriesScreen() {
   const [genre, setGenre] = useState("Todas");
   const [query, setQuery] = useState("");
 
-  // Responsive grid
   const hPad = tvMode ? 46 : 20;
   const numColumns = tvMode || width > 720 ? 3 : 2;
   const colGap = 12;
@@ -37,26 +139,28 @@ export default function SeriesScreen() {
 
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
   const cachedCategories = useAppStore((state) => state.contentCache.seriesCategories);
+  const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
   const genres = useMemo(
-    () => ["Todas", ...cachedCategories.map((c) => c.name)],
+    () => [FAVORITES_LABEL, "Todas", ...cachedCategories.map((c) => c.name)],
     [cachedCategories],
   );
 
   const filteredSeries = useMemo(() => {
+    if (genre === FAVORITES_LABEL) {
+      return seriesList.filter((item) => favoriteSeriesIds.includes(item.id));
+    }
     const q = query.trim().toLowerCase();
     return seriesList.filter((item) => {
       const matchGenre = genre === "Todas" || item.genre === genre;
       const matchQ = !q || `${item.title} ${item.genre}`.toLowerCase().includes(q);
       return matchGenre && matchQ;
     });
-  }, [seriesList, genre, query]);
+  }, [seriesList, genre, query, favoriteSeriesIds]);
 
   const handleSeries = useCallback(
-    (id: string) => {
-      router.push(`/details/${id}`);
-    },
+    (id: string) => { router.push(`/details/${id}`); },
     [router],
   );
 
@@ -75,89 +179,25 @@ export default function SeriesScreen() {
   );
 
   const keyExtractor = useCallback((item: SeriesItem) => item.id, []);
-
   const isEmpty = !isSyncing && seriesList.length === 0;
+
+  const handleSetGenre = useCallback((g: string) => setGenre(g), []);
 
   const ListHeader = useCallback(
     () => (
-      <View style={styles.headerBlock}>
-        {/* Sync banner */}
-        {isSyncing ? (
-          <View style={styles.syncBanner}>
-            <ActivityIndicator size="small" color={Colors.red} />
-            <AppText style={styles.syncText}>{syncProgress ?? "Carregando séries..."}</AppText>
-          </View>
-        ) : null}
-
-        {/* Error banner */}
-        {syncError ? (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={15} color="#FF8B91" />
-            <AppText style={styles.errorBannerText} numberOfLines={2}>
-              {syncError}
-            </AppText>
-            <TVFocusable
-              onPress={refresh}
-              style={styles.retryBtn}
-              accessibilityLabel="Tentar novamente"
-            >
-              <AppText style={styles.retryText}>Tentar</AppText>
-            </TVFocusable>
-          </View>
-        ) : null}
-
-        {/* Title */}
-        <View style={styles.heading}>
-          <View style={styles.headingCopy}>
-            <AppText style={styles.kicker}>TEMPORADAS COMPLETAS</AppText>
-            <AppText style={Type.display}>Séries</AppText>
-            <AppText style={styles.subtitle}>
-              {isSyncing
-                ? (syncProgress ?? "Carregando...")
-                : `${seriesList.length} séries disponíveis`}
-            </AppText>
-          </View>
-          <TVFocusable
-            onPress={refresh}
-            style={styles.libraryIcon}
-            accessibilityLabel="Atualizar catálogo de séries"
-          >
-            <Ionicons name="refresh" size={22} color={Colors.red} />
-          </TVFocusable>
-        </View>
-
-        {/* Search */}
-        <SearchField
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar por título ou ator"
-        />
-
-        {/* Genre chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.genreScroller}
-          contentContainerStyle={styles.genreContent}
-        >
-          {genres.map((item, index) => (
-            <Chip
-              key={item}
-              label={item}
-              selected={genre === item}
-              hasTVPreferredFocus={index === 0}
-              onPress={() => setGenre(item)}
-            />
-          ))}
-        </ScrollView>
-
-        <SectionHeader
-          title="Séries para maratonar"
-          subtitle={`${filteredSeries.length} resultados`}
-        />
-      </View>
+      <SeriesHeader
+        isSyncing={isSyncing}
+        syncError={syncError}
+        syncProgress={syncProgress}
+        genres={genres}
+        genre={genre}
+        filteredCount={filteredSeries.length}
+        totalCount={seriesList.length}
+        refresh={refresh}
+        setGenre={handleSetGenre}
+      />
     ),
-    [isSyncing, syncError, syncProgress, genres, genre, query, filteredSeries.length, seriesList.length, refresh],
+    [isSyncing, syncError, syncProgress, genres, genre, filteredSeries.length, seriesList.length, refresh, handleSetGenre],
   );
 
   const ListEmpty = useCallback(
@@ -178,18 +218,36 @@ export default function SeriesScreen() {
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
+      ) : genre === FAVORITES_LABEL ? (
+        <View style={styles.empty}>
+          <Ionicons name="star-outline" size={32} color={Colors.subtle} />
+          <AppText style={styles.emptyTitle}>Sem séries favoritas</AppText>
+          <AppText style={styles.emptyBody}>
+            Abra uma série e toque em Mais tarde para salvar para depois.
+          </AppText>
+        </View>
       ) : (
         <EmptyState
           title="Nenhuma série encontrada"
           body="Tente buscar por outro título ou selecione Todas para explorar o catálogo."
         />
       ),
-    [isEmpty, refresh],
+    [isEmpty, refresh, genre],
   );
 
   return (
     <View style={styles.screen}>
       <View style={styles.ambient} />
+      {/* SearchField outside FlatList to prevent TextInput remount on query change */}
+      {genre !== FAVORITES_LABEL ? (
+        <View style={[styles.searchBar, { paddingHorizontal: hPad }]}>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar por título ou ator"
+          />
+        </View>
+      ) : null}
       <FlatList
         key={`series-${numColumns}`}
         data={filteredSeries}
@@ -227,6 +285,7 @@ const styles = StyleSheet.create({
     borderRadius: 140,
     backgroundColor: "rgba(229, 9, 20, 0.06)",
   },
+  searchBar: { paddingTop: 14, paddingBottom: 4 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 40 },
   tvContent: { paddingBottom: 54 },
   headerBlock: { gap: 19, paddingTop: 22, marginBottom: 16 },
@@ -268,12 +327,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   headingCopy: { flex: 1, gap: 4 },
-  kicker: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: Colors.red,
-  },
+  kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.red },
   subtitle: { fontSize: 13, color: Colors.muted },
   libraryIcon: {
     width: 48,

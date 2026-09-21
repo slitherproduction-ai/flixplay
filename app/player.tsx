@@ -22,7 +22,7 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from "react-native";
-import { channels, DEMO_STREAM_URL, movies } from "@/data/demo";
+import { DEMO_STREAM_URL } from "@/data/demo";
 import { Colors, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, GlassCard, IconButton } from "@/components/ui";
@@ -35,7 +35,7 @@ import {
 } from "@/hooks/use-tv-remote";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
-import type { ContentType } from "@/store/types";
+import type { ChannelItem, ContentType } from "@/store/types";
 
 const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
 
@@ -296,8 +296,9 @@ export default function PlayerScreen() {
   const tvMode = useTVMode();
   const saveHistory = useAppStore((state) => state.saveHistory);
   const preferences = useAppStore((state) => state.preferences);
-  const storeChannels = useAppStore((state) => state.contentCache.liveChannels);
-  const allChannels = storeChannels.length > 0 ? storeChannels : channels;
+  const allChannels = useAppStore((state) => state.contentCache.liveChannels);
+  const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
+  const activatePip = useAppStore((state) => state.activatePip);
 
   const contentType: ContentType = resolveContentType(type);
 
@@ -361,8 +362,7 @@ export default function PlayerScreen() {
   const currentChannel = allChannels.find((ch) => ch.id === id);
   const backdrop =
     currentChannel?.logo ??
-    movies.find((movie) => movie.id === id)?.backdrop ??
-    movies[0]?.backdrop ??
+    cachedMovies.find((movie) => movie.id === id)?.backdrop ??
     "";
 
   // ─── Player event listeners ──────────────────────────────────────────────
@@ -643,9 +643,15 @@ export default function PlayerScreen() {
 
   // ─── PiP ─────────────────────────────────────────────────────────────────
   const handleTogglePip = useCallback(() => {
-    setPipMode((v) => !v);
-    if (!pipMode) tryNativePip(player);
-  }, [pipMode, player]);
+    if (!pipMode) {
+      // Activate global PiP overlay and go back
+      tryNativePip(player);
+      activatePip(streamUrl, title, contentType);
+      router.back();
+    } else {
+      setPipMode(false);
+    }
+  }, [pipMode, player, activatePip, streamUrl, title, contentType, router]);
 
   // ─── Cast ─────────────────────────────────────────────────────────────────
   const handleCastConnect = useCallback((deviceId: string) => {
@@ -967,7 +973,7 @@ function QuickSwitcher({
   onClose,
 }: {
   visible: boolean;
-  channels: typeof channels;
+  channels: ChannelItem[];
   currentId: string;
   onSwitch: (channelId: string) => void;
   onClose: () => void;

@@ -3,11 +3,14 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { FontMap } from "@/constants/Typography";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
+import { useAppStore } from "@/store/useAppStore";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -95,6 +98,135 @@ const errStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
+// Global floating Picture-in-Picture overlay
+// ---------------------------------------------------------------------------
+
+const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
+
+function PiPOverlay() {
+  const insets = useSafeAreaInsets();
+  const pip = useAppStore((state) => state.pip);
+  const deactivatePip = useAppStore((state) => state.deactivatePip);
+
+  const player = useVideoPlayer(
+    pip.isActive ? { uri: pip.streamUrl, headers: IPTV_HEADERS } : null,
+    (p) => {
+      if (pip.isActive) {
+        p.loop = false;
+        p.play();
+      }
+    },
+  );
+
+  const handleClose = useCallback(() => {
+    try {
+      player.pause();
+    } catch {
+      // ignore
+    }
+    deactivatePip();
+  }, [player, deactivatePip]);
+
+  const handleTogglePlay = useCallback(() => {
+    try {
+      if (player.playing) {
+        player.pause();
+      } else {
+        player.play();
+      }
+    } catch (err) {
+      console.error("PiP toggle play error", err);
+    }
+  }, [player]);
+
+  if (!pip.isActive) return null;
+
+  return (
+    <View
+      style={[
+        pipStyles.container,
+        { bottom: insets.bottom + 80 },
+      ]}
+    >
+      <VideoView
+        player={player}
+        style={pipStyles.video}
+        contentFit="contain"
+        nativeControls={false}
+      />
+      <View style={pipStyles.controls}>
+        <Text style={pipStyles.title} numberOfLines={1}>
+          {pip.title}
+        </Text>
+        <View style={pipStyles.actions}>
+          <Pressable
+            onPress={handleTogglePlay}
+            style={pipStyles.btn}
+            accessibilityLabel="Pausar/Reproduzir PiP"
+          >
+            <Ionicons name="play" size={14} color={Colors.white} />
+          </Pressable>
+          <Pressable
+            onPress={handleClose}
+            style={pipStyles.btn}
+            accessibilityLabel="Fechar PiP"
+          >
+            <Ionicons name="close" size={14} color={Colors.white} />
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const pipStyles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    right: 16,
+    width: 250,
+    height: 140 + 36, // video (16:9) + controls bar
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "#07090E",
+    zIndex: 9999,
+    elevation: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+  },
+  video: {
+    width: 250,
+    height: 140,
+  },
+  controls: {
+    height: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    gap: 6,
+    backgroundColor: "rgba(7,9,14,0.95)",
+  },
+  title: {
+    flex: 1,
+    fontSize: 9,
+    color: "rgba(255,255,255,0.85)",
+    fontFamily: "System",
+  },
+  actions: { flexDirection: "row", gap: 4 },
+  btn: {
+    width: 26,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 7,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Root layout
 // ---------------------------------------------------------------------------
 export default function RootLayout() {
@@ -130,6 +262,8 @@ export default function RootLayout() {
             <Stack.Screen name="settings/trakt" options={{ presentation: "formSheet" }} />
             <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
           </Stack>
+          {/* Global floating PiP overlay — renders above all screens */}
+          <PiPOverlay />
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </AppErrorBoundary>

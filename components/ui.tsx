@@ -106,11 +106,13 @@ export function Chip({
   selected,
   onPress,
   hasTVPreferredFocus = false,
+  icon,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   hasTVPreferredFocus?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (
     <TVFocusable
@@ -120,6 +122,14 @@ export function Chip({
       hasTVPreferredFocus={hasTVPreferredFocus}
       style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
     >
+      {icon ? (
+        <Ionicons
+          name={icon}
+          size={12}
+          color={selected ? Colors.text : Colors.subtle}
+          style={{ marginRight: 2 }}
+        />
+      ) : null}
       <AppText style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</AppText>
     </TVFocusable>
   );

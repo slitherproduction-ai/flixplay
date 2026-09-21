@@ -2,11 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Linking, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, Linking, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, GlassCard, IconButton, ScreenState } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
+import { useAppStore } from "@/store/useAppStore";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
 import { useTVMode } from "@/hooks/use-tv-mode";
 
@@ -26,8 +27,21 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.5.0",
+    version: "v2.6.0",
     label: "Versão Atual",
+    date: "2026.2",
+    changes: [
+      { tag: "Novidade", text: "PiP (Picture-in-Picture) flutuante 16:9 global: navegue livremente pelas abas enquanto o vídeo continua tocando." },
+      { tag: "Novidade", text: "Favoritos por tipo: canais ao vivo, filmes e séries com aba Favoritos em cada seção." },
+      { tag: "Novidade", text: "Seção 'Assistir Mais Tarde' na tela Início com todos os conteúdos salvos." },
+      { tag: "Novidade", text: "Verificador de atualizações automático com opção de atualização automática." },
+      { tag: "Correção", text: "Barra de busca com digitação contínua sem perder foco nas abas TV, Filmes e Séries." },
+      { tag: "Correção", text: "Carregamento real de episódios de séries via API Xtream Codes (suporte a formato objeto e array)." },
+      { tag: "Melhoria", text: "Remoção completa de conteúdo demo — o app opera 100% com dados do servidor real." },
+    ],
+  },
+  {
+    version: "v2.5.0",
     date: "2026.1",
     changes: [
       { tag: "Novidade", text: "Suporte a Picture-in-Picture (PiP) e Espelhamento de Tela (Cast/AirPlay/DLNA)." },
@@ -101,6 +115,8 @@ export default function AboutScreen() {
   const router = useRouter();
   const { loading, error: loadError, retry } = useScreenLoad("informações do aplicativo");
   const tvMode = useTVMode();
+  const autoUpdate = useAppStore((state) => state.preferences["autoUpdate"]);
+  const setPreference = useAppStore((state) => state.setPreference);
   const [actionError, setActionError] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "success">("idle");
   const [toastOpacity] = useState(() => new Animated.Value(0));
@@ -230,14 +246,48 @@ export default function AboutScreen() {
             {checkState === "success" ? (
               <Animated.View style={[styles.successToast, { opacity: toastOpacity, transform: [{ translateY: toastOffset }] }]}>
                 <Ionicons name="checkmark-circle" size={19} color={Colors.green} />
-                <View style={styles.successCopy}><AppText style={styles.successTitle}>Você está em dia</AppText><AppText style={styles.successBody}>O FlixPlay já está na versão mais recente.</AppText></View>
+                <View style={styles.successCopy}>
+                  <AppText style={styles.successTitle}>Você está em dia!</AppText>
+                  <AppText style={styles.successBody}>O FlixPlay {APP_INFO.versionLabel} é a versão mais recente.</AppText>
+                </View>
               </Animated.View>
             ) : null}
-            {actionError ? <View style={styles.actionError}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.actionErrorText}>{actionError}</AppText></View> : null}
-            <TVFocusable accessibilityRole="button" hasTVPreferredFocus disabled={checkState === "checking"} onPress={handleCheckUpdates} style={({ pressed }) => [styles.checkButton, pressed && styles.pressed, checkState === "checking" && styles.disabled]}>
-              {checkState === "checking" ? <ActivityIndicator color={Colors.white} /> : <Ionicons name="refresh-outline" size={17} color={Colors.white} />}
-              <AppText style={styles.checkButtonText}>{checkState === "checking" ? "Verificando..." : "Verificar Atualizações"}</AppText>
+            {actionError ? (
+              <View style={styles.actionError}>
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.red} />
+                <AppText style={styles.actionErrorText}>{actionError}</AppText>
+              </View>
+            ) : null}
+            <TVFocusable
+              accessibilityRole="button"
+              hasTVPreferredFocus
+              disabled={checkState === "checking"}
+              onPress={handleCheckUpdates}
+              style={({ pressed }) => [styles.checkButton, pressed && styles.pressed, checkState === "checking" && styles.disabled]}
+            >
+              {checkState === "checking" ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <Ionicons name="refresh-outline" size={17} color={Colors.white} />
+              )}
+              <AppText style={styles.checkButtonText}>
+                {checkState === "checking" ? "Verificando..." : "Verificar Atualizações"}
+              </AppText>
             </TVFocusable>
+            <View style={styles.autoUpdateRow}>
+              <View style={styles.autoUpdateCopy}>
+                <AppText style={styles.autoUpdateTitle}>Atualização Automática</AppText>
+                <AppText style={styles.autoUpdateBody}>
+                  Instalar atualizações automaticamente quando disponíveis
+                </AppText>
+              </View>
+              <Switch
+                value={autoUpdate === true}
+                onValueChange={(val) => setPreference("autoUpdate", val)}
+                trackColor={{ false: Colors.border, true: Colors.blue }}
+                thumbColor={Colors.white}
+              />
+            </View>
           </View>
 
           <View style={styles.sectionHeading}>
@@ -357,6 +407,20 @@ const styles = StyleSheet.create({
   actionErrorText: { flex: 1, fontSize: 12, lineHeight: 17, color: "#FF8B91" },
   checkButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, backgroundColor: Colors.blue, ...Shadows.card },
   checkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
+  autoUpdateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: Radii.medium,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.glassSoft,
+  },
+  autoUpdateCopy: { flex: 1, gap: 3 },
+  autoUpdateTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  autoUpdateBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
   linksCard: { paddingHorizontal: 14 },
   aboutLink: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11 },
   aboutLinkIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.11)" },

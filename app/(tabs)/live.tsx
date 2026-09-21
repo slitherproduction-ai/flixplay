@@ -60,7 +60,6 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite }
         onPress={handlePress}
         style={gridStyles.cardPressable}
       >
-        {/* Logo area */}
         <View style={gridStyles.logoArea}>
           {channel.logo ? (
             <Image source={{ uri: channel.logo }} contentFit="contain" style={gridStyles.logo} />
@@ -71,20 +70,14 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite }
               </AppText>
             </View>
           )}
-
-          {/* Live badge — top right */}
           <View style={gridStyles.liveBadge}>
             <View style={gridStyles.liveDot} />
             <AppText style={gridStyles.liveText}>AO VIVO</AppText>
           </View>
-
-          {/* Channel number — top left */}
           <View style={gridStyles.numBadge}>
             <AppText style={gridStyles.numText}>{channel.number}</AppText>
           </View>
         </View>
-
-        {/* Info area */}
         <View style={gridStyles.infoArea}>
           <AppText style={gridStyles.channelName} numberOfLines={1}>
             {channel.name}
@@ -99,8 +92,6 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite }
           </View>
         </View>
       </TVFocusable>
-
-      {/* Favorite button — bottom-right corner overlay */}
       <TVFocusable
         accessibilityRole="button"
         accessibilityLabel={
@@ -140,8 +131,6 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
 
   return (
     <GlassCard style={[styles.channelCard, tvMode && styles.tvChannelCard]} intensity={18}>
-      {/* Row: channel pressable + favorite button are SIBLINGS (not nested)
-          to avoid nested-Pressable touch conflicts on Android/iOS/web. */}
       <View style={styles.channelRow}>
         <TVFocusable
           accessibilityRole="button"
@@ -210,6 +199,117 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
 }
 
 // ---------------------------------------------------------------------------
+// Static list header (no interactive search here)
+// ---------------------------------------------------------------------------
+
+interface LiveHeaderProps {
+  isSyncing: boolean;
+  syncError: string | null;
+  syncProgress: string | null;
+  channels: ChannelItem[];
+  filteredCount: number;
+  categories: string[];
+  category: string;
+  viewMode: ViewMode;
+  refresh: () => void;
+  toggleViewMode: () => void;
+  setCategory: (c: string) => void;
+}
+
+const FAVORITES_LABEL = "Favoritos";
+
+function LiveHeader({
+  isSyncing,
+  syncError,
+  syncProgress,
+  channels,
+  filteredCount,
+  categories,
+  category,
+  viewMode,
+  refresh,
+  toggleViewMode,
+  setCategory,
+}: LiveHeaderProps) {
+  return (
+    <View style={styles.headerBlock}>
+      {isSyncing ? (
+        <View style={styles.syncBanner}>
+          <ActivityIndicator size="small" color={Colors.green} />
+          <AppText style={styles.syncText}>{syncProgress ?? "Sincronizando..."}</AppText>
+        </View>
+      ) : null}
+
+      {syncError ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={15} color="#FF8B91" />
+          <AppText style={styles.errorBannerText} numberOfLines={2}>
+            {syncError}
+          </AppText>
+          <TVFocusable
+            onPress={refresh}
+            style={styles.retryBtn}
+            accessibilityLabel="Tentar novamente"
+          >
+            <AppText style={styles.retryText}>Tentar</AppText>
+          </TVFocusable>
+        </View>
+      ) : null}
+
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <AppText style={styles.kicker}>AO VIVO AGORA</AppText>
+          <AppText style={Type.display}>TV ao Vivo</AppText>
+          <AppText style={styles.headerSubtitle}>
+            {isSyncing
+              ? (syncProgress ?? "Carregando...")
+              : `${channels.length} canais disponíveis`}
+          </AppText>
+        </View>
+        <View style={styles.headerActions}>
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel={viewMode === "grid" ? "Mudar para lista" : "Mudar para grade"}
+            onPress={toggleViewMode}
+            style={({ pressed }) => [styles.viewToggle, pressed && styles.pressed]}
+          >
+            <Ionicons
+              name={viewMode === "grid" ? "list-outline" : "grid-outline"}
+              size={20}
+              color={Colors.text}
+            />
+          </TVFocusable>
+          <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} />
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryScroller}
+        contentContainerStyle={styles.categoryContent}
+      >
+        {categories.map((item, index) => (
+          <Chip
+            key={item}
+            label={item}
+            selected={category === item}
+            hasTVPreferredFocus={index === 0}
+            onPress={() => setCategory(item)}
+            icon={item === FAVORITES_LABEL ? "star" : undefined}
+          />
+        ))}
+      </ScrollView>
+
+      <SectionHeader
+        title={category === FAVORITES_LABEL ? "Canais favoritos" : "Canais disponíveis"}
+        subtitle={isSyncing ? "Carregando..." : `${filteredCount} canais`}
+      />
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -221,25 +321,26 @@ export default function LiveScreen() {
   const [query, setQuery] = useState("");
   const [viewMode, toggleViewMode] = useViewMode();
 
-  const favoriteIds = useAppStore((state) => state.favoriteIds);
-  const toggleFavorite = useAppStore((state) => state.toggleFavorite);
+  const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
+  const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
   const cachedCategories = useAppStore((state) => state.contentCache.liveCategories);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
   const categories = useMemo(
-    () => ["Todos", ...cachedCategories.map((c) => c.name)],
+    () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
     [cachedCategories],
   );
 
   const filteredChannels = useMemo(() => {
     const q = query.trim().toLowerCase();
     return channels.filter((ch) => {
+      if (category === FAVORITES_LABEL) return favoriteChannelIds.includes(ch.id);
       const matchCat = category === "Todos" || ch.categoryName === category;
       const matchQ = !q || `${ch.name} ${ch.currentEpg.title}`.toLowerCase().includes(q);
       return matchCat && matchQ;
     });
-  }, [channels, category, query]);
+  }, [channels, category, query, favoriteChannelIds]);
 
   const handleChannel = useCallback(
     (channelId: string) => {
@@ -272,17 +373,15 @@ export default function LiveScreen() {
 
   const isEmpty = !isSyncing && channels.length === 0;
 
-  // Responsive grid: 2 columns on phone, 3 on wider screens
   const horizontalPadding = tvMode ? 46 : 20;
   const columnGap = 10;
   const numGridColumns = width >= 768 ? 3 : 2;
   const gridCardWidth =
     (width - horizontalPadding * 2 - columnGap * (numGridColumns - 1)) / numGridColumns;
 
-  // Render a single channel in either grid or list mode
   const renderItem = useCallback(
     ({ item: channel }: { item: ChannelItem }) => {
-      const isFavorite = favoriteIds.includes(channel.id);
+      const isFavorite = favoriteChannelIds.includes(channel.id);
       if (viewMode === "grid") {
         return (
           <GridChannelCard
@@ -290,7 +389,7 @@ export default function LiveScreen() {
             isFavorite={isFavorite}
             cardWidth={gridCardWidth}
             onPress={handleChannel}
-            onFavorite={toggleFavorite}
+            onFavorite={toggleFavoriteChannel}
           />
         );
       }
@@ -301,103 +400,37 @@ export default function LiveScreen() {
           tvMode={tvMode}
           onPress={handleChannel}
           onLongPress={handleGuide}
-          onFavorite={toggleFavorite}
+          onFavorite={toggleFavoriteChannel}
         />
       );
     },
-    [favoriteIds, viewMode, gridCardWidth, handleChannel, handleGuide, toggleFavorite, tvMode],
+    [favoriteChannelIds, viewMode, gridCardWidth, handleChannel, handleGuide, toggleFavoriteChannel, tvMode],
   );
 
   const keyExtractor = useCallback((item: ChannelItem) => item.id, []);
 
+  const handleCategoryChange = useCallback((c: string) => setCategory(c), []);
+
   const ListHeader = useCallback(
     () => (
-      <View style={styles.headerBlock}>
-        {/* Sync banner */}
-        {isSyncing ? (
-          <View style={styles.syncBanner}>
-            <ActivityIndicator size="small" color={Colors.green} />
-            <AppText style={styles.syncText}>{syncProgress ?? "Sincronizando..."}</AppText>
-          </View>
-        ) : null}
-
-        {/* Error banner */}
-        {syncError ? (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={15} color="#FF8B91" />
-            <AppText style={styles.errorBannerText} numberOfLines={2}>
-              {syncError}
-            </AppText>
-            <TVFocusable
-              onPress={refresh}
-              style={styles.retryBtn}
-              accessibilityLabel="Tentar novamente"
-            >
-              <AppText style={styles.retryText}>Tentar</AppText>
-            </TVFocusable>
-          </View>
-        ) : null}
-
-        {/* Header row */}
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <AppText style={styles.kicker}>AO VIVO AGORA</AppText>
-            <AppText style={Type.display}>TV ao Vivo</AppText>
-            <AppText style={styles.headerSubtitle}>
-              {isSyncing
-                ? (syncProgress ?? "Carregando...")
-                : `${channels.length} canais disponíveis`}
-            </AppText>
-          </View>
-          <View style={styles.headerActions}>
-            <TVFocusable
-              accessibilityRole="button"
-              accessibilityLabel={viewMode === "grid" ? "Mudar para lista" : "Mudar para grade"}
-              onPress={toggleViewMode}
-              style={({ pressed }) => [styles.viewToggle, pressed && styles.pressed]}
-            >
-              <Ionicons
-                name={viewMode === "grid" ? "list-outline" : "grid-outline"}
-                size={20}
-                color={Colors.text}
-              />
-            </TVFocusable>
-            <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} />
-          </View>
-        </View>
-
-        {/* Search */}
-        <SearchField
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar canal ou programa"
-        />
-
-        {/* Category chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryScroller}
-          contentContainerStyle={styles.categoryContent}
-        >
-          {categories.map((item, index) => (
-            <Chip
-              key={item}
-              label={item}
-              selected={category === item}
-              hasTVPreferredFocus={index === 0}
-              onPress={() => setCategory(item)}
-            />
-          ))}
-        </ScrollView>
-
-        <SectionHeader
-          title="Canais disponíveis"
-          subtitle={isSyncing ? "Carregando..." : `${filteredChannels.length} canais`}
-        />
-      </View>
+      <LiveHeader
+        isSyncing={isSyncing}
+        syncError={syncError}
+        syncProgress={syncProgress}
+        channels={channels}
+        filteredCount={filteredChannels.length}
+        categories={categories}
+        category={category}
+        viewMode={viewMode}
+        refresh={refresh}
+        toggleViewMode={toggleViewMode}
+        setCategory={handleCategoryChange}
+      />
     ),
-    [isSyncing, syncError, syncProgress, categories, category, query, viewMode, channels.length, filteredChannels.length, refresh, toggleViewMode],
+    [
+      isSyncing, syncError, syncProgress, channels, filteredChannels.length,
+      categories, category, viewMode, refresh, toggleViewMode, handleCategoryChange,
+    ],
   );
 
   const ListEmpty = useCallback(
@@ -418,6 +451,14 @@ export default function LiveScreen() {
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
+      ) : category === FAVORITES_LABEL && filteredChannels.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons name="star-outline" size={32} color={Colors.subtle} />
+          <AppText style={styles.emptyTitle}>Sem canais favoritos</AppText>
+          <AppText style={styles.emptyBody}>
+            Toque na estrela ao lado de um canal para adicioná-lo aos favoritos.
+          </AppText>
+        </View>
       ) : (
         <View style={styles.empty}>
           <Ionicons name="search-outline" size={28} color={Colors.subtle} />
@@ -425,14 +466,21 @@ export default function LiveScreen() {
           <AppText style={styles.emptyBody}>Tente outra categoria ou ajuste a busca.</AppText>
         </View>
       ),
-    [isEmpty, refresh],
+    [isEmpty, refresh, category, filteredChannels.length],
   );
 
   return (
     <View style={styles.screen}>
       <View style={styles.ambient} />
+      {/* Search field rendered OUTSIDE FlatList so it never remounts on query change */}
+      <View style={[styles.searchBar, { paddingHorizontal: horizontalPadding }]}>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar canal ou programa"
+        />
+      </View>
       <FlatList
-        // key forces remount when view mode or column count changes
         key={viewMode === "grid" ? `grid-${numGridColumns}` : "list"}
         data={filteredChannels}
         numColumns={viewMode === "grid" ? numGridColumns : 1}
@@ -447,12 +495,10 @@ export default function LiveScreen() {
           tvMode && styles.tvContent,
           { paddingHorizontal: horizontalPadding },
         ]}
-        // Column gap for grid mode; no wrapper style for list mode
         columnWrapperStyle={viewMode === "grid" ? { gap: columnGap } : undefined}
         ItemSeparatorComponent={
           viewMode === "list" ? () => <View style={styles.rowSeparator} /> : null
         }
-        // Virtualisation settings safe for 30 000+ channels
         initialNumToRender={20}
         maxToRenderPerBatch={25}
         windowSize={7}
@@ -474,9 +520,7 @@ const gridStyles = StyleSheet.create({
     backgroundColor: Colors.glass,
     overflow: "hidden",
   },
-  cardPressable: {
-    flex: 1,
-  },
+  cardPressable: { flex: 1 },
   logoArea: {
     height: 100,
     backgroundColor: Colors.backgroundRaised,
@@ -484,10 +528,7 @@ const gridStyles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  logo: {
-    width: "80%",
-    height: "80%",
-  },
+  logo: { width: "80%", height: "80%" },
   logoFallback: {
     width: 52,
     height: 52,
@@ -498,11 +539,7 @@ const gridStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(96,165,250,0.3)",
   },
-  logoInitials: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 18,
-    color: Colors.blueBright,
-  },
+  logoInitials: { fontFamily: "Inter_700Bold", fontSize: 18, color: Colors.blueBright },
   liveBadge: {
     position: "absolute",
     top: 7,
@@ -515,18 +552,8 @@ const gridStyles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: "rgba(229,9,20,0.85)",
   },
-  liveDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.white,
-  },
-  liveText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 7,
-    letterSpacing: 0.3,
-    color: Colors.white,
-  },
+  liveDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.white },
+  liveText: { fontFamily: "Inter_700Bold", fontSize: 7, letterSpacing: 0.3, color: Colors.white },
   numBadge: {
     position: "absolute",
     top: 7,
@@ -536,25 +563,10 @@ const gridStyles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: "rgba(0,0,0,0.65)",
   },
-  numText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 8,
-    color: Colors.muted,
-  },
-  infoArea: {
-    gap: 4,
-    padding: 8,
-    paddingBottom: 10,
-  },
-  channelName: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 12,
-    color: Colors.text,
-  },
-  programName: {
-    fontSize: 10,
-    color: Colors.muted,
-  },
+  numText: { fontFamily: "Inter_600SemiBold", fontSize: 8, color: Colors.muted },
+  infoArea: { gap: 4, padding: 8, paddingBottom: 10 },
+  channelName: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.text },
+  programName: { fontSize: 10, color: Colors.muted },
   progressTrack: {
     height: 2,
     borderRadius: 1,
@@ -562,11 +574,7 @@ const gridStyles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     marginTop: 2,
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 1,
-    backgroundColor: Colors.green,
-  },
+  progressFill: { height: "100%", borderRadius: 1, backgroundColor: Colors.green },
   favBtn: {
     position: "absolute",
     bottom: 10,
@@ -595,6 +603,7 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     backgroundColor: "rgba(16, 185, 129, 0.07)",
   },
+  searchBar: { paddingTop: 14, paddingBottom: 4 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 35 },
   tvContent: { paddingBottom: 50 },
   headerBlock: { gap: 18, paddingTop: 22, marginBottom: 10 },
@@ -637,12 +646,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1, gap: 4 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-  kicker: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: Colors.green,
-  },
+  kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.green },
   headerSubtitle: { fontSize: 13, color: Colors.muted },
   viewToggle: {
     width: 40,
@@ -660,11 +664,7 @@ const styles = StyleSheet.create({
   rowSeparator: { height: 10 },
   channelCard: { minHeight: 116, borderRadius: Radii.medium },
   tvChannelCard: { minHeight: 146 },
-  channelRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  channelRow: { flex: 1, flexDirection: "row", alignItems: "center" },
   channelPressable: {
     flex: 1,
     flexDirection: "row",
@@ -686,12 +686,7 @@ const styles = StyleSheet.create({
   channelDetails: { flex: 1, gap: 6 },
   channelTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   channelNumber: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.subtle },
-  channelTitle: {
-    flexShrink: 1,
-    fontFamily: "Inter_700Bold",
-    fontSize: 15,
-    color: Colors.text,
-  },
+  channelTitle: { flexShrink: 1, fontFamily: "Inter_700Bold", fontSize: 15, color: Colors.text },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",

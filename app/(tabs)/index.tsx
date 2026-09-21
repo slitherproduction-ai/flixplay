@@ -155,10 +155,23 @@ export default function HomeScreen() {
     router.push(`/details/${contentId}`);
   }, [handleLive, router]);
 
+  const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
+  const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
+
   const recentMovies = useMemo(() => movies.slice(0, 5), [movies]);
   const popularSeries = useMemo(() => seriesList.slice(0, 4), [seriesList]);
   const featuredChannels = useMemo(() => channels.slice(0, 5), [channels]);
   const showEmpty = !isSyncing && channels.length === 0 && movies.length === 0;
+
+  const favoriteMovies = useMemo(
+    () => movies.filter((m) => favoriteMovieIds.includes(m.id)).slice(0, 6),
+    [movies, favoriteMovieIds],
+  );
+  const favoriteSeries = useMemo(
+    () => seriesList.filter((s) => favoriteSeriesIds.includes(s.id)).slice(0, 6),
+    [seriesList, favoriteSeriesIds],
+  );
+  const hasFavorites = favoriteMovies.length > 0 || favoriteSeries.length > 0;
 
   return (
     <View style={styles.screen} testID="home-screen">
@@ -209,6 +222,41 @@ export default function HomeScreen() {
                     <View style={[styles.continueFill, { width: `${Math.round((item.positionMs / item.durationMs) * 100)}%` }]} />
                   </View>
                 </TVFocusable>
+              ))}
+            </HorizontalScroller>
+          </View>
+        ) : null}
+
+        {hasFavorites ? (
+          <View style={styles.sectionBlock}>
+            <SectionHeader
+              title="Assistir Mais Tarde"
+              subtitle="Seus favoritos salvos"
+              onPress={handleOpenMovies}
+            />
+            <HorizontalScroller>
+              {favoriteMovies.map((movie) => (
+                <PosterCard
+                  key={movie.id}
+                  title={movie.title}
+                  image={movie.poster}
+                  meta={`${movie.year} · ${movie.genre}`}
+                  rating={movie.rating}
+                  quality={movie.quality}
+                  width={posterWidth}
+                  onPress={() => handleContent(movie.id)}
+                />
+              ))}
+              {favoriteSeries.map((item) => (
+                <PosterCard
+                  key={item.id}
+                  title={item.title}
+                  image={item.poster}
+                  meta={`${item.year} · ${seasonsMeta(item.seasonsCount)}`}
+                  rating={item.rating}
+                  width={posterWidth}
+                  onPress={() => handleContent(item.id)}
+                />
               ))}
             </HorizontalScroller>
           </View>

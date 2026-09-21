@@ -21,6 +21,131 @@ import type { VodMovie } from "@/store/types";
 const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z"] as const;
 type SortOption = typeof SORT_OPTIONS[number];
 
+const FAVORITES_LABEL = "Favoritos";
+
+// ---------------------------------------------------------------------------
+// Static header (no SearchField here)
+// ---------------------------------------------------------------------------
+
+interface MoviesHeaderProps {
+  isSyncing: boolean;
+  syncError: string | null;
+  syncProgress: string | null;
+  genres: string[];
+  genre: string;
+  sort: SortOption;
+  filteredCount: number;
+  totalCount: number;
+  refresh: () => void;
+  setGenre: (g: string) => void;
+  setSort: (s: SortOption) => void;
+}
+
+function MoviesHeader({
+  isSyncing, syncError, syncProgress, genres, genre, sort,
+  filteredCount, totalCount, refresh, setGenre, setSort,
+}: MoviesHeaderProps) {
+  return (
+    <View style={styles.headerBlock}>
+      {isSyncing ? (
+        <View style={styles.syncBanner}>
+          <ActivityIndicator size="small" color={Colors.blueBright} />
+          <AppText style={styles.syncText}>{syncProgress ?? "Carregando filmes..."}</AppText>
+        </View>
+      ) : null}
+
+      {syncError ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={15} color="#FF8B91" />
+          <AppText style={styles.errorBannerText} numberOfLines={2}>
+            {syncError}
+          </AppText>
+          <TVFocusable
+            onPress={refresh}
+            style={styles.retryBtn}
+            accessibilityLabel="Tentar novamente"
+          >
+            <AppText style={styles.retryText}>Tentar</AppText>
+          </TVFocusable>
+        </View>
+      ) : null}
+
+      <View style={styles.heading}>
+        <View style={styles.headingCopy}>
+          <AppText style={styles.kicker}>CATÁLOGO VOD</AppText>
+          <AppText style={Type.display}>Filmes</AppText>
+          <AppText style={styles.subtitle}>
+            {isSyncing
+              ? (syncProgress ?? "Carregando...")
+              : `${totalCount} filmes disponíveis`}
+          </AppText>
+        </View>
+        <TVFocusable
+          onPress={refresh}
+          style={styles.libraryIcon}
+          accessibilityLabel="Atualizar catálogo"
+        >
+          <Ionicons name="refresh" size={22} color={Colors.blueBright} />
+        </TVFocusable>
+      </View>
+
+      <View style={styles.filterBlock}>
+        <AppText style={styles.filterLabel}>Categorias</AppText>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroller}
+          contentContainerStyle={styles.filterContent}
+        >
+          {genres.map((item, index) => (
+            <Chip
+              key={item}
+              label={item}
+              selected={genre === item}
+              hasTVPreferredFocus={index === 0}
+              onPress={() => setGenre(item)}
+              icon={item === FAVORITES_LABEL ? "star" : undefined}
+            />
+          ))}
+        </ScrollView>
+      </View>
+
+      {genre !== FAVORITES_LABEL ? (
+        <View style={styles.sortRow}>
+          <SectionHeader
+            title={`${filteredCount} títulos`}
+            subtitle={isSyncing ? "Carregando..." : "Atualizados recentemente"}
+          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.sortScroller}
+            contentContainerStyle={styles.sortContent}
+          >
+            {SORT_OPTIONS.map((item) => (
+              <Chip
+                key={item}
+                label={item}
+                selected={sort === item}
+                onPress={() => setSort(item)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : (
+        <SectionHeader
+          title={`${filteredCount} favoritos`}
+          subtitle="Filmes que você quer assistir"
+        />
+      )}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
+
 export default function MoviesScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -31,24 +156,26 @@ export default function MoviesScreen() {
 
   const movies = useAppStore((state) => state.contentCache.vodMovies);
   const cachedCategories = useAppStore((state) => state.contentCache.vodCategories);
+  const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
-  // Responsive grid: 3 columns on TV/wide screens, 2 on phone
   const hPad = tvMode ? 46 : 20;
   const numColumns = tvMode || width > 720 ? 3 : 2;
   const colGap = 12;
   const cardWidth = Math.floor((width - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
 
   const genres = useMemo(
-    () => ["Todos", ...cachedCategories.map((c) => c.name)],
+    () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
     [cachedCategories],
   );
 
   const filteredMovies = useMemo(() => {
+    if (genre === FAVORITES_LABEL) {
+      return movies.filter((movie) => favoriteMovieIds.includes(movie.id));
+    }
     const q = query.trim().toLowerCase();
     return movies
       .filter((movie) => {
-        // Use String comparison in case category_id was numeric from the server
         const matchGenre = genre === "Todos" || movie.genre === genre;
         const matchQ = !q || `${movie.title} ${movie.genre}`.toLowerCase().includes(q);
         return matchGenre && matchQ;
@@ -58,12 +185,10 @@ export default function MoviesScreen() {
         if (sort === "A-Z") return a.title.localeCompare(b.title);
         return b.year - a.year;
       });
-  }, [movies, genre, query, sort]);
+  }, [movies, genre, query, sort, favoriteMovieIds]);
 
   const handleMovie = useCallback(
-    (id: string) => {
-      router.push(`/details/${id}`);
-    },
+    (id: string) => { router.push(`/details/${id}`); },
     [router],
   );
 
@@ -83,111 +208,28 @@ export default function MoviesScreen() {
   );
 
   const keyExtractor = useCallback((item: VodMovie) => item.id, []);
-
   const isEmpty = !isSyncing && movies.length === 0;
 
-  // Header rendered once at the top of the FlatList
+  const handleSetGenre = useCallback((g: string) => setGenre(g), []);
+  const handleSetSort = useCallback((s: SortOption) => setSort(s), []);
+
   const ListHeader = useCallback(
     () => (
-      <View style={styles.headerBlock}>
-        {/* Sync banner */}
-        {isSyncing ? (
-          <View style={styles.syncBanner}>
-            <ActivityIndicator size="small" color={Colors.blueBright} />
-            <AppText style={styles.syncText}>{syncProgress ?? "Carregando filmes..."}</AppText>
-          </View>
-        ) : null}
-
-        {/* Error banner */}
-        {syncError ? (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={15} color="#FF8B91" />
-            <AppText style={styles.errorBannerText} numberOfLines={2}>
-              {syncError}
-            </AppText>
-            <TVFocusable
-              onPress={refresh}
-              style={styles.retryBtn}
-              accessibilityLabel="Tentar novamente"
-            >
-              <AppText style={styles.retryText}>Tentar</AppText>
-            </TVFocusable>
-          </View>
-        ) : null}
-
-        {/* Title */}
-        <View style={styles.heading}>
-          <View style={styles.headingCopy}>
-            <AppText style={styles.kicker}>CATÁLOGO VOD</AppText>
-            <AppText style={Type.display}>Filmes</AppText>
-            <AppText style={styles.subtitle}>
-              {isSyncing
-                ? (syncProgress ?? "Carregando...")
-                : `${movies.length} filmes disponíveis`}
-            </AppText>
-          </View>
-          <TVFocusable
-            onPress={refresh}
-            style={styles.libraryIcon}
-            accessibilityLabel="Atualizar catálogo"
-          >
-            <Ionicons name="refresh" size={22} color={Colors.blueBright} />
-          </TVFocusable>
-        </View>
-
-        {/* Search */}
-        <SearchField
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar por título ou gênero"
-        />
-
-        {/* Categories */}
-        <View style={styles.filterBlock}>
-          <AppText style={styles.filterLabel}>Categorias</AppText>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterScroller}
-            contentContainerStyle={styles.filterContent}
-          >
-            {genres.map((item, index) => (
-              <Chip
-                key={item}
-                label={item}
-                selected={genre === item}
-                hasTVPreferredFocus={index === 0}
-                onPress={() => setGenre(item)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Sort + count */}
-        <View style={styles.sortRow}>
-          <SectionHeader
-            title={`${filteredMovies.length} títulos`}
-            subtitle={isSyncing ? "Carregando..." : "Atualizados recentemente"}
-          />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.sortScroller}
-            contentContainerStyle={styles.sortContent}
-          >
-            {SORT_OPTIONS.map((item) => (
-              <Chip
-                key={item}
-                label={item}
-                selected={sort === item}
-                onPress={() => setSort(item)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      </View>
+      <MoviesHeader
+        isSyncing={isSyncing}
+        syncError={syncError}
+        syncProgress={syncProgress}
+        genres={genres}
+        genre={genre}
+        sort={sort}
+        filteredCount={filteredMovies.length}
+        totalCount={movies.length}
+        refresh={refresh}
+        setGenre={handleSetGenre}
+        setSort={handleSetSort}
+      />
     ),
-    [isSyncing, syncError, syncProgress, genres, genre, sort, query, filteredMovies.length, movies.length, refresh],
+    [isSyncing, syncError, syncProgress, genres, genre, sort, filteredMovies.length, movies.length, refresh, handleSetGenre, handleSetSort],
   );
 
   const ListEmpty = useCallback(
@@ -208,20 +250,37 @@ export default function MoviesScreen() {
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
+      ) : genre === FAVORITES_LABEL ? (
+        <View style={styles.empty}>
+          <Ionicons name="star-outline" size={32} color={Colors.subtle} />
+          <AppText style={styles.emptyTitle}>Sem filmes favoritos</AppText>
+          <AppText style={styles.emptyBody}>
+            Abra um filme e toque em Mais tarde para salvar para depois.
+          </AppText>
+        </View>
       ) : (
         <EmptyState
           title="Nenhum filme encontrado"
           body="Experimente outro título ou limpe os filtros para ver todo o catálogo."
         />
       ),
-    [isEmpty, refresh],
+    [isEmpty, refresh, genre],
   );
 
   return (
     <View style={styles.screen}>
       <View style={styles.ambient} />
+      {/* SearchField outside FlatList prevents TextInput from remounting on query change */}
+      {genre !== FAVORITES_LABEL ? (
+        <View style={[styles.searchBar, { paddingHorizontal: hPad }]}>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar por título ou gênero"
+          />
+        </View>
+      ) : null}
       <FlatList
-        // key forces remount when column count changes (numColumns cannot change dynamically)
         key={`movies-${numColumns}`}
         data={filteredMovies}
         numColumns={numColumns}
@@ -236,11 +295,8 @@ export default function MoviesScreen() {
           tvMode && styles.tvContent,
           { paddingHorizontal: hPad },
         ]}
-        // Gap between columns in a row
         columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
-        // Gap between rows
         ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-        // Virtualisation — safe for 30 000+ items
         initialNumToRender={20}
         maxToRenderPerBatch={25}
         windowSize={7}
@@ -261,6 +317,7 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     backgroundColor: "rgba(59, 130, 246, 0.07)",
   },
+  searchBar: { paddingTop: 14, paddingBottom: 4 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 40 },
   tvContent: { paddingBottom: 54 },
   headerBlock: { gap: 19, paddingTop: 22, marginBottom: 16 },
@@ -302,12 +359,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   headingCopy: { flex: 1, gap: 4 },
-  kicker: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: Colors.blueBright,
-  },
+  kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },
   subtitle: { fontSize: 13, color: Colors.muted },
   libraryIcon: {
     width: 48,

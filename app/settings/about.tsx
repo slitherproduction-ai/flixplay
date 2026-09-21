@@ -26,8 +26,21 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.4.0",
+    version: "v2.5.0",
     label: "Versão Atual",
+    date: "2026.1",
+    changes: [
+      { tag: "Novidade", text: "Suporte a Picture-in-Picture (PiP) e Espelhamento de Tela (Cast/AirPlay/DLNA)." },
+      { tag: "Novidade", text: "Controle avançado de Buffering para Canais ao Vivo: Baixa Latência, Normal e Estável." },
+      { tag: "Novidade", text: "Guia Eletrônico de Programação (EPG) completo integrado no player ao vivo." },
+      { tag: "Melhoria", text: "Controles de proporção de tela reais: 16:9, 4:3, Zoom, Esticar e Original." },
+      { tag: "Melhoria", text: "Seletor avançado de faixas de áudio e legendas com renderização sobre o vídeo." },
+      { tag: "Melhoria", text: "Controle de velocidade de reprodução de 0.5x até 2.0x com correção de pitch." },
+      { tag: "Melhoria", text: "Novo ícone moderno e Splash Screen refinado." },
+    ],
+  },
+  {
+    version: "v2.4.0",
     date: "2025.1",
     changes: [
       { tag: "Novidade", text: "Novo design Dark Glassmorphism refinado, inspirado no Apple tvOS." },
@@ -182,9 +195,10 @@ export default function AboutScreen() {
             <AppText style={styles.heroSummary}>Sua central de entretenimento para assistir ao vivo, explorar catálogos e continuar cada história no ponto certo.</AppText>
             <View style={styles.techRow}>
               <TechBadge label="ExoPlayer / HLS" />
-              <TechBadge label="Xtream Codes" />
+              <TechBadge label="Xtream Codes API" />
               <TechBadge label="EPG" />
               <TechBadge label="Trakt.tv" />
+              <TechBadge label="PiP & Cast" />
             </View>
           </View>
 

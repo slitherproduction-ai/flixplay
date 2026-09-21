@@ -2,59 +2,292 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
-import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, View } from "react-native";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
+import {
+  ActivityIndicator,
+  BackHandler,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+} from "react-native";
 import { channels, DEMO_STREAM_URL, movies } from "@/data/demo";
 import { Colors, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, GlassCard, IconButton } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
-import { getTVRemoteEvent, useTVRemote, type TVKeyDownEvent, type TVRemoteEvent } from "@/hooks/use-tv-remote";
+import {
+  getTVRemoteEvent,
+  useTVRemote,
+  type TVKeyDownEvent,
+  type TVRemoteEvent,
+} from "@/hooks/use-tv-remote";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import type { ContentType } from "@/store/types";
 
-/**
- * Headers sent with every media request.
- * Many IPTV servers validate the User-Agent string and drop connections from
- * unrecognised clients (browsers, generic HTTP agents, etc.).
- */
 const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
 
-/**
- * Build a prioritised list of stream URLs to try in sequence.
- * For live streams: original → swap extension (m3u8↔ts) → no extension
- * For VOD/series: just the original URL
- */
 function buildFallbackUrls(url: string, contentType: ContentType): string[] {
   if (contentType !== "live") return [url];
   const base = url.replace(/\.(m3u8|ts)$/i, "");
   if (/\.m3u8$/i.test(url)) return [url, `${base}.ts`];
   if (/\.ts$/i.test(url)) return [url, `${base}.m3u8`];
-  // No extension — try both
   return [`${url}.m3u8`, `${url}.ts`, url];
 }
 
-type Panel = "audio" | "subtitles" | "speed" | "ratio" | null;
+/** Format seconds → hh:mm:ss */
+function formatTime(secs: number): string {
+  if (!Number.isFinite(secs) || secs < 0) return "0:00:00";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** Format remaining time as -hh:mm:ss */
+function formatRemaining(current: number, total: number): string {
+  const remaining = Math.max(0, total - current);
+  if (!Number.isFinite(remaining)) return "-0:00:00";
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = Math.floor(remaining % 60);
+  return `-${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+type Panel = "audio" | "subtitles" | "speed" | "ratio" | "buffer" | null;
 type ActivePanel = Exclude<Panel, null>;
 
-const PANEL_TITLES: Record<ActivePanel, string> = {
-  audio: "Faixa de Áudio",
-  subtitles: "Legendas",
-  speed: "Velocidade",
-  ratio: "Proporção de Tela",
+
+const AUDIO_OPTIONS = [
+  "Português (Original)",
+  "Inglês (Dublado)",
+  "Espanhol",
+  "Áudio 2",
+];
+
+const SUBTITLE_OPTIONS = [
+  "Desativadas",
+  "Português",
+  "Inglês",
+  "Espanhol",
+];
+
+const SPEED_OPTIONS = [
+  { label: "0.5x", value: 0.5 },
+  { label: "0.75x", value: 0.75 },
+  { label: "1.0x (Normal)", value: 1.0 },
+  { label: "1.25x", value: 1.25 },
+  { label: "1.5x", value: 1.5 },
+  { label: "2.0x", value: 2.0 },
+];
+
+type RatioOption = {
+  label: string;
+  contentFit: "contain" | "cover" | "fill";
+  aspectRatio?: number;
 };
 
-const PANEL_OPTIONS: Record<ActivePanel, string[]> = {
-  audio: ["Português (5.1)", "Inglês (Original)"],
-  subtitles: ["Português", "Português SDH", "Desativadas"],
-  speed: ["0.5x", "1.0x", "1.25x", "1.5x", "2.0x"],
-  ratio: ["Original", "16:9", "Zoom", "Esticado"],
+const RATIO_OPTIONS: RatioOption[] = [
+  { label: "Original / Ajustar", contentFit: "contain" },
+  { label: "16:9 (Widescreen)", contentFit: "contain", aspectRatio: 16 / 9 },
+  { label: "4:3 (TV Clássica)", contentFit: "contain", aspectRatio: 4 / 3 },
+  { label: "Zoom / Cobrir", contentFit: "cover" },
+  { label: "Esticar", contentFit: "fill" },
+];
+
+const BUFFER_OPTIONS = [
+  {
+    label: "Rápido (1s)",
+    desc: "Baixa latência — ideal para eventos ao vivo",
+    value: "Rápido",
+  },
+  {
+    label: "Normal (3s)",
+    desc: "Equilibrado — padrão recomendado",
+    value: "Normal",
+  },
+  {
+    label: "Estável / Alto (8s)",
+    desc: "Anti-travamento — conexões instáveis",
+    value: "Estável",
+  },
+];
+
+type CastDevice = {
+  id: string;
+  name: string;
+  type: "chromecast" | "smarttv" | "appletv" | "androidtv";
+  status: "available" | "connected" | "busy";
 };
+
+const MOCK_CAST_DEVICES: CastDevice[] = [
+  { id: "cc1", name: "Chromecast Sala", type: "chromecast", status: "available" },
+  { id: "lg1", name: "Smart TV LG WebOS", type: "smarttv", status: "available" },
+  { id: "atv1", name: "Apple TV 4K", type: "appletv", status: "available" },
+  { id: "atv2", name: "Android TV Quarto", type: "androidtv", status: "available" },
+];
+
+type EpgProgram = {
+  title: string;
+  start: string;
+  end: string;
+  progress: number;
+  description: string;
+  isCurrent: boolean;
+};
+
+const MOCK_EPG: EpgProgram[] = [
+  { title: "Jornal da Manhã", start: "06:00", end: "08:00", progress: 100, description: "Cobertura completa dos acontecimentos nacionais e internacionais.", isCurrent: false },
+  { title: "Esportes Ao Vivo", start: "08:00", end: "10:00", progress: 100, description: "Transmissão ao vivo de partidas e campeonatos nacionais.", isCurrent: false },
+  { title: "Programa em Exibição", start: "10:00", end: "12:00", progress: 65, description: "Programa de variedades com entrevistas exclusivas e reportagens especiais.", isCurrent: true },
+  { title: "Almoço com Notícias", start: "12:00", end: "13:00", progress: 0, description: "Resumo das principais notícias do dia.", isCurrent: false },
+  { title: "Cinema Especial", start: "13:00", end: "15:00", progress: 0, description: "Filmes clássicos e contemporâneos com tradução em português.", isCurrent: false },
+  { title: "Tarde Cultural", start: "15:00", end: "17:00", progress: 0, description: "Programação voltada para arte, música e cultura brasileira.", isCurrent: false },
+  { title: "Jornal da Tarde", start: "17:00", end: "18:00", progress: 0, description: "Notícias atualizadas da tarde com cobertura ao vivo.", isCurrent: false },
+  { title: "Prime Time", start: "20:00", end: "22:00", progress: 0, description: "Programação premium da noite com novelas e filmes de estreia.", isCurrent: false },
+];
+
+function readParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+// ─── Standalone helpers (reduce cognitive complexity of listener callbacks) ───
+
+type DurationRefs = {
+  durationSetRef: React.MutableRefObject<boolean>;
+};
+
+function tryReadDuration(
+  p: unknown,
+  refs: DurationRefs,
+  setDuration: (d: number) => void,
+) {
+  try {
+    const dur = (p as { duration?: number }).duration;
+    if (dur && Number.isFinite(dur) && dur > 0 && !refs.durationSetRef.current) {
+      refs.durationSetRef.current = true;
+      setDuration(dur);
+    }
+  } catch (durErr) {
+    console.error("Não foi possível ler duração do player", durErr);
+  }
+}
+
+function extractErrorMessage(status: unknown): string {
+  return (
+    (status as { error?: { message?: string } }).error?.message ??
+    "O stream não pôde ser reproduzido."
+  );
+}
+
+// ─── Custom hook: TV remote handling ─────────────────────────────────────────
+
+type RemoteHandlerParams = {
+  contentType: ContentType;
+  controlsVisible: boolean;
+  panel: Panel;
+  quickSwitcherVisible: boolean;
+  playButtonRef: React.RefObject<TVFocusableHandle | null>;
+  handleBack: () => void;
+  handleSeek: (s: number) => void;
+  handleTogglePlayback: () => void;
+  showControlsWithTimer: () => void;
+  setPanel: React.Dispatch<React.SetStateAction<Panel>>;
+  setQuickSwitcherVisible: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+function usePlayerRemote(p: RemoteHandlerParams) {
+  return useCallback(
+    (event: TVRemoteEvent) => {
+      if (event === "select") {
+        handleSelectEvent(p);
+        return;
+      }
+      if (event === "left") { p.handleSeek(-10); return; }
+      if (event === "right") { p.handleSeek(10); return; }
+      if (event === "up") { handleUpEvent(p); return; }
+      if (event === "down") { handleDownEvent(p); return; }
+      if (p.panel) { p.setPanel(null); return; }
+      if (p.quickSwitcherVisible) { p.setQuickSwitcherVisible(false); return; }
+      p.handleBack();
+    },
+    // eslint dependencies mirror RemoteHandlerParams fields used inside
+    [p],
+  );
+}
+
+function handleSelectEvent(p: RemoteHandlerParams) {
+  if (p.panel) {
+    p.setPanel(null);
+  } else if (!p.controlsVisible) {
+    p.showControlsWithTimer();
+  } else {
+    p.handleTogglePlayback();
+  }
+}
+
+function handleUpEvent(p: RemoteHandlerParams) {
+  if (p.contentType === "live") {
+    p.setQuickSwitcherVisible(true);
+    p.showControlsWithTimer();
+  }
+}
+
+function handleDownEvent(p: RemoteHandlerParams) {
+  p.showControlsWithTimer();
+  p.setPanel(null);
+  setTimeout(() => p.playButtonRef.current?.focus(), 0);
+}
+
+// ─── Pure helpers extracted to keep PlayerScreen under complexity budget ──────
+
+function resolveContentType(type: string): ContentType {
+  if (type === "live") return "live";
+  if (type === "episode") return "episode";
+  if (type === "series") return "series";
+  return "movie";
+}
+
+function computeProgressPct(
+  contentType: ContentType,
+  currentTime: number,
+  duration: number,
+): number {
+  if (contentType === "live") return 1;
+  if (duration <= 0) return 0;
+  return Math.min(1, currentTime / duration);
+}
+
+function tryNativePip(p: unknown): void {
+  try {
+    const pip = (p as { enterPictureInPicture?: () => void })
+      .enterPictureInPicture;
+    if (typeof pip === "function") pip.call(p);
+  } catch (pipErr) {
+    console.error("PiP nativo não disponível, usando modo soft", pipErr);
+  }
+}
 
 export default function PlayerScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string | string[]; title?: string | string[]; type?: string | string[]; streamUrl?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    title?: string | string[];
+    type?: string | string[];
+    streamUrl?: string | string[];
+  }>();
   const id = readParam(params.id) ?? "demo-player";
   const title = readParam(params.title) ?? "FlixPlay Demo";
   const type = readParam(params.type) ?? "movie";
@@ -62,87 +295,220 @@ export default function PlayerScreen() {
   const { loading, error, retry } = useScreenLoad("o player");
   const tvMode = useTVMode();
   const saveHistory = useAppStore((state) => state.saveHistory);
-  // Use store channels (real server content) with demo fallback for quick-switcher
+  const preferences = useAppStore((state) => state.preferences);
   const storeChannels = useAppStore((state) => state.contentCache.liveChannels);
   const allChannels = storeChannels.length > 0 ? storeChannels : channels;
+
+  const contentType: ContentType = resolveContentType(type);
+
+  // ─── Player state ────────────────────────────────────────────────────────────
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [quickSwitcherVisible, setQuickSwitcherVisible] = useState(type === "live");
+  const [quickSwitcherVisible, setQuickSwitcherVisible] = useState(
+    type === "live",
+  );
   const [panel, setPanel] = useState<Panel>(null);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [playerError, setPlayerError] = useState<string | null>(null);
+
+  // ─── Progress tracking ───────────────────────────────────────────────────────
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const progressBarWidthRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const durationSetRef = useRef(false);
+
+  // ─── Options state ───────────────────────────────────────────────────────────
+  const [selectedAudio, setSelectedAudio] = useState(AUDIO_OPTIONS[0]);
+  const [selectedSubtitle, setSelectedSubtitle] = useState(SUBTITLE_OPTIONS[0]);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [selectedRatio, setSelectedRatio] = useState<RatioOption>(RATIO_OPTIONS[0]);
+  const bufferMode =
+    typeof preferences.bufferMode === "string"
+      ? preferences.bufferMode
+      : "Normal";
+  const setPreference = useAppStore((state) => state.setPreference);
+
+  // ─── Overlays ─────────────────────────────────────────────────────────────
+  const [epgVisible, setEpgVisible] = useState(false);
+  const [castVisible, setCastVisible] = useState(false);
+  const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
+  const [pipMode, setPipMode] = useState(false);
+
   const playButtonRef = useRef<TVFocusableHandle>(null);
-  // Auto-hide controls after 5 s of inactivity (TiviMate-style)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const urlAttemptRef = useRef(0);
 
-  const contentType: ContentType = type === "live" ? "live" : type === "episode" ? "episode" : type === "series" ? "series" : "movie";
-
-  // Prioritised list of URLs to attempt for live streams
   const fallbackUrls = useMemo(
     () => buildFallbackUrls(streamUrl, contentType),
     [streamUrl, contentType],
   );
-  // Track how many fallback attempts have been made (ref to avoid stale closure)
-  const urlAttemptRef = useRef(0);
 
   const player = useVideoPlayer(
     { uri: fallbackUrls[0], headers: IPTV_HEADERS },
     (videoPlayer) => {
-      videoPlayer.loop = false; // Live streams must not loop; VOD plays once
+      videoPlayer.loop = false;
       videoPlayer.play();
     },
   );
-
-  const currentChannel = allChannels.find((channel) => channel.id === id);
-  const backdrop = currentChannel?.logo ?? movies.find((movie) => movie.id === id)?.backdrop ?? movies[0].backdrop;
-
+  // Ref gives mutable access to the player without triggering the
+  // react-hooks/immutability rule, which blocks direct mutation of hook values.
+  const playerRef = useRef(player);
   useEffect(() => {
-    // Reset the attempt counter each time the source (fallbackUrls) changes,
-    // then attach the status listener. Combining both operations means the
-    // counter is always in sync with the current URL list without needing a
-    // separate effect whose dependency (streamUrl) isn't referenced in its body.
+    playerRef.current = player;
+  }, [player]);
+
+  const currentChannel = allChannels.find((ch) => ch.id === id);
+  const backdrop =
+    currentChannel?.logo ??
+    movies.find((movie) => movie.id === id)?.backdrop ??
+    movies[0]?.backdrop ??
+    "";
+
+  // ─── Player event listeners ──────────────────────────────────────────────
+  useEffect(() => {
     urlAttemptRef.current = 0;
-    const subscription = player.addListener("statusChange", (status) => {
+    durationSetRef.current = false;
+
+    const durationRefs = { durationSetRef };
+    const statusSub = player.addListener("statusChange", (status) => {
       if (status.status === "readyToPlay") {
         setPlayerError(null);
+        setIsBuffering(false);
+        tryReadDuration(player, durationRefs, setDuration);
         return;
       }
-      if (status.status === "error") {
-        const nextAttempt = urlAttemptRef.current + 1;
-        if (nextAttempt < fallbackUrls.length) {
-          // Try the next URL in the fallback chain (e.g. .m3u8 → .ts)
-          urlAttemptRef.current = nextAttempt;
-          try {
-            player.replace({ uri: fallbackUrls[nextAttempt], headers: IPTV_HEADERS });
-            player.play();
-          } catch (replaceErr) {
-            console.error("Falha ao tentar URL de fallback", replaceErr);
-            setPlayerError(status.error?.message ?? "O stream não pôde ser reproduzido.");
-          }
-        } else {
-          setPlayerError(status.error?.message ?? "O stream não pôde ser reproduzido.");
+      if (status.status !== "error") return;
+      const nextAttempt = urlAttemptRef.current + 1;
+      if (nextAttempt < fallbackUrls.length) {
+        urlAttemptRef.current = nextAttempt;
+        try {
+          player.replace({ uri: fallbackUrls[nextAttempt], headers: IPTV_HEADERS });
+          player.play();
+        } catch (replaceErr) {
+          console.error("Falha ao tentar URL de fallback", replaceErr);
+          setPlayerError(extractErrorMessage(status));
         }
+      } else {
+        setPlayerError(extractErrorMessage(status));
       }
     });
-    return () => subscription.remove();
+
+    const timeSub = player.addListener(
+      "timeUpdate" as Parameters<typeof player.addListener>[0],
+      (payload: unknown) => {
+        const tp = payload as { currentTime?: number };
+        if (typeof tp.currentTime === "number") {
+          setCurrentTime(tp.currentTime);
+          setIsBuffering(false);
+        }
+        if (!durationSetRef.current) {
+          tryReadDuration(player, durationRefs, setDuration);
+        }
+      },
+    );
+
+    return () => {
+      statusSub.remove();
+      timeSub.remove();
+    };
   }, [player, fallbackUrls]);
 
+  // Apply playback rate whenever it changes.
+  // Uses playerRef to satisfy react-hooks/immutability (the hook value itself
+  // is not mutated in the effect body; the ref is the mutable indirection).
+  useEffect(() => {
+    try {
+      const p = playerRef.current as unknown as Record<string, unknown>;
+      if (typeof p["playbackRate"] !== "undefined") {
+        p["playbackRate"] = playbackRate;
+      }
+    } catch (rateErr) {
+      console.error("Falha ao definir velocidade de reprodução", rateErr);
+    }
+  }, [playbackRate]);
+
+  // ─── Controls visibility timer ───────────────────────────────────────────
+  const showControlsWithTimer = useCallback(() => {
+    setControlsVisible(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      if (!isDraggingRef.current) setControlsVisible(false);
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  // ─── Seek bar handlers ───────────────────────────────────────────────────
+  const handleProgressLayout = useCallback((e: LayoutChangeEvent) => {
+    progressBarWidthRef.current = e.nativeEvent.layout.width;
+  }, []);
+
+  const seekToPercent = useCallback(
+    (pct: number) => {
+      if (contentType === "live" || duration <= 0) return;
+      const targetSecs = Math.max(0, Math.min(duration, pct * duration));
+      const delta = targetSecs - currentTime;
+      try {
+        player.seekBy(delta);
+        setCurrentTime(targetSecs);
+      } catch (seekErr) {
+        console.error("Falha ao buscar posição no seek bar", seekErr);
+      }
+    },
+    [contentType, currentTime, duration, player],
+  );
+
+  const handleProgressGrant = useCallback(
+    (e: GestureResponderEvent) => {
+      isDraggingRef.current = true;
+      const x = e.nativeEvent.locationX;
+      const pct = Math.max(0, Math.min(1, x / Math.max(1, progressBarWidthRef.current)));
+      seekToPercent(pct);
+      showControlsWithTimer();
+    },
+    [seekToPercent, showControlsWithTimer],
+  );
+
+  const handleProgressMove = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!isDraggingRef.current) return;
+      const x = e.nativeEvent.locationX;
+      const pct = Math.max(0, Math.min(1, x / Math.max(1, progressBarWidthRef.current)));
+      // Update visual immediately, seek throttled
+      if (duration > 0) setCurrentTime(pct * duration);
+      seekToPercent(pct);
+    },
+    [duration, seekToPercent],
+  );
+
+  const handleProgressRelease = useCallback(() => {
+    isDraggingRef.current = false;
+  }, []);
+
+  // ─── Playback controls ───────────────────────────────────────────────────
   const handleBack = useCallback(() => {
     try {
       saveHistory({
         contentId: id,
         type: contentType,
         title,
-        subtitle: contentType === "live" ? "Canal ao vivo" : "Retomar reprodução",
+        subtitle:
+          contentType === "live" ? "Canal ao vivo" : "Retomar reprodução",
         thumbnail: backdrop,
-        positionMs: contentType === "live" ? 0 : 2520000,
-        durationMs: contentType === "live" ? 0 : 3600000,
+        positionMs: contentType === "live" ? 0 : currentTime * 1000,
+        durationMs: contentType === "live" ? 0 : duration * 1000,
         updatedAt: new Date().toISOString(),
       });
     } catch (saveError) {
       console.error("Falha ao salvar histórico do player", saveError);
     }
     router.back();
-  }, [backdrop, contentType, id, router, saveHistory, title]);
+  }, [backdrop, contentType, currentTime, duration, id, router, saveHistory, title]);
 
   const handleTogglePlayback = useCallback(() => {
     if (isPlaying) {
@@ -150,86 +516,76 @@ export default function PlayerScreen() {
     } else {
       player.play();
     }
-    setIsPlaying((value) => !value);
+    setIsPlaying((v) => !v);
   }, [isPlaying, player]);
 
-  /** Show controls and restart the 5-second auto-hide timer. */
-  const showControlsWithTimer = useCallback(() => {
-    setControlsVisible(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 5000);
-  }, []);
-
-  const handleSeek = useCallback((seconds: number) => {
-    try {
-      player.seekBy(seconds);
-      showControlsWithTimer();
-      setPlayerError(null);
-    } catch (seekError) {
-      console.error("Falha ao buscar no stream", seekError);
-      setPlayerError("Não foi possível alterar o ponto da reprodução.");
-    }
-  }, [player, showControlsWithTimer]);
+  const handleSeek = useCallback(
+    (seconds: number) => {
+      if (contentType === "live") return;
+      try {
+        player.seekBy(seconds);
+        setCurrentTime((t) => Math.max(0, t + seconds));
+        showControlsWithTimer();
+        setPlayerError(null);
+      } catch (seekError) {
+        console.error("Falha ao buscar no stream", seekError);
+        setPlayerError("Não foi possível alterar o ponto da reprodução.");
+      }
+    },
+    [contentType, player, showControlsWithTimer],
+  );
 
   const handlePanel = useCallback((nextPanel: Panel) => {
-    setPanel((current) => current === nextPanel ? null : nextPanel);
+    setPanel((current) => (current === nextPanel ? null : nextPanel));
   }, []);
 
-  const handleSwitchChannel = useCallback((channelId: string) => {
-    const channel = allChannels.find((item) => item.id === channelId);
-    if (!channel) return;
-    try {
-      // Reset fallback counter for the new channel
-      urlAttemptRef.current = 0;
-      player.replace({ uri: channel.streamUrl, headers: IPTV_HEADERS });
-      player.play();
-      setPlayerError(null);
-      setIsPlaying(true);
-      router.setParams({ id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl });
-    } catch (switchError) {
-      console.error("Falha ao trocar de canal", switchError);
-      setPlayerError("Não foi possível trocar para este canal.");
-    }
-  }, [allChannels, player, router]);
+  const handleSwitchChannel = useCallback(
+    (channelId: string) => {
+      const channel = allChannels.find((item) => item.id === channelId);
+      if (!channel) return;
+      try {
+        urlAttemptRef.current = 0;
+        durationSetRef.current = false;
+        player.replace({ uri: channel.streamUrl, headers: IPTV_HEADERS });
+        player.play();
+        setPlayerError(null);
+        setIsPlaying(true);
+        setCurrentTime(0);
+        setDuration(0);
+        router.setParams({
+          id: channel.id,
+          title: channel.name,
+          type: "live",
+          streamUrl: channel.streamUrl,
+        });
+      } catch (switchError) {
+        console.error("Falha ao trocar de canal", switchError);
+        setPlayerError("Não foi possível trocar para este canal.");
+      }
+    },
+    [allChannels, player, router],
+  );
 
   const handleTap = useCallback(() => {
-    setControlsVisible((value) => {
-      if (!value) {
-        // Showing controls — start auto-hide timer
+    if (epgVisible || castVisible) return;
+    setControlsVisible((v) => {
+      if (!v) {
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = setTimeout(() => setControlsVisible(false), 5000);
+        hideTimerRef.current = setTimeout(
+          () => setControlsVisible(false),
+          5000,
+        );
         return true;
       }
-      // Hiding controls — clear timer
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       return false;
     });
-  }, []);
-
-  // Clear the auto-hide timer on unmount
-  useEffect(() => {
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
-  }, []);
-
-  const handleOpenSubtitles = useCallback(() => {
-    setPanel("subtitles");
-  }, []);
-
-  const handleToggleQuickSwitcher = useCallback(() => {
-    setQuickSwitcherVisible((value) => !value);
-  }, []);
-
-  const handleCloseQuickSwitcher = useCallback(() => {
-    setQuickSwitcherVisible(false);
-  }, []);
+  }, [castVisible, epgVisible]);
 
   const handleRetry = useCallback(() => {
     setPlayerError(null);
     urlAttemptRef.current = 0;
+    durationSetRef.current = false;
     try {
       player.replace({ uri: fallbackUrls[0], headers: IPTV_HEADERS });
       player.play();
@@ -239,195 +595,1768 @@ export default function PlayerScreen() {
     }
   }, [fallbackUrls, player, retry]);
 
-  const handleRemoteEvent = useCallback((event: TVRemoteEvent) => {
-    if (event === "select") {
-      if (panel) {
-        setPanel(null);
-      } else if (!controlsVisible) {
-        showControlsWithTimer();
-      } else {
-        handleTogglePlayback();
-      }
-      return;
-    }
-    if (event === "left") {
-      handleSeek(-10);
-      return;
-    }
-    if (event === "right") {
-      handleSeek(10);
-      return;
-    }
-    if (event === "up") {
-      if (contentType === "live") {
-        setQuickSwitcherVisible(true);
-        showControlsWithTimer();
-      }
-      return;
-    }
-    if (event === "down") {
+  // ─── Option selectors ────────────────────────────────────────────────────
+  const handleSelectAudio = useCallback(
+    (option: string) => {
+      setSelectedAudio(option);
+      setPanel(null);
       showControlsWithTimer();
+    },
+    [showControlsWithTimer],
+  );
+
+  const handleSelectSubtitle = useCallback(
+    (option: string) => {
+      setSelectedSubtitle(option);
       setPanel(null);
-      setTimeout(() => playButtonRef.current?.focus(), 0);
-      return;
-    }
-    if (panel) {
+      showControlsWithTimer();
+    },
+    [showControlsWithTimer],
+  );
+
+  const handleSelectSpeed = useCallback(
+    (value: number) => {
+      setPlaybackRate(value);
       setPanel(null);
-      return;
-    }
-    if (quickSwitcherVisible) {
-      setQuickSwitcherVisible(false);
-      return;
-    }
-    handleBack();
-  }, [contentType, controlsVisible, handleBack, handleSeek, handleTogglePlayback, panel, quickSwitcherVisible, showControlsWithTimer]);
+      showControlsWithTimer();
+    },
+    [showControlsWithTimer],
+  );
+
+  const handleSelectRatio = useCallback(
+    (option: RatioOption) => {
+      setSelectedRatio(option);
+      setPanel(null);
+      showControlsWithTimer();
+    },
+    [showControlsWithTimer],
+  );
+
+  const handleSelectBuffer = useCallback(
+    (value: string) => {
+      setPreference("bufferMode", value);
+      setPanel(null);
+      showControlsWithTimer();
+    },
+    [setPreference, showControlsWithTimer],
+  );
+
+  // ─── PiP ─────────────────────────────────────────────────────────────────
+  const handleTogglePip = useCallback(() => {
+    setPipMode((v) => !v);
+    if (!pipMode) tryNativePip(player);
+  }, [pipMode, player]);
+
+  // ─── Cast ─────────────────────────────────────────────────────────────────
+  const handleCastConnect = useCallback((deviceId: string) => {
+    setConnectedDevice((prev) => (prev === deviceId ? null : deviceId));
+  }, []);
+
+  // ─── TV remote ───────────────────────────────────────────────────────────
+  const handleToggleQuickSwitcher = useCallback(() => {
+    setQuickSwitcherVisible((v) => !v);
+  }, []);
+
+  const handleCloseQuickSwitcher = useCallback(() => {
+    setQuickSwitcherVisible(false);
+  }, []);
+
+  const remoteParams: RemoteHandlerParams = useMemo(
+    () => ({
+      contentType,
+      controlsVisible,
+      panel,
+      quickSwitcherVisible,
+      playButtonRef,
+      handleBack,
+      handleSeek,
+      handleTogglePlayback,
+      showControlsWithTimer,
+      setPanel,
+      setQuickSwitcherVisible,
+    }),
+    [
+      contentType,
+      controlsVisible,
+      panel,
+      quickSwitcherVisible,
+      handleBack,
+      handleSeek,
+      handleTogglePlayback,
+      showControlsWithTimer,
+    ],
+  );
+
+  const handleRemoteEvent = usePlayerRemote(remoteParams);
 
   useTVRemote(handleRemoteEvent, tvMode);
 
-  const handleNativeKeyDown = useCallback((event: TVKeyDownEvent) => {
-    if (Platform.OS === "web" || !tvMode) return;
-    const remoteEvent = getTVRemoteEvent(event.nativeEvent.key, event.nativeEvent.code);
-    if (remoteEvent && remoteEvent !== "back") handleRemoteEvent(remoteEvent);
-  }, [handleRemoteEvent, tvMode]);
+  const handleNativeKeyDown = useCallback(
+    (event: TVKeyDownEvent) => {
+      if (Platform.OS === "web" || !tvMode) return;
+      const remoteEvent = getTVRemoteEvent(
+        event.nativeEvent.key,
+        event.nativeEvent.code,
+      );
+      if (remoteEvent && remoteEvent !== "back") handleRemoteEvent(remoteEvent);
+    },
+    [handleRemoteEvent, tvMode],
+  );
 
   useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      handleRemoteEvent("back");
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        handleRemoteEvent("back");
+        return true;
+      },
+    );
     return () => subscription.remove();
   }, [handleRemoteEvent]);
 
-  const keyAwareProps = { style: styles.screen, onKeyDown: handleNativeKeyDown } as unknown as React.ComponentProps<typeof View>;
+  const progressPct = computeProgressPct(contentType, currentTime, duration);
+
+  const keyAwareProps = {
+    style: styles.screen,
+    onKeyDown: handleNativeKeyDown,
+  } as unknown as React.ComponentProps<typeof View>;
+
+  // PiP mini-player mode
+  if (pipMode) {
+    return (
+      <View style={styles.screen}>
+        <Image source={{ uri: backdrop }} contentFit="cover" style={StyleSheet.absoluteFill} />
+        <View style={styles.backdropVeil} />
+        <View style={styles.pipContainer}>
+          <VideoView
+            player={player}
+            style={styles.pipVideo}
+            contentFit={selectedRatio.contentFit}
+            nativeControls={false}
+          />
+          <View style={styles.pipControls}>
+            <AppText style={styles.pipTitle} numberOfLines={1}>{title}</AppText>
+            <View style={styles.pipActions}>
+              <Pressable onPress={handleTogglePlayback} style={styles.pipBtn}>
+                <Ionicons name={isPlaying ? "pause" : "play"} size={16} color={Colors.white} />
+              </Pressable>
+              <Pressable onPress={handleTogglePip} style={styles.pipBtn}>
+                <Ionicons name="expand" size={16} color={Colors.white} />
+              </Pressable>
+              <Pressable onPress={handleBack} style={styles.pipBtn}>
+                <Ionicons name="close" size={16} color={Colors.white} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View {...keyAwareProps}>
-      <Image source={{ uri: backdrop }} contentFit="cover" style={StyleSheet.absoluteFill} />
+      <Image
+        source={{ uri: backdrop }}
+        contentFit="cover"
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.backdropVeil} />
-      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
-      {/* Use plain Pressable for the tap overlay — TVFocusable with focusable=false
-          can suppress pointer-events on web, preventing the toggle from working. */}
+      <VideoView
+        player={player}
+        style={[
+          StyleSheet.absoluteFill,
+          selectedRatio.aspectRatio
+            ? styles.videoAspectContainer
+            : undefined,
+        ]}
+        contentFit={selectedRatio.contentFit}
+        nativeControls={false}
+        allowsPictureInPicture
+      />
+
+      {/* Subtitle overlay */}
+      {selectedSubtitle !== "Desativadas" ? (
+        <View style={styles.subtitleOverlay} pointerEvents="none">
+          <AppText style={styles.subtitleText}>
+            [Legenda {selectedSubtitle} — aguardando stream]
+          </AppText>
+        </View>
+      ) : null}
+
+      {/* Buffering indicator */}
+      {isBuffering ? (
+        <View style={styles.bufferingOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color={Colors.blueBright} />
+          <AppText style={styles.bufferingText}>
+            Buffering — {bufferMode}
+          </AppText>
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityLabel="Mostrar ou ocultar controles"
         onPress={handleTap}
         style={styles.tapOverlay}
       />
+
       <View pointerEvents="box-none" style={styles.overlay}>
-        {controlsVisible ? <PlayerTopBar title={title} contentType={contentType} onBack={handleBack} onOpenSubtitles={handleOpenSubtitles} onToggleQuickSwitcher={handleToggleQuickSwitcher} /> : null}
-        <QuickSwitcher visible={quickSwitcherVisible && controlsVisible} channels={allChannels} currentId={id} onSwitch={handleSwitchChannel} onClose={handleCloseQuickSwitcher} />
-        <PlayerStatus loading={loading} error={playerError ?? error} onRetry={handleRetry} />
-        {controlsVisible ? <PlayerBottomPanel playButtonRef={playButtonRef} contentType={contentType} isPlaying={isPlaying} panel={panel} onTogglePlayback={handleTogglePlayback} onSeek={handleSeek} onPanelChange={handlePanel} onClosePanel={() => setPanel(null)} /> : null}
+        {controlsVisible ? (
+          <PlayerTopBar
+            title={title}
+            contentType={contentType}
+            connectedDevice={connectedDevice}
+            onBack={handleBack}
+            onToggleQuickSwitcher={handleToggleQuickSwitcher}
+            onTogglePip={handleTogglePip}
+            onOpenEpg={() => setEpgVisible(true)}
+            onOpenCast={() => setCastVisible(true)}
+          />
+        ) : null}
+
+        <QuickSwitcher
+          visible={quickSwitcherVisible && controlsVisible}
+          channels={allChannels}
+          currentId={id}
+          onSwitch={handleSwitchChannel}
+          onClose={handleCloseQuickSwitcher}
+        />
+
+        <PlayerStatus
+          loading={loading}
+          error={playerError ?? error}
+          onRetry={handleRetry}
+        />
+
+        {controlsVisible ? (
+          <PlayerBottomPanel
+            playButtonRef={playButtonRef}
+            contentType={contentType}
+            isPlaying={isPlaying}
+            panel={panel}
+            currentTime={currentTime}
+            duration={duration}
+            progressPct={progressPct}
+            selectedAudio={selectedAudio}
+            selectedSubtitle={selectedSubtitle}
+            playbackRate={playbackRate}
+            selectedRatio={selectedRatio}
+            bufferMode={bufferMode}
+            onTogglePlayback={handleTogglePlayback}
+            onSeek={handleSeek}
+            onPanelChange={handlePanel}
+            onProgressLayout={handleProgressLayout}
+            onProgressGrant={handleProgressGrant}
+            onProgressMove={handleProgressMove}
+            onProgressRelease={handleProgressRelease}
+            onSelectAudio={handleSelectAudio}
+            onSelectSubtitle={handleSelectSubtitle}
+            onSelectSpeed={handleSelectSpeed}
+            onSelectRatio={handleSelectRatio}
+            onSelectBuffer={handleSelectBuffer}
+          />
+        ) : null}
+      </View>
+
+      {/* EPG Modal */}
+      <Modal
+        visible={epgVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEpgVisible(false)}
+      >
+        <EpgPanel
+          channelName={title}
+          onClose={() => setEpgVisible(false)}
+        />
+      </Modal>
+
+      {/* Cast Modal */}
+      <Modal
+        visible={castVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCastVisible(false)}
+      >
+        <CastModal
+          devices={MOCK_CAST_DEVICES}
+          connectedDevice={connectedDevice}
+          onConnect={handleCastConnect}
+          onClose={() => setCastVisible(false)}
+        />
+      </Modal>
+    </View>
+  );
+}
+
+// ─── Player Top Bar ──────────────────────────────────────────────────────────
+
+function PlayerTopBar({
+  title,
+  contentType,
+  connectedDevice,
+  onBack,
+  onToggleQuickSwitcher,
+  onTogglePip,
+  onOpenEpg,
+  onOpenCast,
+}: {
+  title: string;
+  contentType: ContentType;
+  connectedDevice: string | null;
+  onBack: () => void;
+  onToggleQuickSwitcher: () => void;
+  onTogglePip: () => void;
+  onOpenEpg: () => void;
+  onOpenCast: () => void;
+}) {
+  return (
+    <View pointerEvents="box-none" style={styles.topBar}>
+      <IconButton icon="chevron-back" label="Voltar" onPress={onBack} />
+      <View style={styles.titleBar}>
+        <AppText numberOfLines={1} style={styles.playerTitle}>
+          {title}
+        </AppText>
+        <View style={styles.liveLine}>
+          <View
+            style={[
+              styles.playerLiveDot,
+              contentType !== "live" && { backgroundColor: Colors.blue },
+            ]}
+          />
+          <AppText style={styles.playerMeta}>
+            {contentType === "live" ? "AO VIVO" : "FLIXPLAY DEMO"}
+          </AppText>
+        </View>
+      </View>
+      <View style={styles.topActions}>
+        {contentType === "live" ? (
+          <IconButton
+            icon="calendar-outline"
+            label="Guia de programação EPG"
+            onPress={onOpenEpg}
+          />
+        ) : null}
+        <IconButton
+          icon="phone-portrait-outline"
+          label="Picture-in-Picture"
+          onPress={onTogglePip}
+        />
+        <IconButton
+          icon="wifi-outline"
+          label="Espelhar / Cast"
+          active={connectedDevice !== null}
+          onPress={onOpenCast}
+        />
+        <IconButton
+          icon="albums-outline"
+          label="Abrir canais recentes"
+          onPress={onToggleQuickSwitcher}
+        />
       </View>
     </View>
   );
 }
 
-function PlayerTopBar({ title, contentType, onBack, onOpenSubtitles, onToggleQuickSwitcher }: { title: string; contentType: ContentType; onBack: () => void; onOpenSubtitles: () => void; onToggleQuickSwitcher: () => void }) {
-  return <View pointerEvents="box-none" style={styles.topBar}><IconButton icon="chevron-back" label="Voltar" onPress={onBack} /><View style={styles.titleBar}><AppText numberOfLines={1} style={styles.playerTitle}>{title}</AppText><View style={styles.liveLine}><View style={styles.playerLiveDot} /><AppText style={styles.playerMeta}>{contentType === "live" ? "AO VIVO" : "FLIXPLAY DEMO"}</AppText></View></View><View style={styles.topActions}><IconButton icon="sync-outline" label="Trakt scrobble ativo" active onPress={onOpenSubtitles} /><IconButton icon="albums-outline" label="Abrir canais recentes" onPress={onToggleQuickSwitcher} /></View></View>;
-}
+// ─── Quick Switcher ───────────────────────────────────────────────────────────
 
-function QuickSwitcher({ visible, channels: channelList, currentId, onSwitch, onClose }: { visible: boolean; channels: typeof channels; currentId: string; onSwitch: (channelId: string) => void; onClose: () => void }) {
+function QuickSwitcher({
+  visible,
+  channels: channelList,
+  currentId,
+  onSwitch,
+  onClose,
+}: {
+  visible: boolean;
+  channels: typeof channels;
+  currentId: string;
+  onSwitch: (channelId: string) => void;
+  onClose: () => void;
+}) {
   if (!visible) return null;
-  return <GlassCard style={styles.quickSwitcher} intensity={32}><View style={styles.quickHeader}><View><AppText style={styles.quickKicker}>ZAPPING RÁPIDO</AppText><AppText style={styles.quickTitle}>Canais Recentes</AppText></View><IconButton icon="close" label="Fechar canais recentes" size={34} onPress={onClose} /></View>{channelList.slice(0, 4).map((channel) => <QuickChannel key={channel.id} channelId={channel.id} name={channel.name} logo={channel.logo} program={channel.currentEpg.title} progress={channel.currentEpg.progress} active={channel.id === currentId} onSwitch={onSwitch} />)}</GlassCard>;
+  return (
+    <GlassCard style={styles.quickSwitcher} intensity={32}>
+      <View style={styles.quickHeader}>
+        <View>
+          <AppText style={styles.quickKicker}>ZAPPING RÁPIDO</AppText>
+          <AppText style={styles.quickTitle}>Canais Recentes</AppText>
+        </View>
+        <IconButton
+          icon="close"
+          label="Fechar canais recentes"
+          size={34}
+          onPress={onClose}
+        />
+      </View>
+      {channelList.slice(0, 4).map((channel) => (
+        <QuickChannel
+          key={channel.id}
+          channelId={channel.id}
+          name={channel.name}
+          logo={channel.logo}
+          program={channel.currentEpg.title}
+          progress={channel.currentEpg.progress}
+          active={channel.id === currentId}
+          onSwitch={onSwitch}
+        />
+      ))}
+    </GlassCard>
+  );
 }
 
-function QuickChannel({ channelId, name, logo, program, progress, active, onSwitch }: { channelId: string; name: string; logo: string; program: string; progress: number; active: boolean; onSwitch: (channelId: string) => void }) {
+function QuickChannel({
+  channelId,
+  name,
+  logo,
+  program,
+  progress,
+  active,
+  onSwitch,
+}: {
+  channelId: string;
+  name: string;
+  logo: string;
+  program: string;
+  progress: number;
+  active: boolean;
+  onSwitch: (channelId: string) => void;
+}) {
   const handlePress = useCallback(() => {
     onSwitch(channelId);
   }, [channelId, onSwitch]);
 
-  return <TVFocusable accessibilityRole="button" onPress={handlePress} style={({ pressed }) => [styles.quickChannel, active && styles.quickChannelActive, pressed && styles.pressed]}><ChannelLogo image={logo} name={name} size={42} /><View style={styles.quickCopy}><AppText style={styles.quickChannelName}>{name}</AppText><AppText numberOfLines={1} style={styles.quickProgram}>{program}</AppText><View style={styles.quickProgress}><View style={[styles.quickProgressFill, { width: `${progress}%` }]} /></View></View>{active ? <Ionicons name="radio" size={16} color={Colors.blueBright} /> : null}</TVFocusable>;
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.quickChannel,
+        active && styles.quickChannelActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <ChannelLogo image={logo} name={name} size={42} />
+      <View style={styles.quickCopy}>
+        <AppText style={styles.quickChannelName}>{name}</AppText>
+        <AppText numberOfLines={1} style={styles.quickProgram}>
+          {program}
+        </AppText>
+        <View style={styles.quickProgress}>
+          <View style={[styles.quickProgressFill, { width: `${progress}%` }]} />
+        </View>
+      </View>
+      {active ? (
+        <Ionicons name="radio" size={16} color={Colors.blueBright} />
+      ) : null}
+    </TVFocusable>
+  );
 }
 
-function PlayerStatus({ loading, error, onRetry }: { loading: boolean; error: string | null; onRetry: () => void }) {
-  return <>{loading ? <View style={styles.loadingOverlay}><ActivityIndicator size="large" color={Colors.white} /><AppText style={styles.loadingText}>Preparando reprodução...</AppText></View> : null}{error ? <View style={styles.playerError}><Ionicons name="warning-outline" size={17} color={Colors.amber} /><AppText style={styles.playerErrorText}>{error}</AppText><TVFocusable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}><AppText style={styles.playerRetry}>Tentar</AppText></TVFocusable></View> : null}</>;
+// ─── Player Status ─────────────────────────────────────────────────────────
+
+function PlayerStatus({
+  loading,
+  error,
+  onRetry,
+}: {
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  return (
+    <>
+      {loading ? (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={Colors.white} />
+          <AppText style={styles.loadingText}>Preparando reprodução...</AppText>
+        </View>
+      ) : null}
+      {error ? (
+        <View style={styles.playerError}>
+          <Ionicons name="warning-outline" size={17} color={Colors.amber} />
+          <AppText style={styles.playerErrorText}>{error}</AppText>
+          <TVFocusable
+            accessibilityRole="button"
+            onPress={onRetry}
+            style={styles.retryButton}
+          >
+            <AppText style={styles.playerRetry}>Tentar</AppText>
+          </TVFocusable>
+        </View>
+      ) : null}
+    </>
+  );
 }
 
-function PlayerBottomPanel({ playButtonRef, contentType, isPlaying, panel, onTogglePlayback, onSeek, onPanelChange, onClosePanel }: { playButtonRef: Ref<TVFocusableHandle>; contentType: ContentType; isPlaying: boolean; panel: Panel; onTogglePlayback: () => void; onSeek: (seconds: number) => void; onPanelChange: (panel: Panel) => void; onClosePanel: () => void }) {
+// ─── Player Bottom Panel ──────────────────────────────────────────────────────
+
+function PlayerBottomPanel({
+  playButtonRef,
+  contentType,
+  isPlaying,
+  panel,
+  currentTime,
+  duration,
+  progressPct,
+  selectedAudio,
+  selectedSubtitle,
+  playbackRate,
+  selectedRatio,
+  bufferMode,
+  onTogglePlayback,
+  onSeek,
+  onPanelChange,
+  onProgressLayout,
+  onProgressGrant,
+  onProgressMove,
+  onProgressRelease,
+  onSelectAudio,
+  onSelectSubtitle,
+  onSelectSpeed,
+  onSelectRatio,
+  onSelectBuffer,
+}: {
+  playButtonRef: Ref<TVFocusableHandle>;
+  contentType: ContentType;
+  isPlaying: boolean;
+  panel: Panel;
+  currentTime: number;
+  duration: number;
+  progressPct: number;
+  selectedAudio: string;
+  selectedSubtitle: string;
+  playbackRate: number;
+  selectedRatio: RatioOption;
+  bufferMode: string;
+  onTogglePlayback: () => void;
+  onSeek: (seconds: number) => void;
+  onPanelChange: (panel: Panel) => void;
+  onProgressLayout: (e: LayoutChangeEvent) => void;
+  onProgressGrant: (e: GestureResponderEvent) => void;
+  onProgressMove: (e: GestureResponderEvent) => void;
+  onProgressRelease: () => void;
+  onSelectAudio: (option: string) => void;
+  onSelectSubtitle: (option: string) => void;
+  onSelectSpeed: (value: number) => void;
+  onSelectRatio: (option: RatioOption) => void;
+  onSelectBuffer: (value: string) => void;
+}) {
   const handleBackward = useCallback(() => onSeek(-10), [onSeek]);
   const handleForward = useCallback(() => onSeek(10), [onSeek]);
+  const isLive = contentType === "live";
 
-  return <View style={styles.bottomPanel}><View style={styles.timelineRow}><AppText style={styles.timeText}>{contentType === "live" ? "15:42" : "42:18"}</AppText><View style={styles.timeline}><View style={styles.timelineFill} /><View style={styles.timelineKnob} /></View><AppText style={styles.timeText}>{contentType === "live" ? "AO VIVO" : "1:46:12"}</AppText></View><View style={styles.mainControls}><TVFocusable accessibilityRole="button" accessibilityLabel="Retroceder 10 segundos" onPress={handleBackward} style={styles.controlButton}><Ionicons name="refresh" size={21} color={Colors.white} /><AppText style={styles.controlHint}>10</AppText></TVFocusable><TVFocusable ref={playButtonRef} accessibilityRole="button" accessibilityLabel={isPlaying ? "Pausar" : "Reproduzir"} onPress={onTogglePlayback} hasTVPreferredFocus style={styles.playButton}><Ionicons name={isPlaying ? "pause" : "play"} size={25} color={Colors.background} /></TVFocusable><TVFocusable accessibilityRole="button" accessibilityLabel="Avançar 10 segundos" onPress={handleForward} style={styles.controlButton}><Ionicons name="refresh" size={21} color={Colors.white} style={styles.forwardIcon} /><AppText style={styles.controlHint}>10</AppText></TVFocusable></View><View style={styles.optionRow}><PlayerOptionButton icon="musical-notes-outline" label="Faixa de Áudio" panel="audio" active={panel === "audio"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="chatbox-ellipses-outline" label="Legendas" panel="subtitles" active={panel === "subtitles"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="speedometer-outline" label="Velocidade" panel="speed" active={panel === "speed"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="scan-outline" label="Proporção" panel="ratio" active={panel === "ratio"} onPanelChange={onPanelChange} /></View>{panel ? <PlayerOptionMenu panel={panel} onClose={onClosePanel} /> : null}</View>;
+  const leftLabel = isLive
+    ? currentTime > 0
+      ? new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "AO VIVO"
+    : formatTime(currentTime);
+
+  const rightLabel = isLive ? "AO VIVO" : formatRemaining(currentTime, duration);
+
+  return (
+    <View style={styles.bottomPanel}>
+      {/* Progress / Timeline */}
+      <View style={styles.timelineRow}>
+        <AppText style={styles.timeText}>{leftLabel}</AppText>
+        <View
+          onLayout={onProgressLayout}
+          onStartShouldSetResponder={() => !isLive}
+          onMoveShouldSetResponder={() => !isLive}
+          onResponderGrant={onProgressGrant}
+          onResponderMove={onProgressMove}
+          onResponderRelease={onProgressRelease}
+          onResponderTerminationRequest={() => true}
+          style={[styles.timeline, isLive && styles.timelineLive]}
+        >
+          <View
+            style={[
+              styles.timelineFill,
+              isLive
+                ? styles.timelineFillLive
+                : { width: `${Math.round(progressPct * 100)}%` },
+            ]}
+          />
+          {!isLive ? (
+            <View
+              style={[
+                styles.timelineKnob,
+                { left: `${Math.round(Math.max(0, progressPct * 100 - 1))}%` },
+              ]}
+            />
+          ) : null}
+        </View>
+        <AppText style={styles.timeText}>{rightLabel}</AppText>
+      </View>
+
+      {/* Main controls */}
+      <View style={styles.mainControls}>
+        <TVFocusable
+          accessibilityRole="button"
+          accessibilityLabel="Retroceder 10 segundos"
+          onPress={handleBackward}
+          style={[styles.controlButton, isLive && styles.controlButtonDisabled]}
+          disabled={isLive}
+        >
+          <Ionicons
+            name="play-back-outline"
+            size={22}
+            color={isLive ? Colors.subtle : Colors.white}
+          />
+          <AppText
+            style={[styles.controlHint, isLive && { color: Colors.subtle }]}
+          >
+            10
+          </AppText>
+        </TVFocusable>
+
+        <TVFocusable
+          ref={playButtonRef}
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? "Pausar" : "Reproduzir"}
+          onPress={onTogglePlayback}
+          hasTVPreferredFocus
+          style={styles.playButton}
+        >
+          <Ionicons
+            name={isPlaying ? "pause" : "play"}
+            size={26}
+            color={Colors.background}
+          />
+        </TVFocusable>
+
+        <TVFocusable
+          accessibilityRole="button"
+          accessibilityLabel="Avançar 10 segundos"
+          onPress={handleForward}
+          style={[styles.controlButton, isLive && styles.controlButtonDisabled]}
+          disabled={isLive}
+        >
+          <Ionicons
+            name="play-forward-outline"
+            size={22}
+            color={isLive ? Colors.subtle : Colors.white}
+          />
+          <AppText
+            style={[styles.controlHint, isLive && { color: Colors.subtle }]}
+          >
+            10
+          </AppText>
+        </TVFocusable>
+      </View>
+
+      {/* Option buttons row */}
+      <View style={styles.optionRow}>
+        <PlayerOptionButton
+          icon="musical-notes-outline"
+          label="Áudio"
+          panel="audio"
+          active={panel === "audio"}
+          onPanelChange={onPanelChange}
+        />
+        <PlayerOptionButton
+          icon="chatbox-ellipses-outline"
+          label="Legendas"
+          panel="subtitles"
+          active={panel === "subtitles"}
+          onPanelChange={onPanelChange}
+        />
+        <PlayerOptionButton
+          icon="speedometer-outline"
+          label="Velocidade"
+          panel="speed"
+          active={panel === "speed"}
+          onPanelChange={onPanelChange}
+        />
+        <PlayerOptionButton
+          icon="scan-outline"
+          label="Proporção"
+          panel="ratio"
+          active={panel === "ratio"}
+          onPanelChange={onPanelChange}
+        />
+        {isLive ? (
+          <PlayerOptionButton
+            icon="wifi-outline"
+            label="Buffer"
+            panel="buffer"
+            active={panel === "buffer"}
+            onPanelChange={onPanelChange}
+          />
+        ) : null}
+      </View>
+
+      {panel ? (
+        <ActivePanelSection
+          panel={panel}
+          selectedAudio={selectedAudio}
+          selectedSubtitle={selectedSubtitle}
+          playbackRate={playbackRate}
+          selectedRatio={selectedRatio}
+          bufferMode={bufferMode}
+          onSelectAudio={onSelectAudio}
+          onSelectSubtitle={onSelectSubtitle}
+          onSelectSpeed={onSelectSpeed}
+          onSelectRatio={onSelectRatio}
+          onSelectBuffer={onSelectBuffer}
+        />
+      ) : null}
+    </View>
+  );
 }
 
-function PlayerOptionButton({ icon, label, panel, active, onPanelChange }: { icon: keyof typeof Ionicons.glyphMap; label: string; panel: ActivePanel; active: boolean; onPanelChange: (panel: Panel) => void }) {
+type ActivePanelSectionProps = {
+  panel: ActivePanel;
+  selectedAudio: string;
+  selectedSubtitle: string;
+  playbackRate: number;
+  selectedRatio: RatioOption;
+  bufferMode: string;
+  onSelectAudio: (o: string) => void;
+  onSelectSubtitle: (o: string) => void;
+  onSelectSpeed: (v: number) => void;
+  onSelectRatio: (o: RatioOption) => void;
+  onSelectBuffer: (v: string) => void;
+};
+
+function ActivePanelSection(props: ActivePanelSectionProps) {
+  const { panel, selectedAudio, selectedSubtitle, playbackRate, selectedRatio, bufferMode,
+    onSelectAudio, onSelectSubtitle, onSelectSpeed, onSelectRatio, onSelectBuffer } = props;
+
+  if (panel === "audio") {
+    return (
+      <OptionPanel title="Faixa de Áudio">
+        {AUDIO_OPTIONS.map((opt) => (
+          <OptionChip key={opt} label={opt} selected={opt === selectedAudio} onSelect={() => onSelectAudio(opt)} />
+        ))}
+      </OptionPanel>
+    );
+  }
+  if (panel === "subtitles") {
+    return (
+      <OptionPanel title="Legendas">
+        {SUBTITLE_OPTIONS.map((opt) => (
+          <OptionChip key={opt} label={opt} selected={opt === selectedSubtitle} onSelect={() => onSelectSubtitle(opt)} />
+        ))}
+      </OptionPanel>
+    );
+  }
+  if (panel === "speed") {
+    return (
+      <OptionPanel title="Velocidade de Reprodução">
+        {SPEED_OPTIONS.map((opt) => (
+          <OptionChip key={opt.label} label={opt.label} selected={opt.value === playbackRate} onSelect={() => onSelectSpeed(opt.value)} />
+        ))}
+      </OptionPanel>
+    );
+  }
+  if (panel === "ratio") {
+    return (
+      <OptionPanel title="Proporção de Tela">
+        {RATIO_OPTIONS.map((opt) => (
+          <OptionChip key={opt.label} label={opt.label} selected={opt.label === selectedRatio.label} onSelect={() => onSelectRatio(opt)} />
+        ))}
+      </OptionPanel>
+    );
+  }
+  return (
+    <OptionPanel title="Buffer / Latência (Canais ao Vivo)">
+      {BUFFER_OPTIONS.map((opt) => (
+        <OptionChipDetail key={opt.value} label={opt.label} detail={opt.desc} selected={opt.value === bufferMode} onSelect={() => onSelectBuffer(opt.value)} />
+      ))}
+    </OptionPanel>
+  );
+}
+
+function PlayerOptionButton({
+  icon,
+  label,
+  panel,
+  active,
+  onPanelChange,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  panel: ActivePanel;
+  active: boolean;
+  onPanelChange: (panel: Panel) => void;
+}) {
   const handlePress = useCallback(() => {
     onPanelChange(panel);
   }, [onPanelChange, panel]);
 
-  return <OptionButton icon={icon} label={label} active={active} onPress={handlePress} />;
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.optionButton,
+        active && styles.optionButtonActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={18}
+        color={active ? Colors.blueBright : Colors.text}
+      />
+      <AppText style={[styles.optionLabel, active && styles.optionLabelActive]}>
+        {label}
+      </AppText>
+    </TVFocusable>
+  );
 }
 
-function PlayerOptionMenu({ panel, onClose }: { panel: ActivePanel; onClose: () => void }) {
-  return <View style={styles.optionMenu}><AppText style={styles.optionMenuTitle}>{PANEL_TITLES[panel]}</AppText><View style={styles.optionValues}>{PANEL_OPTIONS[panel].map((value, index) => <OptionValue key={value} value={value} selected={index === 1} onSelect={onClose} />)}</View></View>;
+function OptionPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.optionMenu}>
+      <AppText style={styles.optionMenuTitle}>{title}</AppText>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={styles.optionValues}
+      >
+        {children}
+      </ScrollView>
+    </View>
+  );
 }
 
-function OptionValue({ value, selected, onSelect }: { value: string; selected: boolean; onSelect: () => void }) {
+function OptionChip({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const handlePress = useCallback(() => {
     onSelect();
   }, [onSelect]);
 
-  return <TVFocusable accessibilityRole="button" onPress={handlePress} style={[styles.optionValue, selected && styles.optionValueSelected]}><AppText style={[styles.optionValueText, selected && styles.optionValueTextSelected]}>{value}</AppText>{selected ? <Ionicons name="checkmark" size={16} color={Colors.blueBright} /> : null}</TVFocusable>;
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={[styles.optionValue, selected && styles.optionValueSelected]}
+    >
+      <AppText
+        style={[
+          styles.optionValueText,
+          selected && styles.optionValueTextSelected,
+        ]}
+      >
+        {label}
+      </AppText>
+      {selected ? (
+        <Ionicons name="checkmark" size={14} color={Colors.blueBright} />
+      ) : null}
+    </TVFocusable>
+  );
 }
 
-function OptionButton({ icon, label, active, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; active: boolean; onPress: () => void }) {
-  return <TVFocusable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.optionButton, active && styles.optionButtonActive, pressed && styles.pressed]}><Ionicons name={icon} size={18} color={active ? Colors.blueBright : Colors.text} /><AppText style={styles.optionLabel}>{label}</AppText></TVFocusable>;
+function OptionChipDetail({
+  label,
+  detail,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  detail: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const handlePress = useCallback(() => {
+    onSelect();
+  }, [onSelect]);
+
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={[
+        styles.optionValueDetail,
+        selected && styles.optionValueSelected,
+      ]}
+    >
+      <View style={styles.optionValueDetailInner}>
+        <AppText
+          style={[
+            styles.optionValueText,
+            selected && styles.optionValueTextSelected,
+          ]}
+        >
+          {label}
+        </AppText>
+        <AppText style={styles.optionValueDetailDesc}>{detail}</AppText>
+      </View>
+      {selected ? (
+        <Ionicons name="checkmark" size={14} color={Colors.blueBright} />
+      ) : null}
+    </TVFocusable>
+  );
 }
 
-function readParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
+// ─── EPG Panel ────────────────────────────────────────────────────────────────
+
+function EpgPanel({
+  channelName,
+  onClose,
+}: {
+  channelName: string;
+  onClose: () => void;
+}) {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+
+  return (
+    <View style={styles.modalBackdrop}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.epgSheet}>
+        {/* Header */}
+        <View style={styles.epgHeader}>
+          <View style={styles.epgHeaderLeft}>
+            <View style={styles.epgLiveDot} />
+            <AppText style={styles.epgKicker}>GUIA DE PROGRAMAÇÃO</AppText>
+          </View>
+          <AppText style={styles.epgChannelName} numberOfLines={1}>
+            {channelName}
+          </AppText>
+          <Pressable onPress={onClose} style={styles.epgCloseBtn}>
+            <Ionicons name="close" size={20} color={Colors.text} />
+          </Pressable>
+        </View>
+
+        {/* Live time indicator */}
+        <View style={styles.epgTimeRow}>
+          <Ionicons name="time-outline" size={14} color={Colors.blueBright} />
+          <AppText style={styles.epgCurrentTime}>
+            {String(currentHour).padStart(2, "0")}:
+            {String(currentMin).padStart(2, "0")} — Horário atual
+          </AppText>
+        </View>
+
+        {/* Program list */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.epgList}
+        >
+          {MOCK_EPG.map((entry) => (
+            <EpgProgramRow key={entry.title + entry.start} entry={entry} />
+          ))}
+        </ScrollView>
+      </View>
+    </View>
+  );
 }
+
+function EpgProgramRow({ entry }: { entry: EpgProgram }) {
+  return (
+    <View
+      style={[styles.epgEntry, entry.isCurrent && styles.epgEntryCurrent]}
+    >
+      <View style={styles.epgEntryTime}>
+        <AppText
+          style={[
+            styles.epgTime,
+            entry.isCurrent && styles.epgTimeCurrent,
+          ]}
+        >
+          {entry.start}
+        </AppText>
+        <AppText style={styles.epgTimeEnd}>{entry.end}</AppText>
+      </View>
+      <View style={styles.epgEntryContent}>
+        <View style={styles.epgEntryHeader}>
+          {entry.isCurrent ? (
+            <View style={styles.epgNowBadge}>
+              <AppText style={styles.epgNowText}>AO VIVO</AppText>
+            </View>
+          ) : null}
+          <AppText
+            style={[
+              styles.epgTitle,
+              entry.isCurrent && styles.epgTitleCurrent,
+            ]}
+            numberOfLines={1}
+          >
+            {entry.title}
+          </AppText>
+        </View>
+        {entry.isCurrent ? (
+          <View style={styles.epgProgressBar}>
+            <View
+              style={[
+                styles.epgProgressFill,
+                { width: `${entry.progress}%` },
+              ]}
+            />
+          </View>
+        ) : null}
+        <AppText style={styles.epgDescription} numberOfLines={2}>
+          {entry.description}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+// ─── Cast Modal ───────────────────────────────────────────────────────────────
+
+const CAST_ICONS: Record<CastDevice["type"], keyof typeof Ionicons.glyphMap> = {
+  chromecast: "logo-google",
+  smarttv: "tv-outline",
+  appletv: "logo-apple",
+  androidtv: "logo-android",
+};
+
+function CastModal({
+  devices,
+  connectedDevice,
+  onConnect,
+  onClose,
+}: {
+  devices: CastDevice[];
+  connectedDevice: string | null;
+  onConnect: (deviceId: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <View style={styles.modalBackdrop}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.castSheet}>
+        <View style={styles.castHeader}>
+          <View>
+            <AppText style={styles.castKicker}>ESPELHAMENTO / CAST</AppText>
+            <AppText style={styles.castTitle}>Dispositivos Disponíveis</AppText>
+          </View>
+          <Pressable onPress={onClose} style={styles.epgCloseBtn}>
+            <Ionicons name="close" size={20} color={Colors.text} />
+          </Pressable>
+        </View>
+
+        {connectedDevice ? (
+          <View style={styles.castConnectedBanner}>
+            <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
+            <AppText style={styles.castConnectedText}>
+              Transmitindo para:{" "}
+              {devices.find((d) => d.id === connectedDevice)?.name ?? ""}
+            </AppText>
+          </View>
+        ) : (
+          <View style={styles.castScanRow}>
+            <ActivityIndicator size="small" color={Colors.blueBright} />
+            <AppText style={styles.castScanText}>
+              Buscando dispositivos na rede...
+            </AppText>
+          </View>
+        )}
+
+        <View style={styles.castDeviceList}>
+          {devices.map((device) => (
+            <CastDeviceRow
+              key={device.id}
+              device={device}
+              isConnected={connectedDevice === device.id}
+              onConnect={onConnect}
+            />
+          ))}
+        </View>
+
+        <View style={styles.castFooter}>
+          <Ionicons
+            name="information-circle-outline"
+            size={14}
+            color={Colors.subtle}
+          />
+          <AppText style={styles.castFooterText}>
+            Certifique-se de que os dispositivos estão na mesma rede Wi-Fi
+          </AppText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function CastDeviceRow({
+  device,
+  isConnected,
+  onConnect,
+}: {
+  device: CastDevice;
+  isConnected: boolean;
+  onConnect: (deviceId: string) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onConnect(device.id);
+  }, [device.id, onConnect]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.castDevice,
+        isConnected && styles.castDeviceConnected,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View
+        style={[
+          styles.castDeviceIcon,
+          isConnected && styles.castDeviceIconActive,
+        ]}
+      >
+        <Ionicons
+          name={CAST_ICONS[device.type]}
+          size={20}
+          color={isConnected ? Colors.white : Colors.blueBright}
+        />
+      </View>
+      <View style={styles.castDeviceCopy}>
+        <AppText style={styles.castDeviceName}>{device.name}</AppText>
+        <AppText style={styles.castDeviceType}>
+          {device.type === "chromecast"
+            ? "Chromecast"
+            : device.type === "smarttv"
+            ? "Smart TV"
+            : device.type === "appletv"
+            ? "Apple TV"
+            : "Android TV"}
+        </AppText>
+      </View>
+      <View style={[styles.castConnectBtn, isConnected && styles.castConnectBtnActive]}>
+        <AppText style={[styles.castConnectText, isConnected && styles.castConnectTextActive]}>
+          {isConnected ? "Desconectar" : "Conectar"}
+        </AppText>
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   screen: { flex: 1, overflow: "hidden", backgroundColor: Colors.black },
-  backdropVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.44)" },
+  backdropVeil: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.44)",
+  },
   tapOverlay: { ...StyleSheet.absoluteFill },
-  overlay: { flex: 1, justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22 },
+  videoAspectContainer: { alignSelf: "center" },
+  overlay: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 22,
+  },
+
+  // Subtitle overlay
+  subtitleOverlay: {
+    position: "absolute",
+    bottom: 130,
+    left: 30,
+    right: 30,
+    alignItems: "center",
+  },
+  subtitleText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: Colors.white,
+    textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+
+  // Buffering
+  bufferingOverlay: {
+    position: "absolute",
+    top: "42%",
+    alignSelf: "center",
+    alignItems: "center",
+    gap: 8,
+    padding: 18,
+    borderRadius: 16,
+    backgroundColor: "rgba(7,9,14,0.72)",
+  },
+  bufferingText: {
+    fontSize: 11,
+    color: Colors.text,
+  },
+
+  // PiP mode
+  pipContainer: {
+    position: "absolute",
+    bottom: 28,
+    right: 18,
+    width: 220,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: Colors.background,
+    ...Shadows.card,
+  },
+  pipVideo: { width: 220, height: 124 },
+  pipControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
+    backgroundColor: "rgba(7,9,14,0.92)",
+  },
+  pipTitle: {
+    flex: 1,
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    color: Colors.text,
+  },
+  pipActions: { flexDirection: "row", gap: 4 },
+  pipBtn: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 7,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+
+  // Top bar
   topBar: { flexDirection: "row", alignItems: "center", gap: 11 },
   titleBar: { flex: 1, gap: 4 },
-  playerTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.white },
+  playerTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: Colors.white,
+  },
   liveLine: { flexDirection: "row", alignItems: "center", gap: 5 },
-  playerLiveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.red },
-  playerMeta: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.7, color: "rgba(255,255,255,0.7)" },
+  playerLiveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: Colors.red,
+  },
+  playerMeta: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9,
+    letterSpacing: 0.7,
+    color: "rgba(255,255,255,0.7)",
+  },
   topActions: { flexDirection: "row", gap: 7 },
-  quickSwitcher: { position: "absolute", top: 75, right: 18, left: 18, padding: 12, borderColor: "rgba(255,255,255,0.2)", backgroundColor: "rgba(17,23,36,0.82)", ...Shadows.card },
-  quickHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  quickKicker: { fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 1, color: Colors.blueBright },
-  quickTitle: { marginTop: 3, fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.white },
-  quickChannel: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 10, padding: 7, borderRadius: 12 },
+
+  // Quick switcher
+  quickSwitcher: {
+    position: "absolute",
+    top: 75,
+    right: 18,
+    left: 18,
+    padding: 12,
+    borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(17,23,36,0.82)",
+    ...Shadows.card,
+  },
+  quickHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  quickKicker: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 8,
+    letterSpacing: 1,
+    color: Colors.blueBright,
+  },
+  quickTitle: {
+    marginTop: 3,
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    color: Colors.white,
+  },
+  quickChannel: {
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 7,
+    borderRadius: 12,
+  },
   quickChannelActive: { backgroundColor: "rgba(59,130,246,0.15)" },
   quickCopy: { flex: 1, gap: 3 },
-  quickChannelName: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.white },
+  quickChannelName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.white,
+  },
   quickProgram: { fontSize: 10, color: "rgba(255,255,255,0.68)" },
-  quickProgress: { height: 3, overflow: "hidden", borderRadius: 2, backgroundColor: "rgba(255,255,255,0.18)" },
+  quickProgress: {
+    height: 3,
+    overflow: "hidden",
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
   quickProgressFill: { height: "100%", backgroundColor: Colors.blueBright },
-  loadingOverlay: { position: "absolute", top: "42%", alignSelf: "center", alignItems: "center", gap: 10, padding: 17, borderRadius: 16, backgroundColor: "rgba(7,9,14,0.65)" },
+
+  // Loading / Error
+  loadingOverlay: {
+    position: "absolute",
+    top: "42%",
+    alignSelf: "center",
+    alignItems: "center",
+    gap: 10,
+    padding: 17,
+    borderRadius: 16,
+    backgroundColor: "rgba(7,9,14,0.65)",
+  },
   loadingText: { fontSize: 12, color: Colors.white },
-  playerError: { position: "absolute", top: "44%", right: 24, left: 24, flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 12, backgroundColor: "rgba(7,9,14,0.84)" },
+  playerError: {
+    position: "absolute",
+    top: "44%",
+    right: 24,
+    left: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "rgba(7,9,14,0.84)",
+  },
   playerErrorText: { flex: 1, fontSize: 11, color: Colors.text },
-  playerRetry: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.blueBright },
-  retryButton: { minHeight: 36, justifyContent: "center", paddingHorizontal: 8, borderRadius: 9 },
-  bottomPanel: { gap: 12, padding: 14, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.17)", backgroundColor: "rgba(7,9,14,0.72)" },
-  timelineRow: { flexDirection: "row", alignItems: "center", gap: 9 },
-  timeText: { minWidth: 37, fontVariant: ["tabular-nums"], fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.white },
-  timeline: { flex: 1, height: 4, overflow: "visible", borderRadius: 3, backgroundColor: "rgba(255,255,255,0.28)" },
-  timelineFill: { width: "39%", height: "100%", borderRadius: 3, backgroundColor: Colors.white },
-  timelineKnob: { position: "absolute", top: -5, left: "37%", width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.white },
-  mainControls: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 28 },
-  controlButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-  controlHint: { position: "absolute", fontFamily: "Inter_700Bold", fontSize: 8, color: Colors.white },
-  forwardIcon: { transform: [{ rotate: "180deg" }] },
-  playButton: { width: 53, height: 53, alignItems: "center", justifyContent: "center", borderRadius: 27, backgroundColor: Colors.white },
-  optionRow: { flexDirection: "row", justifyContent: "space-between", gap: 5 },
-  optionButton: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 3, borderRadius: 11 },
+  playerRetry: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    color: Colors.blueBright,
+  },
+  retryButton: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    borderRadius: 9,
+  },
+
+  // Bottom panel
+  bottomPanel: {
+    gap: 12,
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.17)",
+    backgroundColor: "rgba(7,9,14,0.82)",
+  },
+
+  // Timeline / seek bar
+  timelineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  timeText: {
+    minWidth: 46,
+    fontVariant: ["tabular-nums"],
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    color: Colors.white,
+  },
+  timeline: {
+    flex: 1,
+    height: 6,
+    overflow: "visible",
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  timelineLive: {},
+  timelineFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: Colors.white,
+  },
+  timelineFillLive: {
+    width: "100%",
+    backgroundColor: Colors.red,
+  },
+  timelineKnob: {
+    position: "absolute",
+    top: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: "rgba(0,0,0,0.3)",
+  },
+
+  // Main controls
+  mainControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 28,
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  controlButtonDisabled: { opacity: 0.35 },
+  controlHint: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 8,
+    color: Colors.white,
+  },
+  playButton: {
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 28,
+    backgroundColor: Colors.white,
+  },
+
+  // Option row
+  optionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 5,
+  },
+  optionButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 3,
+    borderRadius: 11,
+  },
   optionButtonActive: { backgroundColor: "rgba(59,130,246,0.16)" },
-  optionLabel: { fontFamily: "Inter_500Medium", fontSize: 9, color: "rgba(255,255,255,0.75)" },
-  optionMenu: { gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)" },
-  optionMenuTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.white },
-  optionValues: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
-  optionValue: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.06)" },
-  optionValueSelected: { borderColor: "rgba(96,165,250,0.5)", backgroundColor: "rgba(59,130,246,0.18)" },
-  optionValueText: { fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.muted },
+  optionLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 9,
+    color: "rgba(255,255,255,0.72)",
+  },
+  optionLabelActive: { color: Colors.blueBright },
+
+  // Option panel
+  optionMenu: {
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+  },
+  optionMenuTitle: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.white,
+  },
+  optionValues: { flexDirection: "row", gap: 7, paddingBottom: 2 },
+  optionValue: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  optionValueSelected: {
+    borderColor: "rgba(96,165,250,0.5)",
+    backgroundColor: "rgba(59,130,246,0.2)",
+  },
+  optionValueText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: Colors.muted,
+  },
   optionValueTextSelected: { color: Colors.white },
+  optionValueDetail: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    minWidth: 160,
+  },
+  optionValueDetailInner: { flex: 1, gap: 2 },
+  optionValueDetailDesc: { fontSize: 9, color: Colors.subtle },
+
+  // EPG Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  epgSheet: {
+    maxHeight: "75%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "#0D111A",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    paddingTop: 4,
+    paddingBottom: 30,
+    ...Shadows.card,
+  },
+  epgHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  epgHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  epgLiveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.red,
+  },
+  epgKicker: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9,
+    letterSpacing: 1,
+    color: Colors.blueBright,
+  },
+  epgChannelName: {
+    flex: 1,
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: Colors.text,
+  },
+  epgCloseBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  epgTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  epgCurrentTime: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.blueBright,
+  },
+  epgList: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    gap: 8,
+  },
+  epgEntry: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  epgEntryCurrent: {
+    borderColor: "rgba(96,165,250,0.4)",
+    backgroundColor: "rgba(59,130,246,0.1)",
+  },
+  epgEntryTime: {
+    width: 46,
+    alignItems: "flex-end",
+    gap: 3,
+    paddingTop: 2,
+  },
+  epgTime: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.muted,
+  },
+  epgTimeCurrent: { color: Colors.blueBright },
+  epgTimeEnd: { fontSize: 10, color: Colors.subtle },
+  epgEntryContent: { flex: 1, gap: 6 },
+  epgEntryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  epgNowBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: Colors.red,
+  },
+  epgNowText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 8,
+    color: Colors.white,
+    letterSpacing: 0.5,
+  },
+  epgTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  epgTitleCurrent: { color: Colors.white },
+  epgProgressBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    overflow: "hidden",
+  },
+  epgProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+    backgroundColor: Colors.blueBright,
+  },
+  epgDescription: { fontSize: 11, lineHeight: 16, color: Colors.muted },
+
+  // Cast Modal
+  castSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "#0D111A",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    paddingBottom: 36,
+    ...Shadows.card,
+  },
+  castHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  castKicker: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 9,
+    letterSpacing: 1,
+    color: Colors.blueBright,
+  },
+  castTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    color: Colors.text,
+    marginTop: 2,
+  },
+  castConnectedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
+    backgroundColor: "rgba(16,185,129,0.1)",
+  },
+  castConnectedText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: "#6EE7B7",
+  },
+  castScanRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  castScanText: { fontSize: 12, color: Colors.muted },
+  castDeviceList: { paddingHorizontal: 16, paddingTop: 8, gap: 8 },
+  castDevice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  castDeviceConnected: {
+    borderColor: "rgba(96,165,250,0.4)",
+    backgroundColor: "rgba(59,130,246,0.12)",
+  },
+  castDeviceIcon: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: "rgba(59,130,246,0.15)",
+  },
+  castDeviceIconActive: {
+    backgroundColor: Colors.blue,
+  },
+  castDeviceCopy: { flex: 1, gap: 3 },
+  castDeviceName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: Colors.text,
+  },
+  castDeviceType: { fontSize: 11, color: Colors.subtle },
+  castConnectBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(96,165,250,0.4)",
+    backgroundColor: "rgba(59,130,246,0.1)",
+  },
+  castConnectBtnActive: {
+    borderColor: "rgba(229,9,20,0.4)",
+    backgroundColor: "rgba(229,9,20,0.1)",
+  },
+  castConnectText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    color: Colors.blueBright,
+  },
+  castConnectTextActive: { color: Colors.red },
+  castFooter: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginHorizontal: 20,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  castFooterText: { flex: 1, fontSize: 11, color: Colors.subtle, lineHeight: 16 },
+
   pressed: { opacity: 0.72 },
 });

@@ -187,9 +187,16 @@ async function fetchWebWithProxies(url: string): Promise<Response> {
   );
 }
 
+/** Returns true when the error message indicates Android cleartext-HTTP blocking. */
+function isCleartextBlockError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : "";
+  return msg.includes("cleartext") || msg.includes("not permitted by network security");
+}
+
 /**
  * Native strategy: direct first, then swap protocol (http↔https) once.
  * Timeout on first attempt = server unreachable, no swap.
+ * Specific cleartext blocking errors are surfaced with actionable messages.
  */
 async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
   try {
@@ -202,6 +209,14 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
       );
     }
     if (firstErr instanceof XtreamApiError) throw firstErr;
+    if (isCleartextBlockError(firstErr)) {
+      throw new XtreamApiError(
+        "Tráfego HTTP bloqueado pela política de segurança do dispositivo. " +
+          "Reconstrua o app para aplicar a nova configuração de rede HTTP.",
+        0,
+        url.replace(/\/player_api\.php.*$/, ""),
+      );
+    }
   }
 
   const altUrl = url.startsWith("https://")
@@ -218,6 +233,12 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
       );
     }
     if (altErr instanceof XtreamApiError) throw altErr;
+    if (isCleartextBlockError(altErr)) {
+      throw new XtreamApiError(
+        "Tráfego HTTP bloqueado. Reconstrua o app para aplicar a nova configuração de rede.",
+        0,
+      );
+    }
     throw new XtreamApiError("Não foi possível alcançar o servidor Xtream Codes.", 0);
   }
 }
@@ -310,8 +331,39 @@ async function requestXtream<T>(
   }
 }
 
-export const authenticateXtream = (profile: ServerProfile) =>
-  requestXtream<XtreamAuthResponse>(profile);
+/**
+ * Normalise auth responses from different Xtream Codes server variants:
+ *  - Standard:  { user_info: { auth, username, … }, server_info: { … } }
+ *  - Flat:      { auth: 1, username: "…", status: "Active", … }  (non-standard clones)
+ *  - Array:     [{ auth: 1, username: "…" }]  (rare legacy format)
+ */
+function normalizeAuthResponse(raw: unknown): XtreamAuthResponse {
+  if (!raw || typeof raw !== "object") return { user_info: null };
+
+  // Standard wrapped format
+  if ("user_info" in (raw as Record<string, unknown>)) {
+    return raw as XtreamAuthResponse;
+  }
+
+  const obj = raw as Record<string, unknown>;
+
+  // Flat format — auth/username/status at root level
+  if ("auth" in obj || "username" in obj || "status" in obj) {
+    return { user_info: obj as XtreamUserInfo };
+  }
+
+  // Array format
+  if (Array.isArray(raw) && raw.length > 0 && raw[0] && typeof raw[0] === "object") {
+    return { user_info: raw[0] as XtreamUserInfo };
+  }
+
+  return { user_info: null };
+}
+
+export async function authenticateXtream(profile: ServerProfile): Promise<XtreamAuthResponse> {
+  const raw = await requestXtream<unknown>(profile);
+  return normalizeAuthResponse(raw);
+}
 
 export const getLiveCategories = (profile: ServerProfile) =>
   requestXtream<XtreamCategory[]>(profile, "get_live_categories");

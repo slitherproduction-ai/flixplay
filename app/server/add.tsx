@@ -29,7 +29,11 @@ export default function AddServerScreen() {
     }
     setSaving(true);
     try {
-      const normalizedUrl = trimmedUrl.startsWith("http") ? trimmedUrl : `https://${trimmedUrl}`;
+      // Default to http:// — most IPTV servers are plain HTTP; the user can override with https://
+      const normalizedUrl =
+        trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")
+          ? trimmedUrl
+          : `http://${trimmedUrl}`;
       addServer({
         id: `server-${Date.now()}`,
         name: name.trim(),
@@ -60,7 +64,7 @@ export default function AddServerScreen() {
         <View style={styles.kindRow}><Chip label="Xtream Codes" selected={sourceKind === "Xtream Codes"} onPress={() => setSourceKind("Xtream Codes")} /><Chip label="Playlist M3U" selected={sourceKind === "Playlist M3U"} onPress={() => setSourceKind("Playlist M3U")} /></View>
         <View style={styles.form}>
           <Field label="Nome da lista" value={name} onChangeText={setName} placeholder="Ex.: Minha lista" />
-          <Field label={sourceKind === "Playlist M3U" ? "URL da playlist M3U" : "URL do servidor"} value={serverUrl} onChangeText={setServerUrl} placeholder="https://exemplo.com" keyboardType="url" autoCapitalize="none" />
+          <Field label={sourceKind === "Playlist M3U" ? "URL da playlist M3U" : "URL do servidor"} value={serverUrl} onChangeText={setServerUrl} placeholder="http://servidor.com:8080" keyboardType="url" autoCapitalize="none" />
           {sourceKind === "Xtream Codes" ? <><Field label="Usuário" value={username} onChangeText={setUsername} placeholder="Seu usuário" autoCapitalize="none" /><Field label="Senha" value={password} onChangeText={setPassword} placeholder="Sua senha" secureTextEntry autoCapitalize="none" /></> : <View style={styles.tip}><Ionicons name="information-circle-outline" size={17} color={Colors.blueBright} /><AppText style={styles.tipText}>Use uma URL M3U ou M3U8 direta. O FlixPlay vai organizar canais e categorias automaticamente.</AppText></View>}
         </View>
         {error ? <View style={styles.errorBox}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.errorText}>{error}</AppText></View> : null}

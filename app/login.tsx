@@ -72,7 +72,7 @@ function normalizeUrl(input: string): string {
   let url = input.trim();
   if (!url) return url;
 
-  // Add protocol if missing
+  // Add http:// if no protocol present — IPTV servers are typically plain HTTP
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     url = `http://${url}`;
   }
@@ -87,6 +87,18 @@ function normalizeUrl(input: string): string {
   );
 
   return url;
+}
+
+/** Returns true when the normalised URL has a non-empty hostname. */
+function isValidServerUrl(normalised: string): boolean {
+  if (!normalised) return false;
+  try {
+    const parsed = new URL(normalised);
+    // Must have a real hostname — rejects "http://" with empty host
+    return parsed.hostname.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function getErrorMessage(error: unknown): string {
@@ -107,7 +119,10 @@ function formatAddedAt(iso?: string): string {
 }
 
 function validateLoginFields(host: string, username: string, password: string): string | null {
-  if (!normalizeUrl(host)) return "Informe o Host / URL do servidor.";
+  const normalised = normalizeUrl(host);
+  if (!isValidServerUrl(normalised)) {
+    return "Informe o Host / URL do servidor. Exemplos: flixplay.sbs, http://192.168.1.1:8080";
+  }
   if (!username.trim()) return "Informe o usuário.";
   if (!password) return "Informe a senha.";
   return null;

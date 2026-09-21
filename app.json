@@ -17,6 +17,7 @@
         "backgroundColor": "#10192b"
       },
       "isTV": true,
+      "usesCleartextTraffic": true,
       "intentFilters": [
         {
           "action": "MAIN",

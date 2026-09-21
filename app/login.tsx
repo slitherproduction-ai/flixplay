@@ -22,12 +22,24 @@ import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
 
 function normalizeUrl(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return trimmed;
-  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
-    return `http://${trimmed}`;
+  let url = input.trim();
+  if (!url) return url;
+
+  // Add protocol if missing
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = `http://${url}`;
   }
-  return trimmed;
+
+  // Remove trailing slashes
+  url = url.replace(/\/+$/, "");
+
+  // Strip common API path suffixes users accidentally paste
+  url = url.replace(
+    /\/(player_api\.php|get\.php|xmltv\.php|live|vod|series|movie|c)(\/.*)?(\?.*)?$/i,
+    "",
+  );
+
+  return url;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -61,19 +73,21 @@ function parseExpiryDisplay(expDate: string | null): string {
   return new Date(expTs * 1000).toLocaleDateString("pt-BR");
 }
 
-function getUserStatusError(status: string): string | null {
-  if (status === "Expired") return "Conta expirada. Entre em contato com seu provedor IPTV.";
-  if (status === "Disabled") return "Conta desativada. Entre em contato com seu provedor IPTV.";
+function getUserStatusError(status?: string): string | null {
+  if (!status) return null;
+  const s = status.toLowerCase().trim();
+  if (s === "expired") return "Conta expirada. Entre em contato com seu provedor IPTV.";
+  if (s === "disabled" || s === "banned" || s === "blocked")
+    return "Conta desativada. Entre em contato com seu provedor IPTV.";
   return null;
 }
 
 function mapConnectError(error: unknown): string {
+  // XtreamApiError already has a descriptive, user-facing message — use it directly.
   const msg = getErrorMessage(error);
-  if (msg.includes("alcançar") || msg.includes("network") || msg.includes("fetch")) {
-    return "Host inacessível. Verifique a URL e sua conexão com a internet.";
+  if (!msg || msg === "Erro desconhecido. Tente novamente.") {
+    return "Falha ao conectar. Verifique a URL, usuário e senha.";
   }
-  if (msg.includes("401") || msg.includes("403")) return "Usuário ou senha incorretos.";
-  if (msg.includes("status")) return `Servidor retornou erro: ${msg}`;
   return msg;
 }
 
@@ -235,8 +249,18 @@ export default function LoginScreen() {
       const authResult = await authenticateXtream(profile);
       const userInfo = authResult.user_info;
 
-      if (!userInfo) {
-        setError("Usuário ou senha incorretos. Verifique suas credenciais.");
+      // Validate auth: servers return auth=1/"1"/true on success, auth=0/"0"/false on failure.
+      // Some servers omit the auth field but still return a populated user_info on success.
+      const authValue = userInfo?.auth;
+      const isAuthenticated =
+        authValue === 1 ||
+        authValue === "1" ||
+        authValue === true ||
+        // Fallback: no auth field but username is present (server authenticated successfully)
+        (authValue === undefined && !!userInfo?.username);
+
+      if (!userInfo || !isAuthenticated) {
+        setError("Usuário ou senha incorretos. Verifique suas credenciais e o endereço do servidor.");
         return;
       }
 
@@ -246,10 +270,12 @@ export default function LoginScreen() {
         return;
       }
 
-      const hasM3u8 = Array.isArray(userInfo.allowed_output_formats) && userInfo.allowed_output_formats.includes("m3u8");
+      const hasM3u8 =
+        Array.isArray(userInfo.allowed_output_formats) &&
+        userInfo.allowed_output_formats.includes("m3u8");
       addServer({
         ...profile,
-        expiryDate: parseExpiryDisplay(userInfo.exp_date),
+        expiryDate: parseExpiryDisplay(userInfo.exp_date ?? null),
         maxConnections: Number(userInfo.max_connections) || 1,
         activeConnections: Number(userInfo.active_cons) || 0,
         format: hasM3u8 ? "HLS" : "TS",

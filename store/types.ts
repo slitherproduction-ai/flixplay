@@ -1,10 +1,98 @@
-/**
- * Base entity types for the app store.
- *
- * The skeleton phase will extend this file with app-specific entity
- * interfaces derived from the development plan's data model.
- */
-
 export interface Preferences {
-  [key: string]: unknown;
+  [key: string]: string | number | boolean | null;
+}
+
+export type ContentType = "live" | "movie" | "series" | "episode";
+
+export interface ServerProfile {
+  id: string;
+  name: string;
+  serverUrl: string;
+  username: string;
+  password: string;
+  isActive: boolean;
+  expiryDate: string;
+  maxConnections: number;
+  activeConnections: number;
+  format: "TS" | "HLS" | "M3U8";
+}
+
+export interface EpgProgram {
+  title: string;
+  start: string;
+  end: string;
+  progress: number;
+}
+
+export interface ChannelItem {
+  id: string;
+  name: string;
+  number: string;
+  streamId: string;
+  logo: string;
+  categoryId: string;
+  categoryName: string;
+  currentEpg: EpgProgram;
+  nextProgram: string;
+  streamUrl: string;
+}
+
+export interface VodMovie {
+  id: string;
+  title: string;
+  streamId: string;
+  poster: string;
+  backdrop: string;
+  rating: number;
+  year: number;
+  duration: string;
+  genre: string;
+  plot: string;
+  streamUrl: string;
+  resumePositionMs?: number;
+  quality: "4K" | "FHD" | "HD";
+}
+
+export interface SeriesItem {
+  id: string;
+  title: string;
+  seriesId: string;
+  poster: string;
+  backdrop: string;
+  rating: number;
+  year: number;
+  seasonsCount: number;
+  genre: string;
+  plot: string;
+}
+
+export interface EpisodeItem {
+  id: string;
+  seriesId: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  thumbnail: string;
+  duration: string;
+  plot: string;
+  streamUrl: string;
+  resumePositionMs?: number;
+}
+
+export interface TraktConfig {
+  isConnected: boolean;
+  username: string;
+  accessToken: string;
+  autoScrobble: boolean;
+}
+
+export interface PlayHistory {
+  contentId: string;
+  type: ContentType;
+  title: string;
+  subtitle: string;
+  thumbnail: string;
+  positionMs: number;
+  durationMs: number;
+  updatedAt: string;
 }

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { View } from "react-native";
+import { TVFocusable } from "@/components/tv-focusable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 
@@ -11,7 +12,22 @@ export default function TabsLayout() {
     <View testID="tab-navigator" style={{ flex: 1 }}>
       <Tabs
         screenOptions={{
-        headerShown: false,
+         headerShown: false,
+         tabBarButton: ({ accessibilityLabel, accessibilityRole, accessibilityState, children, disabled, onLongPress, onPress, style, testID }) => (
+           <TVFocusable
+             accessibilityLabel={accessibilityLabel}
+             accessibilityRole={accessibilityRole}
+             accessibilityState={accessibilityState}
+             disabled={disabled}
+             hasTVPreferredFocus={accessibilityState?.selected === true}
+             onLongPress={onLongPress}
+             onPress={(event) => onPress?.(event)}
+             style={style}
+             testID={testID}
+           >
+             {children}
+           </TVFocusable>
+         ),
         sceneStyle: { backgroundColor: Colors.background },
         tabBarActiveTintColor: Colors.blueBright,
         tabBarInactiveTintColor: Colors.subtle,

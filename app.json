@@ -3,7 +3,7 @@
     "name": "Flixplay",
     "slug": "flixplay",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "fastshot",
     "userInterfaceStyle": "light",
@@ -16,6 +16,13 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#10192b"
       },
+      "isTV": true,
+      "intentFilters": [
+        {
+          "action": "MAIN",
+          "category": ["LAUNCHER", "LEANBACK_LAUNCHER"]
+        }
+      ],
       "edgeToEdgeEnabled": true
     },
     "web": {

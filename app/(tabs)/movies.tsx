@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { movies } from "@/data/demo";
 import { Colors, Type } from "@/constants/theme";
+import { useTVMode } from "@/hooks/use-tv-mode";
 import { AppText, Chip, EmptyState, PosterCard, SearchField, ScreenState, SectionHeader } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
 
@@ -14,10 +15,11 @@ export default function MoviesScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { loading, error, retry } = useScreenLoad("o catálogo de filmes");
+  const tvMode = useTVMode();
   const [genre, setGenre] = useState("Todos");
   const [sort, setSort] = useState("Mais recentes");
   const [query, setQuery] = useState("");
-  const cardWidth = width > 720 ? 190 : Math.max(138, (width - 58) / 2);
+  const cardWidth = tvMode || width > 720 ? 220 : Math.max(138, (width - 58) / 2);
 
   const filteredMovies = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -42,7 +44,7 @@ export default function MoviesScreen() {
     <View style={styles.screen}>
       <View style={styles.ambient} />
       <ScreenState loading={loading} error={error} retry={retry}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
           <View style={styles.heading}>
             <View style={styles.headingCopy}>
               <AppText style={styles.kicker}>CATÁLOGO VOD</AppText>
@@ -55,7 +57,7 @@ export default function MoviesScreen() {
           <View style={styles.filterBlock}>
             <AppText style={styles.filterLabel}>Gêneros</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroller} contentContainerStyle={styles.filterContent}>
-              {genres.map((item) => <Chip key={item} label={item} selected={genre === item} onPress={() => setGenre(item)} />)}
+              {genres.map((item, index) => <Chip key={item} label={item} selected={genre === item} hasTVPreferredFocus={index === 0} onPress={() => setGenre(item)} />)}
             </ScrollView>
           </View>
           <View style={styles.sortRow}>
@@ -79,6 +81,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   ambient: { position: "absolute", top: -140, left: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: "rgba(59, 130, 246, 0.07)" },
   content: { gap: 19, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 40 },
+  tvContent: { gap: 27, paddingHorizontal: 46, paddingTop: 30, paddingBottom: 54 },
   heading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
   headingCopy: { flex: 1, gap: 4 },
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },

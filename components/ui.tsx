@@ -4,7 +4,6 @@ import { Image } from "expo-image";
 import type React from "react";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
+import { TVFocusable } from "@/components/tv-focusable";
 
 export function AppText({ style, children, ...props }: React.ComponentProps<typeof Text>) {
   return (
@@ -47,18 +47,21 @@ export function IconButton({
   label,
   size = 42,
   active = false,
+  hasTVPreferredFocus = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   label: string;
   size?: number;
   active?: boolean;
+  hasTVPreferredFocus?: boolean;
 }) {
   return (
-    <Pressable
+    <TVFocusable
       accessibilityLabel={label}
       accessibilityRole="button"
       onPress={onPress}
+      hasTVPreferredFocus={hasTVPreferredFocus}
       style={({ pressed }) => [
         styles.iconButton,
         { width: size, height: size, borderRadius: size / 2 },
@@ -67,7 +70,7 @@ export function IconButton({
       ]}
     >
       <Ionicons name={icon} size={size * 0.48} color={active ? Colors.blueBright : Colors.text} />
-    </Pressable>
+    </TVFocusable>
   );
 }
 
@@ -87,10 +90,10 @@ export function SectionHeader({
         {subtitle ? <AppText style={styles.sectionSubtitle}>{subtitle}</AppText> : null}
       </View>
       {onPress ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`Ver todos: ${title}`} onPress={onPress} style={styles.seeAllButton}>
+        <TVFocusable accessibilityRole="button" accessibilityLabel={`Ver todos: ${title}`} onPress={onPress} style={styles.seeAllButton}>
           <AppText style={styles.seeAllText}>Ver todos</AppText>
           <Ionicons name="chevron-forward" size={15} color={Colors.blueBright} />
-        </Pressable>
+        </TVFocusable>
       ) : null}
     </View>
   );
@@ -100,20 +103,23 @@ export function Chip({
   label,
   selected,
   onPress,
+  hasTVPreferredFocus = false,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  hasTVPreferredFocus?: boolean;
 }) {
   return (
-    <Pressable
+    <TVFocusable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
+      hasTVPreferredFocus={hasTVPreferredFocus}
       style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
     >
       <AppText style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</AppText>
-    </Pressable>
+    </TVFocusable>
   );
 }
 
@@ -138,9 +144,9 @@ export function SearchField({
         placeholderTextColor={Colors.subtle}
       />
       {value ? (
-        <Pressable accessibilityLabel="Limpar busca" onPress={() => onChangeText("")} hitSlop={8}>
+        <TVFocusable accessibilityLabel="Limpar busca" onPress={() => onChangeText("")} hitSlop={8} style={styles.searchClearButton}>
           <Ionicons name="close-circle" size={17} color={Colors.muted} />
-        </Pressable>
+        </TVFocusable>
       ) : null}
     </View>
   );
@@ -155,6 +161,7 @@ export function PosterCard({
   width = 142,
   onPress,
   progress,
+  hasTVPreferredFocus = false,
 }: {
   title: string;
   image: string;
@@ -164,9 +171,10 @@ export function PosterCard({
   width?: number;
   onPress: () => void;
   progress?: number;
+  hasTVPreferredFocus?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${title}`} onPress={onPress} style={({ pressed }) => [styles.posterCard, { width }, pressed && styles.cardPressed]}>
+    <TVFocusable accessibilityRole="button" accessibilityLabel={`Abrir ${title}`} hasTVPreferredFocus={hasTVPreferredFocus} onPress={onPress} style={({ pressed }) => [styles.posterCard, { width }, pressed && styles.cardPressed]}>
       <View style={[styles.posterFrame, { height: width * 1.42 }]}>
         <Image source={{ uri: image }} contentFit="cover" transition={220} style={StyleSheet.absoluteFill} />
         <View style={styles.posterShade} />
@@ -189,7 +197,7 @@ export function PosterCard({
       </View>
       <AppText numberOfLines={1} style={styles.posterTitle}>{title}</AppText>
       <AppText numberOfLines={1} style={styles.posterMeta}>{meta}</AppText>
-    </Pressable>
+    </TVFocusable>
   );
 }
 
@@ -220,10 +228,10 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
       </View>
       <AppText style={styles.errorTitle}>Não foi possível carregar</AppText>
       <AppText style={styles.errorMessage}>{message}</AppText>
-      <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
+      <TVFocusable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
         <Ionicons name="refresh" size={16} color={Colors.white} />
         <AppText style={styles.retryText}>Tentar novamente</AppText>
-      </Pressable>
+      </TVFocusable>
     </View>
   );
 }
@@ -353,6 +361,13 @@ export const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
+  },
+  searchClearButton: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
   },
   posterCard: {
     gap: 7,

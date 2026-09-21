@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { APP_INFO } from "@/constants/app";
+import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, GlassCard, IconButton, ScreenState, SectionHeader } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 
 const buffers = ["Rápido", "Normal", "Alto"];
@@ -13,6 +15,7 @@ const buffers = ["Rápido", "Normal", "Alto"];
 export default function SettingsScreen() {
   const router = useRouter();
   const { loading, error, retry } = useScreenLoad("seus ajustes");
+  const tvMode = useTVMode();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const trakt = useAppStore((state) => state.trakt);
@@ -56,7 +59,7 @@ export default function SettingsScreen() {
     <View style={styles.screen}>
       <View style={styles.ambient} />
       <ScreenState loading={loading} error={error} retry={retry}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
           <View style={styles.header}>
             <View style={styles.headerCopy}><AppText style={styles.kicker}>CONTROLE DA SUA CONTA</AppText><AppText style={Type.display}>Ajustes</AppText><AppText style={styles.subtitle}>Personalize sua experiência FlixPlay</AppText></View>
             <IconButton icon="person-outline" label="Perfil da conta" onPress={() => Alert.alert("Perfil Marina", "Perfil principal ativo.")} />
@@ -68,15 +71,15 @@ export default function SettingsScreen() {
               {servers.map((server) => {
                 const active = server.id === activeServerId;
                 return (
-                  <Pressable key={server.id} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => handleServer(server.id)} style={({ pressed }) => [styles.serverRow, active && styles.serverRowActive, pressed && styles.pressed]}>
+                  <TVFocusable key={server.id} accessibilityRole="button" accessibilityState={{ selected: active }} hasTVPreferredFocus={server.id === servers[0]?.id} onPress={() => handleServer(server.id)} style={({ pressed }) => [styles.serverRow, active && styles.serverRowActive, pressed && styles.pressed]}>
                     <View style={[styles.serverStatus, active && styles.serverStatusActive]}><Ionicons name={active ? "checkmark" : "cloud-outline"} size={17} color={active ? Colors.green : Colors.muted} /></View>
                     <View style={styles.serverRowCopy}><View style={styles.serverNameRow}><AppText style={styles.serverName}>{server.name}</AppText>{active ? <View style={styles.activeBadge}><AppText style={styles.activeText}>ATIVO</AppText></View> : null}</View><AppText style={styles.serverMeta}>{server.serverUrl.replace("https://", "")} · expira {server.expiryDate}</AppText></View>
                     <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={19} color={active ? Colors.blueBright : Colors.subtle} />
-                  </Pressable>
+                  </TVFocusable>
                 );
               })}
             </View>
-            <Pressable accessibilityRole="button" onPress={() => router.push("/server/add")} style={styles.addServerButton}><Ionicons name="add" size={18} color={Colors.blueBright} /><AppText style={styles.addServerText}>Adicionar servidor</AppText></Pressable>
+            <TVFocusable accessibilityRole="button" onPress={() => router.push("/server/add")} style={styles.addServerButton}><Ionicons name="add" size={18} color={Colors.blueBright} /><AppText style={styles.addServerText}>Adicionar servidor</AppText></TVFocusable>
           </View>
 
           <View style={styles.section}>
@@ -85,9 +88,9 @@ export default function SettingsScreen() {
               <View style={styles.traktIcon}><Ionicons name="sync" size={21} color={Colors.white} /></View>
               <View style={styles.traktCopy}><AppText style={styles.traktTitle}>{trakt.isConnected ? "Conectado" : "Desconectado"}</AppText><AppText style={styles.traktUser}>{trakt.isConnected ? `@${trakt.username}` : "Conecte sua conta Trakt.tv"}</AppText></View>
               <View style={[styles.connectedDot, { backgroundColor: trakt.isConnected ? Colors.green : Colors.subtle }]} />
-              <Pressable accessibilityRole="button" onPress={handleTrakt} style={styles.manageButton}><AppText style={styles.manageButtonText}>{trakt.isConnected ? "Gerenciar" : "Conectar"}</AppText></Pressable>
+              <TVFocusable accessibilityRole="button" onPress={handleTrakt} style={styles.manageButton}><AppText style={styles.manageButtonText}>{trakt.isConnected ? "Gerenciar" : "Conectar"}</AppText></TVFocusable>
             </GlassCard>
-            <Pressable accessibilityRole="button" onPress={handleManualSync} style={styles.syncRow}><View style={styles.syncRowIcon}><Ionicons name="refresh" size={16} color={Colors.blueBright} /></View><View style={styles.syncCopy}><AppText style={styles.syncTitle}>Sincronizar agora</AppText><AppText style={styles.syncMeta}>Última sincronização há 12 min</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></Pressable>
+            <TVFocusable accessibilityRole="button" onPress={handleManualSync} style={styles.syncRow}><View style={styles.syncRowIcon}><Ionicons name="refresh" size={16} color={Colors.blueBright} /></View><View style={styles.syncCopy}><AppText style={styles.syncTitle}>Sincronizar agora</AppText><AppText style={styles.syncMeta}>Última sincronização há 12 min</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
           </View>
 
           <View style={styles.section}>
@@ -98,12 +101,14 @@ export default function SettingsScreen() {
               <View style={styles.preferenceStack}><View style={styles.preferenceRow}><View style={styles.preferenceIcon}><Ionicons name="speedometer-outline" size={19} color={Colors.blueBright} /></View><View style={styles.preferenceCopy}><AppText style={styles.preferenceTitle}>Buffer de Streaming</AppText><AppText style={styles.preferenceMeta}>Ajuste para sua conexão</AppText></View></View><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bufferScroller} contentContainerStyle={styles.bufferContent}>{buffers.map((item) => <Chip key={item} label={item} selected={bufferMode === item} onPress={() => handleBuffer(item)} />)}</ScrollView></View>
               <View style={styles.preferenceDivider} />
               <View style={styles.preferenceRow}><View style={styles.preferenceIcon}><Ionicons name="radio-outline" size={19} color={Colors.blueBright} /></View><View style={styles.preferenceCopy}><AppText style={styles.preferenceTitle}>Abrir último canal</AppText><AppText style={styles.preferenceMeta}>Retomar ao iniciar o app</AppText></View><Switch value={autoOpen} onValueChange={(value) => setPreference("autoOpenLastChannel", value)} trackColor={{ false: "#293246", true: Colors.blue }} thumbColor={Colors.white} /></View>
+              <View style={styles.preferenceDivider} />
+              <View style={styles.preferenceRow}><View style={styles.preferenceIcon}><Ionicons name="tv-outline" size={19} color={Colors.blueBright} /></View><View style={styles.preferenceCopy}><AppText style={styles.preferenceTitle}>Modo Android TV</AppText><AppText style={styles.preferenceMeta}>{Platform.isTV ? "Detectado automaticamente neste dispositivo" : tvMode ? "Modo TV forçado manualmente" : "Ative para navegar com controle remoto"}</AppText></View><Switch value={tvMode} onValueChange={(value) => setPreference("tvModeEnabled", value)} trackColor={{ false: "#293246", true: Colors.blue }} thumbColor={Colors.white} /></View>
             </GlassCard>
           </View>
 
           <View style={styles.section}>
             <SectionHeader title="Sobre o FlixPlay" subtitle="Versão, recursos e histórico de atualizações" />
-            <Pressable accessibilityRole="button" accessibilityLabel="Abrir informações sobre o FlixPlay" onPress={handleAbout} style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir informações sobre o FlixPlay" onPress={handleAbout} style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}>
               <View style={styles.aboutIcon}>
                 <Ionicons name="sparkles-outline" size={20} color={Colors.blueBright} />
               </View>
@@ -115,12 +120,12 @@ export default function SettingsScreen() {
                 <AppText style={styles.aboutMeta}>{APP_INFO.versionLabel} · Versão estável e atualizada</AppText>
               </View>
               <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
-            </Pressable>
+            </TVFocusable>
           </View>
 
           <View style={styles.infoGrid}><View style={styles.infoTile}><AppText style={styles.infoLabel}>CONEXÕES ATIVAS</AppText><AppText style={styles.infoValue}>1 <AppText style={styles.infoMuted}>/ 3</AppText></AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>FORMATO DE SAÍDA</AppText><AppText style={styles.infoValue}>HLS</AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>STATUS DA LISTA</AppText><View style={styles.statusLine}><View style={styles.activeDot} /><AppText style={styles.infoValueSmall}>Online</AppText></View></View></View>
 
-          <Pressable accessibilityRole="button" onPress={handleDemo} style={styles.demoBanner}><View style={styles.demoIcon}><Ionicons name="flash" size={18} color={Colors.amber} /></View><View style={styles.demoCopy}><AppText style={styles.demoTitle}>Modo Demonstração</AppText><AppText style={styles.demoBody}>Explore sem configurar um servidor próprio</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></Pressable>
+          <TVFocusable accessibilityRole="button" onPress={handleDemo} style={styles.demoBanner}><View style={styles.demoIcon}><Ionicons name="flash" size={18} color={Colors.amber} /></View><View style={styles.demoCopy}><AppText style={styles.demoTitle}>Modo Demonstração</AppText><AppText style={styles.demoBody}>Explore sem configurar um servidor próprio</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
           <AppText style={styles.version}>{APP_INFO.name} {APP_INFO.versionLabel} · Feito para sua sala</AppText>
         </ScrollView>
       </ScreenState>
@@ -132,6 +137,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   ambient: { position: "absolute", top: -130, right: -100, width: 290, height: 290, borderRadius: 145, backgroundColor: "rgba(59, 130, 246, 0.07)" },
   content: { gap: 24, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 40 },
+  tvContent: { gap: 30, paddingHorizontal: 46, paddingTop: 30, paddingBottom: 54 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
   headerCopy: { flex: 1, gap: 4 },
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },

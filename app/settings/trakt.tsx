@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Colors, Radii, Type } from "@/constants/theme";
+import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, IconButton } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -34,7 +35,7 @@ export default function TraktScreen() {
         <View style={styles.hero}><View style={styles.heroIcon}><Ionicons name="sync" size={28} color={Colors.white} /></View><AppText style={styles.heroTitleLarge}>{trakt.isConnected ? "Tudo sincronizado" : "Leve seu histórico com você"}</AppText><AppText style={styles.heroBody}>{trakt.isConnected ? `Sua conta @${trakt.username} está conectada ao FlixPlay.` : "Conecte sua conta para sincronizar progresso, favoritos e watchlist em todos os dispositivos."}</AppText></View>
         <View style={styles.features}><Feature icon="time-outline" title="Progresso de reprodução" body="Retome filmes e episódios do ponto certo." /><Feature icon="heart-outline" title="Favoritos e watchlist" body="Mantenha sua curadoria sempre atualizada." /><Feature icon="radio-outline" title="Scrobble automático" body="Registre o que está assistindo em tempo real." /></View>
         {error ? <View style={styles.error}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.errorText}>{error}</AppText></View> : null}
-        <Pressable accessibilityRole="button" disabled={loading} onPress={handleConnection} style={({ pressed }) => [styles.connectButton, pressed && styles.pressed, loading && styles.disabled]}>{loading ? <ActivityIndicator color={Colors.white} /> : <><Ionicons name={trakt.isConnected ? "log-out-outline" : "link-outline"} size={17} color={Colors.white} /><AppText style={styles.connectText}>{trakt.isConnected ? "Desconectar conta" : "Conectar com Trakt.tv"}</AppText></>}</Pressable>
+        <TVFocusable accessibilityRole="button" disabled={loading} onPress={handleConnection} style={({ pressed }) => [styles.connectButton, pressed && styles.pressed, loading && styles.disabled]}>{loading ? <ActivityIndicator color={Colors.white} /> : <><Ionicons name={trakt.isConnected ? "log-out-outline" : "link-outline"} size={17} color={Colors.white} /><AppText style={styles.connectText}>{trakt.isConnected ? "Desconectar conta" : "Conectar com Trakt.tv"}</AppText></>}</TVFocusable>
         {trakt.isConnected ? <View style={styles.autoRow}><View style={styles.autoCopy}><AppText style={styles.autoTitle}>Scrobble automático</AppText><AppText style={styles.autoBody}>Atualizar ao iniciar, pausar e concluir</AppText></View><Switch value={trakt.autoScrobble} onValueChange={(value) => setTrakt({ autoScrobble: value })} trackColor={{ false: "#293246", true: Colors.red }} thumbColor={Colors.white} /></View> : null}
       </ScrollView>
     </View>

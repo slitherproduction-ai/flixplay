@@ -2,11 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, Linking, ScrollView, StyleSheet, View } from "react-native";
+import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, GlassCard, IconButton, ScreenState } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { useTVMode } from "@/hooks/use-tv-mode";
 
 type ChangeTag = "Novidade" | "Melhoria" | "Correção";
 
@@ -85,6 +87,7 @@ const TAG_COLORS: Record<ChangeTag, { backgroundColor: string; color: string }> 
 export default function AboutScreen() {
   const router = useRouter();
   const { loading, error: loadError, retry } = useScreenLoad("informações do aplicativo");
+  const tvMode = useTVMode();
   const [actionError, setActionError] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<"idle" | "checking" | "success">("idle");
   const [toastOpacity] = useState(() => new Animated.Value(0));
@@ -156,7 +159,7 @@ export default function AboutScreen() {
       <View style={styles.ambientTop} />
       <View style={styles.ambientBottom} />
       <ScreenState loading={loading} error={loadError} retry={retry}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
           <View style={styles.header}>
             <IconButton icon="close" label="Fechar informações do aplicativo" onPress={() => router.back()} />
             <View style={styles.headerCopy}>
@@ -217,10 +220,10 @@ export default function AboutScreen() {
               </Animated.View>
             ) : null}
             {actionError ? <View style={styles.actionError}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.actionErrorText}>{actionError}</AppText></View> : null}
-            <Pressable accessibilityRole="button" disabled={checkState === "checking"} onPress={handleCheckUpdates} style={({ pressed }) => [styles.checkButton, pressed && styles.pressed, checkState === "checking" && styles.disabled]}>
+            <TVFocusable accessibilityRole="button" hasTVPreferredFocus disabled={checkState === "checking"} onPress={handleCheckUpdates} style={({ pressed }) => [styles.checkButton, pressed && styles.pressed, checkState === "checking" && styles.disabled]}>
               {checkState === "checking" ? <ActivityIndicator color={Colors.white} /> : <Ionicons name="refresh-outline" size={17} color={Colors.white} />}
               <AppText style={styles.checkButtonText}>{checkState === "checking" ? "Verificando..." : "Verificar Atualizações"}</AppText>
-            </Pressable>
+            </TVFocusable>
           </View>
 
           <View style={styles.sectionHeading}>
@@ -271,7 +274,7 @@ function VersionCard({ release, isLast }: { release: VersionEntry; isLast: boole
 }
 
 function AboutLink({ icon, title, body, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}><View style={styles.aboutLinkIcon}><Ionicons name={icon} size={18} color={Colors.blueBright} /></View><View style={styles.aboutLinkCopy}><AppText style={styles.aboutLinkTitle}>{title}</AppText><AppText style={styles.aboutLinkBody}>{body}</AppText></View><Ionicons name="arrow-up-outline" size={17} color={Colors.subtle} /></Pressable>;
+  return <TVFocusable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}><View style={styles.aboutLinkIcon}><Ionicons name={icon} size={18} color={Colors.blueBright} /></View><View style={styles.aboutLinkCopy}><AppText style={styles.aboutLinkTitle}>{title}</AppText><AppText style={styles.aboutLinkBody}>{body}</AppText></View><Ionicons name="arrow-up-outline" size={17} color={Colors.subtle} /></TVFocusable>;
 }
 
 const styles = StyleSheet.create({
@@ -279,6 +282,7 @@ const styles = StyleSheet.create({
   ambientTop: { position: "absolute", top: -150, right: -105, width: 310, height: 310, borderRadius: 155, backgroundColor: "rgba(59,130,246,0.1)" },
   ambientBottom: { position: "absolute", bottom: 120, left: -180, width: 340, height: 340, borderRadius: 170, backgroundColor: "rgba(229,9,20,0.045)" },
   content: { gap: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 42 },
+  tvContent: { gap: 28, paddingHorizontal: 46, paddingTop: 30, paddingBottom: 58 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
   headerCopy: { flex: 1, alignItems: "center", gap: 3 },
   headerSpacer: { width: 42 },

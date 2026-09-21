@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Colors, Radii } from "@/constants/theme";
+import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, IconButton } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -63,7 +64,7 @@ export default function AddServerScreen() {
           {sourceKind === "Xtream Codes" ? <><Field label="Usuário" value={username} onChangeText={setUsername} placeholder="Seu usuário" autoCapitalize="none" /><Field label="Senha" value={password} onChangeText={setPassword} placeholder="Sua senha" secureTextEntry autoCapitalize="none" /></> : <View style={styles.tip}><Ionicons name="information-circle-outline" size={17} color={Colors.blueBright} /><AppText style={styles.tipText}>Use uma URL M3U ou M3U8 direta. O FlixPlay vai organizar canais e categorias automaticamente.</AppText></View>}
         </View>
         {error ? <View style={styles.errorBox}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.errorText}>{error}</AppText></View> : null}
-        <Pressable accessibilityRole="button" disabled={saving} onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed, saving && styles.disabled]}>{saving ? <ActivityIndicator color={Colors.white} /> : <><Ionicons name="link" size={17} color={Colors.white} /><AppText style={styles.submitText}>Conectar servidor</AppText></>}</Pressable>
+        <TVFocusable accessibilityRole="button" disabled={saving} onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed, saving && styles.disabled]}>{saving ? <ActivityIndicator color={Colors.white} /> : <><Ionicons name="link" size={17} color={Colors.white} /><AppText style={styles.submitText}>Conectar servidor</AppText></>}</TVFocusable>
         <AppText style={styles.security}><Ionicons name="lock-closed" size={12} color={Colors.subtle} /> Suas credenciais ficam salvas apenas neste dispositivo.</AppText>
       </ScrollView>
     </KeyboardAvoidingView>

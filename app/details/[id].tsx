@@ -2,11 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { episodes, getContentById, movies, series } from "@/data/demo";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
+import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, EmptyState, IconButton, ScreenState, SectionHeader } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import type { EpisodeItem, SeriesItem, VodMovie } from "@/store/types";
 
@@ -15,6 +17,7 @@ export default function DetailsScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const { loading, error, retry } = useScreenLoad("os detalhes");
+  const tvMode = useTVMode();
   const toggleFavorite = useAppStore((state) => state.toggleFavorite);
   const favoriteIds = useAppStore((state) => state.favoriteIds);
   const [season, setSeason] = useState(2);
@@ -59,19 +62,20 @@ export default function DetailsScreen() {
   return (
     <View style={styles.screen}>
       <ScreenState loading={loading} error={error ?? missingError} retry={handleRetry}>
-        {movie || show ? <DetailsContent movie={movie} show={show} similar={similar} season={season} selectedEpisodes={selectedEpisodes} isFavorite={isFavorite} onBack={router.back} onFavorite={handleFavorite} onPlay={handlePlay} onTrailer={handleTrailer} onSeasonChange={setSeason} onSimilar={handleSimilar} /> : null}
+        {movie || show ? <DetailsContent movie={movie} show={show} similar={similar} season={season} selectedEpisodes={selectedEpisodes} isFavorite={isFavorite} tvMode={tvMode} onBack={router.back} onFavorite={handleFavorite} onPlay={handlePlay} onTrailer={handleTrailer} onSeasonChange={setSeason} onSimilar={handleSimilar} /> : null}
       </ScreenState>
     </View>
   );
 }
 
-function DetailsContent({ movie, show, similar, season, selectedEpisodes, isFavorite, onBack, onFavorite, onPlay, onTrailer, onSeasonChange, onSimilar }: {
+function DetailsContent({ movie, show, similar, season, selectedEpisodes, isFavorite, tvMode, onBack, onFavorite, onPlay, onTrailer, onSeasonChange, onSimilar }: {
   movie?: VodMovie;
   show?: SeriesItem;
   similar: (VodMovie | SeriesItem)[];
   season: number;
   selectedEpisodes: EpisodeItem[];
   isFavorite: boolean;
+  tvMode: boolean;
   onBack: () => void;
   onFavorite: () => void;
   onPlay: (episodeId?: string) => void;
@@ -80,7 +84,7 @@ function DetailsContent({ movie, show, similar, season, selectedEpisodes, isFavo
   onSimilar: (id: string) => void;
 }) {
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+    <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
       <ContentSummary movie={movie} show={show} isFavorite={isFavorite} onBack={onBack} onFavorite={onFavorite} />
       <ContentActions isMovie={Boolean(movie)} isFavorite={isFavorite} onPlay={onPlay} onTrailer={onTrailer} onFavorite={onFavorite} />
       {show ? <EpisodesSection show={show} season={season} selectedEpisodes={selectedEpisodes} onPlay={onPlay} onSeasonChange={onSeasonChange} /> : null}
@@ -104,7 +108,7 @@ function ContentSummary({ movie, show, isFavorite, onBack, onFavorite }: { movie
 }
 
 function ContentActions({ isMovie, isFavorite, onPlay, onTrailer, onFavorite }: { isMovie: boolean; isFavorite: boolean; onPlay: () => void; onTrailer: () => void; onFavorite: () => void }) {
-  return <View style={styles.actions}><Pressable accessibilityRole="button" onPress={onPlay} style={styles.primaryButton}><Ionicons name="play" size={16} color={Colors.white} /><AppText style={styles.primaryText}>{isMovie ? "Assistir agora" : "Continuar T2:E3"}</AppText></Pressable><Pressable accessibilityRole="button" onPress={onTrailer} style={styles.actionButton}><Ionicons name="play-circle-outline" size={17} color={Colors.text} /><AppText style={styles.actionText}>Trailer</AppText></Pressable><Pressable accessibilityRole="button" onPress={onFavorite} style={styles.actionButton}><Ionicons name={isFavorite ? "heart" : "heart-outline"} size={17} color={isFavorite ? Colors.red : Colors.text} /><AppText style={styles.actionText}>Favoritos</AppText></Pressable></View>;
+  return <View style={styles.actions}><TVFocusable accessibilityRole="button" hasTVPreferredFocus onPress={onPlay} style={styles.primaryButton}><Ionicons name="play" size={16} color={Colors.white} /><AppText style={styles.primaryText}>{isMovie ? "Assistir agora" : "Continuar T2:E3"}</AppText></TVFocusable><TVFocusable accessibilityRole="button" onPress={onTrailer} style={styles.actionButton}><Ionicons name="play-circle-outline" size={17} color={Colors.text} /><AppText style={styles.actionText}>Trailer</AppText></TVFocusable><TVFocusable accessibilityRole="button" onPress={onFavorite} style={styles.actionButton}><Ionicons name={isFavorite ? "heart" : "heart-outline"} size={17} color={isFavorite ? Colors.red : Colors.text} /><AppText style={styles.actionText}>Favoritos</AppText></TVFocusable></View>;
 }
 
 function EpisodesSection({ show, season, selectedEpisodes, onPlay, onSeasonChange }: { show: SeriesItem; season: number; selectedEpisodes: EpisodeItem[]; onPlay: (episodeId?: string) => void; onSeasonChange: (season: number) => void }) {
@@ -112,16 +116,17 @@ function EpisodesSection({ show, season, selectedEpisodes, onPlay, onSeasonChang
 }
 
 function EpisodeCard({ episode, onPlay }: { episode: EpisodeItem; onPlay: (episodeId?: string) => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={`Reproduzir ${episode.title}`} onPress={() => onPlay(episode.id)} style={({ pressed }) => [styles.episodeCard, pressed && styles.pressed]}><View style={styles.episodeThumb}><Image source={{ uri: episode.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} /><View style={styles.thumbShade} /><View style={styles.episodePlay}><Ionicons name="play" size={14} color={Colors.white} /></View></View><View style={styles.episodeCopy}><AppText numberOfLines={1} style={styles.episodeTitle}>T{episode.seasonNumber}:E{episode.episodeNumber} · {episode.title}</AppText><AppText numberOfLines={2} style={styles.episodePlot}>{episode.plot}</AppText><View style={styles.episodeBottom}><AppText style={styles.episodeDuration}>{episode.duration}</AppText>{episode.resumePositionMs ? <View style={styles.episodeProgress}><View style={[styles.episodeProgressFill, { width: "56%" }]} /></View> : <AppText style={styles.newEpisode}>NOVO</AppText>}</View></View></Pressable>;
+  return <TVFocusable accessibilityRole="button" accessibilityLabel={`Reproduzir ${episode.title}`} onPress={() => onPlay(episode.id)} style={({ pressed }) => [styles.episodeCard, pressed && styles.pressed]}><View style={styles.episodeThumb}><Image source={{ uri: episode.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} /><View style={styles.thumbShade} /><View style={styles.episodePlay}><Ionicons name="play" size={14} color={Colors.white} /></View></View><View style={styles.episodeCopy}><AppText numberOfLines={1} style={styles.episodeTitle}>T{episode.seasonNumber}:E{episode.episodeNumber} · {episode.title}</AppText><AppText numberOfLines={2} style={styles.episodePlot}>{episode.plot}</AppText><View style={styles.episodeBottom}><AppText style={styles.episodeDuration}>{episode.duration}</AppText>{episode.resumePositionMs ? <View style={styles.episodeProgress}><View style={[styles.episodeProgressFill, { width: "56%" }]} /></View> : <AppText style={styles.newEpisode}>NOVO</AppText>}</View></View></TVFocusable>;
 }
 
 function SimilarSection({ similar, onSimilar }: { similar: (VodMovie | SeriesItem)[]; onSimilar: (id: string) => void }) {
-  return <View style={styles.similarSection}><SectionHeader title="Você também pode gostar" /><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarScroller} contentContainerStyle={styles.similarContent}>{similar.map((item) => <Pressable key={item.id} accessibilityRole="button" onPress={() => onSimilar(item.id)} style={styles.similarCard}><Image source={{ uri: item.poster }} contentFit="cover" style={styles.similarImage} /><AppText numberOfLines={1} style={styles.similarTitle}>{item.title}</AppText><View style={styles.similarMeta}><Ionicons name="star" size={10} color={Colors.amber} /><AppText style={styles.similarMetaText}>{item.year} · {item.rating.toFixed(1)}</AppText></View></Pressable>)}</ScrollView></View>;
+  return <View style={styles.similarSection}><SectionHeader title="Você também pode gostar" /><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarScroller} contentContainerStyle={styles.similarContent}>{similar.map((item) => <TVFocusable key={item.id} accessibilityRole="button" onPress={() => onSimilar(item.id)} style={styles.similarCard}><Image source={{ uri: item.poster }} contentFit="cover" style={styles.similarImage} /><AppText numberOfLines={1} style={styles.similarTitle}>{item.title}</AppText><View style={styles.similarMeta}><Ionicons name="star" size={10} color={Colors.amber} /><AppText style={styles.similarMetaText}>{item.year} · {item.rating.toFixed(1)}</AppText></View></TVFocusable>)}</ScrollView></View>;
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   content: { gap: 18, paddingBottom: 38 },
+  tvContent: { gap: 28, paddingBottom: 54 },
   backdrop: { height: 255, overflow: "hidden", backgroundColor: Colors.backgroundRaised },
   backdropShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(7,9,14,0.48)" },
   topControls: { position: "absolute", top: 18, right: 20, left: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

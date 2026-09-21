@@ -2,11 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { channels, movies, series } from "@/data/demo";
 import { Colors, Radii, Shadows } from "@/constants/theme";
+import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, GlassCard, HorizontalScroller, IconButton, PosterCard, ScreenState, SectionHeader } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 
 const hero = movies[0];
@@ -15,11 +17,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { loading, error, retry } = useScreenLoad("a página inicial");
+  const tvMode = useTVMode();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const history = useAppStore((state) => state.history);
   const activeServer = servers.find((server) => server.id === activeServerId) ?? servers[0];
-  const posterWidth = width > 700 ? 166 : 142;
+  const posterWidth = tvMode || width > 700 ? 198 : 142;
 
   const handleSearch = useCallback(() => {
     router.push("/movies");
@@ -31,6 +34,18 @@ export default function HomeScreen() {
 
   const handleHeroPlay = useCallback(() => {
     router.push({ pathname: "/player", params: { id: hero.id, title: hero.title, type: "movie", streamUrl: hero.streamUrl } });
+  }, [router]);
+
+  const handleOpenLive = useCallback(() => {
+    router.push("/live");
+  }, [router]);
+
+  const handleOpenMovies = useCallback(() => {
+    router.push("/movies");
+  }, [router]);
+
+  const handleOpenSeries = useCallback(() => {
+    router.push("/series");
   }, [router]);
 
   const handleLive = useCallback((channelId: string) => {
@@ -59,7 +74,7 @@ export default function HomeScreen() {
       <View style={styles.ambientBlue} />
       <View style={styles.ambientRed} />
       <ScreenState loading={loading} error={error} retry={retry}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
           <View style={styles.topBar}>
             <View style={styles.brandBlock}>
               <AppText style={styles.eyebrow}>SUA CENTRAL DE ENTRETENIMENTO</AppText>
@@ -67,10 +82,10 @@ export default function HomeScreen() {
             </View>
             <View style={styles.topActions}>
               <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
-              <Pressable accessibilityRole="button" accessibilityLabel="Abrir perfil Marina" onPress={handleSearch} style={styles.avatarButton}>
+              <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir perfil Marina" onPress={handleSearch} style={styles.avatarButton}>
                 <AppText style={styles.avatarText}>MC</AppText>
                 <View style={styles.onlineDot} />
-              </Pressable>
+              </TVFocusable>
             </View>
           </View>
 
@@ -90,7 +105,7 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
           </GlassCard>
 
-          <View style={styles.heroWrap}>
+            <View style={[styles.heroWrap, tvMode && styles.tvHeroWrap]}>
             <Image source={{ uri: hero.backdrop }} contentFit="cover" transition={300} style={StyleSheet.absoluteFill} />
             <View style={styles.heroTint} />
             <View style={styles.heroGlow} />
@@ -100,14 +115,14 @@ export default function HomeScreen() {
               <AppText numberOfLines={2} style={styles.heroDescription}>{hero.plot}</AppText>
               <View style={styles.heroMeta}><AppText style={styles.heroMetaText}>{hero.year}</AppText><View style={styles.metaDot} /><AppText style={styles.heroMetaText}>{hero.duration}</AppText><View style={styles.metaDot} /><AppText style={styles.heroRating}><Ionicons name="star" size={11} color={Colors.amber} /> {hero.rating.toFixed(1)}</AppText></View>
               <View style={styles.heroActions}>
-                <Pressable accessibilityRole="button" onPress={handleHeroPlay} style={styles.primaryButton}>
+                <TVFocusable accessibilityRole="button" hasTVPreferredFocus onPress={handleHeroPlay} style={styles.primaryButton}>
                   <Ionicons name="play" size={16} color={Colors.white} />
                   <AppText style={styles.primaryButtonText}>Assistir agora</AppText>
-                </Pressable>
-                <Pressable accessibilityRole="button" onPress={handleHeroDetails} style={styles.secondaryButton}>
+                </TVFocusable>
+                <TVFocusable accessibilityRole="button" onPress={handleHeroDetails} style={styles.secondaryButton}>
                   <AppText style={styles.secondaryButtonText}>Ver detalhes</AppText>
                   <Ionicons name="arrow-forward" size={15} color={Colors.text} />
-                </Pressable>
+                </TVFocusable>
               </View>
             </View>
           </View>
@@ -116,7 +131,7 @@ export default function HomeScreen() {
             <SectionHeader title="Continuar Assistindo" subtitle="Retome de onde parou" onPress={handleSearch} />
             <HorizontalScroller>
               {history.map((item) => (
-                <Pressable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item.contentId, item.type)} style={styles.continueCard}>
+                 <TVFocusable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item.contentId, item.type)} style={styles.continueCard}>
                   <View style={styles.continueImage}>
                     <Image source={{ uri: item.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
                     <View style={styles.continueShade} />
@@ -125,34 +140,34 @@ export default function HomeScreen() {
                   <AppText numberOfLines={1} style={styles.continueTitle}>{item.title}</AppText>
                   <AppText numberOfLines={1} style={styles.continueSubtitle}>{item.subtitle}</AppText>
                   <View style={styles.continueTrack}><View style={[styles.continueFill, { width: `${Math.round((item.positionMs / item.durationMs) * 100)}%` }]} /></View>
-                </Pressable>
+                 </TVFocusable>
               ))}
             </HorizontalScroller>
           </View>
 
           <View style={styles.sectionBlock}>
-            <SectionHeader title="Canais Favoritos" subtitle="Programação ao vivo agora" onPress={() => router.push("/live")} />
+            <SectionHeader title="Canais Favoritos" subtitle="Programação ao vivo agora" onPress={handleOpenLive} />
             <HorizontalScroller>
               {channels.slice(0, 5).map((channel) => (
-                <Pressable key={channel.id} accessibilityRole="button" accessibilityLabel={`Assistir ${channel.name}`} onPress={() => handleLive(channel.id)} style={styles.channelCard}>
+                <TVFocusable key={channel.id} accessibilityRole="button" accessibilityLabel={`Assistir ${channel.name}`} onPress={() => handleLive(channel.id)} style={styles.channelCard}>
                   <ChannelLogo image={channel.logo} name={channel.name} size={60} />
                   <AppText numberOfLines={1} style={styles.channelName}>{channel.name}</AppText>
                   <AppText numberOfLines={1} style={styles.channelProgram}>{channel.currentEpg.title}</AppText>
                   <View style={styles.channelProgress}><View style={[styles.channelProgressFill, { width: `${channel.currentEpg.progress}%` }]} /></View>
-                </Pressable>
+                </TVFocusable>
               ))}
             </HorizontalScroller>
           </View>
 
           <View style={styles.sectionBlock}>
-            <SectionHeader title="Filmes adicionados recentemente" onPress={() => router.push("/movies")} />
+            <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
             <HorizontalScroller>
               {recentMovies.map((movie) => <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${movie.year} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />)}
             </HorizontalScroller>
           </View>
 
           <View style={styles.sectionBlock}>
-            <SectionHeader title="Séries em alta" onPress={() => router.push("/series")} />
+            <SectionHeader title="Séries em alta" onPress={handleOpenSeries} />
             <HorizontalScroller>
               {popularSeries.map((item) => <PosterCard key={item.id} title={item.title} image={item.poster} meta={`${item.year} · ${item.seasonsCount} temporadas`} rating={item.rating} width={posterWidth} onPress={() => handleContent(item.id)} />)}
             </HorizontalScroller>
@@ -166,6 +181,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, overflow: "hidden", backgroundColor: Colors.background },
   content: { gap: 24, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 38 },
+  tvContent: { gap: 30, paddingHorizontal: 46, paddingTop: 30, paddingBottom: 54 },
   ambientBlue: { position: "absolute", top: -130, right: -110, width: 280, height: 280, borderRadius: 140, backgroundColor: "rgba(36, 99, 235, 0.11)" },
   ambientRed: { position: "absolute", top: 400, left: -180, width: 330, height: 330, borderRadius: 165, backgroundColor: "rgba(229, 9, 20, 0.05)" },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
@@ -186,6 +202,7 @@ const styles = StyleSheet.create({
   expiryCopy: { minWidth: 78, gap: 2 },
   expiryDate: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   heroWrap: { height: 340, overflow: "hidden", borderRadius: Radii.large, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: Colors.backgroundRaised, ...Shadows.card },
+  tvHeroWrap: { height: 420 },
   heroTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(5, 7, 12, 0.36)" },
   heroGlow: { position: "absolute", right: -40, bottom: -100, left: -40, height: 250, backgroundColor: "rgba(5, 7, 12, 0.92)" },
   heroContent: { position: "absolute", right: 20, bottom: 20, left: 20, gap: 9 },

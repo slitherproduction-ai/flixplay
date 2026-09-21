@@ -2,12 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState, type Ref } from "react";
+import { ActivityIndicator, BackHandler, Platform, StyleSheet, View } from "react-native";
 import { channels, DEMO_STREAM_URL, movies } from "@/data/demo";
 import { Colors, Shadows } from "@/constants/theme";
+import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, GlassCard, IconButton } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { getTVRemoteEvent, useTVRemote, type TVKeyDownEvent, type TVRemoteEvent } from "@/hooks/use-tv-remote";
+import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import type { ContentType } from "@/store/types";
 
@@ -36,12 +39,14 @@ export default function PlayerScreen() {
   const type = readParam(params.type) ?? "movie";
   const streamUrl = readParam(params.streamUrl) ?? DEMO_STREAM_URL;
   const { loading, error, retry } = useScreenLoad("o player");
+  const tvMode = useTVMode();
   const saveHistory = useAppStore((state) => state.saveHistory);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [quickSwitcherVisible, setQuickSwitcherVisible] = useState(type === "live");
   const [panel, setPanel] = useState<Panel>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [playerError, setPlayerError] = useState<string | null>(null);
+  const playButtonRef = useRef<TVFocusableHandle>(null);
   const player = useVideoPlayer(streamUrl, (videoPlayer) => {
     videoPlayer.loop = true;
     videoPlayer.play();
@@ -86,6 +91,17 @@ export default function PlayerScreen() {
     setIsPlaying((value) => !value);
   }, [isPlaying, player]);
 
+  const handleSeek = useCallback((seconds: number) => {
+    try {
+      player.seekBy(seconds);
+      setControlsVisible(true);
+      setPlayerError(null);
+    } catch (seekError) {
+      console.error("Falha ao buscar no stream", seekError);
+      setPlayerError("Não foi possível alterar o ponto da reprodução.");
+    }
+  }, [player]);
+
   const handlePanel = useCallback((nextPanel: Panel) => {
     setPanel((current) => current === nextPanel ? null : nextPanel);
   }, []);
@@ -125,17 +141,78 @@ export default function PlayerScreen() {
     void retry();
   }, [retry]);
 
+  const handleRemoteEvent = useCallback((event: TVRemoteEvent) => {
+    if (event === "select") {
+      if (panel) {
+        setPanel(null);
+      } else if (!controlsVisible) {
+        setControlsVisible(true);
+      } else {
+        handleTogglePlayback();
+      }
+      return;
+    }
+    if (event === "left") {
+      handleSeek(-10);
+      return;
+    }
+    if (event === "right") {
+      handleSeek(10);
+      return;
+    }
+    if (event === "up") {
+      if (contentType === "live") {
+        setQuickSwitcherVisible(true);
+        setControlsVisible(true);
+      }
+      return;
+    }
+    if (event === "down") {
+      setControlsVisible(true);
+      setPanel(null);
+      setTimeout(() => playButtonRef.current?.focus(), 0);
+      return;
+    }
+    if (panel) {
+      setPanel(null);
+      return;
+    }
+    if (quickSwitcherVisible) {
+      setQuickSwitcherVisible(false);
+      return;
+    }
+    handleBack();
+  }, [contentType, controlsVisible, handleBack, handleSeek, handleTogglePlayback, panel, quickSwitcherVisible]);
+
+  useTVRemote(handleRemoteEvent, tvMode);
+
+  const handleNativeKeyDown = useCallback((event: TVKeyDownEvent) => {
+    if (Platform.OS === "web" || !tvMode) return;
+    const remoteEvent = getTVRemoteEvent(event.nativeEvent.key, event.nativeEvent.code);
+    if (remoteEvent && remoteEvent !== "back") handleRemoteEvent(remoteEvent);
+  }, [handleRemoteEvent, tvMode]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleRemoteEvent("back");
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleRemoteEvent]);
+
+  const keyAwareProps = { style: styles.screen, onKeyDown: handleNativeKeyDown } as unknown as React.ComponentProps<typeof View>;
+
   return (
-    <View style={styles.screen}>
+    <View {...keyAwareProps}>
       <Image source={{ uri: backdrop }} contentFit="cover" style={StyleSheet.absoluteFill} />
       <View style={styles.backdropVeil} />
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
-      <Pressable accessibilityLabel="Mostrar ou ocultar controles" onPress={handleTap} style={StyleSheet.absoluteFill} />
+      <TVFocusable focusable={false} accessibilityLabel="Mostrar ou ocultar controles" onPress={handleTap} style={StyleSheet.absoluteFill} />
       <View pointerEvents="box-none" style={styles.overlay}>
         {controlsVisible ? <PlayerTopBar title={title} contentType={contentType} onBack={handleBack} onOpenSubtitles={handleOpenSubtitles} onToggleQuickSwitcher={handleToggleQuickSwitcher} /> : null}
         <QuickSwitcher visible={quickSwitcherVisible && controlsVisible} currentId={id} onSwitch={handleSwitchChannel} onClose={handleCloseQuickSwitcher} />
         <PlayerStatus loading={loading} error={playerError ?? error} onRetry={handleRetry} />
-        {controlsVisible ? <PlayerBottomPanel contentType={contentType} isPlaying={isPlaying} panel={panel} onTogglePlayback={handleTogglePlayback} onPanelChange={handlePanel} onClosePanel={() => setPanel(null)} /> : null}
+        {controlsVisible ? <PlayerBottomPanel playButtonRef={playButtonRef} contentType={contentType} isPlaying={isPlaying} panel={panel} onTogglePlayback={handleTogglePlayback} onSeek={handleSeek} onPanelChange={handlePanel} onClosePanel={() => setPanel(null)} /> : null}
       </View>
     </View>
   );
@@ -155,18 +232,18 @@ function QuickChannel({ channelId, name, logo, program, progress, active, onSwit
     onSwitch(channelId);
   }, [channelId, onSwitch]);
 
-  return <Pressable accessibilityRole="button" onPress={handlePress} style={({ pressed }) => [styles.quickChannel, active && styles.quickChannelActive, pressed && styles.pressed]}><ChannelLogo image={logo} name={name} size={42} /><View style={styles.quickCopy}><AppText style={styles.quickChannelName}>{name}</AppText><AppText numberOfLines={1} style={styles.quickProgram}>{program}</AppText><View style={styles.quickProgress}><View style={[styles.quickProgressFill, { width: `${progress}%` }]} /></View></View>{active ? <Ionicons name="radio" size={16} color={Colors.blueBright} /> : null}</Pressable>;
+  return <TVFocusable accessibilityRole="button" onPress={handlePress} style={({ pressed }) => [styles.quickChannel, active && styles.quickChannelActive, pressed && styles.pressed]}><ChannelLogo image={logo} name={name} size={42} /><View style={styles.quickCopy}><AppText style={styles.quickChannelName}>{name}</AppText><AppText numberOfLines={1} style={styles.quickProgram}>{program}</AppText><View style={styles.quickProgress}><View style={[styles.quickProgressFill, { width: `${progress}%` }]} /></View></View>{active ? <Ionicons name="radio" size={16} color={Colors.blueBright} /> : null}</TVFocusable>;
 }
 
 function PlayerStatus({ loading, error, onRetry }: { loading: boolean; error: string | null; onRetry: () => void }) {
-  return <>{loading ? <View style={styles.loadingOverlay}><ActivityIndicator size="large" color={Colors.white} /><AppText style={styles.loadingText}>Preparando reprodução...</AppText></View> : null}{error ? <View style={styles.playerError}><Ionicons name="warning-outline" size={17} color={Colors.amber} /><AppText style={styles.playerErrorText}>{error}</AppText><Pressable accessibilityRole="button" onPress={onRetry}><AppText style={styles.playerRetry}>Tentar</AppText></Pressable></View> : null}</>;
+  return <>{loading ? <View style={styles.loadingOverlay}><ActivityIndicator size="large" color={Colors.white} /><AppText style={styles.loadingText}>Preparando reprodução...</AppText></View> : null}{error ? <View style={styles.playerError}><Ionicons name="warning-outline" size={17} color={Colors.amber} /><AppText style={styles.playerErrorText}>{error}</AppText><TVFocusable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}><AppText style={styles.playerRetry}>Tentar</AppText></TVFocusable></View> : null}</>;
 }
 
-function PlayerBottomPanel({ contentType, isPlaying, panel, onTogglePlayback, onPanelChange, onClosePanel }: { contentType: ContentType; isPlaying: boolean; panel: Panel; onTogglePlayback: () => void; onPanelChange: (panel: Panel) => void; onClosePanel: () => void }) {
-  const handleBackward = useCallback(() => onPanelChange("ratio"), [onPanelChange]);
-  const handleForward = useCallback(() => onPanelChange("speed"), [onPanelChange]);
+function PlayerBottomPanel({ playButtonRef, contentType, isPlaying, panel, onTogglePlayback, onSeek, onPanelChange, onClosePanel }: { playButtonRef: Ref<TVFocusableHandle>; contentType: ContentType; isPlaying: boolean; panel: Panel; onTogglePlayback: () => void; onSeek: (seconds: number) => void; onPanelChange: (panel: Panel) => void; onClosePanel: () => void }) {
+  const handleBackward = useCallback(() => onSeek(-10), [onSeek]);
+  const handleForward = useCallback(() => onSeek(10), [onSeek]);
 
-  return <View style={styles.bottomPanel}><View style={styles.timelineRow}><AppText style={styles.timeText}>{contentType === "live" ? "15:42" : "42:18"}</AppText><View style={styles.timeline}><View style={styles.timelineFill} /><View style={styles.timelineKnob} /></View><AppText style={styles.timeText}>{contentType === "live" ? "AO VIVO" : "1:46:12"}</AppText></View><View style={styles.mainControls}><Pressable accessibilityRole="button" accessibilityLabel="Retroceder 10 segundos" onPress={handleBackward} style={styles.controlButton}><Ionicons name="refresh" size={21} color={Colors.white} /><AppText style={styles.controlHint}>10</AppText></Pressable><Pressable accessibilityRole="button" accessibilityLabel={isPlaying ? "Pausar" : "Reproduzir"} onPress={onTogglePlayback} style={styles.playButton}><Ionicons name={isPlaying ? "pause" : "play"} size={25} color={Colors.background} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Avançar 10 segundos" onPress={handleForward} style={styles.controlButton}><Ionicons name="refresh" size={21} color={Colors.white} style={styles.forwardIcon} /><AppText style={styles.controlHint}>10</AppText></Pressable></View><View style={styles.optionRow}><PlayerOptionButton icon="musical-notes-outline" label="Faixa de Áudio" panel="audio" active={panel === "audio"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="chatbox-ellipses-outline" label="Legendas" panel="subtitles" active={panel === "subtitles"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="speedometer-outline" label="Velocidade" panel="speed" active={panel === "speed"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="scan-outline" label="Proporção" panel="ratio" active={panel === "ratio"} onPanelChange={onPanelChange} /></View>{panel ? <PlayerOptionMenu panel={panel} onClose={onClosePanel} /> : null}</View>;
+  return <View style={styles.bottomPanel}><View style={styles.timelineRow}><AppText style={styles.timeText}>{contentType === "live" ? "15:42" : "42:18"}</AppText><View style={styles.timeline}><View style={styles.timelineFill} /><View style={styles.timelineKnob} /></View><AppText style={styles.timeText}>{contentType === "live" ? "AO VIVO" : "1:46:12"}</AppText></View><View style={styles.mainControls}><TVFocusable accessibilityRole="button" accessibilityLabel="Retroceder 10 segundos" onPress={handleBackward} style={styles.controlButton}><Ionicons name="refresh" size={21} color={Colors.white} /><AppText style={styles.controlHint}>10</AppText></TVFocusable><TVFocusable ref={playButtonRef} accessibilityRole="button" accessibilityLabel={isPlaying ? "Pausar" : "Reproduzir"} onPress={onTogglePlayback} hasTVPreferredFocus style={styles.playButton}><Ionicons name={isPlaying ? "pause" : "play"} size={25} color={Colors.background} /></TVFocusable><TVFocusable accessibilityRole="button" accessibilityLabel="Avançar 10 segundos" onPress={handleForward} style={styles.controlButton}><Ionicons name="refresh" size={21} color={Colors.white} style={styles.forwardIcon} /><AppText style={styles.controlHint}>10</AppText></TVFocusable></View><View style={styles.optionRow}><PlayerOptionButton icon="musical-notes-outline" label="Faixa de Áudio" panel="audio" active={panel === "audio"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="chatbox-ellipses-outline" label="Legendas" panel="subtitles" active={panel === "subtitles"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="speedometer-outline" label="Velocidade" panel="speed" active={panel === "speed"} onPanelChange={onPanelChange} /><PlayerOptionButton icon="scan-outline" label="Proporção" panel="ratio" active={panel === "ratio"} onPanelChange={onPanelChange} /></View>{panel ? <PlayerOptionMenu panel={panel} onClose={onClosePanel} /> : null}</View>;
 }
 
 function PlayerOptionButton({ icon, label, panel, active, onPanelChange }: { icon: keyof typeof Ionicons.glyphMap; label: string; panel: ActivePanel; active: boolean; onPanelChange: (panel: Panel) => void }) {
@@ -186,11 +263,11 @@ function OptionValue({ value, selected, onSelect }: { value: string; selected: b
     onSelect();
   }, [onSelect]);
 
-  return <Pressable accessibilityRole="button" onPress={handlePress} style={[styles.optionValue, selected && styles.optionValueSelected]}><AppText style={[styles.optionValueText, selected && styles.optionValueTextSelected]}>{value}</AppText>{selected ? <Ionicons name="checkmark" size={16} color={Colors.blueBright} /> : null}</Pressable>;
+  return <TVFocusable accessibilityRole="button" onPress={handlePress} style={[styles.optionValue, selected && styles.optionValueSelected]}><AppText style={[styles.optionValueText, selected && styles.optionValueTextSelected]}>{value}</AppText>{selected ? <Ionicons name="checkmark" size={16} color={Colors.blueBright} /> : null}</TVFocusable>;
 }
 
 function OptionButton({ icon, label, active, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; active: boolean; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.optionButton, active && styles.optionButtonActive, pressed && styles.pressed]}><Ionicons name={icon} size={18} color={active ? Colors.blueBright : Colors.text} /><AppText style={styles.optionLabel}>{label}</AppText></Pressable>;
+  return <TVFocusable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.optionButton, active && styles.optionButtonActive, pressed && styles.pressed]}><Ionicons name={icon} size={18} color={active ? Colors.blueBright : Colors.text} /><AppText style={styles.optionLabel}>{label}</AppText></TVFocusable>;
 }
 
 function readParam(value: string | string[] | undefined) {
@@ -224,6 +301,7 @@ const styles = StyleSheet.create({
   playerError: { position: "absolute", top: "44%", right: 24, left: 24, flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 12, backgroundColor: "rgba(7,9,14,0.84)" },
   playerErrorText: { flex: 1, fontSize: 11, color: Colors.text },
   playerRetry: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.blueBright },
+  retryButton: { minHeight: 36, justifyContent: "center", paddingHorizontal: 8, borderRadius: 9 },
   bottomPanel: { gap: 12, padding: 14, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.17)", backgroundColor: "rgba(7,9,14,0.72)" },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 9 },
   timeText: { minWidth: 37, fontVariant: ["tabular-nums"], fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.white },

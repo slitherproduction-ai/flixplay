@@ -39,6 +39,7 @@ export default function RootLayout() {
           <Stack.Screen name="player" options={{ presentation: "fullScreenModal" }} />
           <Stack.Screen name="server/add" options={{ presentation: "modal" }} />
           <Stack.Screen name="settings/trakt" options={{ presentation: "formSheet" }} />
+          <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

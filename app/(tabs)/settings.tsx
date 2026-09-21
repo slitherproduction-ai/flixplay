@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
+import { APP_INFO } from "@/constants/app";
 import { AppText, Chip, GlassCard, IconButton, ScreenState, SectionHeader } from "@/components/ui";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
 import { useAppStore } from "@/store/useAppStore";
@@ -31,6 +32,10 @@ export default function SettingsScreen() {
 
   const handleTrakt = useCallback(() => {
     router.push("/settings/trakt");
+  }, [router]);
+
+  const handleAbout = useCallback(() => {
+    router.push("/settings/about");
   }, [router]);
 
   const handleManualSync = useCallback(() => {
@@ -96,10 +101,27 @@ export default function SettingsScreen() {
             </GlassCard>
           </View>
 
+          <View style={styles.section}>
+            <SectionHeader title="Sobre o FlixPlay" subtitle="Versão, recursos e histórico de atualizações" />
+            <Pressable accessibilityRole="button" accessibilityLabel="Abrir informações sobre o FlixPlay" onPress={handleAbout} style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}>
+              <View style={styles.aboutIcon}>
+                <Ionicons name="sparkles-outline" size={20} color={Colors.blueBright} />
+              </View>
+              <View style={styles.aboutCopy}>
+                <View style={styles.aboutTitleRow}>
+                  <AppText style={styles.aboutTitle}>Sobre o Aplicativo</AppText>
+                  <View style={styles.aboutBadge}><AppText style={styles.aboutBadgeText}>ATUAL</AppText></View>
+                </View>
+                <AppText style={styles.aboutMeta}>{APP_INFO.versionLabel} · Versão estável e atualizada</AppText>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
+            </Pressable>
+          </View>
+
           <View style={styles.infoGrid}><View style={styles.infoTile}><AppText style={styles.infoLabel}>CONEXÕES ATIVAS</AppText><AppText style={styles.infoValue}>1 <AppText style={styles.infoMuted}>/ 3</AppText></AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>FORMATO DE SAÍDA</AppText><AppText style={styles.infoValue}>HLS</AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>STATUS DA LISTA</AppText><View style={styles.statusLine}><View style={styles.activeDot} /><AppText style={styles.infoValueSmall}>Online</AppText></View></View></View>
 
           <Pressable accessibilityRole="button" onPress={handleDemo} style={styles.demoBanner}><View style={styles.demoIcon}><Ionicons name="flash" size={18} color={Colors.amber} /></View><View style={styles.demoCopy}><AppText style={styles.demoTitle}>Modo Demonstração</AppText><AppText style={styles.demoBody}>Explore sem configurar um servidor próprio</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></Pressable>
-          <AppText style={styles.version}>FlixPlay 1.0.0 · Feito para sua sala</AppText>
+          <AppText style={styles.version}>{APP_INFO.name} {APP_INFO.versionLabel} · Feito para sua sala</AppText>
         </ScrollView>
       </ScreenState>
     </View>
@@ -153,6 +175,14 @@ const styles = StyleSheet.create({
   preferenceStack: { paddingVertical: 4 },
   bufferScroller: { flexGrow: 0, marginLeft: 43 },
   bufferContent: { gap: 7, paddingVertical: 4 },
+  aboutRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 11, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(96,165,250,0.26)", backgroundColor: "rgba(59,130,246,0.08)" },
+  aboutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, borderWidth: 1, borderColor: "rgba(147,197,253,0.3)", backgroundColor: "rgba(96,165,250,0.15)" },
+  aboutCopy: { flex: 1, gap: 5 },
+  aboutTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  aboutTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  aboutBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.14)" },
+  aboutBadgeText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
+  aboutMeta: { fontSize: 10, lineHeight: 15, color: Colors.muted },
   infoGrid: { flexDirection: "row", gap: 8 },
   infoTile: { flex: 1, minHeight: 70, justifyContent: "center", paddingHorizontal: 10, gap: 6, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
   infoLabel: { fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 0.4, color: Colors.subtle },

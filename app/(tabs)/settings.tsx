@@ -22,6 +22,9 @@ export default function SettingsScreen() {
   const preferences = useAppStore((state) => state.preferences);
   const setPreference = useAppStore((state) => state.setPreference);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
+  const removeServer = useAppStore((state) => state.removeServer);
+  const removeAllServers = useAppStore((state) => state.removeAllServers);
+  const logout = useAppStore((state) => state.logout);
   const bufferMode = typeof preferences.bufferMode === "string" ? preferences.bufferMode : "Normal";
   const autoOpen = preferences.autoOpenLastChannel === true;
 
@@ -32,6 +35,63 @@ export default function SettingsScreen() {
   const handleBuffer = useCallback((value: string) => {
     setPreference("bufferMode", value);
   }, [setPreference]);
+
+  const handleLogout = useCallback(() => {
+    Alert.alert(
+      "Sair da conta",
+      "Deseja desconectar da lista atual? Você precisará entrar novamente.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sair",
+          style: "destructive",
+          onPress: () => {
+            logout();
+            router.replace("/login");
+          },
+        },
+      ]
+    );
+  }, [logout, router]);
+
+  const handleDeleteServer = useCallback((id: string, name: string) => {
+    const isActive = id === activeServerId;
+    Alert.alert(
+      "Excluir lista",
+      `Excluir lista "${name}"? As credenciais salvas serão removidas permanentemente.${isActive ? "\n\nEsta é sua lista ativa — você será desconectado." : ""}`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: () => {
+            removeServer(id);
+            if (isActive) {
+              router.replace("/login");
+            }
+          },
+        },
+      ]
+    );
+  }, [activeServerId, removeServer, router]);
+
+  const handleDeleteAllServers = useCallback(() => {
+    Alert.alert(
+      "Excluir todas as listas",
+      "Todas as listas e credenciais salvas serão removidas permanentemente. Você será desconectado.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir todas",
+          style: "destructive",
+          onPress: () => {
+            removeAllServers();
+            router.replace("/login");
+          },
+        },
+      ]
+    );
+  }, [removeAllServers, router]);
 
   const handleTrakt = useCallback(() => {
     router.push("/settings/trakt");
@@ -71,15 +131,31 @@ export default function SettingsScreen() {
               {servers.map((server) => {
                 const active = server.id === activeServerId;
                 return (
-                  <TVFocusable key={server.id} accessibilityRole="button" accessibilityState={{ selected: active }} hasTVPreferredFocus={server.id === servers[0]?.id} onPress={() => handleServer(server.id)} style={({ pressed }) => [styles.serverRow, active && styles.serverRowActive, pressed && styles.pressed]}>
-                    <View style={[styles.serverStatus, active && styles.serverStatusActive]}><Ionicons name={active ? "checkmark" : "cloud-outline"} size={17} color={active ? Colors.green : Colors.muted} /></View>
-                    <View style={styles.serverRowCopy}><View style={styles.serverNameRow}><AppText style={styles.serverName}>{server.name}</AppText>{active ? <View style={styles.activeBadge}><AppText style={styles.activeText}>ATIVO</AppText></View> : null}</View><AppText style={styles.serverMeta}>{server.serverUrl.replace("https://", "")} · expira {server.expiryDate}</AppText></View>
-                    <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={19} color={active ? Colors.blueBright : Colors.subtle} />
-                  </TVFocusable>
+                  <View key={server.id} style={[styles.serverRowContainer, active && styles.serverRowContainerActive]}>
+                    <TVFocusable accessibilityRole="button" accessibilityState={{ selected: active }} hasTVPreferredFocus={server.id === servers[0]?.id} onPress={() => handleServer(server.id)} style={({ pressed }) => [styles.serverRow, pressed && styles.pressed]}>
+                      <View style={[styles.serverStatus, active && styles.serverStatusActive]}><Ionicons name={active ? "checkmark" : "cloud-outline"} size={17} color={active ? Colors.green : Colors.muted} /></View>
+                      <View style={styles.serverRowCopy}><View style={styles.serverNameRow}><AppText style={styles.serverName}>{server.name}</AppText>{active ? <View style={styles.activeBadge}><AppText style={styles.activeText}>ATIVO</AppText></View> : null}</View><AppText style={styles.serverMeta}>{server.serverUrl} · expira {server.expiryDate}</AppText></View>
+                      <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={19} color={active ? Colors.blueBright : Colors.subtle} />
+                    </TVFocusable>
+                    <TVFocusable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Excluir lista ${server.name}`}
+                      onPress={() => handleDeleteServer(server.id, server.name)}
+                      style={({ pressed }) => [styles.serverDeleteBtn, pressed && styles.pressed]}
+                    >
+                      <Ionicons name="trash-outline" size={17} color={Colors.red} />
+                    </TVFocusable>
+                  </View>
                 );
               })}
             </View>
             <TVFocusable accessibilityRole="button" onPress={() => router.push("/server/add")} style={styles.addServerButton}><Ionicons name="add" size={18} color={Colors.blueBright} /><AppText style={styles.addServerText}>Adicionar servidor</AppText></TVFocusable>
+            {servers.length > 1 ? (
+              <TVFocusable accessibilityRole="button" onPress={handleDeleteAllServers} style={({ pressed }) => [styles.deleteAllBtn, pressed && styles.pressed]}>
+                <Ionicons name="trash" size={15} color={Colors.red} />
+                <AppText style={styles.deleteAllText}>Excluir todas as listas</AppText>
+              </TVFocusable>
+            ) : null}
           </View>
 
           <View style={styles.section}>
@@ -126,6 +202,23 @@ export default function SettingsScreen() {
           <View style={styles.infoGrid}><View style={styles.infoTile}><AppText style={styles.infoLabel}>CONEXÕES ATIVAS</AppText><AppText style={styles.infoValue}>1 <AppText style={styles.infoMuted}>/ 3</AppText></AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>FORMATO DE SAÍDA</AppText><AppText style={styles.infoValue}>HLS</AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>STATUS DA LISTA</AppText><View style={styles.statusLine}><View style={styles.activeDot} /><AppText style={styles.infoValueSmall}>Online</AppText></View></View></View>
 
           <TVFocusable accessibilityRole="button" onPress={handleDemo} style={styles.demoBanner}><View style={styles.demoIcon}><Ionicons name="flash" size={18} color={Colors.amber} /></View><View style={styles.demoCopy}><AppText style={styles.demoTitle}>Modo Demonstração</AppText><AppText style={styles.demoBody}>Explore sem configurar um servidor próprio</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
+
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel="Sair da conta"
+            onPress={handleLogout}
+            style={({ pressed }) => [styles.logoutBtn, pressed && styles.pressed]}
+          >
+            <View style={styles.logoutIcon}>
+              <Ionicons name="log-out-outline" size={20} color={Colors.red} />
+            </View>
+            <View style={styles.logoutCopy}>
+              <AppText style={styles.logoutTitle}>Sair da Conta</AppText>
+              <AppText style={styles.logoutMeta}>Desconectar e voltar à tela de login</AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
+          </TVFocusable>
+
           <AppText style={styles.version}>{APP_INFO.name} {APP_INFO.versionLabel} · Feito para sua sala</AppText>
         </ScrollView>
       </ScreenState>
@@ -144,9 +237,13 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: Colors.muted },
   section: { gap: 12 },
   serverList: { gap: 8 },
-  serverRow: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, padding: 11, borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
-  serverRowActive: { borderColor: "rgba(59, 130, 246, 0.46)", backgroundColor: "rgba(59, 130, 246, 0.11)" },
+  serverRowContainer: { flexDirection: "row", alignItems: "stretch", borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft, overflow: "hidden" },
+  serverRowContainerActive: { borderColor: "rgba(59, 130, 246, 0.46)", backgroundColor: "rgba(59, 130, 246, 0.11)" },
+  serverRow: { flex: 1, minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, padding: 11 },
+  serverDeleteBtn: { width: 50, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderLeftColor: Colors.border, backgroundColor: "rgba(229,9,20,0.06)" },
   pressed: { opacity: 0.72 },
+  deleteAllBtn: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(229,9,20,0.25)", backgroundColor: "rgba(229,9,20,0.07)" },
+  deleteAllText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.red },
   serverStatus: { width: 37, height: 37, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)" },
   serverStatusActive: { backgroundColor: "rgba(16,185,129,0.14)" },
   serverRowCopy: { flex: 1, gap: 5 },
@@ -203,4 +300,9 @@ const styles = StyleSheet.create({
   demoTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
   demoBody: { fontSize: 11, color: Colors.muted },
   version: { alignSelf: "center", fontSize: 10, color: Colors.subtle },
+  logoutBtn: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(229,9,20,0.25)", backgroundColor: "rgba(229,9,20,0.07)", ...Shadows.card },
+  logoutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, borderWidth: 1, borderColor: "rgba(229,9,20,0.3)", backgroundColor: "rgba(229,9,20,0.14)" },
+  logoutCopy: { flex: 1, gap: 4 },
+  logoutTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.red },
+  logoutMeta: { fontSize: 11, color: Colors.muted },
 });

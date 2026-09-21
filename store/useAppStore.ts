@@ -9,15 +9,20 @@ import type {
 } from './types';
 
 interface AppStore {
+  _hasHydrated: boolean;
   preferences: Preferences;
   servers: ServerProfile[];
   activeServerId: string;
   favoriteIds: string[];
   history: PlayHistory[];
   trakt: TraktConfig;
+  setHydrated: () => void;
   setPreference: (key: string, value: string | number | boolean | null) => void;
   addServer: (server: ServerProfile) => void;
   setActiveServer: (id: string) => void;
+  removeServer: (id: string) => void;
+  removeAllServers: () => void;
+  logout: () => void;
   toggleFavorite: (id: string) => void;
   saveHistory: (item: PlayHistory) => void;
   setTrakt: (config: Partial<TraktConfig>) => void;
@@ -26,6 +31,7 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
+      _hasHydrated: false,
       preferences: {},
       servers: [
         {
@@ -39,6 +45,7 @@ export const useAppStore = create<AppStore>()(
           maxConnections: 3,
           activeConnections: 1,
           format: 'HLS',
+          addedAt: '2025-01-01T00:00:00.000Z',
         },
       ],
       activeServerId: 'demo-premium',
@@ -71,6 +78,7 @@ export const useAppStore = create<AppStore>()(
         accessToken: 'demo-token',
         autoScrobble: true,
       },
+      setHydrated: () => set({ _hasHydrated: true }),
       setPreference: (key, value) =>
         set((state) => ({ preferences: { ...state.preferences, [key]: value } })),
       addServer: (server) =>
@@ -82,6 +90,18 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({
           activeServerId: id,
           servers: state.servers.map((server) => ({ ...server, isActive: server.id === id })),
+        })),
+      removeServer: (id) =>
+        set((state) => ({
+          servers: state.servers.filter((s) => s.id !== id),
+          activeServerId: state.activeServerId === id ? '' : state.activeServerId,
+        })),
+      removeAllServers: () =>
+        set(() => ({ servers: [], activeServerId: '' })),
+      logout: () =>
+        set((state) => ({
+          activeServerId: '',
+          servers: state.servers.map((server) => ({ ...server, isActive: false })),
         })),
       toggleFavorite: (id) =>
         set((state) => ({
@@ -106,6 +126,9 @@ export const useAppStore = create<AppStore>()(
         history: state.history,
         trakt: state.trakt,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated();
+      },
     }
   )
 );

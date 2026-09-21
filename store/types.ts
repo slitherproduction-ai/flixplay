@@ -15,6 +15,7 @@ export interface ServerProfile {
   maxConnections: number;
   activeConnections: number;
   format: "TS" | "HLS" | "M3U8";
+  addedAt?: string;
 }
 
 export interface EpgProgram {

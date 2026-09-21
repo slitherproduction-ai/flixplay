@@ -34,6 +34,7 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="details/[id]" options={{ presentation: "card" }} />
           <Stack.Screen name="player" options={{ presentation: "fullScreenModal" }} />

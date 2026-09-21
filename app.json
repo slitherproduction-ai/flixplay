@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Flixplay",
+    "name": "FlixPlay",
     "slug": "flixplay",
     "version": "1.0.0",
     "orientation": "default",
@@ -20,7 +20,10 @@
       "intentFilters": [
         {
           "action": "MAIN",
-          "category": ["LAUNCHER", "LEANBACK_LAUNCHER"]
+          "category": [
+            "LAUNCHER",
+            "LEANBACK_LAUNCHER"
+          ]
         }
       ],
       "edgeToEdgeEnabled": true

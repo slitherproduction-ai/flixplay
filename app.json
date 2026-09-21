@@ -54,7 +54,8 @@
       "expo-video"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/4b36e889-ccf7-44c0-9214-5b72b1f056f7/dev-preview/"
     }
   }
 }

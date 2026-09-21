@@ -94,10 +94,14 @@ export class XtreamApiError extends Error {
   }
 }
 
-/** Total timeout per individual fetch attempt */
-const REQUEST_TIMEOUT_MS = 15000;
+/**
+ * Total timeout per individual fetch attempt.
+ * IPTV playlists with 5 000–30 000 entries can take 20–40 s over a slow
+ * mobile connection, so 40 s is more realistic than the old 15 s limit.
+ */
+const REQUEST_TIMEOUT_MS = 40000;
 /** Shorter timeout for CORS proxy attempts (already a fallback) */
-const PROXY_TIMEOUT_MS = 10000;
+const PROXY_TIMEOUT_MS = 20000;
 
 /**
  * User-Agent widely accepted by IPTV servers.
@@ -163,7 +167,7 @@ async function fetchWebWithProxies(url: string): Promise<Response> {
   } catch (directErr) {
     if (isAbortError(directErr)) {
       throw new XtreamApiError(
-        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
+        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
         0,
       );
     }
@@ -209,7 +213,7 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
   } catch (err) {
     if (isAbortError(err)) {
       throw new XtreamApiError(
-        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
+        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
         0,
       );
     }
@@ -227,7 +231,7 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
   } catch (altErr) {
     if (isAbortError(altErr)) {
       throw new XtreamApiError(
-        "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
+        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
         0,
       );
     }

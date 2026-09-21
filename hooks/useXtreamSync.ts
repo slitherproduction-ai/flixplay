@@ -15,11 +15,18 @@ import { useAppStore } from "@/store/useAppStore";
 import type { SyncState } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
 
-function indexBy<T extends { category_id: string }>(
+/**
+ * Index an array of objects by category_id, normalising both sides to string.
+ *
+ * The Xtream Codes API defines category_id as a string in some variants but
+ * often returns it as a JSON number (e.g. 12 instead of "12"). Normalising to
+ * String() ensures Map lookups always succeed regardless of the API variant.
+ */
+function indexBy<T extends { category_id: string | number }>(
   categories: T[],
 ): Map<string, T> {
   const map = new Map<string, T>();
-  for (const cat of categories) map.set(cat.category_id, cat);
+  for (const cat of categories) map.set(String(cat.category_id), cat);
   return map;
 }
 
@@ -29,7 +36,7 @@ async function fetchAndCacheContent(
   setSyncState: ReturnType<typeof useAppStore.getState>["setSyncState"],
 ): Promise<void> {
   try {
-    // Live channels
+    // ── Live channels ────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Sincronizando canais ao vivo..." });
     const [liveCategories, liveStreams] = await Promise.all([
       getLiveCategories(profile),
@@ -37,12 +44,13 @@ async function fetchAndCacheContent(
     ]);
     const liveCatMap = indexBy(liveCategories);
     setContentCache({
-      liveCategories: liveCategories.map((c) => ({ id: c.category_id, name: c.category_name })),
+      liveCategories: liveCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
       liveChannels: liveStreams.map((stream) =>
         mapLiveStreamToChannel(
           stream,
-          liveCatMap.get(stream.category_id) ?? {
-            category_id: stream.category_id,
+          // Normalise category_id to string for Map lookup
+          liveCatMap.get(String(stream.category_id)) ?? {
+            category_id: String(stream.category_id),
             category_name: "Geral",
             parent_id: 0,
           },
@@ -51,7 +59,7 @@ async function fetchAndCacheContent(
       ),
     });
 
-    // VOD movies
+    // ── VOD movies ───────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Baixando catálogo de filmes..." });
     const [vodCategories, vodStreams] = await Promise.all([
       getVodCategories(profile),
@@ -59,13 +67,17 @@ async function fetchAndCacheContent(
     ]);
     const vodCatMap = indexBy(vodCategories);
     setContentCache({
-      vodCategories: vodCategories.map((c) => ({ id: c.category_id, name: c.category_name })),
+      vodCategories: vodCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
       vodMovies: vodStreams.map((stream) =>
-        mapVodStreamToMovie(stream, vodCatMap.get(stream.category_id), profile),
+        mapVodStreamToMovie(
+          stream,
+          vodCatMap.get(String(stream.category_id)),
+          profile,
+        ),
       ),
     });
 
-    // Series
+    // ── Series ───────────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Baixando catálogo de séries..." });
     const [seriesCategories, seriesList] = await Promise.all([
       getSeriesCategories(profile),
@@ -73,9 +85,9 @@ async function fetchAndCacheContent(
     ]);
     const seriesCatMap = indexBy(seriesCategories);
     setContentCache({
-      seriesCategories: seriesCategories.map((c) => ({ id: c.category_id, name: c.category_name })),
+      seriesCategories: seriesCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
       seriesList: seriesList.map((stream) =>
-        mapSeriesStreamToItem(stream, seriesCatMap.get(stream.category_id)),
+        mapSeriesStreamToItem(stream, seriesCatMap.get(String(stream.category_id))),
       ),
       lastSyncedAt: new Date().toISOString(),
     });

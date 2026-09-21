@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 
 export default function Index() {
   const activeServerId = useAppStore((state) => state.activeServerId);
+  const servers = useAppStore((state) => state.servers);
   const hasHydrated = useAppStore((state) => state._hasHydrated);
 
   if (!hasHydrated) {
@@ -15,7 +16,10 @@ export default function Index() {
     );
   }
 
-  if (!activeServerId) {
+  // Redirect to login if there's no active server, or if the stored activeServerId
+  // no longer matches any saved server (e.g. user cleared storage externally).
+  const serverExists = servers.some((s) => s.id === activeServerId);
+  if (!activeServerId || !serverExists) {
     return <Redirect href="/login" />;
   }
 

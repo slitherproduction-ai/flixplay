@@ -3,14 +3,12 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from "react-native";
-import { channels as demoChannels } from "@/data/demo";
 import { Colors, Radii, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, Chip, GlassCard, IconButton, SearchField, ScreenState, SectionHeader } from "@/components/ui";
+import { AppText, Chip, GlassCard, IconButton, SearchField, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
-import { useXtreamSync } from "@/hooks/useXtreamSync";
+import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useAppStore } from "@/store/useAppStore";
-import type { ChannelItem } from "@/store/types";
 
 export default function LiveScreen() {
   const router = useRouter();
@@ -19,26 +17,21 @@ export default function LiveScreen() {
   const [query, setQuery] = useState("");
   const favoriteIds = useAppStore((state) => state.favoriteIds);
   const toggleFavorite = useAppStore((state) => state.toggleFavorite);
-  const isDemoMode = useAppStore((state) => state.isDemoMode);
-  const cachedChannels = useAppStore((state) => state.contentCache.liveChannels);
+  const channels = useAppStore((state) => state.contentCache.liveChannels);
   const cachedCategories = useAppStore((state) => state.contentCache.liveCategories);
-  const { syncState, refresh } = useXtreamSync();
+  const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
-  const channels: ChannelItem[] = isDemoMode ? demoChannels : cachedChannels;
-
-  const categories = useMemo(() => {
-    if (isDemoMode) {
-      return ["Todos", "Abertos", "Esportes HD", "Notícias", "Filmes & Séries", "Infantil", "Documentários"];
-    }
-    return ["Todos", ...cachedCategories.map((c) => c.name)];
-  }, [isDemoMode, cachedCategories]);
+  const categories = useMemo(
+    () => ["Todos", ...cachedCategories.map((c) => c.name)],
+    [cachedCategories],
+  );
 
   const filteredChannels = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return channels.filter((channel) => {
-      const matchesCategory = category === "Todos" || channel.categoryName === category;
-      const matchesQuery = !normalizedQuery || `${channel.name} ${channel.currentEpg.title}`.toLowerCase().includes(normalizedQuery);
-      return matchesCategory && matchesQuery;
+    const q = query.trim().toLowerCase();
+    return channels.filter((ch) => {
+      const matchCat = category === "Todos" || ch.categoryName === category;
+      const matchQ = !q || `${ch.name} ${ch.currentEpg.title}`.toLowerCase().includes(q);
+      return matchCat && matchQ;
     });
   }, [channels, category, query]);
 
@@ -54,23 +47,16 @@ export default function LiveScreen() {
     Alert.alert(channel.name, `${channel.currentEpg.title} · ${channel.currentEpg.start}–${channel.currentEpg.end}\nA seguir: ${channel.nextProgram}`);
   }, [channels]);
 
-  const handleFavorite = useCallback((channelId: string) => {
-    toggleFavorite(channelId);
-  }, [toggleFavorite]);
-
-  const isSyncing = !isDemoMode && syncState.isSyncing;
-  const syncError = !isDemoMode ? syncState.syncError : null;
-  const isEmpty = !isSyncing && channels.length === 0 && !syncState.syncError;
+  const isEmpty = !isSyncing && channels.length === 0;
 
   return (
     <View style={styles.screen}>
       <View style={styles.ambient} />
 
-      {/* Sync progress banner */}
       {isSyncing ? (
         <View style={styles.syncBanner}>
           <ActivityIndicator size="small" color={Colors.green} />
-          <AppText style={styles.syncText}>{syncState.syncProgress ?? "Sincronizando..."}</AppText>
+          <AppText style={styles.syncText}>{syncProgress ?? "Sincronizando..."}</AppText>
         </View>
       ) : null}
 
@@ -84,90 +70,90 @@ export default function LiveScreen() {
         </View>
       ) : null}
 
-      <ScreenState loading={false} error={null} retry={refresh}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
-          <View style={styles.header}>
-            <View style={styles.headerCopy}>
-              <AppText style={styles.kicker}>AO VIVO AGORA</AppText>
-              <AppText style={Type.display}>TV ao Vivo</AppText>
-              <AppText style={styles.headerSubtitle}>Sua programação em tempo real</AppText>
-            </View>
-            <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <AppText style={styles.kicker}>AO VIVO AGORA</AppText>
+            <AppText style={Type.display}>TV ao Vivo</AppText>
+            <AppText style={styles.headerSubtitle}>Sua programação em tempo real</AppText>
           </View>
+          <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} />
+        </View>
 
-          <SearchField value={query} onChangeText={setQuery} placeholder="Buscar canal ou programa" />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroller} contentContainerStyle={styles.categoryContent}>
-            {categories.map((item, index) => <Chip key={item} label={item} selected={category === item} hasTVPreferredFocus={index === 0} onPress={() => setCategory(item)} />)}
-          </ScrollView>
+        <SearchField value={query} onChangeText={setQuery} placeholder="Buscar canal ou programa" />
 
-          <SectionHeader
-            title="Canais disponíveis"
-            subtitle={isSyncing ? "Carregando..." : `${filteredChannels.length} canais · EPG atualizado agora`}
-          />
-
-          {isEmpty ? (
-            <View style={styles.empty}>
-              <Ionicons name="cloud-offline-outline" size={32} color={Colors.subtle} />
-              <AppText style={styles.emptyTitle}>Nenhum canal disponível</AppText>
-              <AppText style={styles.emptyBody}>Toque em Atualizar para sincronizar os canais do servidor.</AppText>
-              <TVFocusable onPress={refresh} style={styles.syncBtn} accessibilityLabel="Sincronizar canais">
-                <Ionicons name="refresh" size={15} color={Colors.white} />
-                <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
-              </TVFocusable>
-            </View>
-          ) : (
-            <View style={styles.list}>
-              {filteredChannels.map((channel) => {
-                const isFavorite = favoriteIds.includes(channel.id);
-                return (
-                  <GlassCard key={channel.id} style={[styles.channelCard, tvMode && styles.tvChannelCard]} intensity={18}>
-                    <TVFocusable accessibilityRole="button" accessibilityLabel={`Abrir ${channel.name}`} onPress={() => handleChannel(channel.id)} onLongPress={() => handleGuide(channel.id)} style={styles.channelPressable}>
-                      <View style={styles.channelImage}>
-                        {channel.logo ? (
-                          <Image source={{ uri: channel.logo }} contentFit="cover" style={StyleSheet.absoluteFill} />
-                        ) : null}
-                        <View style={styles.imageVeil} />
-                        <AppText style={styles.channelInitials}>{channel.name.slice(0, 3).toUpperCase()}</AppText>
-                      </View>
-                      <View style={styles.channelDetails}>
-                        <View style={styles.channelTitleRow}>
-                          <AppText style={styles.channelNumber}>{channel.number}</AppText>
-                          <AppText style={styles.channelTitle}>{channel.name}</AppText>
-                          <View style={styles.liveBadge}><View style={styles.liveDot} /><AppText style={styles.liveText}>AO VIVO</AppText></View>
-                        </View>
-                        <AppText style={styles.programTitle}>{channel.currentEpg.title}</AppText>
-                        <View style={styles.programTimes}>
-                          <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
-                          <View style={styles.programTrack}>
-                            <View style={[styles.programFill, { width: `${channel.currentEpg.progress}%` }]} />
-                          </View>
-                          <AppText style={styles.programTime}>{channel.currentEpg.end}</AppText>
-                        </View>
-                        <AppText numberOfLines={1} style={styles.nextProgram}>A seguir · {channel.nextProgram}</AppText>
-                      </View>
-                      <TVFocusable accessibilityRole="button" accessibilityLabel={isFavorite ? `Remover ${channel.name} dos favoritos` : `Favoritar ${channel.name}`} onPress={() => handleFavorite(channel.id)} hitSlop={8} style={styles.favoriteButton}>
-                        <Ionicons name={isFavorite ? "star" : "star-outline"} size={20} color={isFavorite ? Colors.amber : Colors.muted} />
-                      </TVFocusable>
-                    </TVFocusable>
-                  </GlassCard>
-                );
-              })}
-            </View>
-          )}
-
-          {filteredChannels.length === 0 && channels.length > 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="search-outline" size={28} color={Colors.subtle} />
-              <AppText style={styles.emptyTitle}>Nenhum canal encontrado</AppText>
-              <AppText style={styles.emptyBody}>Tente outra categoria ou ajuste a busca.</AppText>
-            </View>
-          ) : null}
-
-          <AppText style={styles.guideHint}>
-            Toque para assistir · pressione e segure para abrir o EPG completo
-          </AppText>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroller} contentContainerStyle={styles.categoryContent}>
+          {categories.map((item, index) => (
+            <Chip key={item} label={item} selected={category === item} hasTVPreferredFocus={index === 0} onPress={() => setCategory(item)} />
+          ))}
         </ScrollView>
-      </ScreenState>
+
+        <SectionHeader
+          title="Canais disponíveis"
+          subtitle={isSyncing ? "Carregando..." : `${filteredChannels.length} canais`}
+        />
+
+        {isEmpty ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={32} color={Colors.subtle} />
+            <AppText style={styles.emptyTitle}>Nenhum canal disponível</AppText>
+            <AppText style={styles.emptyBody}>Toque em Atualizar para sincronizar os canais do servidor.</AppText>
+            <TVFocusable onPress={refresh} style={styles.syncBtn} accessibilityLabel="Sincronizar canais">
+              <Ionicons name="refresh" size={15} color={Colors.white} />
+              <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
+            </TVFocusable>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {filteredChannels.map((channel) => {
+              const isFavorite = favoriteIds.includes(channel.id);
+              return (
+                <GlassCard key={channel.id} style={[styles.channelCard, tvMode && styles.tvChannelCard]} intensity={18}>
+                  <TVFocusable accessibilityRole="button" accessibilityLabel={`Abrir ${channel.name}`} onPress={() => handleChannel(channel.id)} onLongPress={() => handleGuide(channel.id)} style={styles.channelPressable}>
+                    <View style={styles.channelImage}>
+                      {channel.logo ? (
+                        <Image source={{ uri: channel.logo }} contentFit="cover" style={StyleSheet.absoluteFill} />
+                      ) : null}
+                      <View style={styles.imageVeil} />
+                      <AppText style={styles.channelInitials}>{channel.name.slice(0, 3).toUpperCase()}</AppText>
+                    </View>
+                    <View style={styles.channelDetails}>
+                      <View style={styles.channelTitleRow}>
+                        <AppText style={styles.channelNumber}>{channel.number}</AppText>
+                        <AppText style={styles.channelTitle}>{channel.name}</AppText>
+                        <View style={styles.liveBadge}>
+                          <View style={styles.liveDot} />
+                          <AppText style={styles.liveText}>AO VIVO</AppText>
+                        </View>
+                      </View>
+                      <AppText style={styles.programTitle}>{channel.currentEpg.title}</AppText>
+                      <View style={styles.programTimes}>
+                        <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
+                        <View style={styles.programTrack}>
+                          <View style={[styles.programFill, { width: `${channel.currentEpg.progress}%` }]} />
+                        </View>
+                        <AppText style={styles.programTime}>{channel.currentEpg.end}</AppText>
+                      </View>
+                      <AppText numberOfLines={1} style={styles.nextProgram}>A seguir · {channel.nextProgram}</AppText>
+                    </View>
+                    <TVFocusable accessibilityRole="button" accessibilityLabel={isFavorite ? `Remover ${channel.name} dos favoritos` : `Favoritar ${channel.name}`} onPress={() => toggleFavorite(channel.id)} hitSlop={8} style={styles.favoriteButton}>
+                      <Ionicons name={isFavorite ? "star" : "star-outline"} size={20} color={isFavorite ? Colors.amber : Colors.muted} />
+                    </TVFocusable>
+                  </TVFocusable>
+                </GlassCard>
+              );
+            })}
+          </View>
+        )}
+
+        {!isEmpty && filteredChannels.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="search-outline" size={28} color={Colors.subtle} />
+            <AppText style={styles.emptyTitle}>Nenhum canal encontrado</AppText>
+            <AppText style={styles.emptyBody}>Tente outra categoria ou ajuste a busca.</AppText>
+          </View>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
@@ -215,5 +201,4 @@ const styles = StyleSheet.create({
   emptyBody: { fontSize: 13, color: Colors.muted, textAlign: "center", maxWidth: 280 },
   syncBtn: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 4, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.blue },
   syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.white },
-  guideHint: { alignSelf: "center", fontSize: 11, color: Colors.subtle },
 });

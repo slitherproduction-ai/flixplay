@@ -2,14 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { series as demoSeries } from "@/data/demo";
 import { Colors, Type } from "@/constants/theme";
-import { useTVMode } from "@/hooks/use-tv-mode";
-import { useXtreamSync } from "@/hooks/useXtreamSync";
 import { TVFocusable } from "@/components/tv-focusable";
+import { useTVMode } from "@/hooks/use-tv-mode";
+import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { AppText, Chip, EmptyState, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
-import type { SeriesItem } from "@/store/types";
+
+function seasonsMeta(count: number, genre: string): string {
+  return `${count} temporada${count !== 1 ? "s" : ""} · ${genre}`;
+}
 
 export default function SeriesScreen() {
   const router = useRouter();
@@ -19,24 +21,21 @@ export default function SeriesScreen() {
   const [query, setQuery] = useState("");
   const cardWidth = tvMode || width > 720 ? 220 : Math.max(138, (width - 58) / 2);
 
-  const isDemoMode = useAppStore((state) => state.isDemoMode);
-  const cachedSeries = useAppStore((state) => state.contentCache.seriesList);
+  const seriesList = useAppStore((state) => state.contentCache.seriesList);
   const cachedCategories = useAppStore((state) => state.contentCache.seriesCategories);
-  const { syncState, refresh } = useXtreamSync();
+  const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
-  const seriesList: SeriesItem[] = isDemoMode ? demoSeries : cachedSeries;
-
-  const genres = useMemo(() => {
-    if (isDemoMode) return ["Todas", "Drama", "Fantasia", "Mistério", "Comédia dramática"];
-    return ["Todas", ...cachedCategories.map((c) => c.name)];
-  }, [isDemoMode, cachedCategories]);
+  const genres = useMemo(
+    () => ["Todas", ...cachedCategories.map((c) => c.name)],
+    [cachedCategories],
+  );
 
   const filteredSeries = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
     return seriesList.filter((item) => {
-      const matchesGenre = genre === "Todas" || item.genre.toLowerCase().includes(genre.toLowerCase());
-      const matchesQuery = !normalizedQuery || `${item.title} ${item.genre}`.toLowerCase().includes(normalizedQuery);
-      return matchesGenre && matchesQuery;
+      const matchGenre = genre === "Todas" || item.genre.toLowerCase().includes(genre.toLowerCase());
+      const matchQ = !q || `${item.title} ${item.genre}`.toLowerCase().includes(q);
+      return matchGenre && matchQ;
     });
   }, [seriesList, genre, query]);
 
@@ -44,9 +43,7 @@ export default function SeriesScreen() {
     router.push(`/details/${id}`);
   }, [router]);
 
-  const isSyncing = !isDemoMode && syncState.isSyncing;
-  const syncError = !isDemoMode ? syncState.syncError : null;
-  const isEmpty = !isSyncing && seriesList.length === 0 && !syncState.syncError;
+  const isEmpty = !isSyncing && seriesList.length === 0;
 
   return (
     <View style={styles.screen}>
@@ -55,7 +52,7 @@ export default function SeriesScreen() {
       {isSyncing ? (
         <View style={styles.syncBanner}>
           <ActivityIndicator size="small" color={Colors.red} />
-          <AppText style={styles.syncText}>{syncState.syncProgress ?? "Carregando séries..."}</AppText>
+          <AppText style={styles.syncText}>{syncProgress ?? "Carregando séries..."}</AppText>
         </View>
       ) : null}
 
@@ -104,15 +101,7 @@ export default function SeriesScreen() {
         ) : filteredSeries.length > 0 ? (
           <View style={styles.grid}>
             {filteredSeries.map((item) => (
-              <PosterCard
-                key={item.id}
-                title={item.title}
-                image={item.poster}
-                meta={`${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""} · ${item.genre}`}
-                rating={item.rating}
-                width={cardWidth}
-                onPress={() => handleSeries(item.id)}
-              />
+              <PosterCard key={item.id} title={item.title} image={item.poster} meta={seasonsMeta(item.seasonsCount, item.genre)} rating={item.rating} width={cardWidth} onPress={() => handleSeries(item.id)} />
             ))}
           </View>
         ) : (

@@ -2,14 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { movies as demoMovies } from "@/data/demo";
 import { Colors, Type } from "@/constants/theme";
-import { useTVMode } from "@/hooks/use-tv-mode";
-import { useXtreamSync } from "@/hooks/useXtreamSync";
 import { TVFocusable } from "@/components/tv-focusable";
+import { useTVMode } from "@/hooks/use-tv-mode";
+import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { AppText, Chip, EmptyState, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
-import type { VodMovie } from "@/store/types";
 
 const sortOptions = ["Mais recentes", "Melhor avaliados", "A-Z"];
 
@@ -20,32 +18,30 @@ export default function MoviesScreen() {
   const [genre, setGenre] = useState("Todos");
   const [sort, setSort] = useState("Mais recentes");
   const [query, setQuery] = useState("");
+
+  const movies = useAppStore((state) => state.contentCache.vodMovies);
+  const cachedCategories = useAppStore((state) => state.contentCache.vodCategories);
+  const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
+
   const cardWidth = tvMode || width > 720 ? 220 : Math.max(138, (width - 58) / 2);
 
-  const isDemoMode = useAppStore((state) => state.isDemoMode);
-  const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
-  const cachedCategories = useAppStore((state) => state.contentCache.vodCategories);
-  const { syncState, refresh } = useXtreamSync();
-
-  const movies: VodMovie[] = isDemoMode ? demoMovies : cachedMovies;
-
-  const genres = useMemo(() => {
-    if (isDemoMode) return ["Todos", "Ação", "Comédia", "Terror", "Ficção", "Drama"];
-    return ["Todos", ...cachedCategories.map((c) => c.name)];
-  }, [isDemoMode, cachedCategories]);
+  const genres = useMemo(
+    () => ["Todos", ...cachedCategories.map((c) => c.name)],
+    [cachedCategories],
+  );
 
   const filteredMovies = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
     return movies
       .filter((movie) => {
-        const matchesGenre = genre === "Todos" || movie.genre.toLowerCase().includes(genre.toLowerCase());
-        const matchesQuery = !normalizedQuery || `${movie.title} ${movie.genre}`.toLowerCase().includes(normalizedQuery);
-        return matchesGenre && matchesQuery;
+        const matchGenre = genre === "Todos" || movie.genre.toLowerCase().includes(genre.toLowerCase());
+        const matchQ = !q || `${movie.title} ${movie.genre}`.toLowerCase().includes(q);
+        return matchGenre && matchQ;
       })
-      .sort((first, second) => {
-        if (sort === "Melhor avaliados") return second.rating - first.rating;
-        if (sort === "A-Z") return first.title.localeCompare(second.title);
-        return second.year - first.year;
+      .sort((a, b) => {
+        if (sort === "Melhor avaliados") return b.rating - a.rating;
+        if (sort === "A-Z") return a.title.localeCompare(b.title);
+        return b.year - a.year;
       });
   }, [movies, genre, query, sort]);
 
@@ -53,9 +49,7 @@ export default function MoviesScreen() {
     router.push(`/details/${id}`);
   }, [router]);
 
-  const isSyncing = !isDemoMode && syncState.isSyncing;
-  const syncError = !isDemoMode ? syncState.syncError : null;
-  const isEmpty = !isSyncing && movies.length === 0 && !syncState.syncError;
+  const isEmpty = !isSyncing && movies.length === 0;
 
   return (
     <View style={styles.screen}>
@@ -64,7 +58,7 @@ export default function MoviesScreen() {
       {isSyncing ? (
         <View style={styles.syncBanner}>
           <ActivityIndicator size="small" color={Colors.blueBright} />
-          <AppText style={styles.syncText}>{syncState.syncProgress ?? "Carregando filmes..."}</AppText>
+          <AppText style={styles.syncText}>{syncProgress ?? "Carregando filmes..."}</AppText>
         </View>
       ) : null}
 
@@ -85,7 +79,7 @@ export default function MoviesScreen() {
             <AppText style={Type.display}>Filmes</AppText>
             <AppText style={styles.subtitle}>Histórias para cada momento</AppText>
           </View>
-          <TVFocusable onPress={refresh} style={styles.libraryIcon} accessibilityLabel="Atualizar catálogo de filmes">
+          <TVFocusable onPress={refresh} style={styles.libraryIcon} accessibilityLabel="Atualizar catálogo">
             <Ionicons name="refresh" size={22} color={Colors.blueBright} />
           </TVFocusable>
         </View>
@@ -95,14 +89,18 @@ export default function MoviesScreen() {
         <View style={styles.filterBlock}>
           <AppText style={styles.filterLabel}>Categorias</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroller} contentContainerStyle={styles.filterContent}>
-            {genres.map((item, index) => <Chip key={item} label={item} selected={genre === item} hasTVPreferredFocus={index === 0} onPress={() => setGenre(item)} />)}
+            {genres.map((item, index) => (
+              <Chip key={item} label={item} selected={genre === item} hasTVPreferredFocus={index === 0} onPress={() => setGenre(item)} />
+            ))}
           </ScrollView>
         </View>
 
         <View style={styles.sortRow}>
           <SectionHeader title={`${filteredMovies.length} títulos`} subtitle="Atualizados recentemente" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroller} contentContainerStyle={styles.sortContent}>
-            {sortOptions.map((item) => <Chip key={item} label={item} selected={sort === item} onPress={() => setSort(item)} />)}
+            {sortOptions.map((item) => (
+              <Chip key={item} label={item} selected={sort === item} onPress={() => setSort(item)} />
+            ))}
           </ScrollView>
         </View>
 
@@ -119,16 +117,7 @@ export default function MoviesScreen() {
         ) : filteredMovies.length > 0 ? (
           <View style={styles.grid}>
             {filteredMovies.map((movie) => (
-              <PosterCard
-                key={movie.id}
-                title={movie.title}
-                image={movie.poster}
-                meta={`${movie.year} · ${movie.genre}`}
-                rating={movie.rating}
-                quality={movie.quality}
-                width={cardWidth}
-                onPress={() => handleMovie(movie.id)}
-              />
+              <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${movie.year} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={cardWidth} onPress={() => handleMovie(movie.id)} />
             ))}
           </View>
         ) : (

@@ -3,18 +3,16 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { channels as demoChannels, movies as demoMovies, series as demoSeries } from "@/data/demo";
 import { Colors, Radii, Shadows } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, ChannelLogo, GlassCard, HorizontalScroller, IconButton, PosterCard, ScreenState, SectionHeader } from "@/components/ui";
-import { useXtreamSync } from "@/hooks/useXtreamSync";
+import { AppText, ChannelLogo, GlassCard, HorizontalScroller, IconButton, PosterCard, SectionHeader } from "@/components/ui";
+import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
-import type { ChannelItem, VodMovie, SeriesItem } from "@/store/types";
+import type { VodMovie } from "@/store/types";
 
 // ---------------------------------------------------------------------------
-// Module-level helpers — keep these outside HomeScreen so their operators
-// don't count against the function's cognitive complexity budget.
+// Module-level helpers
 // ---------------------------------------------------------------------------
 
 function computePosterWidth(tvMode: boolean, width: number): number {
@@ -22,39 +20,9 @@ function computePosterWidth(tvMode: boolean, width: number): number {
   return 142;
 }
 
-function seasonsMeta(count: number, genre: string): string {
-  const suffix = count !== 1 ? "s" : "";
-  return `${count} temporada${suffix} · ${genre}`;
+function seasonsMeta(count: number): string {
+  return `${count} temporada${count !== 1 ? "s" : ""}`;
 }
-
-interface ServerInfoCardProps {
-  serverName: string;
-  expiryDate: string;
-}
-
-function ServerInfoCard({ serverName, expiryDate }: ServerInfoCardProps) {
-  return (
-    <GlassCard style={styles.serverCard} intensity={30}>
-      <View style={styles.serverIcon}>
-        <Ionicons name="shield-checkmark" size={18} color={Colors.green} />
-      </View>
-      <View style={styles.serverCopy}>
-        <AppText style={styles.serverLabel}>SERVIDOR ATIVO</AppText>
-        <AppText style={styles.serverName}>{serverName}</AppText>
-      </View>
-      <View style={styles.serverDivider} />
-      <View style={styles.expiryCopy}>
-        <AppText style={styles.serverLabel}>VALIDADE</AppText>
-        <AppText style={styles.expiryDate}>{expiryDate}</AppText>
-      </View>
-      <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
-    </GlassCard>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components extracted to reduce cognitive complexity of HomeScreen
-// ---------------------------------------------------------------------------
 
 interface HeroBannerProps {
   hero: VodMovie;
@@ -117,9 +85,32 @@ function EmptyHomeState({ onSync }: { onSync: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
+// ServerInfoCard
+// ---------------------------------------------------------------------------
+interface ServerInfoCardProps { serverName: string; expiryDate: string }
+function ServerInfoCard({ serverName, expiryDate }: ServerInfoCardProps) {
+  return (
+    <GlassCard style={styles.serverCard} intensity={30}>
+      <View style={styles.serverIcon}>
+        <Ionicons name="shield-checkmark" size={18} color={Colors.green} />
+      </View>
+      <View style={styles.serverCopy}>
+        <AppText style={styles.serverLabel}>SERVIDOR ATIVO</AppText>
+        <AppText style={styles.serverName}>{serverName}</AppText>
+      </View>
+      <View style={styles.serverDivider} />
+      <View style={styles.expiryCopy}>
+        <AppText style={styles.serverLabel}>VALIDADE</AppText>
+        <AppText style={styles.expiryDate}>{expiryDate}</AppText>
+      </View>
+      <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
+    </GlassCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
-
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -127,24 +118,26 @@ export default function HomeScreen() {
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const history = useAppStore((state) => state.history);
-  const isDemoMode = useAppStore((state) => state.isDemoMode);
-  const cachedChannels = useAppStore((state) => state.contentCache.liveChannels);
-  const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
-  const cachedSeries = useAppStore((state) => state.contentCache.seriesList);
-  const { syncState, refresh } = useXtreamSync();
+  const channels = useAppStore((state) => state.contentCache.liveChannels);
+  const movies = useAppStore((state) => state.contentCache.vodMovies);
+  const seriesList = useAppStore((state) => state.contentCache.seriesList);
+  const { isSyncing, syncProgress, refresh } = useSyncStatus();
 
   const posterWidth = computePosterWidth(tvMode, width);
-  const activeServer = servers.find((server) => server.id === activeServerId) ?? servers[0];
+  const activeServer = servers.find((s) => s.id === activeServerId) ?? servers[0];
+  const serverName = activeServer?.name ?? "Servidor desconhecido";
+  const serverExpiry = activeServer?.expiryDate ?? "—";
+  const avatarInitials = serverName.slice(0, 2).toUpperCase();
+  const syncLabel = syncProgress ?? "Sincronizando conteúdo...";
 
-  const channels: ChannelItem[] = isDemoMode ? demoChannels : cachedChannels;
-  const movies: VodMovie[] = isDemoMode ? demoMovies : cachedMovies;
-  const series: SeriesItem[] = isDemoMode ? demoSeries : cachedSeries;
-  const hero = movies[0] ?? demoMovies[0];
+  const hero = movies[0] ?? null;
 
   const handleSearch = useCallback(() => { router.push("/movies"); }, [router]);
-  const handleHeroDetails = useCallback(() => { router.push(`/details/${hero.id}`); }, [hero, router]);
+  const handleHeroDetails = useCallback(() => {
+    if (hero) router.push(`/details/${hero.id}`);
+  }, [hero, router]);
   const handleHeroPlay = useCallback(() => {
-    router.push({ pathname: "/player", params: { id: hero.id, title: hero.title, type: "movie", streamUrl: hero.streamUrl } });
+    if (hero) router.push({ pathname: "/player", params: { id: hero.id, title: hero.title, type: "movie", streamUrl: hero.streamUrl } });
   }, [hero, router]);
   const handleOpenLive = useCallback(() => { router.push("/live"); }, [router]);
   const handleOpenMovies = useCallback(() => { router.push("/movies"); }, [router]);
@@ -163,15 +156,9 @@ export default function HomeScreen() {
   }, [handleLive, router]);
 
   const recentMovies = useMemo(() => movies.slice(0, 5), [movies]);
-  const popularSeries = useMemo(() => series.slice(0, 4), [series]);
+  const popularSeries = useMemo(() => seriesList.slice(0, 4), [seriesList]);
   const featuredChannels = useMemo(() => channels.slice(0, 5), [channels]);
-  const isSyncing = !isDemoMode && syncState.isSyncing;
-  const isRealEmpty = !isDemoMode && channels.length === 0 && movies.length === 0;
-  const showEmpty = !isSyncing && isRealEmpty;
-  const syncLabel = syncState.syncProgress ?? "Sincronizando conteúdo...";
-  const avatarInitials = activeServer?.name?.slice(0, 2)?.toUpperCase() ?? "FP";
-  const serverName = activeServer?.name ?? "Modo demonstração";
-  const serverExpiry = activeServer?.expiryDate ?? "Demo";
+  const showEmpty = !isSyncing && channels.length === 0 && movies.length === 0;
 
   return (
     <View style={styles.screen} testID="home-screen">
@@ -185,98 +172,90 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      <ScreenState loading={false} error={null} retry={refresh}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
-          {/* Top bar */}
-          <View style={styles.topBar}>
-            <View style={styles.brandBlock}>
-              <AppText style={styles.eyebrow}>SUA CENTRAL DE ENTRETENIMENTO</AppText>
-              <AppText style={styles.brand}>Flix<AppText style={styles.brandAccent}>Play</AppText></AppText>
-            </View>
-            <View style={styles.topActions}>
-              <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
-              <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir perfil" onPress={handleSearch} style={styles.avatarButton}>
-                <AppText style={styles.avatarText}>{avatarInitials}</AppText>
-                <View style={styles.onlineDot} />
-              </TVFocusable>
-            </View>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
+        {/* Top bar */}
+        <View style={styles.topBar}>
+          <View style={styles.brandBlock}>
+            <AppText style={styles.eyebrow}>SUA CENTRAL DE ENTRETENIMENTO</AppText>
+            <AppText style={styles.brand}>Flix<AppText style={styles.brandAccent}>Play</AppText></AppText>
           </View>
+          <View style={styles.topActions}>
+            <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir perfil" onPress={handleSearch} style={styles.avatarButton}>
+              <AppText style={styles.avatarText}>{avatarInitials}</AppText>
+              <View style={styles.onlineDot} />
+            </TVFocusable>
+          </View>
+        </View>
 
-          {/* Server info card */}
-          <ServerInfoCard serverName={serverName} expiryDate={serverExpiry} />
+        <ServerInfoCard serverName={serverName} expiryDate={serverExpiry} />
 
-          {/* Hero banner */}
-          {hero ? <HeroBanner hero={hero} tvMode={tvMode} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
+        {hero ? <HeroBanner hero={hero} tvMode={tvMode} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
 
-          {/* Continue watching */}
-          {history.length > 0 ? (
-            <View style={styles.sectionBlock}>
-              <SectionHeader title="Continuar Assistindo" subtitle="Retome de onde parou" onPress={handleSearch} />
-              <HorizontalScroller>
-                {history.map((item) => (
-                  <TVFocusable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item.contentId, item.type)} style={styles.continueCard}>
-                    <View style={styles.continueImage}>
-                      <Image source={{ uri: item.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
-                      <View style={styles.continueShade} />
-                      <View style={styles.continuePlay}><Ionicons name="play" size={15} color={Colors.white} /></View>
-                    </View>
-                    <AppText numberOfLines={1} style={styles.continueTitle}>{item.title}</AppText>
-                    <AppText numberOfLines={1} style={styles.continueSubtitle}>{item.subtitle}</AppText>
-                    <View style={styles.continueTrack}>
-                      <View style={[styles.continueFill, { width: `${Math.round((item.positionMs / item.durationMs) * 100)}%` }]} />
-                    </View>
-                  </TVFocusable>
-                ))}
-              </HorizontalScroller>
-            </View>
-          ) : null}
+        {history.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <SectionHeader title="Continuar Assistindo" subtitle="Retome de onde parou" onPress={handleSearch} />
+            <HorizontalScroller>
+              {history.map((item) => (
+                <TVFocusable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item.contentId, item.type)} style={styles.continueCard}>
+                  <View style={styles.continueImage}>
+                    <Image source={{ uri: item.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
+                    <View style={styles.continueShade} />
+                    <View style={styles.continuePlay}><Ionicons name="play" size={15} color={Colors.white} /></View>
+                  </View>
+                  <AppText numberOfLines={1} style={styles.continueTitle}>{item.title}</AppText>
+                  <AppText numberOfLines={1} style={styles.continueSubtitle}>{item.subtitle}</AppText>
+                  <View style={styles.continueTrack}>
+                    <View style={[styles.continueFill, { width: `${Math.round((item.positionMs / item.durationMs) * 100)}%` }]} />
+                  </View>
+                </TVFocusable>
+              ))}
+            </HorizontalScroller>
+          </View>
+        ) : null}
 
-          {/* Live channels */}
-          {featuredChannels.length > 0 ? (
-            <View style={styles.sectionBlock}>
-              <SectionHeader title="Canais ao Vivo" subtitle="Programação ao vivo agora" onPress={handleOpenLive} />
-              <HorizontalScroller>
-                {featuredChannels.map((channel) => (
-                  <TVFocusable key={channel.id} accessibilityRole="button" accessibilityLabel={`Assistir ${channel.name}`} onPress={() => handleLive(channel.id)} style={styles.channelCard}>
-                    <ChannelLogo image={channel.logo} name={channel.name} size={60} />
-                    <AppText numberOfLines={1} style={styles.channelName}>{channel.name}</AppText>
-                    <AppText numberOfLines={1} style={styles.channelProgram}>{channel.currentEpg.title}</AppText>
-                    <View style={styles.channelProgress}>
-                      <View style={[styles.channelProgressFill, { width: `${channel.currentEpg.progress}%` }]} />
-                    </View>
-                  </TVFocusable>
-                ))}
-              </HorizontalScroller>
-            </View>
-          ) : null}
+        {featuredChannels.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <SectionHeader title="Canais ao Vivo" subtitle="Programação ao vivo agora" onPress={handleOpenLive} />
+            <HorizontalScroller>
+              {featuredChannels.map((channel) => (
+                <TVFocusable key={channel.id} accessibilityRole="button" accessibilityLabel={`Assistir ${channel.name}`} onPress={() => handleLive(channel.id)} style={styles.channelCard}>
+                  <ChannelLogo image={channel.logo} name={channel.name} size={60} />
+                  <AppText numberOfLines={1} style={styles.channelName}>{channel.name}</AppText>
+                  <AppText numberOfLines={1} style={styles.channelProgram}>{channel.currentEpg.title}</AppText>
+                  <View style={styles.channelProgress}>
+                    <View style={[styles.channelProgressFill, { width: `${channel.currentEpg.progress}%` }]} />
+                  </View>
+                </TVFocusable>
+              ))}
+            </HorizontalScroller>
+          </View>
+        ) : null}
 
-          {/* Recent movies */}
-          {recentMovies.length > 0 ? (
-            <View style={styles.sectionBlock}>
-              <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
-              <HorizontalScroller>
-                {recentMovies.map((movie) => (
-                  <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${movie.year} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />
-                ))}
-              </HorizontalScroller>
-            </View>
-          ) : null}
+        {recentMovies.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
+            <HorizontalScroller>
+              {recentMovies.map((movie) => (
+                <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${movie.year} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />
+              ))}
+            </HorizontalScroller>
+          </View>
+        ) : null}
 
-          {/* Popular series */}
-          {popularSeries.length > 0 ? (
-            <View style={styles.sectionBlock}>
-              <SectionHeader title="Séries em alta" onPress={handleOpenSeries} />
-              <HorizontalScroller>
-                {popularSeries.map((item) => (
-                  <PosterCard key={item.id} title={item.title} image={item.poster} meta={seasonsMeta(item.seasonsCount, item.genre)} rating={item.rating} width={posterWidth} onPress={() => handleContent(item.id)} />
-                ))}
-              </HorizontalScroller>
-            </View>
-          ) : null}
+        {popularSeries.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <SectionHeader title="Séries em alta" onPress={handleOpenSeries} />
+            <HorizontalScroller>
+              {popularSeries.map((item) => (
+                <PosterCard key={item.id} title={item.title} image={item.poster} meta={`${item.year} · ${seasonsMeta(item.seasonsCount)}`} rating={item.rating} width={posterWidth} onPress={() => handleContent(item.id)} />
+              ))}
+            </HorizontalScroller>
+          </View>
+        ) : null}
 
-          {showEmpty ? <EmptyHomeState onSync={refresh} /> : null}
-        </ScrollView>
-      </ScreenState>
+        {showEmpty ? <EmptyHomeState onSync={refresh} /> : null}
+      </ScrollView>
     </View>
   );
 }

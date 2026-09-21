@@ -5,8 +5,8 @@ import { Alert, Platform, ScrollView, StyleSheet, Switch, View } from "react-nat
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { APP_INFO } from "@/constants/app";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, Chip, GlassCard, IconButton, ScreenState, SectionHeader } from "@/components/ui";
-import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { AppText, Chip, GlassCard, IconButton, SectionHeader } from "@/components/ui";
+import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -14,8 +14,8 @@ const buffers = ["Rápido", "Normal", "Alto"];
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { loading, error, retry } = useScreenLoad("seus ajustes");
   const tvMode = useTVMode();
+  const { isSyncing, refresh: syncRefresh } = useSyncStatus();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const trakt = useAppStore((state) => state.trakt);
@@ -109,16 +109,14 @@ export default function SettingsScreen() {
     Alert.alert("Sincronização concluída", "Seu histórico e favoritos já estão atualizados com o Trakt.tv.");
   }, [router, trakt.isConnected]);
 
-  const handleDemo = useCallback(() => {
-    const demoServer = servers.find((server) => server.id === "demo-premium");
-    if (demoServer) setActiveServer(demoServer.id);
-    Alert.alert("Modo demonstração ativo", "Você está usando o catálogo demo com canais, filmes e séries funcionais.");
-  }, [servers, setActiveServer]);
+  const handleSyncIptv = useCallback(() => {
+    syncRefresh();
+    Alert.alert("Atualização iniciada", "A lista IPTV está sendo baixada do servidor.");
+  }, [syncRefresh]);
 
   return (
     <View style={styles.screen}>
       <View style={styles.ambient} />
-      <ScreenState loading={loading} error={error} retry={retry}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
           <View style={styles.header}>
             <View style={styles.headerCopy}><AppText style={styles.kicker}>CONTROLE DA SUA CONTA</AppText><AppText style={Type.display}>Ajustes</AppText><AppText style={styles.subtitle}>Personalize sua experiência FlixPlay</AppText></View>
@@ -201,7 +199,7 @@ export default function SettingsScreen() {
 
           <View style={styles.infoGrid}><View style={styles.infoTile}><AppText style={styles.infoLabel}>CONEXÕES ATIVAS</AppText><AppText style={styles.infoValue}>1 <AppText style={styles.infoMuted}>/ 3</AppText></AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>FORMATO DE SAÍDA</AppText><AppText style={styles.infoValue}>HLS</AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>STATUS DA LISTA</AppText><View style={styles.statusLine}><View style={styles.activeDot} /><AppText style={styles.infoValueSmall}>Online</AppText></View></View></View>
 
-          <TVFocusable accessibilityRole="button" onPress={handleDemo} style={styles.demoBanner}><View style={styles.demoIcon}><Ionicons name="flash" size={18} color={Colors.amber} /></View><View style={styles.demoCopy}><AppText style={styles.demoTitle}>Modo Demonstração</AppText><AppText style={styles.demoBody}>Explore sem configurar um servidor próprio</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
+          <TVFocusable accessibilityRole="button" disabled={isSyncing} onPress={handleSyncIptv} style={[styles.syncIptv, isSyncing && styles.syncIptvDisabled]}><View style={styles.syncIptvIcon}><Ionicons name="refresh" size={18} color={Colors.blueBright} /></View><View style={styles.syncIptvCopy}><AppText style={styles.syncIptvTitle}>Atualizar Lista IPTV</AppText><AppText style={styles.syncIptvBody}>{isSyncing ? "Sincronizando..." : "Recarregar canais, filmes e séries do servidor"}</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
 
           <TVFocusable
             accessibilityRole="button"
@@ -221,7 +219,6 @@ export default function SettingsScreen() {
 
           <AppText style={styles.version}>{APP_INFO.name} {APP_INFO.versionLabel} · Feito para sua sala</AppText>
         </ScrollView>
-      </ScreenState>
     </View>
   );
 }
@@ -294,11 +291,12 @@ const styles = StyleSheet.create({
   statusLine: { flexDirection: "row", alignItems: "center", gap: 5 },
   activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.green },
   infoValueSmall: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.green },
-  demoBanner: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11, padding: 13, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(245,158,11,0.25)", backgroundColor: "rgba(245,158,11,0.08)", ...Shadows.card },
-  demoIcon: { width: 37, height: 37, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(245,158,11,0.16)" },
-  demoCopy: { flex: 1, gap: 4 },
-  demoTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  demoBody: { fontSize: 11, color: Colors.muted },
+  syncIptv: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11, padding: 13, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(96,165,250,0.28)", backgroundColor: "rgba(59,130,246,0.08)", ...Shadows.card },
+  syncIptvDisabled: { opacity: 0.55 },
+  syncIptvIcon: { width: 37, height: 37, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(59,130,246,0.16)" },
+  syncIptvCopy: { flex: 1, gap: 4 },
+  syncIptvTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  syncIptvBody: { fontSize: 11, color: Colors.muted },
   version: { alignSelf: "center", fontSize: 10, color: Colors.subtle },
   logoutBtn: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(229,9,20,0.25)", backgroundColor: "rgba(229,9,20,0.07)", ...Shadows.card },
   logoutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, borderWidth: 1, borderColor: "rgba(229,9,20,0.3)", backgroundColor: "rgba(229,9,20,0.14)" },

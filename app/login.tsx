@@ -269,7 +269,6 @@ export default function LoginScreen() {
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const removeServer = useAppStore((state) => state.removeServer);
   const removeAllServers = useAppStore((state) => state.removeAllServers);
-  const setDemoMode = useAppStore((state) => state.setDemoMode);
   const servers = useAppStore((state) => state.servers);
 
   const [host, setHost] = useState("");
@@ -357,28 +356,6 @@ export default function LoginScreen() {
     [performConnect],
   );
 
-  const handleDemo = useCallback(() => {
-    setDemoMode(true);
-    const demoServer = servers.find((s) => s.id === "demo-premium");
-    if (demoServer) {
-      setActiveServer(demoServer.id);
-    } else {
-      addServer({
-        id: "demo-premium",
-        name: "Premium Plus (Demo)",
-        serverUrl: "https://demo.flixplay.tv",
-        username: "demo",
-        password: "demo",
-        isActive: true,
-        expiryDate: "18/12/2025",
-        maxConnections: 3,
-        activeConnections: 1,
-        format: "HLS",
-        addedAt: new Date().toISOString(),
-      });
-    }
-    router.replace("/(tabs)");
-  }, [addServer, router, servers, setActiveServer, setDemoMode]);
 
   const handleSelectSaved = useCallback(
     (server: ServerProfile) => {
@@ -684,18 +661,6 @@ export default function LoginScreen() {
                   <AppText style={styles.secondaryBadgeText}>{servers.length}</AppText>
                 </View>
               ) : null}
-            </TVFocusable>
-
-            <View style={styles.secondaryDivider} />
-
-            <TVFocusable
-              accessibilityRole="button"
-              accessibilityLabel="Entrar no modo demonstração"
-              onPress={handleDemo}
-              style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
-            >
-              <Ionicons name="flash" size={16} color={Colors.amber} />
-              <AppText style={styles.secondaryBtnText}>Modo Demo</AppText>
             </TVFocusable>
           </View>
         </ScrollView>

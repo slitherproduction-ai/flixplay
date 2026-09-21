@@ -439,7 +439,7 @@ export default function LoginScreen() {
 
           {/* Glass card */}
           <View style={styles.card}>
-            <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
             <View style={styles.cardInner}>
               <AppText style={styles.cardTitle}>Entrar na conta</AppText>
               <AppText style={styles.cardSubtitle}>

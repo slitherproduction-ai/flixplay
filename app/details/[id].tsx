@@ -20,10 +20,20 @@ export default function DetailsScreen() {
   const tvMode = useTVMode();
   const toggleFavorite = useAppStore((state) => state.toggleFavorite);
   const favoriteIds = useAppStore((state) => state.favoriteIds);
-  const [season, setSeason] = useState(2);
-  const content = getContentById(id);
-  const movie = content.movie;
-  const show = content.series;
+  // Read from store cache for real server content (Xtream mapped items)
+  const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
+  const cachedSeries = useAppStore((state) => state.contentCache.seriesList);
+  const [season, setSeason] = useState(1);
+
+  // Look up content in both demo data and the store's server cache
+  const demoContent = getContentById(id);
+  const movie: VodMovie | undefined =
+    demoContent.movie ??
+    cachedMovies.find((m) => m.id === id);
+  const show: SeriesItem | undefined =
+    demoContent.series ??
+    cachedSeries.find((s) => s.id === id);
+
   const isFavorite = favoriteIds.includes(id);
   const selectedEpisodes = useMemo(() => episodes.filter((episode) => episode.seriesId === show?.id && episode.seasonNumber === season), [season, show?.id]);
   const similar = useMemo(() => (show ? series.filter((item) => item.id !== show.id) : movies.filter((item) => item.id !== movie?.id)).slice(0, 3), [movie?.id, show]);

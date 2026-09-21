@@ -312,49 +312,53 @@ export default function LiveScreen() {
                   style={[styles.channelCard, tvMode && styles.tvChannelCard]}
                   intensity={18}
                 >
-                  <TVFocusable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Abrir ${channel.name}`}
-                    onPress={() => handleChannel(channel.id)}
-                    onLongPress={() => handleGuide(channel.id)}
-                    style={styles.channelPressable}
-                  >
-                    <View style={styles.channelImage}>
-                      {channel.logo ? (
-                        <Image
-                          source={{ uri: channel.logo }}
-                          contentFit="cover"
-                          style={StyleSheet.absoluteFill}
-                        />
-                      ) : null}
-                      <View style={styles.imageVeil} />
-                      <AppText style={styles.channelInitials}>
-                        {channel.name.slice(0, 3).toUpperCase()}
-                      </AppText>
-                    </View>
-                    <View style={styles.channelDetails}>
-                      <View style={styles.channelTitleRow}>
-                        <AppText style={styles.channelNumber}>{channel.number}</AppText>
-                        <AppText style={styles.channelTitle}>{channel.name}</AppText>
-                        <View style={styles.liveBadge}>
-                          <View style={styles.liveDot} />
-                          <AppText style={styles.liveText}>AO VIVO</AppText>
-                        </View>
-                      </View>
-                      <AppText style={styles.programTitle}>{channel.currentEpg.title}</AppText>
-                      <View style={styles.programTimes}>
-                        <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
-                        <View style={styles.programTrack}>
-                          <View
-                            style={[styles.programFill, { width: `${channel.currentEpg.progress}%` }]}
+                  {/* Row: channel pressable + favorite button are SIBLINGS (not nested)
+                      to avoid nested-Pressable touch conflicts on Android/iOS/web. */}
+                  <View style={styles.channelRow}>
+                    <TVFocusable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Abrir ${channel.name}`}
+                      onPress={() => handleChannel(channel.id)}
+                      onLongPress={() => handleGuide(channel.id)}
+                      style={styles.channelPressable}
+                    >
+                      <View style={styles.channelImage}>
+                        {channel.logo ? (
+                          <Image
+                            source={{ uri: channel.logo }}
+                            contentFit="cover"
+                            style={StyleSheet.absoluteFill}
                           />
-                        </View>
-                        <AppText style={styles.programTime}>{channel.currentEpg.end}</AppText>
+                        ) : null}
+                        <View style={styles.imageVeil} />
+                        <AppText style={styles.channelInitials}>
+                          {channel.name.slice(0, 3).toUpperCase()}
+                        </AppText>
                       </View>
-                      <AppText numberOfLines={1} style={styles.nextProgram}>
-                        A seguir · {channel.nextProgram}
-                      </AppText>
-                    </View>
+                      <View style={styles.channelDetails}>
+                        <View style={styles.channelTitleRow}>
+                          <AppText style={styles.channelNumber}>{channel.number}</AppText>
+                          <AppText style={styles.channelTitle}>{channel.name}</AppText>
+                          <View style={styles.liveBadge}>
+                            <View style={styles.liveDot} />
+                            <AppText style={styles.liveText}>AO VIVO</AppText>
+                          </View>
+                        </View>
+                        <AppText style={styles.programTitle}>{channel.currentEpg.title}</AppText>
+                        <View style={styles.programTimes}>
+                          <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
+                          <View style={styles.programTrack}>
+                            <View
+                              style={[styles.programFill, { width: `${channel.currentEpg.progress}%` }]}
+                            />
+                          </View>
+                          <AppText style={styles.programTime}>{channel.currentEpg.end}</AppText>
+                        </View>
+                        <AppText numberOfLines={1} style={styles.nextProgram}>
+                          A seguir · {channel.nextProgram}
+                        </AppText>
+                      </View>
+                    </TVFocusable>
                     <TVFocusable
                       accessibilityRole="button"
                       accessibilityLabel={
@@ -372,7 +376,7 @@ export default function LiveScreen() {
                         color={isFavorite ? Colors.amber : Colors.muted}
                       />
                     </TVFocusable>
-                  </TVFocusable>
+                  </View>
                 </GlassCard>
               );
             })}
@@ -591,6 +595,11 @@ const styles = StyleSheet.create({
   list: { gap: 10 },
   channelCard: { minHeight: 116, borderRadius: Radii.medium },
   tvChannelCard: { minHeight: 146 },
+  channelRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   channelPressable: {
     flex: 1,
     flexDirection: "row",
@@ -648,6 +657,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 19,
     backgroundColor: "rgba(255,255,255,0.06)",
+    marginRight: 11,
+    flexShrink: 0,
   },
   empty: {
     alignItems: "center",

@@ -35,7 +35,9 @@ export function GlassCard({
 }) {
   return (
     <View style={[styles.glassShell, Shadows.card, style]}>
-      <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
+      {/* pointerEvents="none" prevents the BlurView from intercepting taps that
+          should reach interactive children (Pressable, TVFocusable, etc.). */}
+      <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
       <View style={styles.glassContent}>{children}</View>
     </View>
   );

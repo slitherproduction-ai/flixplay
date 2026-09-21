@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
-import { ActivityIndicator, BackHandler, Platform, StyleSheet, View } from "react-native";
+import { ActivityIndicator, BackHandler, Platform, Pressable, StyleSheet, View } from "react-native";
 import { channels, DEMO_STREAM_URL, movies } from "@/data/demo";
 import { Colors, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
@@ -62,12 +62,17 @@ export default function PlayerScreen() {
   const { loading, error, retry } = useScreenLoad("o player");
   const tvMode = useTVMode();
   const saveHistory = useAppStore((state) => state.saveHistory);
+  // Use store channels (real server content) with demo fallback for quick-switcher
+  const storeChannels = useAppStore((state) => state.contentCache.liveChannels);
+  const allChannels = storeChannels.length > 0 ? storeChannels : channels;
   const [controlsVisible, setControlsVisible] = useState(true);
   const [quickSwitcherVisible, setQuickSwitcherVisible] = useState(type === "live");
   const [panel, setPanel] = useState<Panel>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [playerError, setPlayerError] = useState<string | null>(null);
   const playButtonRef = useRef<TVFocusableHandle>(null);
+  // Auto-hide controls after 5 s of inactivity (TiviMate-style)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const contentType: ContentType = type === "live" ? "live" : type === "episode" ? "episode" : type === "series" ? "series" : "movie";
 
@@ -87,7 +92,7 @@ export default function PlayerScreen() {
     },
   );
 
-  const currentChannel = channels.find((channel) => channel.id === id);
+  const currentChannel = allChannels.find((channel) => channel.id === id);
   const backdrop = currentChannel?.logo ?? movies.find((movie) => movie.id === id)?.backdrop ?? movies[0].backdrop;
 
   useEffect(() => {
@@ -148,23 +153,32 @@ export default function PlayerScreen() {
     setIsPlaying((value) => !value);
   }, [isPlaying, player]);
 
+  /** Show controls and restart the 5-second auto-hide timer. */
+  const showControlsWithTimer = useCallback(() => {
+    setControlsVisible(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 5000);
+  }, []);
+
   const handleSeek = useCallback((seconds: number) => {
     try {
       player.seekBy(seconds);
-      setControlsVisible(true);
+      showControlsWithTimer();
       setPlayerError(null);
     } catch (seekError) {
       console.error("Falha ao buscar no stream", seekError);
       setPlayerError("Não foi possível alterar o ponto da reprodução.");
     }
-  }, [player]);
+  }, [player, showControlsWithTimer]);
 
   const handlePanel = useCallback((nextPanel: Panel) => {
     setPanel((current) => current === nextPanel ? null : nextPanel);
   }, []);
 
   const handleSwitchChannel = useCallback((channelId: string) => {
-    const channel = channels.find((item) => item.id === channelId);
+    const channel = allChannels.find((item) => item.id === channelId);
     if (!channel) return;
     try {
       // Reset fallback counter for the new channel
@@ -178,10 +192,27 @@ export default function PlayerScreen() {
       console.error("Falha ao trocar de canal", switchError);
       setPlayerError("Não foi possível trocar para este canal.");
     }
-  }, [player, router]);
+  }, [allChannels, player, router]);
 
   const handleTap = useCallback(() => {
-    setControlsVisible((value) => !value);
+    setControlsVisible((value) => {
+      if (!value) {
+        // Showing controls — start auto-hide timer
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = setTimeout(() => setControlsVisible(false), 5000);
+        return true;
+      }
+      // Hiding controls — clear timer
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      return false;
+    });
+  }, []);
+
+  // Clear the auto-hide timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
   }, []);
 
   const handleOpenSubtitles = useCallback(() => {
@@ -213,7 +244,7 @@ export default function PlayerScreen() {
       if (panel) {
         setPanel(null);
       } else if (!controlsVisible) {
-        setControlsVisible(true);
+        showControlsWithTimer();
       } else {
         handleTogglePlayback();
       }
@@ -230,12 +261,12 @@ export default function PlayerScreen() {
     if (event === "up") {
       if (contentType === "live") {
         setQuickSwitcherVisible(true);
-        setControlsVisible(true);
+        showControlsWithTimer();
       }
       return;
     }
     if (event === "down") {
-      setControlsVisible(true);
+      showControlsWithTimer();
       setPanel(null);
       setTimeout(() => playButtonRef.current?.focus(), 0);
       return;
@@ -249,7 +280,7 @@ export default function PlayerScreen() {
       return;
     }
     handleBack();
-  }, [contentType, controlsVisible, handleBack, handleSeek, handleTogglePlayback, panel, quickSwitcherVisible]);
+  }, [contentType, controlsVisible, handleBack, handleSeek, handleTogglePlayback, panel, quickSwitcherVisible, showControlsWithTimer]);
 
   useTVRemote(handleRemoteEvent, tvMode);
 
@@ -274,10 +305,16 @@ export default function PlayerScreen() {
       <Image source={{ uri: backdrop }} contentFit="cover" style={StyleSheet.absoluteFill} />
       <View style={styles.backdropVeil} />
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
-      <TVFocusable focusable={false} accessibilityLabel="Mostrar ou ocultar controles" onPress={handleTap} style={StyleSheet.absoluteFill} />
+      {/* Use plain Pressable for the tap overlay — TVFocusable with focusable=false
+          can suppress pointer-events on web, preventing the toggle from working. */}
+      <Pressable
+        accessibilityLabel="Mostrar ou ocultar controles"
+        onPress={handleTap}
+        style={styles.tapOverlay}
+      />
       <View pointerEvents="box-none" style={styles.overlay}>
         {controlsVisible ? <PlayerTopBar title={title} contentType={contentType} onBack={handleBack} onOpenSubtitles={handleOpenSubtitles} onToggleQuickSwitcher={handleToggleQuickSwitcher} /> : null}
-        <QuickSwitcher visible={quickSwitcherVisible && controlsVisible} currentId={id} onSwitch={handleSwitchChannel} onClose={handleCloseQuickSwitcher} />
+        <QuickSwitcher visible={quickSwitcherVisible && controlsVisible} channels={allChannels} currentId={id} onSwitch={handleSwitchChannel} onClose={handleCloseQuickSwitcher} />
         <PlayerStatus loading={loading} error={playerError ?? error} onRetry={handleRetry} />
         {controlsVisible ? <PlayerBottomPanel playButtonRef={playButtonRef} contentType={contentType} isPlaying={isPlaying} panel={panel} onTogglePlayback={handleTogglePlayback} onSeek={handleSeek} onPanelChange={handlePanel} onClosePanel={() => setPanel(null)} /> : null}
       </View>
@@ -289,9 +326,9 @@ function PlayerTopBar({ title, contentType, onBack, onOpenSubtitles, onToggleQui
   return <View pointerEvents="box-none" style={styles.topBar}><IconButton icon="chevron-back" label="Voltar" onPress={onBack} /><View style={styles.titleBar}><AppText numberOfLines={1} style={styles.playerTitle}>{title}</AppText><View style={styles.liveLine}><View style={styles.playerLiveDot} /><AppText style={styles.playerMeta}>{contentType === "live" ? "AO VIVO" : "FLIXPLAY DEMO"}</AppText></View></View><View style={styles.topActions}><IconButton icon="sync-outline" label="Trakt scrobble ativo" active onPress={onOpenSubtitles} /><IconButton icon="albums-outline" label="Abrir canais recentes" onPress={onToggleQuickSwitcher} /></View></View>;
 }
 
-function QuickSwitcher({ visible, currentId, onSwitch, onClose }: { visible: boolean; currentId: string; onSwitch: (channelId: string) => void; onClose: () => void }) {
+function QuickSwitcher({ visible, channels: channelList, currentId, onSwitch, onClose }: { visible: boolean; channels: typeof channels; currentId: string; onSwitch: (channelId: string) => void; onClose: () => void }) {
   if (!visible) return null;
-  return <GlassCard style={styles.quickSwitcher} intensity={32}><View style={styles.quickHeader}><View><AppText style={styles.quickKicker}>ZAPPING RÁPIDO</AppText><AppText style={styles.quickTitle}>Canais Recentes</AppText></View><IconButton icon="close" label="Fechar canais recentes" size={34} onPress={onClose} /></View>{channels.slice(0, 4).map((channel) => <QuickChannel key={channel.id} channelId={channel.id} name={channel.name} logo={channel.logo} program={channel.currentEpg.title} progress={channel.currentEpg.progress} active={channel.id === currentId} onSwitch={onSwitch} />)}</GlassCard>;
+  return <GlassCard style={styles.quickSwitcher} intensity={32}><View style={styles.quickHeader}><View><AppText style={styles.quickKicker}>ZAPPING RÁPIDO</AppText><AppText style={styles.quickTitle}>Canais Recentes</AppText></View><IconButton icon="close" label="Fechar canais recentes" size={34} onPress={onClose} /></View>{channelList.slice(0, 4).map((channel) => <QuickChannel key={channel.id} channelId={channel.id} name={channel.name} logo={channel.logo} program={channel.currentEpg.title} progress={channel.currentEpg.progress} active={channel.id === currentId} onSwitch={onSwitch} />)}</GlassCard>;
 }
 
 function QuickChannel({ channelId, name, logo, program, progress, active, onSwitch }: { channelId: string; name: string; logo: string; program: string; progress: number; active: boolean; onSwitch: (channelId: string) => void }) {
@@ -344,6 +381,7 @@ function readParam(value: string | string[] | undefined) {
 const styles = StyleSheet.create({
   screen: { flex: 1, overflow: "hidden", backgroundColor: Colors.black },
   backdropVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.44)" },
+  tapOverlay: { ...StyleSheet.absoluteFill },
   overlay: { flex: 1, justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22 },
   topBar: { flexDirection: "row", alignItems: "center", gap: 11 },
   titleBar: { flex: 1, gap: 4 },

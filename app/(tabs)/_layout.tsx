@@ -4,9 +4,12 @@ import { View } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
+import { useXtreamSync } from "@/hooks/useXtreamSync";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  // Trigger real server sync as soon as tabs are mounted
+  useXtreamSync();
 
   return (
     <View testID="tab-navigator" style={{ flex: 1 }}>

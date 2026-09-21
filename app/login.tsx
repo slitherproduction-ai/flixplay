@@ -269,6 +269,7 @@ export default function LoginScreen() {
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const removeServer = useAppStore((state) => state.removeServer);
   const removeAllServers = useAppStore((state) => state.removeAllServers);
+  const setDemoMode = useAppStore((state) => state.setDemoMode);
   const servers = useAppStore((state) => state.servers);
 
   const [host, setHost] = useState("");
@@ -357,6 +358,7 @@ export default function LoginScreen() {
   );
 
   const handleDemo = useCallback(() => {
+    setDemoMode(true);
     const demoServer = servers.find((s) => s.id === "demo-premium");
     if (demoServer) {
       setActiveServer(demoServer.id);
@@ -376,7 +378,7 @@ export default function LoginScreen() {
       });
     }
     router.replace("/(tabs)");
-  }, [addServer, router, servers, setActiveServer]);
+  }, [addServer, router, servers, setActiveServer, setDemoMode]);
 
   const handleSelectSaved = useCallback(
     (server: ServerProfile) => {

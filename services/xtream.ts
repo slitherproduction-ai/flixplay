@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import type { ChannelItem, ServerProfile } from "@/store/types";
+import type { ChannelItem, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 
 export interface XtreamCategory {
   category_id: string;
@@ -426,6 +426,69 @@ export function createStreamUrl(
 ) {
   const base = profile.serverUrl.replace(/\/+$/, "");
   return `${base}/live/${encodeURIComponent(profile.username)}/${encodeURIComponent(profile.password)}/${encodeURIComponent(streamId)}.${extension}`;
+}
+
+export function createVodUrl(
+  profile: ServerProfile,
+  streamId: string,
+  containerExtension = "mp4",
+) {
+  const base = profile.serverUrl.replace(/\/+$/, "");
+  return `${base}/movie/${encodeURIComponent(profile.username)}/${encodeURIComponent(profile.password)}/${encodeURIComponent(streamId)}.${containerExtension}`;
+}
+
+export function createSeriesEpisodeUrl(
+  profile: ServerProfile,
+  streamId: string,
+  containerExtension = "mp4",
+) {
+  const base = profile.serverUrl.replace(/\/+$/, "");
+  return `${base}/series/${encodeURIComponent(profile.username)}/${encodeURIComponent(profile.password)}/${encodeURIComponent(streamId)}.${containerExtension}`;
+}
+
+export function mapVodStreamToMovie(
+  stream: XtreamVodStream,
+  category: XtreamCategory | undefined,
+  profile: ServerProfile,
+): VodMovie {
+  const rating = parseFloat(stream.rating) || 0;
+  const year = parseInt(stream.year ?? "0", 10) || new Date().getFullYear();
+  return {
+    id: `movie-${stream.stream_id}`,
+    title: stream.name,
+    streamId: String(stream.stream_id),
+    poster: stream.stream_icon || "",
+    backdrop: stream.stream_icon || "",
+    rating: Math.min(10, Math.max(0, rating)),
+    year,
+    duration: "N/A",
+    genre: category?.category_name ?? "Geral",
+    plot: stream.plot ?? "",
+    streamUrl: createVodUrl(profile, String(stream.stream_id), stream.container_extension || "mp4"),
+    quality: "HD",
+  };
+}
+
+export function mapSeriesStreamToItem(
+  stream: XtreamSeriesStream,
+  category: XtreamCategory | undefined,
+): SeriesItem {
+  const rating = parseFloat(stream.rating) || 0;
+  const year = stream.releaseDate
+    ? parseInt(stream.releaseDate.slice(0, 4), 10) || new Date().getFullYear()
+    : new Date().getFullYear();
+  return {
+    id: `series-${stream.series_id}`,
+    title: stream.name,
+    seriesId: String(stream.series_id),
+    poster: stream.cover || "",
+    backdrop: stream.cover || "",
+    rating: Math.min(10, Math.max(0, rating)),
+    year,
+    seasonsCount: 1,
+    genre: category?.category_name ?? "Geral",
+    plot: stream.plot ?? "",
+  };
 }
 
 export function parseM3uPlaylist(text: string): M3uEntry[] {

@@ -80,6 +80,16 @@ export interface EpisodeItem {
   resumePositionMs?: number;
 }
 
+export interface ContentCache {
+  liveCategories: { id: string; name: string }[];
+  liveChannels: ChannelItem[];
+  vodCategories: { id: string; name: string }[];
+  vodMovies: VodMovie[];
+  seriesCategories: { id: string; name: string }[];
+  seriesList: SeriesItem[];
+  lastSyncedAt: string | null;
+}
+
 export interface TraktConfig {
   isConnected: boolean;
   username: string;

@@ -77,16 +77,20 @@ function normalizeUrl(input: string): string {
     url = `http://${url}`;
   }
 
-  // Remove trailing slashes
-  url = url.replace(/\/+$/, "");
-
-  // Strip common API path suffixes users accidentally paste
-  url = url.replace(
-    /\/(player_api\.php|get\.php|xmltv\.php|live|vod|series|movie|c)(\/.*)?(\?.*)?$/i,
-    "",
-  );
-
-  return url;
+  // Use URL.origin to extract ONLY protocol + hostname + port.
+  // This correctly strips any path, query, fragment, or embedded user-info
+  // that users accidentally paste (e.g. http://server:8080/player_api.php?...
+  // or http://server/live/user/pass/123).  A regex whitelist of known paths is
+  // brittle and silently passes unknown paths through to buildApiUrl, which
+  // then appends /player_api.php to them and creates an invalid endpoint.
+  try {
+    const parsed = new URL(url);
+    return parsed.origin; // "http://hostname:port" — no trailing slash, no path
+  } catch {
+    // Malformed URL — strip trailing slashes and return as-is; the subsequent
+    // isValidServerUrl check will catch it and show a helpful error.
+    return url.replace(/\/+$/, "");
+  }
 }
 
 /** Returns true when the normalised URL has a non-empty hostname. */

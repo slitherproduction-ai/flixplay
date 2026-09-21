@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 import { ActivityIndicator, BackHandler, Platform, StyleSheet, View } from "react-native";
 import { channels, DEMO_STREAM_URL, movies } from "@/data/demo";
 import { Colors, Shadows } from "@/constants/theme";
@@ -13,6 +13,27 @@ import { getTVRemoteEvent, useTVRemote, type TVKeyDownEvent, type TVRemoteEvent 
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import type { ContentType } from "@/store/types";
+
+/**
+ * Headers sent with every media request.
+ * Many IPTV servers validate the User-Agent string and drop connections from
+ * unrecognised clients (browsers, generic HTTP agents, etc.).
+ */
+const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
+
+/**
+ * Build a prioritised list of stream URLs to try in sequence.
+ * For live streams: original → swap extension (m3u8↔ts) → no extension
+ * For VOD/series: just the original URL
+ */
+function buildFallbackUrls(url: string, contentType: ContentType): string[] {
+  if (contentType !== "live") return [url];
+  const base = url.replace(/\.(m3u8|ts)$/i, "");
+  if (/\.m3u8$/i.test(url)) return [url, `${base}.ts`];
+  if (/\.ts$/i.test(url)) return [url, `${base}.m3u8`];
+  // No extension — try both
+  return [`${url}.m3u8`, `${url}.ts`, url];
+}
 
 type Panel = "audio" | "subtitles" | "speed" | "ratio" | null;
 type ActivePanel = Exclude<Panel, null>;
@@ -47,22 +68,58 @@ export default function PlayerScreen() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [playerError, setPlayerError] = useState<string | null>(null);
   const playButtonRef = useRef<TVFocusableHandle>(null);
-  const player = useVideoPlayer(streamUrl, (videoPlayer) => {
-    videoPlayer.loop = true;
-    videoPlayer.play();
-  });
-  const currentChannel = channels.find((channel) => channel.id === id);
-  const backdrop = currentChannel?.logo ?? movies.find((movie) => movie.id === id)?.backdrop ?? movies[0].backdrop;
+
   const contentType: ContentType = type === "live" ? "live" : type === "episode" ? "episode" : type === "series" ? "series" : "movie";
 
+  // Prioritised list of URLs to attempt for live streams
+  const fallbackUrls = useMemo(
+    () => buildFallbackUrls(streamUrl, contentType),
+    [streamUrl, contentType],
+  );
+  // Track how many fallback attempts have been made (ref to avoid stale closure)
+  const urlAttemptRef = useRef(0);
+
+  const player = useVideoPlayer(
+    { uri: fallbackUrls[0], headers: IPTV_HEADERS },
+    (videoPlayer) => {
+      videoPlayer.loop = false; // Live streams must not loop; VOD plays once
+      videoPlayer.play();
+    },
+  );
+
+  const currentChannel = channels.find((channel) => channel.id === id);
+  const backdrop = currentChannel?.logo ?? movies.find((movie) => movie.id === id)?.backdrop ?? movies[0].backdrop;
+
   useEffect(() => {
+    // Reset the attempt counter each time the source (fallbackUrls) changes,
+    // then attach the status listener. Combining both operations means the
+    // counter is always in sync with the current URL list without needing a
+    // separate effect whose dependency (streamUrl) isn't referenced in its body.
+    urlAttemptRef.current = 0;
     const subscription = player.addListener("statusChange", (status) => {
+      if (status.status === "readyToPlay") {
+        setPlayerError(null);
+        return;
+      }
       if (status.status === "error") {
-        setPlayerError(status.error?.message ?? "O stream não pôde ser reproduzido.");
+        const nextAttempt = urlAttemptRef.current + 1;
+        if (nextAttempt < fallbackUrls.length) {
+          // Try the next URL in the fallback chain (e.g. .m3u8 → .ts)
+          urlAttemptRef.current = nextAttempt;
+          try {
+            player.replace({ uri: fallbackUrls[nextAttempt], headers: IPTV_HEADERS });
+            player.play();
+          } catch (replaceErr) {
+            console.error("Falha ao tentar URL de fallback", replaceErr);
+            setPlayerError(status.error?.message ?? "O stream não pôde ser reproduzido.");
+          }
+        } else {
+          setPlayerError(status.error?.message ?? "O stream não pôde ser reproduzido.");
+        }
       }
     });
     return () => subscription.remove();
-  }, [player]);
+  }, [player, fallbackUrls]);
 
   const handleBack = useCallback(() => {
     try {
@@ -110,7 +167,10 @@ export default function PlayerScreen() {
     const channel = channels.find((item) => item.id === channelId);
     if (!channel) return;
     try {
-      player.replace(channel.streamUrl);
+      // Reset fallback counter for the new channel
+      urlAttemptRef.current = 0;
+      player.replace({ uri: channel.streamUrl, headers: IPTV_HEADERS });
+      player.play();
       setPlayerError(null);
       setIsPlaying(true);
       router.setParams({ id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl });
@@ -138,8 +198,15 @@ export default function PlayerScreen() {
 
   const handleRetry = useCallback(() => {
     setPlayerError(null);
-    void retry();
-  }, [retry]);
+    urlAttemptRef.current = 0;
+    try {
+      player.replace({ uri: fallbackUrls[0], headers: IPTV_HEADERS });
+      player.play();
+    } catch (retryErr) {
+      console.error("Falha ao reiniciar reprodução", retryErr);
+      void retry();
+    }
+  }, [fallbackUrls, player, retry]);
 
   const handleRemoteEvent = useCallback((event: TVRemoteEvent) => {
     if (event === "select") {

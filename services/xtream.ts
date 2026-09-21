@@ -194,31 +194,30 @@ function isCleartextBlockError(err: unknown): boolean {
 }
 
 /**
- * Native strategy: direct first, then swap protocol (http↔https) once.
- * Timeout on first attempt = server unreachable, no swap.
- * Specific cleartext blocking errors are surfaced with actionable messages.
+ * Native strategy: try original URL first, then swap protocol (http↔https).
+ * Cleartext blocking is NOT treated as a terminal error — we first attempt the
+ * alternate protocol (HTTPS) because the server might support it, or the build
+ * might already have cleartext enabled but the error message is misleading.
+ * Only after both attempts fail do we surface a diagnostic.
  */
 async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
+  let firstError: unknown;
+
+  // Attempt 1: original URL
   try {
     return await timedFetch(url, REQUEST_TIMEOUT_MS);
-  } catch (firstErr) {
-    if (isAbortError(firstErr)) {
+  } catch (err) {
+    if (isAbortError(err)) {
       throw new XtreamApiError(
         "Host não respondeu (Timeout após 15s). Verifique a URL e sua conexão.",
         0,
       );
     }
-    if (firstErr instanceof XtreamApiError) throw firstErr;
-    if (isCleartextBlockError(firstErr)) {
-      throw new XtreamApiError(
-        "Tráfego HTTP bloqueado pela política de segurança do dispositivo. " +
-          "Reconstrua o app para aplicar a nova configuração de rede HTTP.",
-        0,
-        url.replace(/\/player_api\.php.*$/, ""),
-      );
-    }
+    if (err instanceof XtreamApiError) throw err;
+    firstError = err;
   }
 
+  // Attempt 2: swap http ↔ https
   const altUrl = url.startsWith("https://")
     ? url.replace("https://", "http://")
     : url.replace("http://", "https://");
@@ -233,14 +232,21 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
       );
     }
     if (altErr instanceof XtreamApiError) throw altErr;
-    if (isCleartextBlockError(altErr)) {
-      throw new XtreamApiError(
-        "Tráfego HTTP bloqueado. Reconstrua o app para aplicar a nova configuração de rede.",
-        0,
-      );
-    }
-    throw new XtreamApiError("Não foi possível alcançar o servidor Xtream Codes.", 0);
   }
+
+  // Both attempts failed — surface the most actionable error
+  if (isCleartextBlockError(firstError)) {
+    throw new XtreamApiError(
+      "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
+      0,
+      url.replace(/\/player_api\.php.*$/, ""),
+    );
+  }
+  throw new XtreamApiError(
+    "Não foi possível alcançar o servidor. Verifique o endereço, a porta e sua conexão.",
+    0,
+    url.replace(/\/player_api\.php.*$/, ""),
+  );
 }
 
 function fetchWithFallbacks(url: string): Promise<Response> {
@@ -419,31 +425,41 @@ export const getSimpleDataTable = (
     { stream_id: streamId },
   );
 
+/**
+ * Build an Xtream Codes live-stream URL.
+ *
+ * The username and password are placed in the URL *path* exactly as the server
+ * expects them — NO encodeURIComponent. Xtream Codes servers do path matching
+ * on the literal string and typically do NOT decode percent-encoded segments,
+ * so encoding special chars (@ + ! etc.) would produce 404s.
+ */
 export function createStreamUrl(
   profile: ServerProfile,
   streamId: string,
   extension = "m3u8",
 ) {
   const base = profile.serverUrl.replace(/\/+$/, "");
-  return `${base}/live/${encodeURIComponent(profile.username)}/${encodeURIComponent(profile.password)}/${encodeURIComponent(streamId)}.${extension}`;
+  return `${base}/live/${profile.username}/${profile.password}/${streamId}.${extension}`;
 }
 
+/** Build an Xtream Codes VOD (movie) URL — credentials unencoded (see note on createStreamUrl). */
 export function createVodUrl(
   profile: ServerProfile,
   streamId: string,
   containerExtension = "mp4",
 ) {
   const base = profile.serverUrl.replace(/\/+$/, "");
-  return `${base}/movie/${encodeURIComponent(profile.username)}/${encodeURIComponent(profile.password)}/${encodeURIComponent(streamId)}.${containerExtension}`;
+  return `${base}/movie/${profile.username}/${profile.password}/${streamId}.${containerExtension}`;
 }
 
+/** Build an Xtream Codes series episode URL — credentials unencoded (see note on createStreamUrl). */
 export function createSeriesEpisodeUrl(
   profile: ServerProfile,
   streamId: string,
   containerExtension = "mp4",
 ) {
   const base = profile.serverUrl.replace(/\/+$/, "");
-  return `${base}/series/${encodeURIComponent(profile.username)}/${encodeURIComponent(profile.password)}/${encodeURIComponent(streamId)}.${containerExtension}`;
+  return `${base}/series/${profile.username}/${profile.password}/${streamId}.${containerExtension}`;
 }
 
 export function mapVodStreamToMovie(

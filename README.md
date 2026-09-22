@@ -1,50 +1,43 @@
-# Welcome to your Fastshot app
+# 🎬 FlixPlay
 
-This is an [Expo](https://expo.dev) project created with [Fastshot](https://fastshot.ai), an AI-powered mobile development platform that helps you build React Native apps faster.
+> Um aplicativo de IPTV moderno, rápido e intuitivo para reprodução de listas de canais, filmes e séries.
 
-## Running locally:
+![Licença](https://img.shields.io/github/license/seu-usuario/flixplay?style=flat-square)
+![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow?style=flat-square)
 
-1. Install dependencies
+---
 
-   ```bash
-   bun install
-   ```
+## 📌 Sobre o Projeto
 
-2. Start the app
+O **FlixPlay** é um aplicativo de IPTV desenvolvido para oferecer uma experiência fluida e organizada ao assistir a transmissões ao vivo e conteúdos sob demanda (VOD). Com suporte a listas de reprodução personalizadas, ele centraliza seus canais, filmes e séries em uma interface amigável e de alta performance.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-## Need help?
+## ✨ Funcionalidades
 
-Have questions or want to iterate on your app? Head back to [Fastshot](https://fastshot.ai) to continue chatting with our AI agents. They can help you:
+- 📺 **Suporte a M3U / M3U8:** Adicione facilmente suas listas de reprodução IPTV.
+- ⚡ **Player de Alta Performance:** Reprodução fluida com suporte a múltiplos formatos e resoluções (HD, FHD, 4K).
+- 🗂️ **Organização por Categorias:** Navegação simples por Canais ao Vivo, Filmes e Séries.
+- ⭐ **Favoritos:** Salve seus canais e conteúdos preferidos para acesso rápido.
+- 🔍 **Busca Avançada:** Encontre rapidamente o canal ou título que deseja assistir.
+- 📜 **Suporte a EPG (Guia de Programação):** Visualize a grade de programação dos canais em tempo real.
 
-- Add new features and screens
-- Debug issues and fix bugs
-- Refactor and improve your code
-- Integrate APIs and third-party libraries
+---
 
-## Learn more
+## 🛠️ Tecnologias Utilizadas
 
-To learn more about developing your project, check out these resources:
+> *Substitua ou adicione as tecnologias reais que você usou no projeto:*
 
-### Fastshot Resources
-- [Fastshot Platform](https://fastshot.ai): Build and iterate on your mobile apps with AI assistance
-- [Fastshot Documentation](https://fastshot.ai/docs): Learn how to make the most of AI-powered development
-- [Fastshot Community](https://fastshot.ai/community): Connect with other developers building with Fastshot
+- **Linguagem/Framework:** [ex: React Native / Flutter / Kotlin / Swift]
+- **Gerenciamento de Estado:** [ex: Redux / Provider / Zustand]
+- **Reprodução de Mídia:** [ex: ExoPlayer / Video.js / VLC Kit]
 
-### Expo Resources
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## 🚀 Como Executar o Projeto
 
-Join our community of developers building the future of mobile development with AI:
+### Pré-requisitos
 
-- **[Fastshot Discord](https://fastshot.ai/discord)**: Get help, share your projects, and connect with other Fastshot users
-- **[Fastshot on GitHub](https://github.com/fastshot-ai)**: Contribute to our open source tools and integrations
-
-You can also join the broader Expo community:
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Antes de começar, certifique-se de ter instalado em sua máquina:
+- [Git](https://git-scm.com)
+- [Sua plataforma/ambiente de dev, ex: Node.js, Flutter SDK, Android Studio, etc.]

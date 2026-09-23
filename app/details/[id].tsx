@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from "react-native";
@@ -11,6 +12,80 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
 import type { EpisodeItem, SeriesItem, VodMovie } from "@/store/types";
+
+// ---------------------------------------------------------------------------
+// Synopsis auto-fetch from Wikipedia
+// ---------------------------------------------------------------------------
+
+const SYNOPSIS_CACHE_PREFIX = "flixplay_synopsis_v1_";
+
+/** Remove noise tags from IPTV titles: [FHD], (2024), 4K, DUBLADO, etc. */
+function cleanTitleForSearch(raw: string): string {
+  return raw
+    .replace(/\[.*?\]/g, "")
+    .replace(/\((?:19|20)\d{2}\)/g, "")
+    .replace(/\b(FHD|4K|UHD|HD|HQ|SDR|HDR10?|HEVC|H\.?265|H\.?264|DUBLAD[OA]?|DUB|LEGENDAD[OA]?|LEG|DUAL|NACIONAL|MULTI|COMPLETO?|TEMPORADA|SEASON)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function fetchSynopsisFromWikipedia(title: string): Promise<string | null> {
+  const encoded = encodeURIComponent(title);
+  // Try Portuguese Wikipedia first
+  const ptUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
+  try {
+    const res = await fetch(ptUrl, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data = await res.json() as { extract?: string; type?: string };
+      if (data.type !== "disambiguation" && data.extract && data.extract.length > 40) {
+        return data.extract;
+      }
+    }
+  } catch {
+    // fall through to English
+  }
+  // Fallback to English Wikipedia
+  const enUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
+  try {
+    const res = await fetch(enUrl, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const data = await res.json() as { extract?: string; type?: string };
+      if (data.type !== "disambiguation" && data.extract && data.extract.length > 40) {
+        return data.extract;
+      }
+    }
+  } catch {
+    // nothing
+  }
+  return null;
+}
+
+async function loadOrFetchSynopsis(contentId: string, rawTitle: string, existingPlot: string): Promise<string | null> {
+  // Don't fetch if the server already returned a valid synopsis
+  const trimmed = existingPlot?.trim() ?? "";
+  if (trimmed.length > 30 && trimmed.toLowerCase() !== "n/a") return null;
+
+  const cacheKey = `${SYNOPSIS_CACHE_PREFIX}${contentId}`;
+  try {
+    const cached = await AsyncStorage.getItem(cacheKey);
+    if (cached) return cached;
+  } catch {
+    // cache miss
+  }
+
+  const clean = cleanTitleForSearch(rawTitle);
+  if (!clean) return null;
+
+  const synopsis = await fetchSynopsisFromWikipedia(clean);
+  if (synopsis) {
+    try {
+      await AsyncStorage.setItem(cacheKey, synopsis);
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return synopsis;
+}
 
 // ---------------------------------------------------------------------------
 // Xtream series info response types
@@ -132,6 +207,10 @@ export default function DetailsScreen() {
   const [realSeasonsCount, setRealSeasonsCount] = useState<number | null>(null);
   const fetchedSeriesIdRef = useRef<string | null>(null);
 
+  // Auto-fetch synopsis when not provided by server
+  const [fetchedSynopsis, setFetchedSynopsis] = useState<string | null>(null);
+  const [synopsisLoading, setSynopsisLoading] = useState(false);
+
   const movie: VodMovie | undefined = cachedMovies.find((m) => m.id === id);
   const show: SeriesItem | undefined = cachedSeries.find((s) => s.id === id);
 
@@ -184,6 +263,36 @@ export default function DetailsScreen() {
       ).slice(0, 6),
     [movie?.id, show, cachedMovies, cachedSeries],
   );
+
+  // Auto-fetch synopsis when server didn't provide one
+  useEffect(() => {
+    const item = movie ?? show;
+    if (!item) return;
+    const existingPlot = item.plot?.trim() ?? "";
+    if (existingPlot.length > 30 && existingPlot.toLowerCase() !== "n/a") return;
+
+    let cancelled = false;
+    // Defer first setState to satisfy no-synchronous-setState-in-effect rule
+    const tid = setTimeout(() => {
+      if (cancelled) return;
+      setSynopsisLoading(true);
+      loadOrFetchSynopsis(item.id, item.title, existingPlot)
+        .then((synopsis) => {
+          if (!cancelled && synopsis) setFetchedSynopsis(synopsis);
+        })
+        .catch((err: unknown) => {
+          console.error("Falha ao buscar sinopse", err);
+        })
+        .finally(() => {
+          if (!cancelled) setSynopsisLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(tid);
+    };
+  }, [movie, show]);
 
   const missingError = !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;
 
@@ -257,6 +366,8 @@ export default function DetailsScreen() {
             episodesError={episodesError}
             isFavorite={isFavorite}
             tvMode={tvMode}
+            fetchedSynopsis={fetchedSynopsis}
+            synopsisLoading={synopsisLoading}
             onBack={router.back}
             onFavorite={handleFavorite}
             onPlay={handlePlay}
@@ -281,6 +392,8 @@ function DetailsContent({
   episodesError,
   isFavorite,
   tvMode,
+  fetchedSynopsis,
+  synopsisLoading,
   onBack,
   onFavorite,
   onPlay,
@@ -298,6 +411,8 @@ function DetailsContent({
   episodesError: string | null;
   isFavorite: boolean;
   tvMode: boolean;
+  fetchedSynopsis: string | null;
+  synopsisLoading: boolean;
   onBack: () => void;
   onFavorite: () => void;
   onPlay: (episodeId?: string) => void;
@@ -315,6 +430,8 @@ function DetailsContent({
         movie={movie}
         show={show}
         isFavorite={isFavorite}
+        fetchedSynopsis={fetchedSynopsis}
+        synopsisLoading={synopsisLoading}
         onBack={onBack}
         onFavorite={onFavorite}
       />
@@ -347,12 +464,16 @@ function ContentSummary({
   movie,
   show,
   isFavorite,
+  fetchedSynopsis,
+  synopsisLoading,
   onBack,
   onFavorite,
 }: {
   movie?: VodMovie;
   show?: SeriesItem;
   isFavorite: boolean;
+  fetchedSynopsis: string | null;
+  synopsisLoading: boolean;
   onBack: () => void;
   onFavorite: () => void;
 }) {
@@ -360,6 +481,10 @@ function ContentSummary({
   const poster = movie?.poster ?? show?.poster;
   const backdrop = movie?.backdrop ?? show?.backdrop;
   const rating = movie?.rating ?? show?.rating ?? 0;
+
+  const serverPlot = (movie?.plot ?? show?.plot ?? "").trim();
+  const hasServerPlot = serverPlot.length > 30 && serverPlot.toLowerCase() !== "n/a";
+  const displayPlot = hasServerPlot ? serverPlot : fetchedSynopsis;
 
   return (
     <>
@@ -401,9 +526,22 @@ function ContentSummary({
               </>
             ) : null}
           </View>
-          <AppText numberOfLines={3} style={styles.plot}>
-            {movie?.plot ?? show?.plot}
-          </AppText>
+          {displayPlot ? (
+            <AppText numberOfLines={4} style={styles.plot}>{displayPlot}</AppText>
+          ) : synopsisLoading ? (
+            <View style={styles.synopsisLoading}>
+              <ActivityIndicator size="small" color={Colors.subtle} />
+              <AppText style={styles.synopsisLoadingText}>Buscando sinopse...</AppText>
+            </View>
+          ) : (
+            <AppText style={styles.plotMissing}>Sinopse não disponível.</AppText>
+          )}
+          {!hasServerPlot && fetchedSynopsis ? (
+            <View style={styles.synopsisSource}>
+              <Ionicons name="globe-outline" size={10} color={Colors.subtle} />
+              <AppText style={styles.synopsisSourceText}>Sinopse via Wikipedia</AppText>
+            </View>
+          ) : null}
         </View>
       </View>
     </>
@@ -692,6 +830,11 @@ const styles = StyleSheet.create({
   meta: { fontSize: 11, color: Colors.muted },
   metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: Colors.subtle },
   plot: { fontSize: 12, lineHeight: 18, color: Colors.muted },
+  plotMissing: { fontSize: 12, color: Colors.subtle, fontStyle: "italic" },
+  synopsisLoading: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  synopsisLoadingText: { fontSize: 11, color: Colors.subtle },
+  synopsisSource: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  synopsisSourceText: { fontSize: 9, color: Colors.subtle },
   actions: { flexDirection: "row", gap: 8, paddingHorizontal: 20 },
   primaryButton: {
     minHeight: 43,

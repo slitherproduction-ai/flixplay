@@ -183,7 +183,9 @@ export default function SeriesScreen() {
 
   const handleSetGenre = useCallback((g: string) => setGenre(g), []);
 
-  const ListHeader = useCallback(
+  // useMemo returns a React ELEMENT so FlatList reconciles in place and never
+  // unmounts the header when filteredSeries.length changes during search.
+  const listHeaderElement = useMemo(
     () => (
       <SeriesHeader
         isSyncing={isSyncing}
@@ -200,7 +202,7 @@ export default function SeriesScreen() {
     [isSyncing, syncError, syncProgress, genres, genre, filteredSeries.length, seriesList.length, refresh, handleSetGenre],
   );
 
-  const ListEmpty = useCallback(
+  const listEmptyElement = useMemo(
     () =>
       isEmpty ? (
         <View style={styles.empty}>
@@ -254,8 +256,10 @@ export default function SeriesScreen() {
         numColumns={numColumns}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
+        ListHeaderComponent={listHeaderElement}
+        ListEmptyComponent={listEmptyElement}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

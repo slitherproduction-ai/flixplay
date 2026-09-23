@@ -411,7 +411,9 @@ export default function LiveScreen() {
 
   const handleCategoryChange = useCallback((c: string) => setCategory(c), []);
 
-  const ListHeader = useCallback(
+  // useMemo returns a React ELEMENT so FlatList reconciles in-place when
+  // filteredChannels.length changes — prevents header unmount and keyboard dismissal.
+  const listHeaderElement = useMemo(
     () => (
       <LiveHeader
         isSyncing={isSyncing}
@@ -433,7 +435,7 @@ export default function LiveScreen() {
     ],
   );
 
-  const ListEmpty = useCallback(
+  const listEmptyElement = useMemo(
     () =>
       isEmpty ? (
         <View style={styles.empty}>
@@ -486,8 +488,10 @@ export default function LiveScreen() {
         numColumns={viewMode === "grid" ? numGridColumns : 1}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
+        ListHeaderComponent={listHeaderElement}
+        ListEmptyComponent={listEmptyElement}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

@@ -133,6 +133,7 @@ export default function HomeScreen() {
   const hero = movies[0] ?? null;
 
   const handleSearch = useCallback(() => { router.push("/movies"); }, [router]);
+  const handleContinueWatchingAll = useCallback(() => { router.push("/continue-watching"); }, [router]);
   const handleHeroDetails = useCallback(() => {
     if (hero) router.push(`/details/${hero.id}`);
   }, [hero, router]);
@@ -157,6 +158,23 @@ export default function HomeScreen() {
 
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
+
+  // Deduplicate episodes per series — keep only the most recently watched episode per show
+  const dedupedHistory = useMemo(() => {
+    const sorted = history
+      .filter((h) => h.type !== "live")
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const seenSeriesIds = new Set<string>();
+    return sorted.filter((item) => {
+      if (item.type !== "episode") return true;
+      const match = item.contentId.match(/^ep-(.+?)-s\d+-e\d+$/);
+      if (!match) return true;
+      const seriesKey = match[1];
+      if (seenSeriesIds.has(seriesKey)) return false;
+      seenSeriesIds.add(seriesKey);
+      return true;
+    });
+  }, [history]);
 
   const recentMovies = useMemo(() => movies.slice(0, 5), [movies]);
   const popularSeries = useMemo(() => seriesList.slice(0, 4), [seriesList]);
@@ -205,11 +223,11 @@ export default function HomeScreen() {
 
         {hero ? <HeroBanner hero={hero} tvMode={tvMode} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
 
-        {history.length > 0 ? (
+        {dedupedHistory.length > 0 ? (
           <View style={styles.sectionBlock}>
-            <SectionHeader title="Continuar Assistindo" subtitle="Retome de onde parou" onPress={handleSearch} />
+            <SectionHeader title="Continuar Assistindo" subtitle="Retome de onde parou" onPress={handleContinueWatchingAll} />
             <HorizontalScroller>
-              {history.map((item) => (
+              {dedupedHistory.slice(0, 8).map((item) => (
                 <TVFocusable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item.contentId, item.type)} style={styles.continueCard}>
                   <View style={styles.continueImage}>
                     <Image source={{ uri: item.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />

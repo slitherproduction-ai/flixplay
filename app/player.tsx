@@ -12,6 +12,8 @@ import {
 } from "react";
 import {
   ActivityIndicator,
+  AppState,
+  type AppStateStatus,
   BackHandler,
   Modal,
   Platform,
@@ -646,12 +648,35 @@ export default function PlayerScreen() {
     if (!pipMode) {
       // Activate global PiP overlay and go back
       tryNativePip(player);
-      activatePip(streamUrl, title, contentType);
+      const pipSubtitle = contentType === "live" ? "Canal ao vivo" : "Assistindo agora";
+      activatePip(streamUrl, title, contentType, id, backdrop, pipSubtitle);
       router.back();
     } else {
       setPipMode(false);
     }
-  }, [pipMode, player, activatePip, streamUrl, title, contentType, router]);
+  }, [pipMode, player, activatePip, streamUrl, title, contentType, id, backdrop, router]);
+
+  // ─── System PiP on background ────────────────────────────────────────────
+  // When the user presses Home / switches apps while a video is playing,
+  // trigger the native system PiP window (YouTube-style overlay on Android).
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    // Keep a ref so the closure always sees the latest isPlaying value
+    const isPlayingRef = { current: isPlaying };
+    isPlayingRef.current = isPlaying;
+
+    const sub = AppState.addEventListener(
+      "change",
+      (nextState: AppStateStatus) => {
+        if (nextState === "background" && isPlayingRef.current) {
+          // Attempt native PiP — silently ignored when the feature isn't
+          // available (e.g. running in Expo Go or on unsupported devices).
+          tryNativePip(player);
+        }
+      },
+    );
+    return () => sub.remove();
+  }, [isPlaying, player]);
 
   // ─── Cast ─────────────────────────────────────────────────────────────────
   const handleCastConnect = useCallback((deviceId: string) => {

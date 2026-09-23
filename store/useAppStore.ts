@@ -22,6 +22,9 @@ export interface PiPState {
   isActive: boolean;
   streamUrl: string;
   title: string;
+  subtitle: string;
+  thumbnail: string;
+  contentId: string;
   type: ContentType;
 }
 
@@ -57,13 +60,15 @@ interface AppStore {
   isFavoriteMovie: (id: string) => boolean;
   isFavoriteSeries: (id: string) => boolean;
   saveHistory: (item: PlayHistory) => void;
+  removeHistoryItem: (contentId: string) => void;
+  clearHistory: () => void;
   setTrakt: (config: Partial<TraktConfig>) => void;
   setContentCache: (cache: Partial<ContentCache>) => void;
   setSyncState: (state: Partial<SyncState>) => void;
   clearContentCache: () => void;
   /** Reset lastSyncedServerId so the layout's useXtreamSync effect re-fires. */
   forceResync: () => void;
-  activatePip: (streamUrl: string, title: string, type: ContentType) => void;
+  activatePip: (streamUrl: string, title: string, type: ContentType, contentId?: string, thumbnail?: string, subtitle?: string) => void;
   deactivatePip: () => void;
 }
 
@@ -88,6 +93,9 @@ const INITIAL_PIP: PiPState = {
   isActive: false,
   streamUrl: '',
   title: '',
+  subtitle: '',
+  thumbnail: '',
+  contentId: '',
   type: 'live',
 };
 
@@ -196,8 +204,15 @@ export const useAppStore = create<AppStore>()(
           history: [
             item,
             ...state.history.filter((h) => h.contentId !== item.contentId),
-          ].slice(0, 12),
+          ].slice(0, 50),
         })),
+
+      removeHistoryItem: (contentId) =>
+        set((state) => ({
+          history: state.history.filter((h) => h.contentId !== contentId),
+        })),
+
+      clearHistory: () => set({ history: [] }),
 
       setTrakt: (config) =>
         set((state) => ({ trakt: { ...state.trakt, ...config } })),
@@ -215,8 +230,8 @@ export const useAppStore = create<AppStore>()(
           syncState: { ...state.syncState, lastSyncedServerId: null, syncError: null },
         })),
 
-      activatePip: (streamUrl, title, type) =>
-        set({ pip: { isActive: true, streamUrl, title, type } }),
+      activatePip: (streamUrl, title, type, contentId = '', thumbnail = '', subtitle = '') =>
+        set({ pip: { isActive: true, streamUrl, title, subtitle, thumbnail, contentId, type } }),
 
       deactivatePip: () =>
         set({ pip: INITIAL_PIP }),

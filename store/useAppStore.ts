@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   ContentCache,
   ContentType,
+  EpgProgram,
   PlayHistory,
   Preferences,
   ServerProfile,
@@ -64,6 +65,7 @@ interface AppStore {
   clearHistory: () => void;
   setTrakt: (config: Partial<TraktConfig>) => void;
   setContentCache: (cache: Partial<ContentCache>) => void;
+  updateChannelEpg: (channelId: string, programs: EpgProgram[]) => void;
   setSyncState: (state: Partial<SyncState>) => void;
   clearContentCache: () => void;
   /** Reset lastSyncedServerId so the layout's useXtreamSync effect re-fires. */
@@ -219,6 +221,29 @@ export const useAppStore = create<AppStore>()(
 
       setContentCache: (cache) =>
         set((state) => ({ contentCache: { ...state.contentCache, ...cache } })),
+
+      updateChannelEpg: (channelId, programs) =>
+        set((state) => {
+          const current = programs.find((program) => program.isCurrent) ?? programs[0];
+          const currentIndex = current ? programs.indexOf(current) : -1;
+          const next = currentIndex >= 0 ? programs[currentIndex + 1] : undefined;
+          return {
+            contentCache: {
+              ...state.contentCache,
+              liveChannels: state.contentCache.liveChannels.map((channel) =>
+                channel.id === channelId
+                  ? {
+                      ...channel,
+                      currentEpg: current ?? channel.currentEpg,
+                      nextProgram: next?.title ?? "Programação não informada",
+                      epgPrograms: programs,
+                      epgUpdatedAt: new Date().toISOString(),
+                    }
+                  : channel,
+              ),
+            },
+          };
+        }),
 
       setSyncState: (partial) =>
         set((state) => ({ syncState: { ...state.syncState, ...partial } })),

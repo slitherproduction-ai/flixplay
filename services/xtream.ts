@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import type { ChannelItem, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
+import type { ChannelItem, EpgProgram, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 
 export interface XtreamCategory {
   category_id: string;
@@ -73,6 +73,95 @@ export interface XtreamEpgItem {
   description?: string;
 }
 
+function decodeUtf8Base64(value: string | undefined): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed || !/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) || trimmed.length % 4 !== 0) {
+    return trimmed;
+  }
+  try {
+    const binary = globalThis.atob(trimmed);
+    const bytes = Array.from(binary, (char) =>
+      `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`,
+    ).join("");
+    const decoded = decodeURIComponent(bytes).trim();
+    return decoded && /[\p{L}\p{N}]/u.test(decoded) ? decoded : trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
+function parseEpgTimestamp(value: string | undefined, fallback: string): number | null {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric > 10_000_000_000 ? numeric : numeric * 1000;
+  }
+  const normalized = fallback.trim().replace(" ", "T");
+  const parsed = Date.parse(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatEpgTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function normalizeEpgListings(
+  listings: XtreamEpgItem[],
+  nowMs = Date.now(),
+): EpgProgram[] {
+  return listings
+    .map((item): EpgProgram | null => {
+      const startTimestamp = parseEpgTimestamp(item.start_timestamp, item.start);
+      const endTimestamp = parseEpgTimestamp(item.stop_timestamp, item.end);
+      if (startTimestamp === null || endTimestamp === null || endTimestamp <= startTimestamp) {
+        return null;
+      }
+      const isCurrent = nowMs >= startTimestamp && nowMs < endTimestamp;
+      const elapsed = nowMs - startTimestamp;
+      const duration = endTimestamp - startTimestamp;
+      return {
+        title: decodeUtf8Base64(item.title) || "Programa sem título",
+        description: decodeUtf8Base64(item.description),
+        start: formatEpgTime(startTimestamp),
+        end: formatEpgTime(endTimestamp),
+        startTimestamp,
+        endTimestamp,
+        isCurrent,
+        progress: isCurrent
+          ? Math.max(0, Math.min(100, Math.round((elapsed / duration) * 100)))
+          : nowMs >= endTimestamp
+            ? 100
+            : 0,
+      };
+    })
+    .filter((program): program is EpgProgram => program !== null)
+    .sort((a, b) => (a.startTimestamp ?? 0) - (b.startTimestamp ?? 0));
+}
+
+export function refreshEpgProgress(
+  programs: EpgProgram[],
+  nowMs = Date.now(),
+): EpgProgram[] {
+  return programs.map((program) => {
+    const start = program.startTimestamp;
+    const end = program.endTimestamp;
+    if (!start || !end || end <= start) return program;
+    const isCurrent = nowMs >= start && nowMs < end;
+    return {
+      ...program,
+      isCurrent,
+      progress: isCurrent
+        ? Math.max(0, Math.min(100, Math.round(((nowMs - start) / (end - start)) * 100)))
+        : nowMs >= end
+          ? 100
+          : 0,
+    };
+  });
+}
+
 export interface M3uEntry {
   id: string;
   name: string;
@@ -100,9 +189,6 @@ export class XtreamApiError extends Error {
  * mobile connection, so 40 s is more realistic than the old 15 s limit.
  */
 const REQUEST_TIMEOUT_MS = 40000;
-/** Shorter timeout for CORS proxy attempts (already a fallback) */
-const PROXY_TIMEOUT_MS = 20000;
-
 /**
  * User-Agent widely accepted by IPTV servers.
  * Many providers block generic browser / Expo UA strings.
@@ -111,17 +197,6 @@ const XTREAM_HEADERS: Record<string, string> = {
   "User-Agent": "IPTVSmartersPro/3.1.5",
   Accept: "application/json, text/plain, */*",
 };
-
-/**
- * Public CORS proxies used as fallback on the web preview.
- * On the web, browsers running under HTTPS block plain-HTTP IPTV requests
- * (Mixed Content) and enforce same-origin policy (CORS). These proxies relay
- * the request from an HTTPS origin so the browser accepts the response.
- */
-const CORS_PROXIES = [
-  "https://corsproxy.io/?url=",
-  "https://api.allorigins.win/raw?url=",
-] as const;
 
 function buildApiUrl(
   profile: ServerProfile,
@@ -156,41 +231,6 @@ function isAbortError(err: unknown): boolean {
   return err instanceof Error && err.name === "AbortError";
 }
 
-/**
- * Web strategy: direct attempt first, then CORS proxy chain.
- * Timeout on the direct attempt means the server is genuinely unreachable —
- * no point routing through a proxy in that case.
- */
-async function fetchWebWithProxies(url: string): Promise<Response> {
-  try {
-    return await timedFetch(url, REQUEST_TIMEOUT_MS);
-  } catch (directErr) {
-    if (isAbortError(directErr)) {
-      throw new XtreamApiError(
-        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
-        0,
-      );
-    }
-  }
-
-  // Direct failed (likely CORS / Mixed Content) — try proxies
-  for (const proxy of CORS_PROXIES) {
-    try {
-      const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
-      const res = await timedFetch(proxyUrl, PROXY_TIMEOUT_MS);
-      if (res.status < 500) return res;
-    } catch {
-      // try next proxy
-    }
-  }
-
-  throw new XtreamApiError(
-    "Conexão bloqueada pelo navegador (CORS / Mixed Content). " +
-      "Tente HTTPS no campo Host, ou use o aplicativo nativo para conexões HTTP.",
-    0,
-  );
-}
-
 /** Returns true when the error message indicates Android cleartext-HTTP blocking. */
 function isCleartextBlockError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
@@ -198,16 +238,10 @@ function isCleartextBlockError(err: unknown): boolean {
 }
 
 /**
- * Native strategy: try original URL first, then swap protocol (http↔https).
- * Cleartext blocking is NOT treated as a terminal error — we first attempt the
- * alternate protocol (HTTPS) because the server might support it, or the build
- * might already have cleartext enabled but the error message is misleading.
- * Only after both attempts fail do we surface a diagnostic.
+ * Connect only to the server entered by the user. Credentials are never sent
+ * through public CORS proxies and the protocol is never downgraded implicitly.
  */
-async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
-  let firstError: unknown;
-
-  // Attempt 1: original URL
+async function fetchWithFallbacks(url: string): Promise<Response> {
   try {
     return await timedFetch(url, REQUEST_TIMEOUT_MS);
   } catch (err) {
@@ -217,46 +251,23 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
         0,
       );
     }
-    if (err instanceof XtreamApiError) throw err;
-    firstError = err;
-  }
-
-  // Attempt 2: swap http ↔ https
-  const altUrl = url.startsWith("https://")
-    ? url.replace("https://", "http://")
-    : url.replace("http://", "https://");
-
-  try {
-    return await timedFetch(altUrl, REQUEST_TIMEOUT_MS);
-  } catch (altErr) {
-    if (isAbortError(altErr)) {
+    if (isCleartextBlockError(err)) {
       throw new XtreamApiError(
-        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
+        "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
         0,
+        url.replace(/\/player_api\.php.*$/, ""),
       );
     }
-    if (altErr instanceof XtreamApiError) throw altErr;
+    if (Platform.OS === "web") {
+      throw new XtreamApiError(
+        "Conexão bloqueada pelo navegador (CORS / Mixed Content). " +
+          "Use HTTPS no campo Host ou o aplicativo nativo para conexões HTTP.",
+        0,
+        url.replace(/\/player_api\.php.*$/, ""),
+      );
+    }
+    throw err;
   }
-
-  // Both attempts failed — surface the most actionable error
-  if (isCleartextBlockError(firstError)) {
-    throw new XtreamApiError(
-      "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
-      0,
-      url.replace(/\/player_api\.php.*$/, ""),
-    );
-  }
-  throw new XtreamApiError(
-    "Não foi possível alcançar o servidor. Verifique o endereço, a porta e sua conexão.",
-    0,
-    url.replace(/\/player_api\.php.*$/, ""),
-  );
-}
-
-function fetchWithFallbacks(url: string): Promise<Response> {
-  return Platform.OS === "web"
-    ? fetchWebWithProxies(url)
-    : fetchNativeWithProtocolSwap(url);
 }
 
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */
@@ -547,13 +558,14 @@ export function mapLiveStreamToChannel(
     logo: stream.stream_icon,
     categoryId: category.category_id,
     categoryName: category.category_name,
+    epgChannelId: stream.epg_channel_id,
     currentEpg: {
-      title: "Programação ao vivo",
-      start: "Agora",
-      end: "Em breve",
-      progress: 45,
+      title: "Carregando programação...",
+      start: "--:--",
+      end: "--:--",
+      progress: 0,
     },
-    nextProgram: "Próximo programa",
+    nextProgram: "Programação não informada",
     streamUrl:
       stream.direct_source ||
       createStreamUrl(profile, String(stream.stream_id)),

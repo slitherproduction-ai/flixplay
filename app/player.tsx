@@ -12,8 +12,6 @@ import {
 } from "react";
 import {
   ActivityIndicator,
-  AppState,
-  type AppStateStatus,
   BackHandler,
   Modal,
   Platform,
@@ -36,8 +34,9 @@ import {
   type TVRemoteEvent,
 } from "@/hooks/use-tv-remote";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useChannelEpg } from "@/hooks/useChannelEpg";
 import { useAppStore } from "@/store/useAppStore";
-import type { ChannelItem, ContentType } from "@/store/types";
+import type { ChannelItem, ContentType, EpgProgram } from "@/store/types";
 
 const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
 
@@ -139,26 +138,6 @@ const MOCK_CAST_DEVICES: CastDevice[] = [
   { id: "lg1", name: "Smart TV LG WebOS", type: "smarttv", status: "available" },
   { id: "atv1", name: "Apple TV 4K", type: "appletv", status: "available" },
   { id: "atv2", name: "Android TV Quarto", type: "androidtv", status: "available" },
-];
-
-type EpgProgram = {
-  title: string;
-  start: string;
-  end: string;
-  progress: number;
-  description: string;
-  isCurrent: boolean;
-};
-
-const MOCK_EPG: EpgProgram[] = [
-  { title: "Jornal da Manhã", start: "06:00", end: "08:00", progress: 100, description: "Cobertura completa dos acontecimentos nacionais e internacionais.", isCurrent: false },
-  { title: "Esportes Ao Vivo", start: "08:00", end: "10:00", progress: 100, description: "Transmissão ao vivo de partidas e campeonatos nacionais.", isCurrent: false },
-  { title: "Programa em Exibição", start: "10:00", end: "12:00", progress: 65, description: "Programa de variedades com entrevistas exclusivas e reportagens especiais.", isCurrent: true },
-  { title: "Almoço com Notícias", start: "12:00", end: "13:00", progress: 0, description: "Resumo das principais notícias do dia.", isCurrent: false },
-  { title: "Cinema Especial", start: "13:00", end: "15:00", progress: 0, description: "Filmes clássicos e contemporâneos com tradução em português.", isCurrent: false },
-  { title: "Tarde Cultural", start: "15:00", end: "17:00", progress: 0, description: "Programação voltada para arte, música e cultura brasileira.", isCurrent: false },
-  { title: "Jornal da Tarde", start: "17:00", end: "18:00", progress: 0, description: "Notícias atualizadas da tarde com cobertura ao vivo.", isCurrent: false },
-  { title: "Prime Time", start: "20:00", end: "22:00", progress: 0, description: "Programação premium da noite com novelas e filmes de estreia.", isCurrent: false },
 ];
 
 function readParam(value: string | string[] | undefined) {
@@ -272,16 +251,6 @@ function computeProgressPct(
   return Math.min(1, currentTime / duration);
 }
 
-function tryNativePip(p: unknown): void {
-  try {
-    const pip = (p as { enterPictureInPicture?: () => void })
-      .enterPictureInPicture;
-    if (typeof pip === "function") pip.call(p);
-  } catch (pipErr) {
-    console.error("PiP nativo não disponível, usando modo soft", pipErr);
-  }
-}
-
 export default function PlayerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -289,16 +258,24 @@ export default function PlayerScreen() {
     title?: string | string[];
     type?: string | string[];
     streamUrl?: string | string[];
+    subtitle?: string | string[];
+    thumbnail?: string | string[];
+    seriesId?: string | string[];
   }>();
   const id = readParam(params.id) ?? "demo-player";
   const title = readParam(params.title) ?? "FlixPlay Demo";
   const type = readParam(params.type) ?? "movie";
   const streamUrl = readParam(params.streamUrl) ?? DEMO_STREAM_URL;
+  const sourceSubtitle = readParam(params.subtitle) ?? "Retomar reprodução";
+  const sourceThumbnail = readParam(params.thumbnail) ?? "";
+  const sourceSeriesId = readParam(params.seriesId);
   const { loading, error, retry } = useScreenLoad("o player");
   const tvMode = useTVMode();
   const saveHistory = useAppStore((state) => state.saveHistory);
+  const removeHistoryItem = useAppStore((state) => state.removeHistoryItem);
   const preferences = useAppStore((state) => state.preferences);
   const allChannels = useAppStore((state) => state.contentCache.liveChannels);
+  const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
   const activatePip = useAppStore((state) => state.activatePip);
 
@@ -336,11 +313,14 @@ export default function PlayerScreen() {
   const [epgVisible, setEpgVisible] = useState(false);
   const [castVisible, setCastVisible] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
-  const [pipMode, setPipMode] = useState(false);
-
   const playButtonRef = useRef<TVFocusableHandle>(null);
+  const videoViewRef = useRef<VideoView>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const urlAttemptRef = useRef(0);
+  const resumeAppliedRef = useRef(false);
+  const lastSavedSecondRef = useRef(0);
+  const latestPositionRef = useRef(0);
+  const latestDurationRef = useRef(0);
 
   const fallbackUrls = useMemo(
     () => buildFallbackUrls(streamUrl, contentType),
@@ -351,6 +331,7 @@ export default function PlayerScreen() {
     { uri: fallbackUrls[0], headers: IPTV_HEADERS },
     (videoPlayer) => {
       videoPlayer.loop = false;
+      videoPlayer.timeUpdateEventInterval = 1;
       videoPlayer.play();
     },
   );
@@ -363,9 +344,42 @@ export default function PlayerScreen() {
 
   const currentChannel = allChannels.find((ch) => ch.id === id);
   const backdrop =
-    currentChannel?.logo ??
-    cachedMovies.find((movie) => movie.id === id)?.backdrop ??
+    sourceThumbnail ||
+    currentChannel?.logo ||
+    cachedMovies.find((movie) => movie.id === id)?.backdrop ||
     "";
+  const epg = useChannelEpg(contentType === "live" ? id : undefined);
+
+  const persistProgress = useCallback(
+    (positionSeconds: number, durationSeconds: number) => {
+      if (contentType === "live" || durationSeconds <= 0 || positionSeconds < 5) return;
+      const progress = positionSeconds / durationSeconds;
+      if (progress >= 0.95 || durationSeconds - positionSeconds <= 60) {
+        removeHistoryItem(id);
+        return;
+      }
+      saveHistory({
+        contentId: id,
+        type: contentType,
+        title,
+        subtitle: sourceSubtitle,
+        thumbnail: backdrop,
+        streamUrl,
+        seriesId: sourceSeriesId,
+        positionMs: Math.round(positionSeconds * 1000),
+        durationMs: Math.round(durationSeconds * 1000),
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    [backdrop, contentType, id, removeHistoryItem, saveHistory, sourceSeriesId, sourceSubtitle, streamUrl, title],
+  );
+
+  useEffect(() => {
+    resumeAppliedRef.current = false;
+    lastSavedSecondRef.current = 0;
+    latestPositionRef.current = 0;
+    latestDurationRef.current = 0;
+  }, [id]);
 
   // ─── Player event listeners ──────────────────────────────────────────────
   useEffect(() => {
@@ -378,6 +392,18 @@ export default function PlayerScreen() {
         setPlayerError(null);
         setIsBuffering(false);
         tryReadDuration(player, durationRefs, setDuration);
+        const mediaDuration = player.duration;
+        latestDurationRef.current = mediaDuration;
+        if (contentType !== "live" && !resumeAppliedRef.current && mediaDuration > 0) {
+          resumeAppliedRef.current = true;
+          const saved = useAppStore.getState().history.find((item) => item.contentId === id);
+          const resumeSeconds = (saved?.positionMs ?? 0) / 1000;
+          if (resumeSeconds >= 5 && resumeSeconds < mediaDuration * 0.95) {
+            player.currentTime = resumeSeconds;
+            setCurrentTime(resumeSeconds);
+            latestPositionRef.current = resumeSeconds;
+          }
+        }
         return;
       }
       if (status.status !== "error") return;
@@ -403,6 +429,21 @@ export default function PlayerScreen() {
         if (typeof tp.currentTime === "number") {
           setCurrentTime(tp.currentTime);
           setIsBuffering(false);
+          latestPositionRef.current = tp.currentTime;
+          const mediaDuration = player.duration;
+          if (mediaDuration > 0) {
+            setDuration(mediaDuration);
+            latestDurationRef.current = mediaDuration;
+          }
+          const wholeSecond = Math.floor(tp.currentTime);
+          if (
+            contentType !== "live" &&
+            mediaDuration > 0 &&
+            wholeSecond - lastSavedSecondRef.current >= 10
+          ) {
+            lastSavedSecondRef.current = wholeSecond;
+            persistProgress(tp.currentTime, mediaDuration);
+          }
         }
         if (!durationSetRef.current) {
           tryReadDuration(player, durationRefs, setDuration);
@@ -414,7 +455,15 @@ export default function PlayerScreen() {
       statusSub.remove();
       timeSub.remove();
     };
-  }, [player, fallbackUrls]);
+  }, [contentType, fallbackUrls, id, persistProgress, player]);
+
+  useEffect(() => {
+    const endSub = player.addListener("playToEnd", () => removeHistoryItem(id));
+    return () => {
+      endSub.remove();
+      persistProgress(latestPositionRef.current, latestDurationRef.current);
+    };
+  }, [id, persistProgress, player, removeHistoryItem]);
 
   // Apply playback rate whenever it changes.
   // Uses playerRef to satisfy react-hooks/immutability (the hook value itself
@@ -495,22 +544,12 @@ export default function PlayerScreen() {
   // ─── Playback controls ───────────────────────────────────────────────────
   const handleBack = useCallback(() => {
     try {
-      saveHistory({
-        contentId: id,
-        type: contentType,
-        title,
-        subtitle:
-          contentType === "live" ? "Canal ao vivo" : "Retomar reprodução",
-        thumbnail: backdrop,
-        positionMs: contentType === "live" ? 0 : currentTime * 1000,
-        durationMs: contentType === "live" ? 0 : duration * 1000,
-        updatedAt: new Date().toISOString(),
-      });
+      persistProgress(currentTime, duration);
     } catch (saveError) {
       console.error("Falha ao salvar histórico do player", saveError);
     }
     router.back();
-  }, [backdrop, contentType, currentTime, duration, id, router, saveHistory, title]);
+  }, [currentTime, duration, persistProgress, router]);
 
   const handleTogglePlayback = useCallback(() => {
     if (isPlaying) {
@@ -554,6 +593,7 @@ export default function PlayerScreen() {
         setIsPlaying(true);
         setCurrentTime(0);
         setDuration(0);
+        resumeAppliedRef.current = true;
         router.setParams({
           id: channel.id,
           title: channel.name,
@@ -643,40 +683,21 @@ export default function PlayerScreen() {
     [setPreference, showControlsWithTimer],
   );
 
-  // ─── PiP ─────────────────────────────────────────────────────────────────
-  const handleTogglePip = useCallback(() => {
-    if (!pipMode) {
-      // Activate global PiP overlay and go back
-      tryNativePip(player);
-      const pipSubtitle = contentType === "live" ? "Canal ao vivo" : "Assistindo agora";
-      activatePip(streamUrl, title, contentType, id, backdrop, pipSubtitle);
-      router.back();
-    } else {
-      setPipMode(false);
+  // ─── Native Picture-in-Picture ───────────────────────────────────────────
+  const handleTogglePip = useCallback(async () => {
+    if (Platform.OS !== "web") {
+      try {
+        await videoViewRef.current?.startPictureInPicture();
+        return;
+      } catch (pipError) {
+        console.error("PiP nativo indisponível; ativando miniplayer interno", pipError);
+      }
     }
-  }, [pipMode, player, activatePip, streamUrl, title, contentType, id, backdrop, router]);
-
-  // ─── System PiP on background ────────────────────────────────────────────
-  // When the user presses Home / switches apps while a video is playing,
-  // trigger the native system PiP window (YouTube-style overlay on Android).
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    // Keep a ref so the closure always sees the latest isPlaying value
-    const isPlayingRef = { current: isPlaying };
-    isPlayingRef.current = isPlaying;
-
-    const sub = AppState.addEventListener(
-      "change",
-      (nextState: AppStateStatus) => {
-        if (nextState === "background" && isPlayingRef.current) {
-          // Attempt native PiP — silently ignored when the feature isn't
-          // available (e.g. running in Expo Go or on unsupported devices).
-          tryNativePip(player);
-        }
-      },
-    );
-    return () => sub.remove();
-  }, [isPlaying, player]);
+    const pipSubtitle = contentType === "live" ? "Canal ao vivo" : sourceSubtitle;
+    activatePip(streamUrl, title, contentType, id, backdrop, pipSubtitle);
+    persistProgress(currentTime, duration);
+    router.back();
+  }, [activatePip, backdrop, contentType, currentTime, duration, id, persistProgress, router, sourceSubtitle, streamUrl, title]);
 
   // ─── Cast ─────────────────────────────────────────────────────────────────
   const handleCastConnect = useCallback((deviceId: string) => {
@@ -752,38 +773,6 @@ export default function PlayerScreen() {
     onKeyDown: handleNativeKeyDown,
   } as unknown as React.ComponentProps<typeof View>;
 
-  // PiP mini-player mode
-  if (pipMode) {
-    return (
-      <View style={styles.screen}>
-        <Image source={{ uri: backdrop }} contentFit="cover" style={StyleSheet.absoluteFill} />
-        <View style={styles.backdropVeil} />
-        <View style={styles.pipContainer}>
-          <VideoView
-            player={player}
-            style={styles.pipVideo}
-            contentFit={selectedRatio.contentFit}
-            nativeControls={false}
-          />
-          <View style={styles.pipControls}>
-            <AppText style={styles.pipTitle} numberOfLines={1}>{title}</AppText>
-            <View style={styles.pipActions}>
-              <Pressable onPress={handleTogglePlayback} style={styles.pipBtn}>
-                <Ionicons name={isPlaying ? "pause" : "play"} size={16} color={Colors.white} />
-              </Pressable>
-              <Pressable onPress={handleTogglePip} style={styles.pipBtn}>
-                <Ionicons name="expand" size={16} color={Colors.white} />
-              </Pressable>
-              <Pressable onPress={handleBack} style={styles.pipBtn}>
-                <Ionicons name="close" size={16} color={Colors.white} />
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View {...keyAwareProps}>
       <Image
@@ -793,6 +782,7 @@ export default function PlayerScreen() {
       />
       <View style={styles.backdropVeil} />
       <VideoView
+        ref={videoViewRef}
         player={player}
         style={[
           StyleSheet.absoluteFill,
@@ -803,6 +793,7 @@ export default function PlayerScreen() {
         contentFit={selectedRatio.contentFit}
         nativeControls={false}
         allowsPictureInPicture
+        startsPictureInPictureAutomatically={Platform.OS === "android" && !tvMode}
       />
 
       {/* Subtitle overlay */}
@@ -847,6 +838,7 @@ export default function PlayerScreen() {
         <QuickSwitcher
           visible={quickSwitcherVisible && controlsVisible}
           channels={allChannels}
+          favoriteChannelIds={favoriteChannelIds}
           currentId={id}
           onSwitch={handleSwitchChannel}
           onClose={handleCloseQuickSwitcher}
@@ -872,6 +864,9 @@ export default function PlayerScreen() {
             playbackRate={playbackRate}
             selectedRatio={selectedRatio}
             bufferMode={bufferMode}
+            currentEpg={epg.current}
+            nextEpg={epg.next}
+            epgLoading={epg.isLoading}
             onTogglePlayback={handleTogglePlayback}
             onSeek={handleSeek}
             onPanelChange={handlePanel}
@@ -897,6 +892,9 @@ export default function PlayerScreen() {
       >
         <EpgPanel
           channelName={title}
+          programs={epg.programs}
+          isLoading={epg.isLoading}
+          error={epg.error}
           onClose={() => setEpgVisible(false)}
         />
       </Modal>
@@ -993,23 +991,41 @@ function PlayerTopBar({
 function QuickSwitcher({
   visible,
   channels: channelList,
+  favoriteChannelIds,
   currentId,
   onSwitch,
   onClose,
 }: {
   visible: boolean;
   channels: ChannelItem[];
+  favoriteChannelIds: string[];
   currentId: string;
   onSwitch: (channelId: string) => void;
   onClose: () => void;
 }) {
+  const [category, setCategory] = useState("Todos");
+  const categories = useMemo(
+    () => ["Todos", "Favoritos", ...Array.from(new Set(channelList.map((channel) => channel.categoryName)))],
+    [channelList],
+  );
+  const visibleChannels = useMemo(() => {
+    const filtered = category === "Todos"
+      ? channelList
+      : category === "Favoritos"
+        ? channelList.filter((channel) => favoriteChannelIds.includes(channel.id))
+        : channelList.filter((channel) => channel.categoryName === category);
+    const current = filtered.find((channel) => channel.id === currentId);
+    const others = filtered.filter((channel) => channel.id !== currentId);
+    return current ? [current, ...others].slice(0, 12) : others.slice(0, 12);
+  }, [category, channelList, currentId, favoriteChannelIds]);
+
   if (!visible) return null;
   return (
     <GlassCard style={styles.quickSwitcher} intensity={32}>
       <View style={styles.quickHeader}>
         <View>
           <AppText style={styles.quickKicker}>ZAPPING RÁPIDO</AppText>
-          <AppText style={styles.quickTitle}>Canais Recentes</AppText>
+          <AppText style={styles.quickTitle}>Escolha a grade de canais</AppText>
         </View>
         <IconButton
           icon="close"
@@ -1018,18 +1034,30 @@ function QuickSwitcher({
           onPress={onClose}
         />
       </View>
-      {channelList.slice(0, 4).map((channel) => (
-        <QuickChannel
-          key={channel.id}
-          channelId={channel.id}
-          name={channel.name}
-          logo={channel.logo}
-          program={channel.currentEpg.title}
-          progress={channel.currentEpg.progress}
-          active={channel.id === currentId}
-          onSwitch={onSwitch}
-        />
-      ))}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickCategoryScroll} contentContainerStyle={styles.quickCategories}>
+        {categories.map((item) => (
+          <TVFocusable key={item} onPress={() => setCategory(item)} style={[styles.quickCategory, category === item && styles.quickCategoryActive]}>
+            <AppText style={[styles.quickCategoryText, category === item && styles.quickCategoryTextActive]}>{item}</AppText>
+          </TVFocusable>
+        ))}
+      </ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.quickChannelScroll}>
+        <View style={styles.quickGrid}>
+          {visibleChannels.map((channel) => (
+            <QuickChannel
+              key={channel.id}
+              channelId={channel.id}
+              name={channel.name}
+              logo={channel.logo}
+              program={channel.currentEpg.title}
+              progress={channel.currentEpg.progress}
+              active={channel.id === currentId}
+              onSwitch={onSwitch}
+            />
+          ))}
+        </View>
+        {visibleChannels.length === 0 ? <AppText style={styles.quickEmpty}>Nenhum canal disponível nesta grade.</AppText> : null}
+      </ScrollView>
     </GlassCard>
   );
 }
@@ -1065,7 +1093,7 @@ function QuickChannel({
         pressed && styles.pressed,
       ]}
     >
-      <ChannelLogo image={logo} name={name} size={42} />
+      <ChannelLogo image={logo} name={name} size={36} />
       <View style={styles.quickCopy}>
         <AppText style={styles.quickChannelName}>{name}</AppText>
         <AppText numberOfLines={1} style={styles.quickProgram}>
@@ -1133,6 +1161,9 @@ function PlayerBottomPanel({
   playbackRate,
   selectedRatio,
   bufferMode,
+  currentEpg,
+  nextEpg,
+  epgLoading,
   onTogglePlayback,
   onSeek,
   onPanelChange,
@@ -1158,6 +1189,9 @@ function PlayerBottomPanel({
   playbackRate: number;
   selectedRatio: RatioOption;
   bufferMode: string;
+  currentEpg: EpgProgram | null;
+  nextEpg: EpgProgram | null;
+  epgLoading: boolean;
   onTogglePlayback: () => void;
   onSeek: (seconds: number) => void;
   onPanelChange: (panel: Panel) => void;
@@ -1188,6 +1222,25 @@ function PlayerBottomPanel({
 
   return (
     <View style={styles.bottomPanel}>
+      {isLive ? (
+        <View style={styles.liveEpgBar}>
+          <View style={styles.liveEpgNow}>
+            <AppText style={styles.liveEpgLabel}>AGORA</AppText>
+            <View style={styles.liveEpgCopy}>
+              <AppText style={styles.liveEpgTitle} numberOfLines={1}>
+                {epgLoading && !currentEpg ? "Carregando programação..." : currentEpg?.title ?? "Programação não informada"}
+              </AppText>
+              {currentEpg ? <AppText style={styles.liveEpgTime}>{currentEpg.start}–{currentEpg.end}</AppText> : null}
+            </View>
+          </View>
+          <View style={styles.liveEpgDivider} />
+          <View style={styles.liveEpgNext}>
+            <AppText style={styles.liveEpgLabel}>A SEGUIR</AppText>
+            <AppText style={styles.liveEpgNextTitle} numberOfLines={1}>{nextEpg?.title ?? "Programação não informada"}</AppText>
+            {nextEpg ? <AppText style={styles.liveEpgTime}>{nextEpg.start}</AppText> : null}
+          </View>
+        </View>
+      ) : null}
       {/* Progress / Timeline */}
       <View style={styles.timelineRow}>
         <AppText style={styles.timeText}>{leftLabel}</AppText>
@@ -1542,9 +1595,15 @@ function OptionChipDetail({
 
 function EpgPanel({
   channelName,
+  programs,
+  isLoading,
+  error,
   onClose,
 }: {
   channelName: string;
+  programs: EpgProgram[];
+  isLoading: boolean;
+  error: string | null;
   onClose: () => void;
 }) {
   const now = new Date();
@@ -1583,8 +1642,20 @@ function EpgPanel({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.epgList}
         >
-          {MOCK_EPG.map((entry) => (
-            <EpgProgramRow key={entry.title + entry.start} entry={entry} />
+          {isLoading && programs.length === 0 ? (
+            <View style={styles.epgState}>
+              <ActivityIndicator color={Colors.blueBright} />
+              <AppText style={styles.epgStateText}>Buscando programação real...</AppText>
+            </View>
+          ) : null}
+          {!isLoading && programs.length === 0 ? (
+            <View style={styles.epgState}>
+              <Ionicons name="calendar-outline" size={24} color={Colors.subtle} />
+              <AppText style={styles.epgStateText}>{error ?? "Este canal não forneceu dados de EPG."}</AppText>
+            </View>
+          ) : null}
+          {programs.map((entry) => (
+            <EpgProgramRow key={`${entry.startTimestamp ?? entry.start}-${entry.title}`} entry={entry} />
           ))}
         </ScrollView>
       </View>
@@ -1832,44 +1903,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
 
-  // PiP mode
-  pipContainer: {
-    position: "absolute",
-    bottom: 28,
-    right: 18,
-    width: 220,
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    backgroundColor: Colors.background,
-    ...Shadows.card,
-  },
-  pipVideo: { width: 220, height: 124 },
-  pipControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 6,
-    backgroundColor: "rgba(7,9,14,0.92)",
-  },
-  pipTitle: {
-    flex: 1,
-    fontFamily: "Inter_500Medium",
-    fontSize: 10,
-    color: Colors.text,
-  },
-  pipActions: { flexDirection: "row", gap: 4 },
-  pipBtn: {
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 7,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-
   // Top bar
   topBar: { flexDirection: "row", alignItems: "center", gap: 11 },
   titleBar: { flex: 1, gap: 4 },
@@ -1922,7 +1955,28 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: Colors.white,
   },
+  quickCategoryScroll: { flexGrow: 0, marginBottom: 8 },
+  quickCategories: { gap: 6, paddingRight: 8 },
+  quickCategory: {
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  quickCategoryActive: {
+    borderColor: "rgba(96,165,250,0.6)",
+    backgroundColor: "rgba(59,130,246,0.22)",
+  },
+  quickCategoryText: { fontSize: 10, color: Colors.muted },
+  quickCategoryTextActive: { color: Colors.white },
+  quickChannelScroll: { maxHeight: 230 },
+  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  quickEmpty: { paddingVertical: 20, textAlign: "center", color: Colors.subtle },
   quickChannel: {
+    width: "49%",
     minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
@@ -1992,6 +2046,27 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.17)",
     backgroundColor: "rgba(7,9,14,0.82)",
   },
+  liveEpgBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.12)",
+  },
+  liveEpgNow: { flex: 1.25, flexDirection: "row", alignItems: "center", gap: 9 },
+  liveEpgNext: { flex: 1, gap: 2 },
+  liveEpgDivider: { width: 1, alignSelf: "stretch", backgroundColor: "rgba(255,255,255,0.12)" },
+  liveEpgLabel: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 8,
+    letterSpacing: 0.8,
+    color: Colors.blueBright,
+  },
+  liveEpgCopy: { flex: 1, gap: 2 },
+  liveEpgTitle: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.white },
+  liveEpgNextTitle: { fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.text },
+  liveEpgTime: { fontSize: 9, color: Colors.subtle },
 
   // Timeline / seek bar
   timelineRow: {
@@ -2209,6 +2284,8 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     gap: 8,
   },
+  epgState: { alignItems: "center", paddingVertical: 34, gap: 10 },
+  epgStateText: { fontSize: 11, textAlign: "center", color: Colors.muted },
   epgEntry: {
     flexDirection: "row",
     gap: 12,

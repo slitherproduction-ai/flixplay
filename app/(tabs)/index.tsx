@@ -9,7 +9,7 @@ import { AppText, ChannelLogo, GlassCard, HorizontalScroller, IconButton, Poster
 import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
-import type { VodMovie } from "@/store/types";
+import type { PlayHistory, VodMovie } from "@/store/types";
 
 // ---------------------------------------------------------------------------
 // Module-level helpers
@@ -151,10 +151,24 @@ export default function HomeScreen() {
     router.push({ pathname: "/player", params: { id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl } });
   }, [channels, router]);
 
-  const handleHistory = useCallback((contentId: string, type: string) => {
-    if (type === "live") { handleLive(contentId); return; }
-    router.push(`/details/${contentId}`);
-  }, [handleLive, router]);
+  const handleHistory = useCallback((item: PlayHistory) => {
+    if (item.streamUrl) {
+      router.push({
+        pathname: "/player",
+        params: {
+          id: item.contentId,
+          title: item.title,
+          type: item.type,
+          streamUrl: item.streamUrl,
+          subtitle: item.subtitle,
+          thumbnail: item.thumbnail,
+          seriesId: item.seriesId,
+        },
+      });
+      return;
+    }
+    router.push(`/details/${item.seriesId ?? item.contentId}`);
+  }, [router]);
 
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
@@ -162,7 +176,12 @@ export default function HomeScreen() {
   // Deduplicate episodes per series — keep only the most recently watched episode per show
   const dedupedHistory = useMemo(() => {
     const sorted = history
-      .filter((h) => h.type !== "live")
+      .filter((h) =>
+        h.type !== "live" &&
+        h.durationMs > 0 &&
+        h.positionMs >= 5000 &&
+        h.positionMs / h.durationMs < 0.95,
+      )
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     const seenSeriesIds = new Set<string>();
     return sorted.filter((item) => {
@@ -228,7 +247,7 @@ export default function HomeScreen() {
             <SectionHeader title="Continuar Assistindo" subtitle="Retome de onde parou" onPress={handleContinueWatchingAll} />
             <HorizontalScroller>
               {dedupedHistory.slice(0, 8).map((item) => (
-                <TVFocusable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item.contentId, item.type)} style={styles.continueCard}>
+                <TVFocusable key={item.contentId} accessibilityRole="button" accessibilityLabel={`Continuar ${item.title}`} onPress={() => handleHistory(item)} style={styles.continueCard}>
                   <View style={styles.continueImage}>
                     <Image source={{ uri: item.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
                     <View style={styles.continueShade} />
@@ -237,7 +256,7 @@ export default function HomeScreen() {
                   <AppText numberOfLines={1} style={styles.continueTitle}>{item.title}</AppText>
                   <AppText numberOfLines={1} style={styles.continueSubtitle}>{item.subtitle}</AppText>
                   <View style={styles.continueTrack}>
-                    <View style={[styles.continueFill, { width: `${Math.round((item.positionMs / item.durationMs) * 100)}%` }]} />
+                    <View style={[styles.continueFill, { width: `${Math.min(100, Math.max(0, Math.round((item.positionMs / item.durationMs) * 100)))}%` }]} />
                   </View>
                 </TVFocusable>
               ))}

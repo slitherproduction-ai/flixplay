@@ -301,7 +301,14 @@ export default function DetailsScreen() {
       if (movie) {
         router.push({
           pathname: "/player",
-          params: { id: movie.id, title: movie.title, type: "movie", streamUrl: movie.streamUrl },
+          params: {
+            id: movie.id,
+            title: movie.title,
+            type: "movie",
+            streamUrl: movie.streamUrl,
+            subtitle: "Filme",
+            thumbnail: movie.backdrop || movie.poster,
+          },
         });
         return;
       }
@@ -314,6 +321,9 @@ export default function DetailsScreen() {
           title: `${show.title} · T${episode.seasonNumber}:E${episode.episodeNumber}`,
           type: "episode",
           streamUrl: episode.streamUrl,
+          subtitle: `${show.title} · T${episode.seasonNumber}:E${episode.episodeNumber}`,
+          thumbnail: episode.thumbnail || show.poster,
+          seriesId: show.id,
         },
       });
     },

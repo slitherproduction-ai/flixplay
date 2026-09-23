@@ -41,22 +41,23 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.8.4",
+    version: "v2.9.0",
     label: "Versão Atual",
+    date: "2026.09",
+    changes: [
+      { tag: "Novidade", text: "Zapping rápido com escolha da grade/categoria de canais ao vivo." },
+      { tag: "Melhoria", text: "Picture-in-Picture migrado para a implementação nativa do Android e smartphones." },
+      { tag: "Melhoria", text: "EPG real com programa atual e próximo exibidos durante a reprodução." },
+      { tag: "Correção", text: "Progresso real e retomada automática para filmes e episódios em Continuar Assistindo." },
+    ],
+  },
+  {
+    version: "v2.8.4",
     date: "2026.09",
     changes: [
       { tag: "Correção", text: "Informações da tela Sobre e do selo em Ajustes sincronizadas com a versão instalada." },
       { tag: "Melhoria", text: "Histórico simplificado para exibir somente as duas versões mais recentes." },
       { tag: "Melhoria", text: "Mantida a compatibilidade universal com Fire TV em dispositivos ARM de 32 e 64 bits." },
-    ],
-  },
-  {
-    version: "v2.8.3",
-    date: "2026.09",
-    changes: [
-      { tag: "Correção", text: "Adicionado suporte a armeabi-v7a para instalação em Fire TV Stick com sistema Android de 32 bits." },
-      { tag: "Melhoria", text: "APK universal com suporte conjunto a armeabi-v7a e arm64-v8a." },
-      { tag: "Correção", text: "Removido o caminho de pré-visualização que gerava nomes inválidos nos recursos Android." },
     ],
   },
 ];

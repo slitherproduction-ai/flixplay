@@ -23,6 +23,10 @@ export interface EpgProgram {
   start: string;
   end: string;
   progress: number;
+  description?: string;
+  startTimestamp?: number;
+  endTimestamp?: number;
+  isCurrent?: boolean;
 }
 
 export interface ChannelItem {
@@ -33,8 +37,11 @@ export interface ChannelItem {
   logo: string;
   categoryId: string;
   categoryName: string;
+  epgChannelId?: string;
   currentEpg: EpgProgram;
   nextProgram: string;
+  epgPrograms?: EpgProgram[];
+  epgUpdatedAt?: string;
   streamUrl: string;
 }
 
@@ -103,6 +110,8 @@ export interface PlayHistory {
   title: string;
   subtitle: string;
   thumbnail: string;
+  streamUrl?: string;
+  seriesId?: string;
   positionMs: number;
   durationMs: number;
   updatedAt: string;

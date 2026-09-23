@@ -147,7 +147,12 @@ export default function ContinueWatchingScreen() {
   // episode per series so each show appears once (like Netflix / Prime Video).
   const watchHistory = useMemo(() => {
     const sorted = allHistory
-      .filter((h) => h.type !== "live")
+      .filter((h) =>
+        h.type !== "live" &&
+        h.durationMs > 0 &&
+        h.positionMs >= 5000 &&
+        h.positionMs / h.durationMs < 0.95,
+      )
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     const seenSeriesIds = new Set<string>();
@@ -165,7 +170,20 @@ export default function ContinueWatchingScreen() {
 
   const handleResume = useCallback((item: PlayHistory) => {
     const type = item.type as ContentType;
-    if (type === "movie") {
+    if (item.streamUrl) {
+      router.push({
+        pathname: "/player",
+        params: {
+          id: item.contentId,
+          title: item.title,
+          type,
+          streamUrl: item.streamUrl,
+          subtitle: item.subtitle,
+          thumbnail: item.thumbnail,
+          seriesId: item.seriesId,
+        },
+      });
+    } else if (type === "movie") {
       // For movies, open the details page which has the play button
       const movie = vodMovies.find((m) => m.id === item.contentId);
       if (movie) {
@@ -183,7 +201,7 @@ export default function ContinueWatchingScreen() {
       }
     } else {
       // For series/episodes, navigate to details
-      router.push(`/details/${item.contentId}`);
+      router.push(`/details/${item.seriesId ?? item.contentId}`);
     }
   }, [router, vodMovies]);
 

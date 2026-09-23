@@ -2,7 +2,7 @@
   "expo": {
     "name": "FlixPlay",
     "slug": "flixplay",
-    "version": "2.8.4",
+    "version": "2.9.0",
     "orientation": "default",
     "icon": "./assets/images/flixplay_icon.png",
     "scheme": "fastshot",
@@ -23,7 +23,7 @@
         "backgroundColor": "#07090E"
       },
       "isTV": true,
-      "versionCode": 20260927,
+      "versionCode": 20260928,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
@@ -61,7 +61,13 @@
       "expo-image",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-video"
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

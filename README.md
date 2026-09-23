@@ -1,14 +1,20 @@
-Markdown
 # FlixPlay
 
 Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Native. O projeto inclui navegação por controle remoto, reprodução de conteúdo, listas Xtream e uma versão Android para Fire TV.
 
 ## Versão atual
 
-- **2.8.4** — código de versão Android `20260927`.
+- **2.9.0** — código de versão Android `20260928`.
 - Pacote Android: `com.fastshot.slitherproduction.flixplay`.
 - APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
-- A tela **Sobre** mostra os dados da versão instalada e somente as versões 2.8.4 e 2.8.3 no histórico.
+- A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
+
+## Novidades da 2.9.0
+
+- Zapping rápido com seleção de categoria, favoritos e grade de canais ao vivo.
+- Picture-in-picture nativo do Android em smartphones compatíveis.
+- EPG real do provedor Xtream, com programa atual e próximo na barra do player.
+- Progresso real e retomada de filmes e episódios em **Continuar assistindo**.
 
 ## Desenvolvimento
 

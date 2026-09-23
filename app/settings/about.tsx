@@ -1,8 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Animated, Linking, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, GlassCard, IconButton, ScreenState } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
@@ -10,6 +19,11 @@ import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { useScreenLoad } from "@/hooks/useScreenLoad";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import {
+  checkForGitHubUpdate,
+  downloadAndInstallUpdate,
+  type UpdateCheckResult,
+} from "@/services/githubUpdater";
 
 type ChangeTag = "Novidade" | "Melhoria" | "Correção";
 
@@ -27,80 +41,22 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.6.0",
+    version: "v2.8.4",
     label: "Versão Atual",
-    date: "2026.2",
+    date: "2026.09",
     changes: [
-      { tag: "Novidade", text: "PiP (Picture-in-Picture) flutuante 16:9 global: navegue livremente pelas abas enquanto o vídeo continua tocando." },
-      { tag: "Novidade", text: "Favoritos por tipo: canais ao vivo, filmes e séries com aba Favoritos em cada seção." },
-      { tag: "Novidade", text: "Seção 'Assistir Mais Tarde' na tela Início com todos os conteúdos salvos." },
-      { tag: "Novidade", text: "Verificador de atualizações automático com opção de atualização automática." },
-      { tag: "Correção", text: "Barra de busca com digitação contínua sem perder foco nas abas TV, Filmes e Séries." },
-      { tag: "Correção", text: "Carregamento real de episódios de séries via API Xtream Codes (suporte a formato objeto e array)." },
-      { tag: "Melhoria", text: "Remoção completa de conteúdo demo — o app opera 100% com dados do servidor real." },
+      { tag: "Correção", text: "Informações da tela Sobre e do selo em Ajustes sincronizadas com a versão instalada." },
+      { tag: "Melhoria", text: "Histórico simplificado para exibir somente as duas versões mais recentes." },
+      { tag: "Melhoria", text: "Mantida a compatibilidade universal com Fire TV em dispositivos ARM de 32 e 64 bits." },
     ],
   },
   {
-    version: "v2.5.0",
-    date: "2026.1",
+    version: "v2.8.3",
+    date: "2026.09",
     changes: [
-      { tag: "Novidade", text: "Suporte a Picture-in-Picture (PiP) e Espelhamento de Tela (Cast/AirPlay/DLNA)." },
-      { tag: "Novidade", text: "Controle avançado de Buffering para Canais ao Vivo: Baixa Latência, Normal e Estável." },
-      { tag: "Novidade", text: "Guia Eletrônico de Programação (EPG) completo integrado no player ao vivo." },
-      { tag: "Melhoria", text: "Controles de proporção de tela reais: 16:9, 4:3, Zoom, Esticar e Original." },
-      { tag: "Melhoria", text: "Seletor avançado de faixas de áudio e legendas com renderização sobre o vídeo." },
-      { tag: "Melhoria", text: "Controle de velocidade de reprodução de 0.5x até 2.0x com correção de pitch." },
-      { tag: "Melhoria", text: "Novo ícone moderno e Splash Screen refinado." },
-    ],
-  },
-  {
-    version: "v2.4.0",
-    date: "2025.1",
-    changes: [
-      { tag: "Novidade", text: "Novo design Dark Glassmorphism refinado, inspirado no Apple tvOS." },
-      { tag: "Novidade", text: "Suporte a Quick Zapping direto no player sem interrupção de fluxo." },
-      { tag: "Melhoria", text: "Guia de Programação Eletrônico (EPG) ao vivo com barra de progresso em tempo real." },
-      { tag: "Melhoria", text: "Sincronização e scrobble de progresso com Trakt.tv." },
-      { tag: "Correção", text: "Otimização de reconexão automática e buffer para streams lentos." },
-    ],
-  },
-  {
-    version: "v2.3.0",
-    date: "2024.4",
-    changes: [
-      { tag: "Novidade", text: "Gerenciador de múltiplos servidores Xtream Codes e listas M3U." },
-      { tag: "Novidade", text: "Seletor de faixas de áudio e legendas personalizáveis no player." },
-      { tag: "Melhoria", text: "Retomada inteligente do minuto exato de filmes e séries." },
-    ],
-  },
-  {
-    version: "v2.2.0",
-    date: "2024.2",
-    changes: [
-      { tag: "Novidade", text: "Grade VOD avançada para séries com separação por temporadas e episódios." },
-      { tag: "Melhoria", text: "Compatibilidade aprimorada para navegação via controle remoto (Android TV)." },
-    ],
-  },
-  {
-    version: "v2.1.0",
-    date: "2023.4",
-    changes: [
-      { tag: "Novidade", text: "Busca universal em tempo real por canais, filmes, séries e atores." },
-      { tag: "Melhoria", text: "Favoritos persistidos instantaneamente com armazenamento local Zustand." },
-    ],
-  },
-  {
-    version: "v2.0.0",
-    date: "2023.1",
-    changes: [
-      { tag: "Novidade", text: "Lançamento da nova arquitetura de reprodução e suporte completo à API Xtream Codes." },
-    ],
-  },
-  {
-    version: "v1.0.0",
-    date: "2022.3",
-    changes: [
-      { tag: "Novidade", text: "Versão inicial do reprodutor IPTV com suporte a M3U e streams HLS." },
+      { tag: "Correção", text: "Adicionado suporte a armeabi-v7a para instalação em Fire TV Stick com sistema Android de 32 bits." },
+      { tag: "Melhoria", text: "APK universal com suporte conjunto a armeabi-v7a e arm64-v8a." },
+      { tag: "Correção", text: "Removido o caminho de pré-visualização que gerava nomes inválidos nos recursos Android." },
     ],
   },
 ];
@@ -111,22 +67,24 @@ const TAG_COLORS: Record<ChangeTag, { backgroundColor: string; color: string }> 
   Correção: { backgroundColor: "rgba(245,158,11,0.15)", color: "#FBBF24" },
 };
 
-export default function AboutScreen() {
-  const router = useRouter();
-  const { loading, error: loadError, retry } = useScreenLoad("informações do aplicativo");
-  const tvMode = useTVMode();
-  const autoUpdate = useAppStore((state) => state.preferences["autoUpdate"]);
-  const setPreference = useAppStore((state) => state.setPreference);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [checkState, setCheckState] = useState<"idle" | "checking" | "success">("idle");
+// ─── Success toast hook ───────────────────────────────────────────────────────
+// Encapsulates the two-phase fade-in / fade-out animation so the main
+// component stays under the cognitive-complexity budget.
+
+type ToastState = "idle" | "checking" | "done";
+
+function useSuccessToast(checkState: ToastState, onDismiss: () => void) {
   const [toastOpacity] = useState(() => new Animated.Value(0));
   const [toastOffset] = useState(() => new Animated.Value(-12));
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => { onDismissRef.current = onDismiss; }, [onDismiss]);
 
   useEffect(() => {
-    if (checkState !== "success") return;
+    if (checkState !== "done") return;
 
     toastOpacity.setValue(0);
     toastOffset.setValue(-12);
+
     Animated.parallel([
       Animated.timing(toastOpacity, { toValue: 1, duration: 220, useNativeDriver: false }),
       Animated.timing(toastOffset, { toValue: 0, duration: 220, useNativeDriver: false }),
@@ -137,21 +95,254 @@ export default function AboutScreen() {
         Animated.timing(toastOpacity, { toValue: 0, duration: 180, useNativeDriver: false }),
         Animated.timing(toastOffset, { toValue: -12, duration: 180, useNativeDriver: false }),
       ]).start(({ finished }) => {
-        if (finished) setCheckState("idle");
+        if (finished) onDismissRef.current();
       });
     }, 3600);
 
     return () => clearTimeout(timeout);
   }, [checkState, toastOffset, toastOpacity]);
 
+  return { toastOpacity, toastOffset };
+}
+
+function formatPublishedAt(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// ─── Update Modal helpers (module-level keeps complexity out of the component)
+
+async function runInstallUpdate(
+  apkUrl: string,
+  releaseUrl: string | null | undefined,
+  onError: (msg: string) => void,
+): Promise<void> {
+  try {
+    await downloadAndInstallUpdate(apkUrl, releaseUrl);
+  } catch (err) {
+    console.error("[UpdateModal] install error", err);
+    onError(err instanceof Error ? err.message : "Falha ao iniciar a instalação.");
+  }
+}
+
+async function openReleaseUrl(url: string): Promise<void> {
+  try {
+    await Linking.openURL(url);
+  } catch (e) {
+    console.error("[UpdateModal] open release url failed", e);
+  }
+}
+
+// Pre-compute header values at module level to keep component JSX flat.
+type ModalHeader = {
+  iconName: "arrow-up-circle" | "checkmark-circle";
+  iconColor: string;
+  title: string;
+  subtitle: string;
+};
+
+function buildModalHeader(result: UpdateCheckResult): ModalHeader {
+  if (result.hasUpdate) {
+    return {
+      iconName: "arrow-up-circle",
+      iconColor: Colors.blueBright,
+      title: `Nova versão: ${result.latestVersion ?? ""}`,
+      subtitle: `Versão atual: ${result.currentVersion}`,
+    };
+  }
+  return {
+    iconName: "checkmark-circle",
+    iconColor: Colors.green,
+    title: "Você está atualizado",
+    subtitle: `${APP_INFO.name} ${result.currentVersion} é a versão mais recente`,
+  };
+}
+
+// Sub-component isolates the install-button JSX complexity.
+function InstallButton({
+  result,
+  installing,
+  onPress,
+}: {
+  result: UpdateCheckResult;
+  installing: boolean;
+  onPress: () => void;
+}) {
+  if (!result.hasUpdate || !(result.apkUrl ?? result.releaseUrl)) return null;
+  return (
+    <TVFocusable
+      onPress={onPress}
+      disabled={installing}
+      style={[modalStyles.installBtn, installing && { opacity: 0.55 }]}
+      accessibilityLabel="Baixar e instalar atualização"
+    >
+      {installing
+        ? <ActivityIndicator size="small" color={Colors.white} />
+        : <Ionicons name="download-outline" size={18} color={Colors.white} />}
+      <AppText style={modalStyles.installText}>
+        {installing ? "Abrindo download..." : "Baixar e Instalar"}
+      </AppText>
+    </TVFocusable>
+  );
+}
+
+// ─── Update Modal ─────────────────────────────────────────────────────────────
+
+function UpdateModal({
+  result,
+  visible,
+  onClose,
+}: {
+  result: UpdateCheckResult | null;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const [installing, setInstalling] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  const handleInstall = useCallback(async () => {
+    setInstallError(null);
+    setInstalling(true);
+    await runInstallUpdate(
+      result?.apkUrl ?? result?.releaseUrl ?? "",
+      result?.releaseUrl,
+      setInstallError,
+    );
+    setInstalling(false);
+  }, [result]);
+
+  const handleOpenRelease = useCallback(() => {
+    void openReleaseUrl(result?.releaseUrl ?? "");
+  }, [result]);
+
+  if (!result) return null;
+
+  const header = buildModalHeader(result);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.backdrop}>
+        <View style={modalStyles.sheet}>
+          {/* Header — values pre-computed to keep JSX ternary-free */}
+          <View style={modalStyles.header}>
+            <View style={modalStyles.headerIcon}>
+              <Ionicons name={header.iconName} size={28} color={header.iconColor} />
+            </View>
+            <View style={modalStyles.headerCopy}>
+              <AppText style={modalStyles.headerTitle}>{header.title}</AppText>
+              <AppText style={modalStyles.headerSub}>{header.subtitle}</AppText>
+            </View>
+            <TVFocusable onPress={onClose} style={modalStyles.closeBtn} accessibilityLabel="Fechar">
+              <Ionicons name="close" size={20} color={Colors.muted} />
+            </TVFocusable>
+          </View>
+
+          {/* Release meta */}
+          {result.latestVersion ? (
+            <View style={modalStyles.metaRow}>
+              <View style={modalStyles.metaItem}>
+                <Ionicons name="git-branch-outline" size={14} color={Colors.blueBright} />
+                <AppText style={modalStyles.metaText}>{result.releaseName ?? result.latestVersion}</AppText>
+              </View>
+              {result.publishedAt && (
+                <View style={modalStyles.metaItem}>
+                  <Ionicons name="calendar-outline" size={14} color={Colors.subtle} />
+                  <AppText style={modalStyles.metaTextSub}>{formatPublishedAt(result.publishedAt)}</AppText>
+                </View>
+              )}
+            </View>
+          ) : null}
+
+          {/* Release notes */}
+          {result.releaseNotes ? (
+            <ScrollView
+              style={modalStyles.notesScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={modalStyles.notesContent}
+            >
+              <AppText style={modalStyles.notesTitle}>Notas da versão</AppText>
+              <AppText style={modalStyles.notesBody}>{result.releaseNotes}</AppText>
+            </ScrollView>
+          ) : null}
+
+          {/* Error */}
+          {installError ? (
+            <View style={modalStyles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={16} color={Colors.red} />
+              <AppText style={modalStyles.errorText}>{installError}</AppText>
+            </View>
+          ) : null}
+
+          {/* Actions */}
+          <View style={modalStyles.actions}>
+            <InstallButton result={result} installing={installing} onPress={handleInstall} />
+            {result.releaseUrl ? (
+              <TVFocusable
+                onPress={handleOpenRelease}
+                style={modalStyles.releaseBtn}
+                accessibilityLabel="Ver release no GitHub"
+              >
+                <Ionicons name="logo-github" size={17} color={Colors.text} />
+                <AppText style={modalStyles.releaseBtnText}>Ver no GitHub</AppText>
+              </TVFocusable>
+            ) : null}
+            <TVFocusable onPress={onClose} style={modalStyles.cancelBtn} accessibilityLabel="Fechar">
+              <AppText style={modalStyles.cancelText}>Fechar</AppText>
+            </TVFocusable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
+export default function AboutScreen() {
+  const router = useRouter();
+  const { loading, error: loadError, retry } = useScreenLoad("informações do aplicativo");
+  const tvMode = useTVMode();
+  const autoUpdate = useAppStore((state) => state.preferences["autoUpdate"]);
+  const setPreference = useAppStore((state) => state.setPreference);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [checkState, setCheckState] = useState<ToastState>("idle");
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handleDismissToast = useCallback(() => setCheckState("idle"), []);
+  const { toastOpacity, toastOffset } = useSuccessToast(checkState, handleDismissToast);
+
   const handleCheckUpdates = useCallback(async () => {
     setActionError(null);
     setCheckState("checking");
     try {
-      await new Promise<void>((resolve) => setTimeout(resolve, 650));
-      setCheckState("success");
-    } catch (checkError) {
-      console.error("Falha ao verificar atualizações", checkError);
+      const result = await checkForGitHubUpdate();
+      setUpdateResult(result);
+      setCheckState("done");
+
+      if (result.error) {
+        setActionError(result.error);
+        setCheckState("idle");
+        return;
+      }
+
+      // Open modal to show result (with or without update)
+      setModalVisible(true);
+    } catch (err) {
+      console.error("Falha ao verificar atualizações", err);
       setActionError("Não foi possível verificar atualizações. Tente novamente.");
       setCheckState("idle");
     }
@@ -183,14 +374,28 @@ export default function AboutScreen() {
     void openExternalLink("https://discord.gg/flixplay", "a comunidade Discord");
   }, [openExternalLink]);
 
+  const handleGitHub = useCallback(() => {
+    void openExternalLink(
+      `https://github.com/${APP_INFO.githubRepo}`,
+      "o repositório GitHub",
+    );
+  }, [openExternalLink]);
+
+  const handleCloseModal = useCallback(() => setModalVisible(false), []);
+
   return (
     <View style={styles.screen}>
       <View style={styles.ambientTop} />
       <View style={styles.ambientBottom} />
       <ScreenState loading={loading} error={loadError} retry={retry}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.content, tvMode && styles.tvContent]}
+        >
+          {/* Header */}
           <View style={styles.header}>
-            <IconButton icon="close" label="Fechar informações do aplicativo" onPress={() => router.back()} />
+            <IconButton icon="close" label="Fechar" onPress={() => router.back()} />
             <View style={styles.headerCopy}>
               <AppText style={styles.kicker}>SOBRE O APLICATIVO</AppText>
               <AppText style={styles.headerTitle}>FlixPlay</AppText>
@@ -198,17 +403,25 @@ export default function AboutScreen() {
             <View style={styles.headerSpacer} />
           </View>
 
+          {/* Hero card */}
           <View style={styles.heroCard}>
             <View style={styles.heroGlow} />
             <View style={styles.appIcon}>
               <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
               <View style={styles.appIconRing} />
-              <View style={styles.appIconCore}><Ionicons name="play" size={27} color={Colors.white} /></View>
+              <View style={styles.appIconCore}>
+                <Ionicons name="play" size={27} color={Colors.white} />
+              </View>
             </View>
             <AppText style={styles.heroName}>{APP_INFO.name}</AppText>
             <AppText style={styles.heroVersion}>{APP_INFO.versionLabel}</AppText>
-            <View style={styles.stableBadge}><View style={styles.stableDot} /><AppText style={styles.stableText}>Versão estável e atualizada</AppText></View>
-            <AppText style={styles.heroSummary}>Sua central de entretenimento para assistir ao vivo, explorar catálogos e continuar cada história no ponto certo.</AppText>
+            <View style={styles.stableBadge}>
+              <View style={styles.stableDot} />
+              <AppText style={styles.stableText}>Versão estável e atualizada</AppText>
+            </View>
+            <AppText style={styles.heroSummary}>
+              Sua central de entretenimento para assistir ao vivo, explorar catálogos e continuar cada história no ponto certo.
+            </AppText>
             <View style={styles.techRow}>
               <TechBadge label="ExoPlayer / HLS" />
               <TechBadge label="Xtream Codes API" />
@@ -218,6 +431,36 @@ export default function AboutScreen() {
             </View>
           </View>
 
+          {/* GitHub integration status card */}
+          <GlassCard style={styles.githubCard} intensity={18}>
+            <View style={styles.githubRow}>
+              <View style={styles.githubIconWrap}>
+                <Ionicons name="logo-github" size={20} color={Colors.text} />
+              </View>
+              <View style={styles.githubCopy}>
+                <View style={styles.githubTitleRow}>
+                  <AppText style={styles.githubTitle}>Auto-Update GitHub Integrado</AppText>
+                  <View style={styles.githubActiveBadge}>
+                    <View style={styles.githubActiveDot} />
+                    <AppText style={styles.githubActiveText}>ATIVO</AppText>
+                  </View>
+                </View>
+                <AppText style={styles.githubRepo}>{APP_INFO.githubRepo}</AppText>
+                <AppText style={styles.githubEndpoint} numberOfLines={1}>
+                  api.github.com/repos/{APP_INFO.githubRepo}/releases/latest
+                </AppText>
+              </View>
+              <TVFocusable
+                onPress={handleGitHub}
+                style={styles.githubOpenBtn}
+                accessibilityLabel="Abrir repositório no GitHub"
+              >
+                <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
+              </TVFocusable>
+            </View>
+          </GlassCard>
+
+          {/* Technology card */}
           <View style={styles.sectionHeading}>
             <AppText style={Type.section}>O que move o FlixPlay</AppText>
             <AppText style={styles.sectionSubtitle}>Tecnologias pensadas para uma reprodução fluida</AppText>
@@ -228,42 +471,67 @@ export default function AboutScreen() {
             <TechnologyRow icon="server-outline" title="Suas fontes, do seu jeito" body="Xtream Codes, playlists M3U e múltiplos servidores." />
             <View style={styles.cardDivider} />
             <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e Trakt.tv para acompanhar seu progresso." />
+            <View style={styles.cardDivider} />
+            <TechnologyRow icon="logo-github" title="Atualizações automáticas" body={`GitHub Releases · ${APP_INFO.githubRepo}`} />
           </GlassCard>
 
+          {/* Changelog */}
           <View style={styles.changelogHeader}>
             <View style={styles.sectionHeading}>
               <AppText style={Type.section}>Histórico de versões</AppText>
               <AppText style={styles.sectionSubtitle}>Tudo o que evoluiu até aqui</AppText>
             </View>
-            <View style={styles.releaseCount}><AppText style={styles.releaseCountText}>{CHANGELOG.length} releases</AppText></View>
+            <View style={styles.releaseCount}>
+              <AppText style={styles.releaseCountText}>{CHANGELOG.length} releases</AppText>
+            </View>
           </View>
 
           <View style={styles.changelogList}>
-            {CHANGELOG.map((release, index) => <VersionCard key={release.version} release={release} isLast={index === CHANGELOG.length - 1} />)}
+            {CHANGELOG.map((release, index) => (
+              <VersionCard
+                key={release.version}
+                release={release}
+                isLast={index === CHANGELOG.length - 1}
+              />
+            ))}
           </View>
 
+          {/* Update check area */}
           <View style={styles.checkArea}>
-            {checkState === "success" ? (
-              <Animated.View style={[styles.successToast, { opacity: toastOpacity, transform: [{ translateY: toastOffset }] }]}>
+            {checkState === "done" && updateResult && !updateResult.hasUpdate ? (
+              <Animated.View
+                style={[
+                  styles.successToast,
+                  { opacity: toastOpacity, transform: [{ translateY: toastOffset }] },
+                ]}
+              >
                 <Ionicons name="checkmark-circle" size={19} color={Colors.green} />
                 <View style={styles.successCopy}>
                   <AppText style={styles.successTitle}>Você está em dia!</AppText>
-                  <AppText style={styles.successBody}>O FlixPlay {APP_INFO.versionLabel} é a versão mais recente.</AppText>
+                  <AppText style={styles.successBody}>
+                    O FlixPlay {APP_INFO.versionLabel} é a versão mais recente.
+                  </AppText>
                 </View>
               </Animated.View>
             ) : null}
+
             {actionError ? (
               <View style={styles.actionError}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.red} />
                 <AppText style={styles.actionErrorText}>{actionError}</AppText>
               </View>
             ) : null}
+
             <TVFocusable
               accessibilityRole="button"
               hasTVPreferredFocus
               disabled={checkState === "checking"}
               onPress={handleCheckUpdates}
-              style={({ pressed }) => [styles.checkButton, pressed && styles.pressed, checkState === "checking" && styles.disabled]}
+              style={({ pressed }) => [
+                styles.checkButton,
+                pressed && styles.pressed,
+                checkState === "checking" && styles.disabled,
+              ]}
             >
               {checkState === "checking" ? (
                 <ActivityIndicator color={Colors.white} />
@@ -271,14 +539,15 @@ export default function AboutScreen() {
                 <Ionicons name="refresh-outline" size={17} color={Colors.white} />
               )}
               <AppText style={styles.checkButtonText}>
-                {checkState === "checking" ? "Verificando..." : "Verificar Atualizações"}
+                {checkState === "checking" ? "Verificando..." : "Verificar Atualizações Agora"}
               </AppText>
             </TVFocusable>
+
             <View style={styles.autoUpdateRow}>
               <View style={styles.autoUpdateCopy}>
-                <AppText style={styles.autoUpdateTitle}>Atualização Automática</AppText>
+                <AppText style={styles.autoUpdateTitle}>Verificação Automática ao Iniciar</AppText>
                 <AppText style={styles.autoUpdateBody}>
-                  Instalar atualizações automaticamente quando disponíveis
+                  Verificar por atualizações automaticamente ao abrir o app
                 </AppText>
               </View>
               <Switch
@@ -290,6 +559,7 @@ export default function AboutScreen() {
             </View>
           </View>
 
+          {/* Links */}
           <View style={styles.sectionHeading}>
             <AppText style={Type.section}>Ajuda e transparência</AppText>
             <AppText style={styles.sectionSubtitle}>Estamos por perto quando você precisar</AppText>
@@ -307,38 +577,117 @@ export default function AboutScreen() {
           <AppText style={styles.footer}>FlixPlay · Feito para sua sala</AppText>
         </ScrollView>
       </ScreenState>
+
+      {/* Update result modal */}
+      <UpdateModal
+        result={updateResult}
+        visible={modalVisible}
+        onClose={handleCloseModal}
+      />
     </View>
   );
 }
 
 function TechBadge({ label }: { label: string }) {
-  return <View style={styles.techBadge}><AppText style={styles.techBadgeText}>{label}</AppText></View>;
+  return (
+    <View style={styles.techBadge}>
+      <AppText style={styles.techBadgeText}>{label}</AppText>
+    </View>
+  );
 }
 
-function TechnologyRow({ icon, title, body }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }) {
-  return <View style={styles.technologyRow}><View style={styles.technologyIcon}><Ionicons name={icon} size={19} color={Colors.blueBright} /></View><View style={styles.technologyCopy}><AppText style={styles.technologyTitle}>{title}</AppText><AppText style={styles.technologyBody}>{body}</AppText></View></View>;
+function TechnologyRow({
+  icon,
+  title,
+  body,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+}) {
+  return (
+    <View style={styles.technologyRow}>
+      <View style={styles.technologyIcon}>
+        <Ionicons name={icon} size={19} color={Colors.blueBright} />
+      </View>
+      <View style={styles.technologyCopy}>
+        <AppText style={styles.technologyTitle}>{title}</AppText>
+        <AppText style={styles.technologyBody}>{body}</AppText>
+      </View>
+    </View>
+  );
 }
 
 function VersionCard({ release, isLast }: { release: VersionEntry; isLast: boolean }) {
   return (
     <View style={styles.versionRow}>
       <View style={styles.timeline}>
-        <View style={[styles.timelineDot, release.label && styles.timelineDotCurrent]} />
+        <View style={[styles.timelineDot, release.label ? styles.timelineDotCurrent : undefined]} />
         {!isLast ? <View style={styles.timelineLine} /> : null}
       </View>
-      <View style={[styles.versionCard, release.label && styles.currentVersionCard]}>
+      <View style={[styles.versionCard, release.label ? styles.currentVersionCard : undefined]}>
         <View style={styles.versionHeader}>
-          <View style={styles.versionCopy}><View style={styles.versionTitleRow}><AppText style={styles.versionTitle}>{release.version}</AppText>{release.label ? <View style={styles.currentBadge}><AppText style={styles.currentBadgeText}>{release.label}</AppText></View> : null}</View><AppText style={styles.versionDate}>{release.date}</AppText></View>
-          {release.label ? <Ionicons name="sparkles-outline" size={18} color={Colors.blueBright} /> : <Ionicons name="chevron-down" size={16} color={Colors.subtle} />}
+          <View style={styles.versionCopy}>
+            <View style={styles.versionTitleRow}>
+              <AppText style={styles.versionTitle}>{release.version}</AppText>
+              {release.label ? (
+                <View style={styles.currentBadge}>
+                  <AppText style={styles.currentBadgeText}>{release.label}</AppText>
+                </View>
+              ) : null}
+            </View>
+            <AppText style={styles.versionDate}>{release.date}</AppText>
+          </View>
+          {release.label ? (
+            <Ionicons name="sparkles-outline" size={18} color={Colors.blueBright} />
+          ) : (
+            <Ionicons name="chevron-down" size={16} color={Colors.subtle} />
+          )}
         </View>
-        <View style={styles.changeList}>{release.changes.map((change) => <View key={`${release.version}-${change.tag}-${change.text}`} style={styles.changeItem}><View style={[styles.changeTag, { backgroundColor: TAG_COLORS[change.tag].backgroundColor }]}><AppText style={[styles.changeTagText, { color: TAG_COLORS[change.tag].color }]}>{change.tag}</AppText></View><AppText style={styles.changeText}>{change.text}</AppText></View>)}</View>
+        <View style={styles.changeList}>
+          {release.changes.map((change) => (
+            <View key={`${release.version}-${change.tag}-${change.text}`} style={styles.changeItem}>
+              <View style={[styles.changeTag, { backgroundColor: TAG_COLORS[change.tag].backgroundColor }]}>
+                <AppText style={[styles.changeTagText, { color: TAG_COLORS[change.tag].color }]}>
+                  {change.tag}
+                </AppText>
+              </View>
+              <AppText style={styles.changeText}>{change.text}</AppText>
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
 }
 
-function AboutLink({ icon, title, body, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string; onPress: () => void }) {
-  return <TVFocusable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}><View style={styles.aboutLinkIcon}><Ionicons name={icon} size={18} color={Colors.blueBright} /></View><View style={styles.aboutLinkCopy}><AppText style={styles.aboutLinkTitle}>{title}</AppText><AppText style={styles.aboutLinkBody}>{body}</AppText></View><Ionicons name="arrow-up-outline" size={17} color={Colors.subtle} /></TVFocusable>;
+function AboutLink({
+  icon,
+  title,
+  body,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+  onPress: () => void;
+}) {
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}
+    >
+      <View style={styles.aboutLinkIcon}>
+        <Ionicons name={icon} size={18} color={Colors.blueBright} />
+      </View>
+      <View style={styles.aboutLinkCopy}>
+        <AppText style={styles.aboutLinkTitle}>{title}</AppText>
+        <AppText style={styles.aboutLinkBody}>{body}</AppText>
+      </View>
+      <Ionicons name="arrow-up-outline" size={17} color={Colors.subtle} />
+    </TVFocusable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -366,6 +715,19 @@ const styles = StyleSheet.create({
   techRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 18 },
   techBadge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: Radii.pill, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.06)" },
   techBadgeText: { fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.muted },
+  // GitHub integration card
+  githubCard: { paddingHorizontal: 14, paddingVertical: 12 },
+  githubRow: { flexDirection: "row", alignItems: "center", gap: 11 },
+  githubIconWrap: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: Colors.border },
+  githubCopy: { flex: 1, gap: 3 },
+  githubTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  githubTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  githubActiveBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.15)" },
+  githubActiveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.green },
+  githubActiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
+  githubRepo: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
+  githubEndpoint: { fontSize: 9, color: Colors.subtle },
+  githubOpenBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "rgba(59,130,246,0.1)" },
   sectionHeading: { gap: 3 },
   sectionSubtitle: { fontSize: 12, color: Colors.subtle },
   technologyCard: { paddingHorizontal: 14 },
@@ -407,17 +769,7 @@ const styles = StyleSheet.create({
   actionErrorText: { flex: 1, fontSize: 12, lineHeight: 17, color: "#FF8B91" },
   checkButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, backgroundColor: Colors.blue, ...Shadows.card },
   checkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
-  autoUpdateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: Radii.medium,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.glassSoft,
-  },
+  autoUpdateRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
   autoUpdateCopy: { flex: 1, gap: 3 },
   autoUpdateTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
   autoUpdateBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
@@ -430,4 +782,32 @@ const styles = StyleSheet.create({
   footer: { alignSelf: "center", fontSize: 10, color: Colors.subtle },
   pressed: { opacity: 0.74, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.55 },
+});
+
+const modalStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
+  sheet: { width: "100%", maxWidth: 480, borderRadius: 20, backgroundColor: "#0D111A", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", overflow: "hidden", ...Shadows.card },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, padding: 18, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" },
+  headerIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "rgba(59,130,246,0.15)" },
+  headerCopy: { flex: 1, gap: 3 },
+  headerTitle: { fontFamily: "Inter_700Bold", fontSize: 15, color: Colors.text },
+  headerSub: { fontSize: 11, color: Colors.muted },
+  closeBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "rgba(255,255,255,0.07)" },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 18, paddingTop: 14 },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  metaText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  metaTextSub: { fontSize: 11, color: Colors.subtle },
+  notesScroll: { maxHeight: 200 },
+  notesContent: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 4, gap: 6 },
+  notesTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  notesBody: { fontSize: 11, lineHeight: 17, color: Colors.muted },
+  errorRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginHorizontal: 18, marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: "rgba(229,9,20,0.12)" },
+  errorText: { flex: 1, fontSize: 11, color: "#FF8B91" },
+  actions: { gap: 8, padding: 16 },
+  installBtn: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, borderRadius: 14, backgroundColor: Colors.blue },
+  installText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
+  releaseBtn: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.05)" },
+  releaseBtnText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.text },
+  cancelBtn: { minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 12 },
+  cancelText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.subtle },
 });

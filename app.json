@@ -2,37 +2,39 @@
   "expo": {
     "name": "FlixPlay",
     "slug": "flixplay",
-    "version": "1.0.0",
+    "version": "2.8.4",
     "orientation": "default",
     "icon": "./assets/images/flixplay_icon.png",
     "scheme": "fastshot",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
     },
     "android": {
+      "package": "com.fastshot.slitherproduction.flixplay",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/flixplay_icon.png",
         "backgroundColor": "#07090E"
       },
       "isTV": true,
+      "versionCode": 20260927,
       "usesCleartextTraffic": true,
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.WAKE_LOCK",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.RECEIVE_BOOT_COMPLETED"
-      ],
-      "intentFilters": [
-        {
-          "action": "MAIN",
-          "category": [
-            "LAUNCHER",
-            "LEANBACK_LAUNCHER"
-          ]
-        }
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
       "edgeToEdgeEnabled": true
     },
@@ -44,6 +46,7 @@
     "plugins": [
       "expo-router",
       "./plugins/withAndroidCleartext",
+      "./plugins/withAndroidTV",
       [
         "expo-splash-screen",
         {
@@ -61,8 +64,7 @@
       "expo-video"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "baseUrl": "/4b36e889-ccf7-44c0-9214-5b72b1f056f7/dev-preview/"
+      "typedRoutes": true
     }
   }
 }

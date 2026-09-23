@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import type React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -135,7 +135,21 @@ export function Chip({
   );
 }
 
-export function SearchField({
+/**
+ * SearchField — fully decoupled from parent re-renders.
+ *
+ * Uses an UNCONTROLLED TextInput (no `value` prop) so React never pushes
+ * state back into the native text field — the root cause of focus loss /
+ * keyboard dismissal after each keystroke on Android and React-Native-Web.
+ *
+ * Text is tracked via a ref (zero extra renders) and propagated to the
+ * parent via a debounced callback (280 ms).  The only React state kept here
+ * is `hasText` (boolean), which drives the clear-button visibility.
+ *
+ * External clear (parent sets value="") is handled imperatively via
+ * `inputRef.current.clear()` so the native field never re-mounts.
+ */
+export const SearchField = React.memo(function SearchField({
   value,
   onChangeText,
   placeholder = "Buscar no FlixPlay",
@@ -144,25 +158,75 @@ export function SearchField({
   onChangeText: (value: string) => void;
   placeholder?: string;
 }) {
+  const inputRef = useRef<TextInput>(null);
+  const textRef = useRef(value);            // current text — no renders
+  const [hasText, setHasText] = useState(value.length > 0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onChangeTextRef = useRef(onChangeText);
+
+  useEffect(() => {
+    onChangeTextRef.current = onChangeText;
+  }, [onChangeText]);
+
+  // When the parent clears the field externally (value → ""), imperatively
+  // clear the native TextInput so the display matches without remounting.
+  useEffect(() => {
+    if (value === "" && textRef.current !== "") {
+      textRef.current = "";
+      setHasText(false);
+      inputRef.current?.clear();
+    }
+  }, [value]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const handleChange = useCallback((text: string) => {
+    textRef.current = text;
+    setHasText(text.length > 0); // cheap boolean — no focus impact
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onChangeTextRef.current(text);
+    }, 280);
+  }, []);
+
+  const handleClear = useCallback(() => {
+    textRef.current = "";
+    setHasText(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    onChangeTextRef.current("");
+    // Imperatively clear and keep keyboard open
+    inputRef.current?.clear();
+    inputRef.current?.focus();
+  }, []);
+
   return (
     <View style={styles.searchField}>
       <Ionicons name="search" size={18} color={Colors.muted} />
       <TextInput
+        ref={inputRef}
         accessibilityLabel={placeholder}
         placeholder={placeholder}
-        value={value}
-        onChangeText={onChangeText}
+        defaultValue={value}
+        onChangeText={handleChange}
         style={styles.searchInput}
         placeholderTextColor={Colors.subtle}
+        autoCorrect={false}
+        autoCapitalize="none"
+        returnKeyType="search"
       />
-      {value ? (
-        <TVFocusable accessibilityLabel="Limpar busca" onPress={() => onChangeText("")} hitSlop={8} style={styles.searchClearButton}>
+      {hasText ? (
+        <TVFocusable accessibilityLabel="Limpar busca" onPress={handleClear} hitSlop={8} style={styles.searchClearButton}>
           <Ionicons name="close-circle" size={17} color={Colors.muted} />
         </TVFocusable>
       ) : null}
     </View>
   );
-}
+});
 
 export function PosterCard({
   title,

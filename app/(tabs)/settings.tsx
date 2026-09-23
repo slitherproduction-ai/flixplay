@@ -189,9 +189,9 @@ export default function SettingsScreen() {
               <View style={styles.aboutCopy}>
                 <View style={styles.aboutTitleRow}>
                   <AppText style={styles.aboutTitle}>Sobre o Aplicativo</AppText>
-                  <View style={styles.aboutBadge}><AppText style={styles.aboutBadgeText}>ATUAL</AppText></View>
+                  <View style={styles.aboutBadge}><AppText style={styles.aboutBadgeText}>v{APP_INFO.version}</AppText></View>
                 </View>
-                <AppText style={styles.aboutMeta}>{APP_INFO.versionLabel} · Versão estável e atualizada</AppText>
+                <AppText style={styles.aboutMeta}>{APP_INFO.versionLabel} · Auto-Update GitHub Integrado</AppText>
               </View>
               <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
             </TVFocusable>

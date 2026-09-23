@@ -213,7 +213,11 @@ export default function MoviesScreen() {
   const handleSetGenre = useCallback((g: string) => setGenre(g), []);
   const handleSetSort = useCallback((s: SortOption) => setSort(s), []);
 
-  const ListHeader = useCallback(
+  // useMemo returns a React ELEMENT (not a component function).
+  // FlatList uses React.isValidElement() to detect this and renders it without
+  // calling it as a new component type — so the header NEVER unmounts when
+  // filteredMovies.length changes, which keeps the keyboard focused during search.
+  const listHeaderElement = useMemo(
     () => (
       <MoviesHeader
         isSyncing={isSyncing}
@@ -232,7 +236,7 @@ export default function MoviesScreen() {
     [isSyncing, syncError, syncProgress, genres, genre, sort, filteredMovies.length, movies.length, refresh, handleSetGenre, handleSetSort],
   );
 
-  const ListEmpty = useCallback(
+  const listEmptyElement = useMemo(
     () =>
       isEmpty ? (
         <View style={styles.empty}>
@@ -286,8 +290,10 @@ export default function MoviesScreen() {
         numColumns={numColumns}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
+        ListHeaderComponent={listHeaderElement}
+        ListEmptyComponent={listEmptyElement}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

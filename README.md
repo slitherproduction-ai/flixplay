@@ -1,50 +1,38 @@
-# Welcome to your Fastshot app
+Markdown
+# FlixPlay
 
-This is an [Expo](https://expo.dev) project created with [Fastshot](https://fastshot.ai), an AI-powered mobile development platform that helps you build React Native apps faster.
+Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Native. O projeto inclui navegação por controle remoto, reprodução de conteúdo, listas Xtream e uma versão Android para Fire TV.
 
-## Running locally:
+## Versão atual
 
-1. Install dependencies
+- **2.8.4** — código de versão Android `20260927`.
+- Pacote Android: `com.fastshot.slitherproduction.flixplay`.
+- APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
+- A tela **Sobre** mostra os dados da versão instalada e somente as versões 2.8.4 e 2.8.3 no histórico.
 
-   ```bash
-   bun install
-   ```
+## Desenvolvimento
 
-2. Start the app
+```bash
+bun install
+npx expo start
+```
 
-   ```bash
-   npx expo start
-   ```
+O arquivo `bun.lock` fixa as dependências. O projeto Android é gerado a partir de `app.json` e dos plugins em `plugins/`.
 
-## Need help?
+## Compilar Android
 
-Have questions or want to iterate on your app? Head back to [Fastshot](https://fastshot.ai) to continue chatting with our AI agents. They can help you:
+Instale JDK 17, Android SDK 36, Build Tools, NDK 27.1.12297006 e CMake 3.22.1. Configure `ANDROID_HOME` e `ANDROID_SDK_ROOT` para o SDK local e execute:
 
-- Add new features and screens
-- Debug issues and fix bugs
-- Refactor and improve your code
-- Integrate APIs and third-party libraries
+```bash
+npx expo prebuild --platform android --clean
+cd android
+./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
+```
 
-## Learn more
+O arquivo gerado fica em `android/app/build/outputs/apk/release/app-release.apk`. O repositório não inclui SDK, dependências instaladas, cache de compilação, chaves privadas ou arquivos locais. O build gerado usa a chave de desenvolvimento do Android; para distribuição contínua, configure uma chave de assinatura própria e mantenha a mesma chave nas próximas versões. Um APK assinado com chave diferente não atualiza uma instalação existente sem reinstalação.
 
-To learn more about developing your project, check out these resources:
+## Atualizações pelo aplicativo
 
-### Fastshot Resources
-- [Fastshot Platform](https://fastshot.ai): Build and iterate on your mobile apps with AI assistance
-- [Fastshot Documentation](https://fastshot.ai/docs): Learn how to make the most of AI-powered development
-- [Fastshot Community](https://fastshot.ai/community): Connect with other developers building with Fastshot
+O verificador consulta a [última GitHub Release](https://github.com/slitherproduction-ai/flixplay/releases/latest) e procura um APK anexado à publicação. O código no repositório, por si só, não disponibiliza um instalador ao verificador. Para distribuir uma versão pelo aplicativo, publique uma Release com a tag correspondente à versão e anexe o APK assinado com a mesma chave da instalação anterior.
 
-### Expo Resources
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers building the future of mobile development with AI:
-
-- **[Fastshot Discord](https://fastshot.ai/discord)**: Get help, share your projects, and connect with other Fastshot users
-- **[Fastshot on GitHub](https://github.com/fastshot-ai)**: Contribute to our open source tools and integrations
-
-You can also join the broader Expo community:
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Use somente listas e conteúdos para os quais você tenha autorização de acesso e reprodução.

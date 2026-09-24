@@ -189,6 +189,7 @@ export class XtreamApiError extends Error {
  * mobile connection, so 40 s is more realistic than the old 15 s limit.
  */
 const REQUEST_TIMEOUT_MS = 40000;
+
 /**
  * User-Agent widely accepted by IPTV servers.
  * Many providers block generic browser / Expo UA strings.
@@ -231,6 +232,29 @@ function isAbortError(err: unknown): boolean {
   return err instanceof Error && err.name === "AbortError";
 }
 
+/**
+ * Web strategy: connect directly to the provider.
+ * Credentials must never be forwarded to third-party CORS proxies. When the
+ * browser blocks the request, users should prefer HTTPS or the native app.
+ */
+async function fetchWebDirect(url: string): Promise<Response> {
+  try {
+    return await timedFetch(url, REQUEST_TIMEOUT_MS);
+  } catch (directErr) {
+    if (isAbortError(directErr)) {
+      throw new XtreamApiError(
+        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
+        0,
+      );
+    }
+    throw new XtreamApiError(
+      "Conexão bloqueada pelo navegador (CORS / Mixed Content). " +
+        "Tente HTTPS no campo Host, ou use o aplicativo nativo para conexões HTTP.",
+      0,
+    );
+  }
+}
+
 /** Returns true when the error message indicates Android cleartext-HTTP blocking. */
 function isCleartextBlockError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
@@ -238,10 +262,16 @@ function isCleartextBlockError(err: unknown): boolean {
 }
 
 /**
- * Connect only to the server entered by the user. Credentials are never sent
- * through public CORS proxies and the protocol is never downgraded implicitly.
+ * Native strategy: try original URL first, then swap protocol (http↔https).
+ * Cleartext blocking is NOT treated as a terminal error — we first attempt the
+ * alternate protocol (HTTPS) because the server might support it, or the build
+ * might already have cleartext enabled but the error message is misleading.
+ * Only after both attempts fail do we surface a diagnostic.
  */
-async function fetchWithFallbacks(url: string): Promise<Response> {
+async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
+  let firstError: unknown;
+
+  // Attempt 1: original URL
   try {
     return await timedFetch(url, REQUEST_TIMEOUT_MS);
   } catch (err) {
@@ -251,23 +281,46 @@ async function fetchWithFallbacks(url: string): Promise<Response> {
         0,
       );
     }
-    if (isCleartextBlockError(err)) {
-      throw new XtreamApiError(
-        "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
-        0,
-        url.replace(/\/player_api\.php.*$/, ""),
-      );
-    }
-    if (Platform.OS === "web") {
-      throw new XtreamApiError(
-        "Conexão bloqueada pelo navegador (CORS / Mixed Content). " +
-          "Use HTTPS no campo Host ou o aplicativo nativo para conexões HTTP.",
-        0,
-        url.replace(/\/player_api\.php.*$/, ""),
-      );
-    }
-    throw err;
+    if (err instanceof XtreamApiError) throw err;
+    firstError = err;
   }
+
+  // Attempt 2: swap http ↔ https
+  const altUrl = url.startsWith("https://")
+    ? url.replace("https://", "http://")
+    : url.replace("http://", "https://");
+
+  try {
+    return await timedFetch(altUrl, REQUEST_TIMEOUT_MS);
+  } catch (altErr) {
+    if (isAbortError(altErr)) {
+      throw new XtreamApiError(
+        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
+        0,
+      );
+    }
+    if (altErr instanceof XtreamApiError) throw altErr;
+  }
+
+  // Both attempts failed — surface the most actionable error
+  if (isCleartextBlockError(firstError)) {
+    throw new XtreamApiError(
+      "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
+      0,
+      url.replace(/\/player_api\.php.*$/, ""),
+    );
+  }
+  throw new XtreamApiError(
+    "Não foi possível alcançar o servidor. Verifique o endereço, a porta e sua conexão.",
+    0,
+    url.replace(/\/player_api\.php.*$/, ""),
+  );
+}
+
+function fetchWithFallbacks(url: string): Promise<Response> {
+  return Platform.OS === "web"
+    ? fetchWebDirect(url)
+    : fetchNativeWithProtocolSwap(url);
 }
 
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */

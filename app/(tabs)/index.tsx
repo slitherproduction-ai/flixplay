@@ -16,8 +16,11 @@ import type { PlayHistory, VodMovie } from "@/store/types";
 // ---------------------------------------------------------------------------
 
 function computePosterWidth(tvMode: boolean, width: number): number {
-  if (tvMode || width > 700) return 198;
-  return 142;
+  if (!tvMode && width <= 700) return 142;
+  const visibleCards = width >= 1500 ? 7 : width >= 1100 ? 6 : 5;
+  const horizontalPadding = tvMode ? 92 : 40;
+  const gap = tvMode ? 16 : 12;
+  return Math.floor((width - horizontalPadding - gap * (visibleCards - 1)) / visibleCards);
 }
 
 function seasonsMeta(count: number): string {
@@ -26,14 +29,14 @@ function seasonsMeta(count: number): string {
 
 interface HeroBannerProps {
   hero: VodMovie;
-  tvMode: boolean;
+  height: number;
   onPlay: () => void;
   onDetails: () => void;
 }
 
-function HeroBanner({ hero, tvMode, onPlay, onDetails }: HeroBannerProps) {
+function HeroBanner({ hero, height, onPlay, onDetails }: HeroBannerProps) {
   return (
-    <View style={[styles.heroWrap, tvMode && styles.tvHeroWrap]}>
+    <View style={[styles.heroWrap, { height }]}>
       <Image source={{ uri: hero.backdrop }} contentFit="cover" transition={300} style={StyleSheet.absoluteFill} />
       <View style={styles.heroTint} />
       <View style={styles.heroGlow} />
@@ -113,7 +116,7 @@ function ServerInfoCard({ serverName, expiryDate }: ServerInfoCardProps) {
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const tvMode = useTVMode();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
@@ -124,6 +127,9 @@ export default function HomeScreen() {
   const { isSyncing, syncProgress, refresh } = useSyncStatus();
 
   const posterWidth = computePosterWidth(tvMode, width);
+  const heroHeight = tvMode
+    ? Math.round(Math.min(350, Math.max(250, height * 0.4)))
+    : 340;
   const activeServer = servers.find((s) => s.id === activeServerId) ?? servers[0];
   const serverName = activeServer?.name ?? "Servidor desconhecido";
   const serverExpiry = activeServer?.expiryDate ?? "—";
@@ -240,7 +246,7 @@ export default function HomeScreen() {
 
         <ServerInfoCard serverName={serverName} expiryDate={serverExpiry} />
 
-        {hero ? <HeroBanner hero={hero} tvMode={tvMode} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
+        {hero ? <HeroBanner hero={hero} height={heroHeight} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
 
         {dedupedHistory.length > 0 ? (
           <View style={styles.sectionBlock}>
@@ -371,7 +377,6 @@ const styles = StyleSheet.create({
   expiryCopy: { minWidth: 78, gap: 2 },
   expiryDate: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   heroWrap: { height: 340, overflow: "hidden", borderRadius: Radii.large, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: Colors.backgroundRaised, ...Shadows.card },
-  tvHeroWrap: { height: 420 },
   heroTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(5, 7, 12, 0.36)" },
   heroGlow: { position: "absolute", right: -40, bottom: -100, left: -40, height: 250, backgroundColor: "rgba(5, 7, 12, 0.92)" },
   heroContent: { position: "absolute", right: 20, bottom: 20, left: 20, gap: 9 },

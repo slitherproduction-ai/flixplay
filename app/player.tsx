@@ -6,12 +6,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type Ref,
 } from "react";
 import {
   ActivityIndicator,
+  Animated,
   BackHandler,
   Modal,
   Platform,
@@ -36,9 +38,11 @@ import {
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useChannelEpg } from "@/hooks/useChannelEpg";
 import { useAppStore } from "@/store/useAppStore";
+import { reducePlayerUi, type PlayerUiLayer } from "@/store/playerUiState";
 import type { ChannelItem, ContentType, EpgProgram } from "@/store/types";
 
 const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
+const OSD_AUTO_HIDE_MS = 4000;
 
 function buildFallbackUrls(url: string, contentType: ContentType): string[] {
   if (contentType !== "live") return [url];
@@ -177,21 +181,29 @@ function extractErrorMessage(status: unknown): string {
 
 type RemoteHandlerParams = {
   contentType: ContentType;
-  controlsVisible: boolean;
+  uiLayer: PlayerUiLayer;
   panel: Panel;
-  quickSwitcherVisible: boolean;
   playButtonRef: React.RefObject<TVFocusableHandle | null>;
-  handleBack: () => void;
+  handleBackPress: () => void;
   handleSeek: (s: number) => void;
   handleTogglePlayback: () => void;
+  openQuickSwitcher: () => void;
   showControlsWithTimer: () => void;
   setPanel: React.Dispatch<React.SetStateAction<Panel>>;
-  setQuickSwitcherVisible: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 function usePlayerRemote(p: RemoteHandlerParams) {
   return useCallback(
     (event: TVRemoteEvent) => {
+      if (event === "back") {
+        p.handleBackPress();
+        return;
+      }
+      if (p.uiLayer !== "osd") {
+        if (p.uiLayer === "hidden") p.showControlsWithTimer();
+        return;
+      }
+      p.showControlsWithTimer();
       if (event === "select") {
         handleSelectEvent(p);
         return;
@@ -200,9 +212,6 @@ function usePlayerRemote(p: RemoteHandlerParams) {
       if (event === "right") { p.handleSeek(10); return; }
       if (event === "up") { handleUpEvent(p); return; }
       if (event === "down") { handleDownEvent(p); return; }
-      if (p.panel) { p.setPanel(null); return; }
-      if (p.quickSwitcherVisible) { p.setQuickSwitcherVisible(false); return; }
-      p.handleBack();
     },
     // eslint dependencies mirror RemoteHandlerParams fields used inside
     [p],
@@ -212,8 +221,6 @@ function usePlayerRemote(p: RemoteHandlerParams) {
 function handleSelectEvent(p: RemoteHandlerParams) {
   if (p.panel) {
     p.setPanel(null);
-  } else if (!p.controlsVisible) {
-    p.showControlsWithTimer();
   } else {
     p.handleTogglePlayback();
   }
@@ -221,8 +228,7 @@ function handleSelectEvent(p: RemoteHandlerParams) {
 
 function handleUpEvent(p: RemoteHandlerParams) {
   if (p.contentType === "live") {
-    p.setQuickSwitcherVisible(true);
-    p.showControlsWithTimer();
+    p.openQuickSwitcher();
   }
 }
 
@@ -282,10 +288,8 @@ export default function PlayerScreen() {
   const contentType: ContentType = resolveContentType(type);
 
   // ─── Player state ────────────────────────────────────────────────────────────
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [quickSwitcherVisible, setQuickSwitcherVisible] = useState(
-    type === "live",
-  );
+  const [uiLayer, dispatchUi] = useReducer(reducePlayerUi, "osd");
+  const controlsVisible = uiLayer === "osd";
   const [panel, setPanel] = useState<Panel>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -310,12 +314,11 @@ export default function PlayerScreen() {
   const setPreference = useAppStore((state) => state.setPreference);
 
   // ─── Overlays ─────────────────────────────────────────────────────────────
-  const [epgVisible, setEpgVisible] = useState(false);
-  const [castVisible, setCastVisible] = useState(false);
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const playButtonRef = useRef<TVFocusableHandle>(null);
   const videoViewRef = useRef<VideoView>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const osdOpacity = useRef(new Animated.Value(1)).current;
   const urlAttemptRef = useRef(0);
   const resumeAppliedRef = useRef(false);
   const lastSavedSecondRef = useRef(0);
@@ -480,19 +483,33 @@ export default function PlayerScreen() {
   }, [playbackRate]);
 
   // ─── Controls visibility timer ───────────────────────────────────────────
-  const showControlsWithTimer = useCallback(() => {
-    setControlsVisible(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      if (!isDraggingRef.current) setControlsVisible(false);
-    }, 5000);
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
   }, []);
 
+  const showControlsWithTimer = useCallback(() => {
+    dispatchUi({ type: "SHOW_OSD" });
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => {
+      if (!isDraggingRef.current) dispatchUi({ type: "AUTO_HIDE" });
+    }, OSD_AUTO_HIDE_MS);
+  }, [clearHideTimer]);
+
   useEffect(() => {
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
-  }, []);
+    Animated.timing(osdOpacity, {
+      toValue: controlsVisible ? 1 : 0,
+      duration: controlsVisible ? 160 : 260,
+      useNativeDriver: true,
+    }).start();
+  }, [controlsVisible, osdOpacity]);
+
+  useEffect(() => {
+    showControlsWithTimer();
+    return clearHideTimer;
+  }, [clearHideTimer, showControlsWithTimer]);
 
   // ─── Seek bar handlers ───────────────────────────────────────────────────
   const handleProgressLayout = useCallback((e: LayoutChangeEvent) => {
@@ -539,10 +556,11 @@ export default function PlayerScreen() {
 
   const handleProgressRelease = useCallback(() => {
     isDraggingRef.current = false;
-  }, []);
+    showControlsWithTimer();
+  }, [showControlsWithTimer]);
 
   // ─── Playback controls ───────────────────────────────────────────────────
-  const handleBack = useCallback(() => {
+  const handleConfirmExit = useCallback(() => {
     try {
       persistProgress(currentTime, duration);
     } catch (saveError) {
@@ -550,6 +568,22 @@ export default function PlayerScreen() {
     }
     router.back();
   }, [currentTime, duration, persistProgress, router]);
+
+  const handleBackPress = useCallback(() => {
+    if (panel) {
+      setPanel(null);
+      showControlsWithTimer();
+      return;
+    }
+    clearHideTimer();
+    dispatchUi({ type: "BACK" });
+  }, [clearHideTimer, panel, showControlsWithTimer]);
+
+  const handleRequestExit = useCallback(() => {
+    clearHideTimer();
+    setPanel(null);
+    dispatchUi({ type: "REQUEST_EXIT" });
+  }, [clearHideTimer]);
 
   const handleTogglePlayback = useCallback(() => {
     if (isPlaying) {
@@ -578,7 +612,8 @@ export default function PlayerScreen() {
 
   const handlePanel = useCallback((nextPanel: Panel) => {
     setPanel((current) => (current === nextPanel ? null : nextPanel));
-  }, []);
+    showControlsWithTimer();
+  }, [showControlsWithTimer]);
 
   const handleSwitchChannel = useCallback(
     (channelId: string) => {
@@ -600,29 +635,26 @@ export default function PlayerScreen() {
           type: "live",
           streamUrl: channel.streamUrl,
         });
+        setPanel(null);
+        showControlsWithTimer();
       } catch (switchError) {
         console.error("Falha ao trocar de canal", switchError);
         setPlayerError("Não foi possível trocar para este canal.");
       }
     },
-    [allChannels, player, router],
+    [allChannels, player, router, showControlsWithTimer],
   );
 
   const handleTap = useCallback(() => {
-    if (epgVisible || castVisible) return;
-    setControlsVisible((v) => {
-      if (!v) {
-        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = setTimeout(
-          () => setControlsVisible(false),
-          5000,
-        );
-        return true;
-      }
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      return false;
-    });
-  }, [castVisible, epgVisible]);
+    if (uiLayer === "hidden") {
+      showControlsWithTimer();
+      return;
+    }
+    if (uiLayer === "osd") {
+      clearHideTimer();
+      dispatchUi({ type: "HIDE" });
+    }
+  }, [clearHideTimer, showControlsWithTimer, uiLayer]);
 
   const handleRetry = useCallback(() => {
     setPlayerError(null);
@@ -705,36 +737,53 @@ export default function PlayerScreen() {
   }, []);
 
   // ─── TV remote ───────────────────────────────────────────────────────────
-  const handleToggleQuickSwitcher = useCallback(() => {
-    setQuickSwitcherVisible((v) => !v);
-  }, []);
+  const handleOpenQuickSwitcher = useCallback(() => {
+    clearHideTimer();
+    setPanel(null);
+    dispatchUi({ type: "OPEN_QUICK_ZAPPING" });
+  }, [clearHideTimer]);
 
   const handleCloseQuickSwitcher = useCallback(() => {
-    setQuickSwitcherVisible(false);
+    showControlsWithTimer();
+  }, [showControlsWithTimer]);
+
+  const handleOpenEpg = useCallback(() => {
+    clearHideTimer();
+    setPanel(null);
+    dispatchUi({ type: "OPEN_EPG" });
+  }, [clearHideTimer]);
+
+  const handleOpenCast = useCallback(() => {
+    clearHideTimer();
+    setPanel(null);
+    dispatchUi({ type: "OPEN_CAST" });
+  }, [clearHideTimer]);
+
+  const handleCloseOverlay = useCallback(() => {
+    dispatchUi({ type: "HIDE" });
   }, []);
 
   const remoteParams: RemoteHandlerParams = useMemo(
     () => ({
       contentType,
-      controlsVisible,
+      uiLayer,
       panel,
-      quickSwitcherVisible,
       playButtonRef,
-      handleBack,
+      handleBackPress,
       handleSeek,
       handleTogglePlayback,
+      openQuickSwitcher: handleOpenQuickSwitcher,
       showControlsWithTimer,
       setPanel,
-      setQuickSwitcherVisible,
     }),
     [
       contentType,
-      controlsVisible,
+      uiLayer,
       panel,
-      quickSwitcherVisible,
-      handleBack,
+      handleBackPress,
       handleSeek,
       handleTogglePlayback,
+      handleOpenQuickSwitcher,
       showControlsWithTimer,
     ],
   );
@@ -822,35 +871,20 @@ export default function PlayerScreen() {
       />
 
       <View pointerEvents="box-none" style={styles.overlay}>
-        {controlsVisible ? (
+        <Animated.View
+          pointerEvents={controlsVisible ? "box-none" : "none"}
+          style={[styles.osdLayer, { opacity: osdOpacity }]}
+        >
           <PlayerTopBar
             title={title}
             contentType={contentType}
             connectedDevice={connectedDevice}
-            onBack={handleBack}
-            onToggleQuickSwitcher={handleToggleQuickSwitcher}
+            onBack={handleRequestExit}
+            onToggleQuickSwitcher={handleOpenQuickSwitcher}
             onTogglePip={handleTogglePip}
-            onOpenEpg={() => setEpgVisible(true)}
-            onOpenCast={() => setCastVisible(true)}
+            onOpenEpg={handleOpenEpg}
+            onOpenCast={handleOpenCast}
           />
-        ) : null}
-
-        <QuickSwitcher
-          visible={quickSwitcherVisible && controlsVisible}
-          channels={allChannels}
-          favoriteChannelIds={favoriteChannelIds}
-          currentId={id}
-          onSwitch={handleSwitchChannel}
-          onClose={handleCloseQuickSwitcher}
-        />
-
-        <PlayerStatus
-          loading={loading}
-          error={playerError ?? error}
-          onRetry={handleRetry}
-        />
-
-        {controlsVisible ? (
           <PlayerBottomPanel
             playButtonRef={playButtonRef}
             contentType={contentType}
@@ -880,38 +914,82 @@ export default function PlayerScreen() {
             onSelectRatio={handleSelectRatio}
             onSelectBuffer={handleSelectBuffer}
           />
-        ) : null}
+        </Animated.View>
+
+        <QuickSwitcher
+          visible={uiLayer === "quick-zapping"}
+          channels={allChannels}
+          favoriteChannelIds={favoriteChannelIds}
+          currentId={id}
+          onSwitch={handleSwitchChannel}
+          onClose={handleCloseQuickSwitcher}
+        />
+
+        <PlayerStatus
+          loading={loading}
+          error={playerError ?? error}
+          onRetry={handleRetry}
+        />
       </View>
 
       {/* EPG Modal */}
       <Modal
-        visible={epgVisible}
+        visible={uiLayer === "epg"}
         transparent
         animationType="slide"
-        onRequestClose={() => setEpgVisible(false)}
+        onRequestClose={handleCloseOverlay}
       >
         <EpgPanel
           channelName={title}
           programs={epg.programs}
           isLoading={epg.isLoading}
           error={epg.error}
-          onClose={() => setEpgVisible(false)}
+          onClose={handleCloseOverlay}
         />
       </Modal>
 
       {/* Cast Modal */}
       <Modal
-        visible={castVisible}
+        visible={uiLayer === "cast"}
         transparent
         animationType="slide"
-        onRequestClose={() => setCastVisible(false)}
+        onRequestClose={handleCloseOverlay}
       >
         <CastModal
           devices={MOCK_CAST_DEVICES}
           connectedDevice={connectedDevice}
           onConnect={handleCastConnect}
-          onClose={() => setCastVisible(false)}
+          onClose={handleCloseOverlay}
         />
+      </Modal>
+
+      <Modal
+        visible={uiLayer === "exit-confirmation"}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseOverlay}
+      >
+        <View style={styles.exitBackdrop}>
+          <GlassCard style={styles.exitCard} intensity={36}>
+            <Ionicons name="exit-outline" size={30} color={Colors.blueBright} />
+            <AppText style={styles.exitTitle}>Sair deste conteúdo?</AppText>
+            <AppText style={styles.exitBody}>
+              Seu progresso será salvo automaticamente.
+            </AppText>
+            <View style={styles.exitActions}>
+              <TVFocusable
+                hasTVPreferredFocus
+                onPress={handleCloseOverlay}
+                style={styles.exitSecondaryButton}
+              >
+                <AppText style={styles.exitSecondaryText}>Continuar assistindo</AppText>
+              </TVFocusable>
+              <TVFocusable onPress={handleConfirmExit} style={styles.exitPrimaryButton}>
+                <AppText style={styles.exitPrimaryText}>Sair</AppText>
+              </TVFocusable>
+            </View>
+          </GlassCard>
+        </View>
       </Modal>
     </View>
   );
@@ -1623,9 +1701,9 @@ function EpgPanel({
           <AppText style={styles.epgChannelName} numberOfLines={1}>
             {channelName}
           </AppText>
-          <Pressable onPress={onClose} style={styles.epgCloseBtn}>
+          <TVFocusable onPress={onClose} style={styles.epgCloseBtn} accessibilityLabel="Fechar guia">
             <Ionicons name="close" size={20} color={Colors.text} />
-          </Pressable>
+          </TVFocusable>
         </View>
 
         {/* Live time indicator */}
@@ -1743,9 +1821,9 @@ function CastModal({
             <AppText style={styles.castKicker}>ESPELHAMENTO / CAST</AppText>
             <AppText style={styles.castTitle}>Dispositivos Disponíveis</AppText>
           </View>
-          <Pressable onPress={onClose} style={styles.epgCloseBtn}>
+          <TVFocusable onPress={onClose} style={styles.epgCloseBtn} accessibilityLabel="Fechar Cast">
             <Ionicons name="close" size={20} color={Colors.text} />
-          </Pressable>
+          </TVFocusable>
         </View>
 
         {connectedDevice ? (
@@ -1805,7 +1883,7 @@ function CastDeviceRow({
   }, [device.id, onConnect]);
 
   return (
-    <Pressable
+    <TVFocusable
       onPress={handlePress}
       style={({ pressed }) => [
         styles.castDevice,
@@ -1842,7 +1920,7 @@ function CastDeviceRow({
           {isConnected ? "Desconectar" : "Conectar"}
         </AppText>
       </View>
-    </Pressable>
+    </TVFocusable>
   );
 }
 
@@ -1857,12 +1935,50 @@ const styles = StyleSheet.create({
   tapOverlay: { ...StyleSheet.absoluteFill },
   videoAspectContainer: { alignSelf: "center" },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFill,
+  },
+  osdLayer: {
+    ...StyleSheet.absoluteFill,
     justifyContent: "space-between",
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 22,
   },
+  exitBackdrop: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: "rgba(0,0,0,0.72)",
+  },
+  exitCard: {
+    width: "100%",
+    maxWidth: 430,
+    alignItems: "center",
+    gap: 12,
+    padding: 24,
+  },
+  exitTitle: { fontFamily: "Inter_700Bold", fontSize: 21, color: Colors.text },
+  exitBody: { fontSize: 13, color: Colors.muted, textAlign: "center" },
+  exitActions: { flexDirection: "row", gap: 12, marginTop: 8 },
+  exitSecondaryButton: {
+    minHeight: 46,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  exitSecondaryText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  exitPrimaryButton: {
+    minHeight: 46,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    borderRadius: 23,
+    backgroundColor: Colors.blue,
+  },
+  exitPrimaryText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.white },
 
   // Subtitle overlay
   subtitleOverlay: {

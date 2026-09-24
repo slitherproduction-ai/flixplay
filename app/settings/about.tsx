@@ -41,23 +41,25 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.9.0",
+    version: "v2.10.0",
     label: "Versão Atual",
+    date: "2026.09",
+    changes: [
+      { tag: "Melhoria", text: "Home para TV redimensionada para exibir de cinco a sete títulos por linha." },
+      { tag: "Melhoria", text: "Navegação D-Pad com foco ampliado, carrosséis virtualizados e rolagem fluida." },
+      { tag: "Correção", text: "OSD do player agora desaparece após quatro segundos com transição suave." },
+      { tag: "Correção", text: "EPG, Zapping Rápido, Cast e controles agora são mutuamente exclusivos." },
+      { tag: "Melhoria", text: "Botão Voltar fecha a camada ativa antes de solicitar a saída do conteúdo." },
+    ],
+  },
+  {
+    version: "v2.9.0",
     date: "2026.09",
     changes: [
       { tag: "Novidade", text: "Zapping rápido com escolha da grade/categoria de canais ao vivo." },
       { tag: "Melhoria", text: "Picture-in-Picture migrado para a implementação nativa do Android e smartphones." },
       { tag: "Melhoria", text: "EPG real com programa atual e próximo exibidos durante a reprodução." },
       { tag: "Correção", text: "Progresso real e retomada automática para filmes e episódios em Continuar Assistindo." },
-    ],
-  },
-  {
-    version: "v2.8.4",
-    date: "2026.09",
-    changes: [
-      { tag: "Correção", text: "Informações da tela Sobre e do selo em Ajustes sincronizadas com a versão instalada." },
-      { tag: "Melhoria", text: "Histórico simplificado para exibir somente as duas versões mais recentes." },
-      { tag: "Melhoria", text: "Mantida a compatibilidade universal com Fire TV em dispositivos ARM de 32 e 64 bits." },
     ],
   },
 ];

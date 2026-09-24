@@ -2,6 +2,42 @@
 
 Todas as alterações relevantes do FlixPlay são registradas neste arquivo.
 
+## [2.10.0] - 2026-09-24
+
+### Interface para TV
+
+- Grade adaptativa com 5, 6 ou 7 pôsteres visíveis por linha, conforme a largura da tela.
+- Banner principal limitado a 40% da altura útil, entre 250 e 350 dp no modo TV.
+- Foco D-Pad com escala de 1,05x, borda azul e sombra.
+- Carrosséis horizontais virtualizados para reduzir renderização e melhorar a rolagem.
+
+### Player
+
+- OSD com ocultação automática após 4 segundos e animação de saída em 260 ms.
+- Interações pelo controle remoto reabrem o OSD e reiniciam seu temporizador.
+- Máquina de estados única para `hidden`, `osd`, `quick-zapping`, `epg`, `cast` e confirmação de saída.
+- OSD, EPG, Zapping Rápido e Cast passam a ser mutuamente exclusivos.
+- A tecla Voltar fecha primeiro o painel ou overlay ativo; sem overlay aberto, exibe a confirmação de saída.
+- PiP nativo, EPG real e progresso real de filmes e episódios foram preservados.
+
+### Segurança
+
+- Conexões Xtream continuam usando somente o servidor informado pelo usuário.
+- Credenciais não são encaminhadas por proxies CORS públicos; no navegador, conexões bloqueadas devem usar HTTPS ou o aplicativo nativo.
+
+### Compatibilidade
+
+- Versão Android `2.10.0`, código de versão `20260929`.
+- APK universal para `armeabi-v7a` e `arm64-v8a`.
+- Android mínimo API 24 e Target SDK 36.
+- Assinatura APK Signature Scheme v2.
+
+### Validação
+
+- Verificação TypeScript concluída sem erros.
+- Lint concluído sem erros.
+- Onze testes automatizados aprovados.
+
 ## [2.9.0] - 2026-09-23
 
 ### Novidades

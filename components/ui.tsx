@@ -4,6 +4,8 @@ import { Image } from "expo-image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -329,10 +331,21 @@ export function ScreenState({
 }
 
 export function HorizontalScroller({ children }: { children: React.ReactNode }) {
+  const items = React.Children.toArray(children);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroller} contentContainerStyle={styles.horizontalContent}>
-      {children}
-    </ScrollView>
+    <FlatList
+      horizontal
+      data={items}
+      renderItem={({ item }) => <>{item}</>}
+      keyExtractor={(item, index) => React.isValidElement(item) && item.key != null ? String(item.key) : String(index)}
+      showsHorizontalScrollIndicator={false}
+      style={styles.horizontalScroller}
+      contentContainerStyle={styles.horizontalContent}
+      initialNumToRender={7}
+      maxToRenderPerBatch={7}
+      windowSize={5}
+      removeClippedSubviews={Platform.OS === "android"}
+    />
   );
 }
 
@@ -591,7 +604,7 @@ export const styles = StyleSheet.create({
   horizontalContent: {
     gap: 12,
     paddingHorizontal: 20,
-    paddingBottom: 5,
+    paddingVertical: 9,
   },
   emptyState: {
     alignItems: "center",

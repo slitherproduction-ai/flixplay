@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.blueBright,
     backgroundColor: "rgba(59,130,246,0.18)",
-    transform: [{ scale: 1.04 }],
+    transform: [{ scale: 1.05 }],
     ...Shadows.card,
   },
 });

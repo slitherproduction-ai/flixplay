@@ -4,17 +4,18 @@ Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Nati
 
 ## Versão atual
 
-- **2.9.0** — código de versão Android `20260928`.
+- **2.10.0** — código de versão Android `20260929`.
 - Pacote Android: `com.fastshot.slitherproduction.flixplay`.
 - APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
 - A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
 
-## Novidades da 2.9.0
+## Novidades da 2.10.0
 
-- Zapping rápido com seleção de categoria, favoritos e grade de canais ao vivo.
-- Picture-in-picture nativo do Android em smartphones compatíveis.
-- EPG real do provedor Xtream, com programa atual e próximo na barra do player.
-- Progresso real e retomada de filmes e episódios em **Continuar assistindo**.
+- Home de TV com 5–7 títulos visíveis por linha, foco 1,05x e navegação D-Pad.
+- OSD com auto-hide configurado em 4 segundos e animação de fade-out.
+- Máquina de estados exclusiva para OSD, Zapping Rápido, EPG e Cast.
+- A tecla Voltar fecha primeiro a camada ativa e, depois, solicita confirmação de saída.
+- Mantidos o PiP nativo, EPG real e progresso real de filmes e episódios da versão 2.9.0.
 
 ## Desenvolvimento
 

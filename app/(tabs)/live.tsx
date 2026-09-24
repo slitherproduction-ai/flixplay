@@ -17,8 +17,11 @@ import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, GlassCard, IconButton, SearchField, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
+import { useEpgPreload, useEpgPreloader } from "@/hooks/useEpgPreload";
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem } from "@/store/types";
+
+const LIVE_EPG_INITIAL_PRELOAD = 30;
 
 // ---------------------------------------------------------------------------
 // View-mode persistence
@@ -341,6 +344,15 @@ export default function LiveScreen() {
       return matchCat && matchQ;
     });
   }, [channels, category, query, favoriteChannelIds]);
+  useEpgPreload(filteredChannels, LIVE_EPG_INITIAL_PRELOAD);
+  const preloadVisibleEpg = useEpgPreloader();
+
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: { item: ChannelItem }[] }) => {
+      preloadVisibleEpg(viewableItems.map(({ item }) => item), viewableItems.length);
+    },
+    [preloadVisibleEpg],
+  );
 
   const handleChannel = useCallback(
     (channelId: string) => {
@@ -507,6 +519,7 @@ export default function LiveScreen() {
         maxToRenderPerBatch={25}
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
+        onViewableItemsChanged={handleViewableItemsChanged}
       />
     </View>
   );

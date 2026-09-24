@@ -1,7 +1,7 @@
 {
   "name": "fastshot-app",
   "main": "expo-router/entry",
-  "version": "2.10.0",
+  "version": "2.10.1",
   "scripts": {
     "lint": "expo lint",
     "test": "jest --forceExit --no-cache --passWithNoTests"

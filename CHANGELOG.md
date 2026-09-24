@@ -2,6 +2,43 @@
 
 Todas as alterações relevantes do FlixPlay são registradas neste arquivo.
 
+## [2.10.1] - 2026-09-24
+
+### Correções
+
+- Aviso de saída do player reconstruído com painel responsivo, sem colapso de conteúdo no Android em modo paisagem.
+- Botões **Continuar assistindo** e **Sair** passam a ocupar corretamente a largura disponível em smartphones.
+
+### Melhorias
+
+- EPG dos canais em destaque é pré-carregado na Home sem iniciar a reprodução.
+- A tela **TV ao Vivo** pré-carrega os primeiros canais e atualiza o EPG dos cards visíveis durante a rolagem.
+- Requisições EPG simultâneas são deduplicadas, limitadas a quatro conexões e mantidas em cache por cinco minutos.
+- Cartão **Servidor ativo / Validade** removido da tela inicial, incluindo estados, estilos e código sem uso.
+- Imagens do template, mockups e anexos de desenvolvimento não utilizados foram removidos do projeto distribuído.
+
+### Compatibilidade
+
+- Versão Android `2.10.1`, código de versão `20260930`.
+- APK universal para `armeabi-v7a` e `arm64-v8a`.
+- Android mínimo API 24 e Target SDK 36.
+
+### Segurança
+
+- Conexões Xtream permanecem diretas com o servidor informado pelo usuário, sem encaminhamento de credenciais por proxies CORS públicos.
+
+### Validação
+
+- Verificação TypeScript concluída sem erros.
+- Lint concluído sem erros.
+- Onze testes automatizados aprovados em cinco suítes.
+
+### Instalação
+
+- O APK 2.10.1 usa uma nova chave de desenvolvimento porque a chave privada da 2.10.0 não estava disponível no projeto recuperado.
+- Pode ser necessário desinstalar a versão anterior antes da instalação, o que remove os dados locais do aplicativo.
+- Para publicação contínua ou em loja, deve ser adotada e preservada uma chave definitiva de produção.
+
 ## [2.10.0] - 2026-09-24
 
 ### Interface para TV

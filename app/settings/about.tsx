@@ -41,8 +41,18 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.10.0",
+    version: "v2.10.1",
     label: "Versão Atual",
+    date: "2026.09",
+    changes: [
+      { tag: "Correção", text: "Aviso de saída responsivo e totalmente visível em smartphones." },
+      { tag: "Melhoria", text: "EPG pré-carregado na Home e nos canais visíveis, antes da reprodução." },
+      { tag: "Melhoria", text: "Informações de servidor e validade removidas da tela inicial." },
+      { tag: "Melhoria", text: "Recursos visuais antigos e arquivos de desenvolvimento sem uso foram removidos." },
+    ],
+  },
+  {
+    version: "v2.10.0",
     date: "2026.09",
     changes: [
       { tag: "Melhoria", text: "Home para TV redimensionada para exibir de cinco a sete títulos por linha." },

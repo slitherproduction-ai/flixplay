@@ -6,10 +6,40 @@ import {
   refreshEpgProgress,
 } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
-import type { EpgProgram } from "@/store/types";
+import type { ChannelItem, EpgProgram, ServerProfile } from "@/store/types";
 
-const EPG_CACHE_TTL_MS = 2 * 60 * 1000;
+export const EPG_CACHE_TTL_MS = 5 * 60 * 1000;
 const EPG_CLOCK_INTERVAL_MS = 30 * 1000;
+const epgRequests = new Map<string, Promise<EpgProgram[]>>();
+
+export function hasFreshEpg(channel: ChannelItem, now = Date.now()): boolean {
+  const updatedAt = channel.epgUpdatedAt ? new Date(channel.epgUpdatedAt).getTime() : 0;
+  return Boolean(channel.epgPrograms?.length && now - updatedAt < EPG_CACHE_TTL_MS);
+}
+
+export function fetchChannelEpg(
+  profile: ServerProfile,
+  channel: ChannelItem,
+): Promise<EpgProgram[]> {
+  const requestKey = `${profile.id}:${channel.streamId}`;
+  const pending = epgRequests.get(requestKey);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const shortResult = await getShortEpg(profile, channel.streamId, 12);
+    let listings = shortResult.epg_listings ?? [];
+    if (listings.length === 0) {
+      const fullResult = await getSimpleDataTable(profile, channel.streamId);
+      listings = fullResult.epg_listings ?? [];
+    }
+    return normalizeEpgListings(listings);
+  })().finally(() => {
+    epgRequests.delete(requestKey);
+  });
+
+  epgRequests.set(requestKey, request);
+  return request;
+}
 
 function resolveNowNext(programs: EpgProgram[], nowMs: number) {
   const refreshed = refreshEpgProgress(programs, nowMs);
@@ -41,8 +71,7 @@ export function useChannelEpg(channelId: string | undefined) {
 
   useEffect(() => {
     if (!channel || !profile || !channel.streamId) return;
-    const updatedAt = channel.epgUpdatedAt ? new Date(channel.epgUpdatedAt).getTime() : 0;
-    if (channel.epgPrograms?.length && Date.now() - updatedAt < EPG_CACHE_TTL_MS) return;
+    if (hasFreshEpg(channel)) return;
 
     let cancelled = false;
     setIsLoading(true);
@@ -50,13 +79,7 @@ export function useChannelEpg(channelId: string | undefined) {
 
     const load = async () => {
       try {
-        const shortResult = await getShortEpg(profile, channel.streamId, 12);
-        let listings = shortResult.epg_listings ?? [];
-        if (listings.length === 0) {
-          const fullResult = await getSimpleDataTable(profile, channel.streamId);
-          listings = fullResult.epg_listings ?? [];
-        }
-        const normalized = normalizeEpgListings(listings);
+        const normalized = await fetchChannelEpg(profile, channel);
         if (cancelled) return;
         setPrograms(normalized);
         if (normalized.length > 0) updateChannelEpg(channel.id, normalized);

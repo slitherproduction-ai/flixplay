@@ -970,7 +970,7 @@ export default function PlayerScreen() {
         onRequestClose={handleCloseOverlay}
       >
         <View style={styles.exitBackdrop}>
-          <GlassCard style={styles.exitCard} intensity={36}>
+          <View style={styles.exitCard}>
             <Ionicons name="exit-outline" size={30} color={Colors.blueBright} />
             <AppText style={styles.exitTitle}>Sair deste conteúdo?</AppText>
             <AppText style={styles.exitBody}>
@@ -988,7 +988,7 @@ export default function PlayerScreen() {
                 <AppText style={styles.exitPrimaryText}>Sair</AppText>
               </TVFocusable>
             </View>
-          </GlassCard>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1957,11 +1957,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     padding: 24,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    backgroundColor: "rgba(15, 23, 42, 0.98)",
+    ...Shadows.card,
   },
   exitTitle: { fontFamily: "Inter_700Bold", fontSize: 21, color: Colors.text },
   exitBody: { fontSize: 13, color: Colors.muted, textAlign: "center" },
-  exitActions: { flexDirection: "row", gap: 12, marginTop: 8 },
+  exitActions: { width: "100%", flexDirection: "row", gap: 12, marginTop: 8 },
   exitSecondaryButton: {
+    flex: 1,
     minHeight: 46,
     justifyContent: "center",
     paddingHorizontal: 18,
@@ -1972,6 +1978,7 @@ const styles = StyleSheet.create({
   },
   exitSecondaryText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   exitPrimaryButton: {
+    minWidth: 92,
     minHeight: 46,
     justifyContent: "center",
     paddingHorizontal: 24,

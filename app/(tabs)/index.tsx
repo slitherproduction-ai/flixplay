@@ -5,7 +5,8 @@ import { useCallback, useMemo } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Colors, Radii, Shadows } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, ChannelLogo, GlassCard, HorizontalScroller, IconButton, PosterCard, SectionHeader } from "@/components/ui";
+import { AppText, ChannelLogo, HorizontalScroller, IconButton, PosterCard, SectionHeader } from "@/components/ui";
+import { useEpgPreload } from "@/hooks/useEpgPreload";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
@@ -88,38 +89,12 @@ function EmptyHomeState({ onSync }: { onSync: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// ServerInfoCard
-// ---------------------------------------------------------------------------
-interface ServerInfoCardProps { serverName: string; expiryDate: string }
-function ServerInfoCard({ serverName, expiryDate }: ServerInfoCardProps) {
-  return (
-    <GlassCard style={styles.serverCard} intensity={30}>
-      <View style={styles.serverIcon}>
-        <Ionicons name="shield-checkmark" size={18} color={Colors.green} />
-      </View>
-      <View style={styles.serverCopy}>
-        <AppText style={styles.serverLabel}>SERVIDOR ATIVO</AppText>
-        <AppText style={styles.serverName}>{serverName}</AppText>
-      </View>
-      <View style={styles.serverDivider} />
-      <View style={styles.expiryCopy}>
-        <AppText style={styles.serverLabel}>VALIDADE</AppText>
-        <AppText style={styles.expiryDate}>{expiryDate}</AppText>
-      </View>
-      <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
-    </GlassCard>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 export default function HomeScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const tvMode = useTVMode();
-  const servers = useAppStore((state) => state.servers);
-  const activeServerId = useAppStore((state) => state.activeServerId);
   const history = useAppStore((state) => state.history);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
   const movies = useAppStore((state) => state.contentCache.vodMovies);
@@ -130,10 +105,6 @@ export default function HomeScreen() {
   const heroHeight = tvMode
     ? Math.round(Math.min(350, Math.max(250, height * 0.4)))
     : 340;
-  const activeServer = servers.find((s) => s.id === activeServerId) ?? servers[0];
-  const serverName = activeServer?.name ?? "Servidor desconhecido";
-  const serverExpiry = activeServer?.expiryDate ?? "—";
-  const avatarInitials = serverName.slice(0, 2).toUpperCase();
   const syncLabel = syncProgress ?? "Sincronizando conteúdo...";
 
   const hero = movies[0] ?? null;
@@ -204,6 +175,7 @@ export default function HomeScreen() {
   const recentMovies = useMemo(() => movies.slice(0, 5), [movies]);
   const popularSeries = useMemo(() => seriesList.slice(0, 4), [seriesList]);
   const featuredChannels = useMemo(() => channels.slice(0, 5), [channels]);
+  useEpgPreload(featuredChannels, 5);
   const showEmpty = !isSyncing && channels.length === 0 && movies.length === 0;
 
   const favoriteMovies = useMemo(
@@ -238,13 +210,11 @@ export default function HomeScreen() {
           <View style={styles.topActions}>
             <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
             <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir perfil" onPress={handleSearch} style={styles.avatarButton}>
-              <AppText style={styles.avatarText}>{avatarInitials}</AppText>
+              <AppText style={styles.avatarText}>FP</AppText>
               <View style={styles.onlineDot} />
             </TVFocusable>
           </View>
         </View>
-
-        <ServerInfoCard serverName={serverName} expiryDate={serverExpiry} />
 
         {hero ? <HeroBanner hero={hero} height={heroHeight} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
 
@@ -368,14 +338,6 @@ const styles = StyleSheet.create({
   avatarButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 21, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: "#263653" },
   avatarText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.text },
   onlineDot: { position: "absolute", right: 1, bottom: 1, width: 9, height: 9, borderRadius: 5, borderWidth: 2, borderColor: Colors.background, backgroundColor: Colors.green },
-  serverCard: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13 },
-  serverIcon: { width: 35, height: 35, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(16, 185, 129, 0.13)" },
-  serverCopy: { flex: 1, gap: 2 },
-  serverLabel: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.8, color: Colors.subtle },
-  serverName: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
-  serverDivider: { width: 1, height: 31, backgroundColor: Colors.border },
-  expiryCopy: { minWidth: 78, gap: 2 },
-  expiryDate: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   heroWrap: { height: 340, overflow: "hidden", borderRadius: Radii.large, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: Colors.backgroundRaised, ...Shadows.card },
   heroTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(5, 7, 12, 0.36)" },
   heroGlow: { position: "absolute", right: -40, bottom: -100, left: -40, height: 250, backgroundColor: "rgba(5, 7, 12, 0.92)" },

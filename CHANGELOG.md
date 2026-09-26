@@ -57,6 +57,22 @@ Todas as alterações relevantes do FlixPlay são registradas neste arquivo.
 - APK universal para `armeabi-v7a` e `arm64-v8a`.
 - Android mínimo API 24 e Target SDK 36.
 
+### Segurança
+
+- Conexões Xtream permanecem diretas com o servidor informado pelo usuário, sem encaminhamento de credenciais por proxies CORS públicos.
+
+### Validação
+
+- Verificação TypeScript concluída sem erros.
+- Lint concluído sem erros.
+- Onze testes automatizados aprovados em cinco suítes.
+
+### Instalação
+
+- O APK 2.10.1 usa uma nova chave de desenvolvimento porque a chave privada da 2.10.0 não estava disponível no projeto recuperado.
+- Pode ser necessário desinstalar a versão anterior antes da instalação, o que remove os dados locais do aplicativo.
+- Para publicação contínua ou em loja, deve ser adotada e preservada uma chave definitiva de produção.
+
 ## [2.10.0] - 2026-09-24
 
 ### Interface para TV

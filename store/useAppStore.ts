@@ -8,7 +8,6 @@ import type {
   PlayHistory,
   Preferences,
   ServerProfile,
-  TraktConfig,
 } from './types';
 
 export interface SyncState {
@@ -41,7 +40,6 @@ interface AppStore {
   favoriteMovieIds: string[];
   favoriteSeriesIds: string[];
   history: PlayHistory[];
-  trakt: TraktConfig;
   contentCache: ContentCache;
   syncState: SyncState;
   pip: PiPState;
@@ -63,7 +61,6 @@ interface AppStore {
   saveHistory: (item: PlayHistory) => void;
   removeHistoryItem: (contentId: string) => void;
   clearHistory: () => void;
-  setTrakt: (config: Partial<TraktConfig>) => void;
   setContentCache: (cache: Partial<ContentCache>) => void;
   updateChannelEpg: (channelId: string, programs: EpgProgram[]) => void;
   setSyncState: (state: Partial<SyncState>) => void;
@@ -113,12 +110,6 @@ export const useAppStore = create<AppStore>()(
       favoriteMovieIds: [],
       favoriteSeriesIds: [],
       history: [],
-      trakt: {
-        isConnected: false,
-        username: '',
-        accessToken: '',
-        autoScrobble: false,
-      },
       contentCache: EMPTY_CACHE,
       syncState: INITIAL_SYNC_STATE,
       pip: INITIAL_PIP,
@@ -216,9 +207,6 @@ export const useAppStore = create<AppStore>()(
 
       clearHistory: () => set({ history: [] }),
 
-      setTrakt: (config) =>
-        set((state) => ({ trakt: { ...state.trakt, ...config } })),
-
       setContentCache: (cache) =>
         set((state) => ({ contentCache: { ...state.contentCache, ...cache } })),
 
@@ -273,7 +261,6 @@ export const useAppStore = create<AppStore>()(
         favoriteMovieIds: state.favoriteMovieIds,
         favoriteSeriesIds: state.favoriteSeriesIds,
         history: state.history,
-        trakt: state.trakt,
         // Do NOT persist contentCache — it can be > 6 MB and crash AsyncStorage.
         // Do NOT persist pip — PiP is a session-only state.
       }),

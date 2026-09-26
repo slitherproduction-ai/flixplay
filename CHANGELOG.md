@@ -2,6 +2,40 @@
 
 Todas as alterações relevantes do FlixPlay são registradas neste arquivo.
 
+## [2.11.0] - 2026-09-25
+
+### Identidade visual
+
+- Nova logo horizontal substitui o texto FlixPlay no login e na Home.
+- Novo ícone aplicado à tela **Sobre**, ao Splash e ao launcher Android.
+- Recursos nativos foram gerados para todas as densidades Android e para ícones adaptativos.
+
+### Interface móvel
+
+- Filmes e séries passam a exibir três cards por linha em smartphones.
+- Tablets usam quatro ou cinco colunas; Android TV mantém de cinco a sete itens conforme a largura.
+
+### Remoção
+
+- Função Trakt.tv, rota, estado persistido e componentes associados foram removidos.
+
+### Compatibilidade
+
+- Versão Android `2.11.0`, código de versão `20261001`.
+- APK universal para `armeabi-v7a` e `arm64-v8a`.
+- Android mínimo API 24 e Target SDK 36.
+- Assinatura compatível com a versão 2.10.1 para atualização direta, preservando os dados locais.
+
+### Segurança
+
+- Conexões Xtream permanecem diretas com o servidor informado pelo usuário, sem encaminhamento de credenciais por proxies CORS públicos.
+
+### Validação
+
+- Verificação TypeScript concluída sem erros.
+- Lint concluído sem avisos.
+- Onze testes automatizados aprovados em cinco suítes.
+
 ## [2.10.1] - 2026-09-24
 
 ### Correções

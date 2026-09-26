@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -427,13 +428,12 @@ export default function LoginScreen() {
         >
           {/* Logo section */}
           <View style={styles.logoArea}>
-            <View style={styles.logoIconWrapper}>
-              <View style={styles.logoIconGlow} />
-              <View style={styles.logoIconInner}>
-                <Ionicons name="tv" size={28} color={Colors.white} />
-              </View>
-            </View>
-            <AppText style={styles.logoTitle}>FlixPlay</AppText>
+            <Image
+              source={require("@/assets/images/flixplay_logo.jpg")}
+              contentFit="contain"
+              accessibilityLabel="FlixPlay"
+              style={styles.brandLogo}
+            />
             <AppText style={styles.logoSubtitle}>Plataforma IPTV · Xtream Codes</AppText>
           </View>
 
@@ -744,38 +744,10 @@ const styles = StyleSheet.create({
   },
   logoArea: {
     alignItems: "center",
-    gap: 10,
+    gap: 6,
     paddingBottom: 4,
   },
-  logoIconWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 72,
-    height: 72,
-  },
-  logoIconGlow: {
-    position: "absolute",
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(59,130,246,0.28)",
-  },
-  logoIconInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(96,165,250,0.55)",
-    backgroundColor: "rgba(59,130,246,0.22)",
-  },
-  logoTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 28,
-    letterSpacing: -0.6,
-    color: Colors.text,
-  },
+  brandLogo: { width: "78%", maxWidth: 360, aspectRatio: 1536 / 691 },
   logoSubtitle: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,

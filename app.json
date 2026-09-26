@@ -2,7 +2,7 @@
   "expo": {
     "name": "FlixPlay",
     "slug": "flixplay",
-    "version": "2.10.1",
+    "version": "2.11.0",
     "orientation": "default",
     "icon": "./assets/images/flixplay_icon.png",
     "scheme": "fastshot",
@@ -23,7 +23,7 @@
         "backgroundColor": "#07090E"
       },
       "isTV": true,
-      "versionCode": 20260930,
+      "versionCode": 20261001,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [

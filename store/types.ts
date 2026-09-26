@@ -97,13 +97,6 @@ export interface ContentCache {
   lastSyncedAt: string | null;
 }
 
-export interface TraktConfig {
-  isConnected: boolean;
-  username: string;
-  accessToken: string;
-  autoScrobble: boolean;
-}
-
 export interface PlayHistory {
   contentId: string;
   type: ContentType;

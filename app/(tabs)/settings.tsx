@@ -18,7 +18,6 @@ export default function SettingsScreen() {
   const { isSyncing, refresh: syncRefresh } = useSyncStatus();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
-  const trakt = useAppStore((state) => state.trakt);
   const preferences = useAppStore((state) => state.preferences);
   const setPreference = useAppStore((state) => state.setPreference);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
@@ -93,21 +92,9 @@ export default function SettingsScreen() {
     );
   }, [removeAllServers, router]);
 
-  const handleTrakt = useCallback(() => {
-    router.push("/settings/trakt");
-  }, [router]);
-
   const handleAbout = useCallback(() => {
     router.push("/settings/about");
   }, [router]);
-
-  const handleManualSync = useCallback(() => {
-    if (!trakt.isConnected) {
-      router.push("/settings/trakt");
-      return;
-    }
-    Alert.alert("Sincronização concluída", "Seu histórico e favoritos já estão atualizados com o Trakt.tv.");
-  }, [router, trakt.isConnected]);
 
   const handleSyncIptv = useCallback(() => {
     syncRefresh();
@@ -154,17 +141,6 @@ export default function SettingsScreen() {
                 <AppText style={styles.deleteAllText}>Excluir todas as listas</AppText>
               </TVFocusable>
             ) : null}
-          </View>
-
-          <View style={styles.section}>
-            <SectionHeader title="Trakt.tv" subtitle="Histórico e favoritos sincronizados" />
-            <GlassCard style={styles.traktCard} intensity={20}>
-              <View style={styles.traktIcon}><Ionicons name="sync" size={21} color={Colors.white} /></View>
-              <View style={styles.traktCopy}><AppText style={styles.traktTitle}>{trakt.isConnected ? "Conectado" : "Desconectado"}</AppText><AppText style={styles.traktUser}>{trakt.isConnected ? `@${trakt.username}` : "Conecte sua conta Trakt.tv"}</AppText></View>
-              <View style={[styles.connectedDot, { backgroundColor: trakt.isConnected ? Colors.green : Colors.subtle }]} />
-              <TVFocusable accessibilityRole="button" onPress={handleTrakt} style={styles.manageButton}><AppText style={styles.manageButtonText}>{trakt.isConnected ? "Gerenciar" : "Conectar"}</AppText></TVFocusable>
-            </GlassCard>
-            <TVFocusable accessibilityRole="button" onPress={handleManualSync} style={styles.syncRow}><View style={styles.syncRowIcon}><Ionicons name="refresh" size={16} color={Colors.blueBright} /></View><View style={styles.syncCopy}><AppText style={styles.syncTitle}>Sincronizar agora</AppText><AppText style={styles.syncMeta}>Última sincronização há 12 min</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
           </View>
 
           <View style={styles.section}>
@@ -251,19 +227,6 @@ const styles = StyleSheet.create({
   serverMeta: { fontSize: 10, color: Colors.subtle },
   addServerButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: Radii.medium, borderWidth: 1, borderStyle: "dashed", borderColor: "rgba(96,165,250,0.4)", backgroundColor: "rgba(59,130,246,0.06)" },
   addServerText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.blueBright },
-  traktCard: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderColor: "rgba(229,9,20,0.25)" },
-  traktIcon: { width: 39, height: 39, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: Colors.red },
-  traktCopy: { flex: 1, gap: 3 },
-  traktTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  traktUser: { fontSize: 11, color: Colors.muted },
-  connectedDot: { width: 7, height: 7, borderRadius: 4 },
-  manageButton: { minHeight: 36, justifyContent: "center", paddingHorizontal: 10, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.08)" },
-  manageButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.text },
-  syncRow: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 5 },
-  syncRowIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "rgba(59,130,246,0.12)" },
-  syncCopy: { flex: 1, gap: 2 },
-  syncTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
-  syncMeta: { fontSize: 10, color: Colors.subtle },
   preferencesCard: { paddingHorizontal: 14 },
   preferenceRow: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 10 },
   preferenceIcon: { width: 33, height: 33, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "rgba(59,130,246,0.11)" },

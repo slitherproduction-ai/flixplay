@@ -132,9 +132,11 @@ export default function SeriesScreen() {
   const [genre, setGenre] = useState("Todas");
   const [query, setQuery] = useState("");
 
-  const hPad = tvMode ? 46 : 20;
-  const numColumns = tvMode || width > 720 ? 3 : 2;
-  const colGap = 12;
+  const hPad = tvMode ? 46 : 16;
+  const numColumns = tvMode
+    ? (width >= 1500 ? 7 : width >= 1100 ? 6 : 5)
+    : (width >= 1000 ? 5 : width >= 700 ? 4 : 3);
+  const colGap = tvMode ? 12 : 10;
   const cardWidth = Math.floor((width - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
 
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
@@ -267,7 +269,7 @@ export default function SeriesScreen() {
           tvMode && styles.tvContent,
           { paddingHorizontal: hPad },
         ]}
-        columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+        columnWrapperStyle={numColumns > 1 ? [styles.columnWrapper, { gap: colGap }] : undefined}
         ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
         initialNumToRender={20}
         maxToRenderPerBatch={25}
@@ -345,8 +347,8 @@ const styles = StyleSheet.create({
   },
   genreScroller: { flexGrow: 0, marginHorizontal: -20 },
   genreContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
-  columnWrapper: { gap: 12 },
-  rowSeparator: { height: 24 },
+  columnWrapper: { alignItems: "flex-start" },
+  rowSeparator: { height: 20 },
   empty: {
     alignItems: "center",
     justifyContent: "center",

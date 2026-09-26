@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -41,8 +42,17 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.10.1",
+    version: "v2.11.0",
     label: "Versão Atual",
+    date: "2026.09",
+    changes: [
+      { tag: "Novidade", text: "Nova identidade FlixPlay aplicada ao login, Home, Splash, launcher e tela Sobre." },
+      { tag: "Melhoria", text: "Grades de filmes e séries mais compactas, com três cards por linha em smartphones." },
+      { tag: "Melhoria", text: "Integração Trakt.tv e seus dados locais removidos dos ajustes." },
+    ],
+  },
+  {
+    version: "v2.10.1",
     date: "2026.09",
     changes: [
       { tag: "Correção", text: "Aviso de saída responsivo e totalmente visível em smartphones." },
@@ -420,11 +430,12 @@ export default function AboutScreen() {
           <View style={styles.heroCard}>
             <View style={styles.heroGlow} />
             <View style={styles.appIcon}>
-              <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
-              <View style={styles.appIconRing} />
-              <View style={styles.appIconCore}>
-                <Ionicons name="play" size={27} color={Colors.white} />
-              </View>
+              <Image
+                source={require("@/assets/images/flixplay_icon.png")}
+                contentFit="cover"
+                accessibilityLabel="Ícone FlixPlay"
+                style={StyleSheet.absoluteFill}
+              />
             </View>
             <AppText style={styles.heroName}>{APP_INFO.name}</AppText>
             <AppText style={styles.heroVersion}>{APP_INFO.versionLabel}</AppText>
@@ -439,7 +450,6 @@ export default function AboutScreen() {
               <TechBadge label="ExoPlayer / HLS" />
               <TechBadge label="Xtream Codes API" />
               <TechBadge label="EPG" />
-              <TechBadge label="Trakt.tv" />
               <TechBadge label="PiP & Cast" />
             </View>
           </View>
@@ -483,7 +493,7 @@ export default function AboutScreen() {
             <View style={styles.cardDivider} />
             <TechnologyRow icon="server-outline" title="Suas fontes, do seu jeito" body="Xtream Codes, playlists M3U e múltiplos servidores." />
             <View style={styles.cardDivider} />
-            <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e Trakt.tv para acompanhar seu progresso." />
+            <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e progresso local para acompanhar seu conteúdo." />
             <View style={styles.cardDivider} />
             <TechnologyRow icon="logo-github" title="Atualizações automáticas" body={`GitHub Releases · ${APP_INFO.githubRepo}`} />
           </GlassCard>
@@ -716,9 +726,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontFamily: "Inter_700Bold", fontSize: 20, color: Colors.text },
   heroCard: { overflow: "hidden", alignItems: "center", padding: 24, borderRadius: Radii.large, borderWidth: 1, borderColor: "rgba(96,165,250,0.28)", backgroundColor: "rgba(22,28,45,0.76)", ...Shadows.card },
   heroGlow: { position: "absolute", top: -80, width: 230, height: 180, borderRadius: 120, backgroundColor: "rgba(59,130,246,0.12)" },
-  appIcon: { width: 82, height: 82, overflow: "hidden", alignItems: "center", justifyContent: "center", borderRadius: 25, borderWidth: 1, borderColor: "rgba(255,255,255,0.28)", backgroundColor: "rgba(96,165,250,0.16)", ...Shadows.card },
-  appIconRing: { position: "absolute", width: 55, height: 55, borderRadius: 28, borderWidth: 1, borderColor: "rgba(147,197,253,0.48)" },
-  appIconCore: { width: 43, height: 43, alignItems: "center", justifyContent: "center", paddingLeft: 3, borderRadius: 15, backgroundColor: "rgba(59,130,246,0.72)" },
+  appIcon: { width: 96, height: 96, overflow: "hidden", borderRadius: 25, borderWidth: 1, borderColor: "rgba(96,165,250,0.48)", backgroundColor: Colors.backgroundRaised, ...Shadows.card },
   heroName: { marginTop: 14, ...Type.display },
   heroVersion: { marginTop: 4, fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.blueBright },
   stableBadge: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radii.pill, backgroundColor: "rgba(16,185,129,0.13)" },

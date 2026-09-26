@@ -469,7 +469,6 @@ export default function RootLayout() {
             <Stack.Screen name="player" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="continue-watching" options={{ presentation: "card" }} />
             <Stack.Screen name="server/add" options={{ presentation: "modal" }} />
-            <Stack.Screen name="settings/trakt" options={{ presentation: "formSheet" }} />
             <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
           </Stack>
           {/* Global floating PiP overlay — renders above all screens */}

@@ -205,7 +205,12 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <View style={styles.brandBlock}>
             <AppText style={styles.eyebrow}>SUA CENTRAL DE ENTRETENIMENTO</AppText>
-            <AppText style={styles.brand}>Flix<AppText style={styles.brandAccent}>Play</AppText></AppText>
+            <Image
+              source={require("@/assets/images/flixplay_logo.jpg")}
+              contentFit="contain"
+              accessibilityLabel="FlixPlay"
+              style={styles.brandLogo}
+            />
           </View>
           <View style={styles.topActions}>
             <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
@@ -332,8 +337,7 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
   brandBlock: { gap: 3 },
   eyebrow: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.5, color: Colors.blueBright },
-  brand: { fontFamily: "Inter_700Bold", fontSize: 28, letterSpacing: -1.1, color: Colors.text },
-  brandAccent: { color: Colors.blueBright },
+  brandLogo: { width: 128, height: 48 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 9 },
   avatarButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 21, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: "#263653" },
   avatarText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.text },

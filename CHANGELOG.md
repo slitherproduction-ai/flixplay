@@ -2,6 +2,63 @@
 
 Todas as alterações relevantes do FlixPlay são registradas neste arquivo.
 
+## [2.12.1] - 2026-09-26
+
+### Correções para Android TV e Fire TV
+
+- Menu lateral totalmente opaco para impedir vazamento visual do conteúdo ao fundo.
+- Larguras do menu reduzidas para 68 dp recolhido e 204 dp expandido.
+- Ícones e rótulos permanecem montados durante a animação, eliminando opções vazias.
+- Navegação vertical do menu encadeada com `nextFocusUp` e `nextFocusDown` nativos.
+- Textos comuns deixam de ser selecionáveis no modo TV e não capturam mais o foco do D-Pad.
+- Linhas **Abrir último canal** e **Modo Android TV** passam a ser controles inteiros selecionáveis.
+
+### Login
+
+- Campo **Host / URL do servidor** recebe o foco inicial automaticamente ao abrir em uma TV.
+- Campo focado recebe borda azul e fundo de alto contraste.
+- Botão Conectar não disputa mais o foco inicial com o campo URL.
+
+### Compatibilidade
+
+- Versão Android `2.12.1`, código de versão `20261003`.
+- APK universal para `armeabi-v7a` e `arm64-v8a`.
+- Android mínimo API 24 e Target SDK 36.
+- Assinatura compatível com as versões 2.11.0 e 2.12.0 para atualização direta, preservando os dados locais.
+
+### Segurança
+
+- Conexões Xtream permanecem diretas com o servidor informado pelo usuário, sem encaminhamento de credenciais por proxies CORS públicos.
+
+### Validação
+
+- Verificação TypeScript concluída sem erros.
+- Lint concluído sem avisos.
+- Quinze testes automatizados aprovados em seis suítes.
+
+## [2.12.0] - 2026-09-26
+
+### Navegação para TV
+
+- Barra inferior substituída no modo TV por menu lateral retrátil, com cinco destinos principais.
+- Menu abre ao receber foco, fecha após a navegação e mantém a área de conteúdo visível.
+- O estado visual indica simultaneamente a rota selecionada e o item sob foco do D-Pad.
+- Último foco de filmes, séries, canais e menu é lembrado durante a sessão e restaurado ao retornar.
+
+### Layout adaptativo
+
+- Celulares continuam usando navegação inferior e gestos touch, sem herdar o shell de TV.
+- Grade ao vivo exibe de quatro a seis canais por linha no modo TV e duas ou três colunas no mobile.
+- Filmes e séries continuam com cinco a sete cards por linha em TV e três em smartphones.
+
+### Arquitetura e validação
+
+- Rotas de TV e memória de foco isoladas em `core/navigation`.
+- Testes unitários adicionados para seleção de rota e restauração de foco.
+- Versão Android `2.12.0`, código de versão `20261002`.
+- APK universal para `armeabi-v7a` e `arm64-v8a`.
+- Android mínimo API 24 e Target SDK 36.
+
 ## [2.11.0] - 2026-09-25
 
 ### Identidade visual

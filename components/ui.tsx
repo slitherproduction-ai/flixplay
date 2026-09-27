@@ -18,9 +18,9 @@ import {
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 
-export function AppText({ style, children, ...props }: React.ComponentProps<typeof Text>) {
+export function AppText({ style, children, selectable = !Platform.isTV, ...props }: React.ComponentProps<typeof Text>) {
   return (
-    <Text selectable style={[Type.body, style]} {...props}>
+    <Text selectable={selectable} style={[Type.body, style]} {...props}>
       {children}
     </Text>
   );
@@ -240,6 +240,10 @@ export function PosterCard({
   onPress,
   progress,
   hasTVPreferredFocus = false,
+  focusId,
+  focusScope,
+  focusIndex,
+  restoreFocus = false,
 }: {
   title: string;
   image: string;
@@ -250,9 +254,13 @@ export function PosterCard({
   onPress: () => void;
   progress?: number;
   hasTVPreferredFocus?: boolean;
+  focusId?: string;
+  focusScope?: string;
+  focusIndex?: number;
+  restoreFocus?: boolean;
 }) {
   return (
-    <TVFocusable accessibilityRole="button" accessibilityLabel={`Abrir ${title}`} hasTVPreferredFocus={hasTVPreferredFocus} onPress={onPress} style={({ pressed }) => [styles.posterCard, { width }, pressed && styles.cardPressed]}>
+    <TVFocusable accessibilityRole="button" accessibilityLabel={`Abrir ${title}`} hasTVPreferredFocus={hasTVPreferredFocus} focusId={focusId} focusScope={focusScope} focusIndex={focusIndex} restoreFocus={restoreFocus} onPress={onPress} style={({ pressed }) => [styles.posterCard, { width }, pressed && styles.cardPressed]}>
       <View style={[styles.posterFrame, { height: width * 1.42 }]}>
         <Image source={{ uri: image }} contentFit="cover" transition={220} style={StyleSheet.absoluteFill} />
         <View style={styles.posterShade} />

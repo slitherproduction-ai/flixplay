@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,7 @@ import { authenticateXtream, XtreamApiError } from "@/services/xtream";
 import type { XtreamUserInfo } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
+import { useTVMode } from "@/hooks/use-tv-mode";
 
 interface DiagInfo {
   testedUrl: string;
@@ -269,6 +270,7 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: 
 
 export default function LoginScreen() {
   const router = useRouter();
+  const tvMode = useTVMode();
   const insets = useSafeAreaInsets();
   const addServer = useAppStore((state) => state.addServer);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
@@ -285,10 +287,18 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diagInfo, setDiagInfo] = useState<DiagInfo | null>(null);
   const [showSavedLists, setShowSavedLists] = useState(false);
+  const [focusedField, setFocusedField] = useState<"host" | "username" | "password" | "listName" | null>(null);
 
+  const hostRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const listNameRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!tvMode) return;
+    const timer = setTimeout(() => hostRef.current?.focus(), 350);
+    return () => clearTimeout(timer);
+  }, [tvMode]);
 
   /**
    * Core connect logic. Accepts an explicit `effectiveHost` so both the main
@@ -449,11 +459,14 @@ export default function LoginScreen() {
               {/* Host field */}
               <View style={styles.fieldGroup}>
                 <AppText style={styles.fieldLabel}>HOST / URL DO SERVIDOR</AppText>
-                <View style={styles.inputWrapper}>
+                <View style={[styles.inputWrapper, focusedField === "host" && styles.inputWrapperFocused]}>
                   <View style={styles.inputIconBox}>
                     <Ionicons name="server-outline" size={16} color={Colors.blueBright} />
                   </View>
                   <TextInput
+                    ref={hostRef}
+                    autoFocus={tvMode}
+                    hasTVPreferredFocus={tvMode}
                     value={host}
                     onChangeText={setHost}
                     placeholder="http://servidor.tv:8080"
@@ -463,6 +476,8 @@ export default function LoginScreen() {
                     keyboardType="url"
                     returnKeyType="next"
                     onSubmitEditing={() => usernameRef.current?.focus()}
+                    onFocus={() => setFocusedField("host")}
+                    onBlur={() => setFocusedField(null)}
                     style={styles.input}
                   />
                   {host.length > 0 ? (
@@ -483,7 +498,7 @@ export default function LoginScreen() {
               {/* Username field */}
               <View style={styles.fieldGroup}>
                 <AppText style={styles.fieldLabel}>USUÁRIO</AppText>
-                <View style={styles.inputWrapper}>
+                <View style={[styles.inputWrapper, focusedField === "username" && styles.inputWrapperFocused]}>
                   <View style={styles.inputIconBox}>
                     <Ionicons name="person-outline" size={16} color={Colors.blueBright} />
                   </View>
@@ -497,6 +512,8 @@ export default function LoginScreen() {
                     autoCorrect={false}
                     returnKeyType="next"
                     onSubmitEditing={() => passwordRef.current?.focus()}
+                    onFocus={() => setFocusedField("username")}
+                    onBlur={() => setFocusedField(null)}
                     style={styles.input}
                   />
                   {username.length > 0 ? (
@@ -514,7 +531,7 @@ export default function LoginScreen() {
               {/* Password field */}
               <View style={styles.fieldGroup}>
                 <AppText style={styles.fieldLabel}>SENHA</AppText>
-                <View style={styles.inputWrapper}>
+                <View style={[styles.inputWrapper, focusedField === "password" && styles.inputWrapperFocused]}>
                   <View style={styles.inputIconBox}>
                     <Ionicons name="lock-closed-outline" size={16} color={Colors.blueBright} />
                   </View>
@@ -529,6 +546,8 @@ export default function LoginScreen() {
                     autoCorrect={false}
                     returnKeyType="next"
                     onSubmitEditing={() => listNameRef.current?.focus()}
+                    onFocus={() => setFocusedField("password")}
+                    onBlur={() => setFocusedField(null)}
                     style={styles.input}
                   />
                   <TVFocusable
@@ -551,7 +570,7 @@ export default function LoginScreen() {
                   NOME DA LISTA{" "}
                   <AppText style={styles.optionalTag}>(OPCIONAL)</AppText>
                 </AppText>
-                <View style={styles.inputWrapper}>
+                <View style={[styles.inputWrapper, focusedField === "listName" && styles.inputWrapperFocused]}>
                   <View style={styles.inputIconBox}>
                     <Ionicons name="bookmark-outline" size={16} color={Colors.blueBright} />
                   </View>
@@ -564,6 +583,8 @@ export default function LoginScreen() {
                     autoCapitalize="words"
                     returnKeyType="done"
                     onSubmitEditing={handleConnect}
+                    onFocus={() => setFocusedField("listName")}
+                    onBlur={() => setFocusedField(null)}
                     style={styles.input}
                   />
                   {listName.length > 0 ? (
@@ -622,7 +643,7 @@ export default function LoginScreen() {
                 accessibilityLabel="Conectar e Carregar Lista"
                 disabled={loading}
                 onPress={handleConnect}
-                hasTVPreferredFocus
+                hasTVPreferredFocus={!tvMode}
                 style={({ pressed }) => [
                   styles.connectBtn,
                   pressed && styles.pressed,
@@ -801,6 +822,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: "rgba(7,9,14,0.5)",
     overflow: "hidden",
+  },
+  inputWrapperFocused: {
+    borderWidth: 2,
+    borderColor: Colors.blueBright,
+    backgroundColor: "rgba(59,130,246,0.14)",
   },
   inputIconBox: {
     width: 44,

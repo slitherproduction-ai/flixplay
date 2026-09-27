@@ -17,6 +17,11 @@ import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { AppText, Chip, EmptyState, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { VodMovie } from "@/store/types";
+import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
+import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
+
+const MOVIES_FOCUS_SCOPE = "movies-grid";
 
 const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z"] as const;
 type SortOption = typeof SORT_OPTIONS[number];
@@ -102,7 +107,7 @@ function MoviesHeader({
               key={item}
               label={item}
               selected={genre === item}
-              hasTVPreferredFocus={index === 0}
+              hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(MOVIES_FOCUS_SCOPE)}
               onPress={() => setGenre(item)}
               icon={item === FAVORITES_LABEL ? "star" : undefined}
             />
@@ -160,11 +165,13 @@ export default function MoviesScreen() {
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
   const hPad = tvMode ? 46 : 16;
+  const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const numColumns = tvMode
     ? (width >= 1500 ? 7 : width >= 1100 ? 6 : 5)
     : (width >= 1000 ? 5 : width >= 700 ? 4 : 3);
   const colGap = tvMode ? 12 : 10;
-  const cardWidth = Math.floor((width - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
+  const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
+  const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<VodMovie>(MOVIES_FOCUS_SCOPE, tvMode, numColumns);
 
   const genres = useMemo(
     () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
@@ -195,7 +202,7 @@ export default function MoviesScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: VodMovie }) => (
+    ({ item, index }: { item: VodMovie; index: number }) => (
       <PosterCard
         title={item.title}
         image={item.poster}
@@ -203,10 +210,14 @@ export default function MoviesScreen() {
         rating={item.rating}
         quality={item.quality}
         width={cardWidth}
+        focusId={item.id}
+        focusScope={MOVIES_FOCUS_SCOPE}
+        focusIndex={index}
+        restoreFocus={tvMode}
         onPress={() => handleMovie(item.id)}
       />
     ),
-    [cardWidth, handleMovie],
+    [cardWidth, handleMovie, tvMode],
   );
 
   const keyExtractor = useCallback((item: VodMovie) => item.id, []);
@@ -287,6 +298,7 @@ export default function MoviesScreen() {
         </View>
       ) : null}
       <FlatList
+        ref={listRef}
         key={`movies-${numColumns}`}
         data={filteredMovies}
         numColumns={numColumns}
@@ -309,6 +321,7 @@ export default function MoviesScreen() {
         maxToRenderPerBatch={25}
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
+        onScrollToIndexFailed={onScrollToIndexFailed}
       />
     </View>
   );

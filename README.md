@@ -4,12 +4,27 @@ Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Nati
 
 ## Versão atual
 
-- **2.11.0** — código de versão Android `20261001`.
+- **2.12.1** — código de versão Android `20261003`.
 - Pacote Android: `com.fastshot.slitherproduction.flixplay`.
 - APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
 - A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
 
-## Novidades da 2.11.0
+## Novidades da 2.12.1
+
+- Menu lateral opaco e compacto, sem blocos visuais do conteúdo ao fundo.
+- Sequência D-Pad vertical determinística no menu lateral.
+- Textos não interativos removidos da busca de foco nativa da TV.
+- Switches dos Ajustes convertidos em linhas inteiras selecionáveis.
+- Login em TV inicia diretamente no campo Host / URL.
+
+### Mantido da 2.12.0
+
+- Menu lateral retrátil exclusivo do modo TV, com foco D-Pad claro e atalhos para as cinco áreas principais.
+- Memória de foco por seção para retornar ao último filme, série, canal ou item do menu acessado.
+- Grade de canais ao vivo com quatro a seis cards por linha em TV.
+- Navegação inferior touch preservada em smartphones e tablets.
+
+### Mantido da 2.11.0
 
 - Nova logo horizontal aplicada ao login e ao cabeçalho da Home.
 - Novo ícone aplicado ao launcher, Splash e tela **Sobre**.

@@ -1,11 +1,13 @@
 import type React from "react";
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
-import { Pressable, StyleSheet, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
+import { findNodeHandle, Pressable, StyleSheet, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
 import { Colors, Shadows } from "@/constants/theme";
 import { getTVRemoteEvent, type TVKeyDownEvent, type TVRemoteEvent } from "@/hooks/use-tv-remote";
+import { getRememberedTvFocus, rememberTvFocus } from "@/core/navigation/tv-focus-memory";
 
 export type TVFocusableHandle = {
   focus: () => void;
+  getNodeHandle: () => number | null;
 };
 
 type TVFocusableProps = Omit<PressableProps, "style" | "onFocus" | "onBlur" | "onKeyDown"> & {
@@ -15,6 +17,14 @@ type TVFocusableProps = Omit<PressableProps, "style" | "onFocus" | "onBlur" | "o
   onBlur?: PressableProps["onBlur"];
   onKeyDown?: (event: TVKeyDownEvent) => void;
   onTVEvent?: (event: TVRemoteEvent) => void;
+  focusId?: string;
+  focusScope?: string;
+  focusIndex?: number;
+  restoreFocus?: boolean;
+  nextFocusUp?: number;
+  nextFocusDown?: number;
+  nextFocusLeft?: number;
+  nextFocusRight?: number;
 };
 
 type FocusTarget = View & {
@@ -33,6 +43,10 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
     onBlur,
     onKeyDown,
     onTVEvent,
+    focusId,
+    focusScope,
+    focusIndex,
+    restoreFocus = false,
     ...rest
   },
   ref,
@@ -45,12 +59,14 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
       const target = pressableRef.current as FocusTarget | null;
       target?.focus?.();
     },
+    getNodeHandle: () => findNodeHandle(pressableRef.current),
   }), []);
 
   const handleFocus = useCallback((event: Parameters<NonNullable<PressableProps["onFocus"]>>[0]) => {
     setFocused(true);
+    if (focusScope && focusId) rememberTvFocus(focusScope, focusId, focusIndex);
     onFocus?.(event);
-  }, [onFocus]);
+  }, [focusId, focusIndex, focusScope, onFocus]);
 
   const handleBlur = useCallback((event: Parameters<NonNullable<PressableProps["onBlur"]>>[0]) => {
     setFocused(false);
@@ -68,12 +84,16 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
     return [baseStyle, focused && styles.focused, focused && focusStyle];
   }, [focusStyle, focused, style]);
 
+  const rememberedFocus = focusScope ? getRememberedTvFocus(focusScope) : undefined;
+  const shouldRestoreFocus = restoreFocus && Boolean(focusId) && rememberedFocus?.itemId === focusId;
+
   const pressableProps = {
     ...rest,
     ref: pressableRef,
+    collapsable: false,
     disabled,
     focusable: !disabled && focusable,
-    hasTVPreferredFocus,
+    hasTVPreferredFocus: hasTVPreferredFocus || shouldRestoreFocus,
     onFocus: handleFocus,
     onBlur: handleBlur,
     onKeyDown: handleKeyDown,
@@ -89,7 +109,7 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
 
 const styles = StyleSheet.create({
   focused: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.blueBright,
     backgroundColor: "rgba(59,130,246,0.18)",
     transform: [{ scale: 1.05 }],

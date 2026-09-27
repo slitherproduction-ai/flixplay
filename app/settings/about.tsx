@@ -42,8 +42,28 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.11.0",
+    version: "v2.12.1",
     label: "Versão Atual",
+    date: "2026.09",
+    changes: [
+      { tag: "Correção", text: "Menu lateral agora é opaco, compacto e mantém todas as opções visíveis durante a navegação." },
+      { tag: "Correção", text: "Textos não interativos deixam de capturar o foco do D-Pad no modo TV." },
+      { tag: "Melhoria", text: "Rotas do menu usam sequência nativa de foco para subir e descer sem saltos." },
+      { tag: "Melhoria", text: "Login em TV inicia com o foco no campo Host / URL do servidor." },
+    ],
+  },
+  {
+    version: "v2.12.0",
+    date: "2026.09",
+    changes: [
+      { tag: "Novidade", text: "Menu lateral retrátil no modo TV, otimizado para navegação por controle remoto." },
+      { tag: "Melhoria", text: "Memória de foco restaura o último filme, série, canal e item do menu acessado." },
+      { tag: "Melhoria", text: "Grade de canais ao vivo ampliada para quatro a seis itens por linha em televisores." },
+      { tag: "Melhoria", text: "Navegação mobile preservada com barra inferior e comportamento touch independente." },
+    ],
+  },
+  {
+    version: "v2.11.0",
     date: "2026.09",
     changes: [
       { tag: "Novidade", text: "Nova identidade FlixPlay aplicada ao login, Home, Splash, launcher e tela Sobre." },

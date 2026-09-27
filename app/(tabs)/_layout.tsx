@@ -6,6 +6,9 @@ import { TVFocusable } from "@/components/tv-focusable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { useXtreamSync } from "@/hooks/useXtreamSync";
+import { useTVMode } from "@/hooks/use-tv-mode";
+import { TvSideNavigation, TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { View } from "react-native";
 
 // ---------------------------------------------------------------------------
 // Tab bar button
@@ -62,15 +65,19 @@ const tabBarButton: ((props: TabButtonProps) => React.ReactNode) | undefined = P
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const tvMode = useTVMode();
   // Trigger real server sync as soon as tabs are mounted
   useXtreamSync();
 
-  return (
+  const navigator = (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarButton,
-        sceneStyle: { backgroundColor: Colors.background },
+        tabBarButton: tvMode ? undefined : tabBarButton,
+        sceneStyle: {
+          backgroundColor: Colors.background,
+          marginLeft: tvMode ? TV_NAV_COLLAPSED_WIDTH : 0,
+        },
         tabBarActiveTintColor: Colors.blueBright,
         tabBarInactiveTintColor: Colors.subtle,
         tabBarLabelStyle: {
@@ -79,6 +86,7 @@ export default function TabsLayout() {
           marginBottom: 2,
         },
         tabBarStyle: {
+          display: tvMode ? "none" : "flex",
           height: 64 + insets.bottom,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom, 8),
@@ -124,5 +132,14 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+  );
+
+  if (!tvMode) return navigator;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      {navigator}
+      <TvSideNavigation />
+    </View>
   );
 }

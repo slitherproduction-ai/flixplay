@@ -17,6 +17,11 @@ import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { AppText, Chip, EmptyState, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem } from "@/store/types";
+import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
+import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
+
+const SERIES_FOCUS_SCOPE = "series-grid";
 
 function seasonsMeta(count: number, genre: string): string {
   return `${count} temporada${count !== 1 ? "s" : ""} · ${genre}`;
@@ -99,7 +104,7 @@ function SeriesHeader({
             key={item}
             label={item}
             selected={genre === item}
-            hasTVPreferredFocus={index === 0}
+            hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(SERIES_FOCUS_SCOPE)}
             onPress={() => setGenre(item)}
             icon={item === FAVORITES_LABEL ? "star" : undefined}
           />
@@ -133,11 +138,13 @@ export default function SeriesScreen() {
   const [query, setQuery] = useState("");
 
   const hPad = tvMode ? 46 : 16;
+  const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const numColumns = tvMode
     ? (width >= 1500 ? 7 : width >= 1100 ? 6 : 5)
     : (width >= 1000 ? 5 : width >= 700 ? 4 : 3);
   const colGap = tvMode ? 12 : 10;
-  const cardWidth = Math.floor((width - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
+  const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
+  const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<SeriesItem>(SERIES_FOCUS_SCOPE, tvMode, numColumns);
 
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
   const cachedCategories = useAppStore((state) => state.contentCache.seriesCategories);
@@ -167,17 +174,21 @@ export default function SeriesScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: SeriesItem }) => (
+    ({ item, index }: { item: SeriesItem; index: number }) => (
       <PosterCard
         title={item.title}
         image={item.poster}
         meta={seasonsMeta(item.seasonsCount, item.genre)}
         rating={item.rating}
         width={cardWidth}
+        focusId={item.id}
+        focusScope={SERIES_FOCUS_SCOPE}
+        focusIndex={index}
+        restoreFocus={tvMode}
         onPress={() => handleSeries(item.id)}
       />
     ),
-    [cardWidth, handleSeries],
+    [cardWidth, handleSeries, tvMode],
   );
 
   const keyExtractor = useCallback((item: SeriesItem) => item.id, []);
@@ -253,6 +264,7 @@ export default function SeriesScreen() {
         </View>
       ) : null}
       <FlatList
+        ref={listRef}
         key={`series-${numColumns}`}
         data={filteredSeries}
         numColumns={numColumns}
@@ -275,6 +287,7 @@ export default function SeriesScreen() {
         maxToRenderPerBatch={25}
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
+        onScrollToIndexFailed={onScrollToIndexFailed}
       />
     </View>
   );

@@ -20,8 +20,12 @@ import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useEpgPreload, useEpgPreloader } from "@/hooks/useEpgPreload";
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem } from "@/store/types";
+import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
+import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 
 const LIVE_EPG_INITIAL_PRELOAD = 30;
+const LIVE_FOCUS_SCOPE = "live-channels";
 
 // ---------------------------------------------------------------------------
 // View-mode persistence
@@ -49,9 +53,11 @@ interface GridCardProps {
   cardWidth: number;
   onPress: (id: string) => void;
   onFavorite: (id: string) => void;
+  focusIndex: number;
+  restoreFocus: boolean;
 }
 
-function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite }: GridCardProps) {
+function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite, focusIndex, restoreFocus }: GridCardProps) {
   const handlePress = useCallback(() => onPress(channel.id), [channel.id, onPress]);
   const handleFav = useCallback(() => onFavorite(channel.id), [channel.id, onFavorite]);
 
@@ -60,6 +66,10 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite }
       <TVFocusable
         accessibilityRole="button"
         accessibilityLabel={`Abrir ${channel.name}`}
+        focusId={channel.id}
+        focusScope={LIVE_FOCUS_SCOPE}
+        focusIndex={focusIndex}
+        restoreFocus={restoreFocus}
         onPress={handlePress}
         style={gridStyles.cardPressable}
       >
@@ -125,9 +135,11 @@ interface ListRowProps {
   onPress: (id: string) => void;
   onLongPress: (id: string) => void;
   onFavorite: (id: string) => void;
+  focusIndex: number;
+  restoreFocus: boolean;
 }
 
-function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onFavorite }: ListRowProps) {
+function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onFavorite, focusIndex, restoreFocus }: ListRowProps) {
   const handlePress = useCallback(() => onPress(channel.id), [channel.id, onPress]);
   const handleLong = useCallback(() => onLongPress(channel.id), [channel.id, onLongPress]);
   const handleFav = useCallback(() => onFavorite(channel.id), [channel.id, onFavorite]);
@@ -138,6 +150,10 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
         <TVFocusable
           accessibilityRole="button"
           accessibilityLabel={`Abrir ${channel.name}`}
+          focusId={channel.id}
+          focusScope={LIVE_FOCUS_SCOPE}
+          focusIndex={focusIndex}
+          restoreFocus={restoreFocus}
           onPress={handlePress}
           onLongPress={handleLong}
           style={styles.channelPressable}
@@ -297,7 +313,7 @@ function LiveHeader({
             key={item}
             label={item}
             selected={category === item}
-            hasTVPreferredFocus={index === 0}
+            hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(LIVE_FOCUS_SCOPE)}
             onPress={() => setCategory(item)}
             icon={item === FAVORITES_LABEL ? "star" : undefined}
           />
@@ -386,13 +402,18 @@ export default function LiveScreen() {
   const isEmpty = !isSyncing && channels.length === 0;
 
   const horizontalPadding = tvMode ? 46 : 20;
+  const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const columnGap = 10;
-  const numGridColumns = width >= 768 ? 3 : 2;
+  const numGridColumns = tvMode
+    ? (width >= 1500 ? 6 : width >= 1100 ? 5 : 4)
+    : (width >= 768 ? 3 : 2);
   const gridCardWidth =
-    (width - horizontalPadding * 2 - columnGap * (numGridColumns - 1)) / numGridColumns;
+    (availableWidth - horizontalPadding * 2 - columnGap * (numGridColumns - 1)) / numGridColumns;
+  const activeColumns = viewMode === "grid" ? numGridColumns : 1;
+  const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<ChannelItem>(LIVE_FOCUS_SCOPE, tvMode, activeColumns);
 
   const renderItem = useCallback(
-    ({ item: channel }: { item: ChannelItem }) => {
+    ({ item: channel, index }: { item: ChannelItem; index: number }) => {
       const isFavorite = favoriteChannelIds.includes(channel.id);
       if (viewMode === "grid") {
         return (
@@ -402,6 +423,8 @@ export default function LiveScreen() {
             cardWidth={gridCardWidth}
             onPress={handleChannel}
             onFavorite={toggleFavoriteChannel}
+            focusIndex={index}
+            restoreFocus={tvMode}
           />
         );
       }
@@ -413,6 +436,8 @@ export default function LiveScreen() {
           onPress={handleChannel}
           onLongPress={handleGuide}
           onFavorite={toggleFavoriteChannel}
+          focusIndex={index}
+          restoreFocus={tvMode}
         />
       );
     },
@@ -495,6 +520,7 @@ export default function LiveScreen() {
         />
       </View>
       <FlatList
+        ref={listRef}
         key={viewMode === "grid" ? `grid-${numGridColumns}` : "list"}
         data={filteredChannels}
         numColumns={viewMode === "grid" ? numGridColumns : 1}
@@ -520,6 +546,7 @@ export default function LiveScreen() {
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
         onViewableItemsChanged={handleViewableItemsChanged}
+        onScrollToIndexFailed={onScrollToIndexFailed}
       />
     </View>
   );

@@ -1,10 +1,10 @@
 {
   "name": "fastshot-app",
   "main": "expo-router/entry",
-  "version": "2.12.1",
+  "version": "2.13.0",
   "scripts": {
     "lint": "expo lint",
-    "test": "jest --forceExit --no-cache --passWithNoTests"
+    "test": "jest --no-cache --passWithNoTests"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

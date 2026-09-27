@@ -24,7 +24,8 @@ import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 const SERIES_FOCUS_SCOPE = "series-grid";
 
 function seasonsMeta(count: number, genre: string): string {
-  return `${count} temporada${count !== 1 ? "s" : ""} · ${genre}`;
+  const seasons = count > 0 ? `${count} temporada${count !== 1 ? "s" : ""}` : "Temporadas não informadas";
+  return `${seasons} · ${genre}`;
 }
 
 const FAVORITES_LABEL = "Favoritos";

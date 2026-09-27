@@ -4,15 +4,15 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Colors, Radii } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, Chip, IconButton } from "@/components/ui";
+import { AppText, IconButton } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
-
-type SourceKind = "Xtream Codes" | "Playlist M3U";
+import { authenticateXtream } from "@/services/xtream";
+import { logTechnicalError } from "@/services/security/sanitize";
+import type { ServerProfile } from "@/store/types";
 
 export default function AddServerScreen() {
   const router = useRouter();
   const addServer = useAppStore((state) => state.addServer);
-  const [sourceKind, setSourceKind] = useState<SourceKind>("Xtream Codes");
   const [name, setName] = useState("");
   const [serverUrl, setServerUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -23,8 +23,8 @@ export default function AddServerScreen() {
   const handleSubmit = useCallback(async () => {
     setError(null);
     const trimmedUrl = serverUrl.trim();
-    if (!name.trim() || !trimmedUrl || (sourceKind === "Xtream Codes" && (!username.trim() || !password))) {
-      setError(sourceKind === "Xtream Codes" ? "Preencha nome, URL, usuário e senha para continuar." : "Preencha um nome e a URL da playlist M3U.");
+    if (!name.trim() || !trimmedUrl || !username.trim() || !password) {
+      setError("Preencha nome, URL, usuário e senha para continuar.");
       return;
     }
     setSaving(true);
@@ -34,38 +34,50 @@ export default function AddServerScreen() {
         trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")
           ? trimmedUrl
           : `http://${trimmedUrl}`;
-      addServer({
+      const profile: ServerProfile = {
         id: `server-${Date.now()}`,
         name: name.trim(),
         serverUrl: normalizedUrl,
-        username: sourceKind === "Xtream Codes" ? username.trim() : "m3u",
-        password: sourceKind === "Xtream Codes" ? password : "playlist",
+        username: username.trim(),
+        password,
         isActive: true,
         expiryDate: "Não informado",
-        maxConnections: 1,
-        activeConnections: 0,
-        format: sourceKind === "Playlist M3U" ? "M3U8" : "HLS",
+        maxConnections: null,
+        activeConnections: null,
+        format: null,
+        addedAt: new Date().toISOString(),
+      };
+      const auth = await authenticateXtream(profile);
+      const userInfo = auth.user_info;
+      const authenticated = userInfo && (userInfo.auth === 1 || userInfo.auth === "1" || userInfo.auth === true || (userInfo.auth === undefined && Boolean(userInfo.username)));
+      if (!authenticated) throw new Error("Credenciais rejeitadas pelo servidor.");
+      const formats = userInfo.allowed_output_formats?.map((value) => value.toLowerCase()) ?? [];
+      addServer({
+        ...profile,
+        maxConnections: userInfo.max_connections ? Number(userInfo.max_connections) : null,
+        activeConnections: userInfo.active_cons ? Number(userInfo.active_cons) : null,
+        format: formats.includes("m3u8") ? "HLS" : formats.includes("ts") ? "TS" : null,
+        status: userInfo.status ?? null,
       });
-      await new Promise<void>((resolve) => setTimeout(resolve, 250));
       router.back();
     } catch (saveError) {
-      console.error("Falha ao adicionar servidor", saveError);
-      setError("Não foi possível salvar este servidor. Tente novamente.");
+      logTechnicalError("AddServer", saveError);
+      setError(saveError instanceof Error ? saveError.message : "Não foi possível validar este servidor.");
     } finally {
       setSaving(false);
     }
-  }, [addServer, name, password, router, serverUrl, sourceKind, username]);
+  }, [addServer, name, password, router, serverUrl, username]);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.screen}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.header}><IconButton icon="close" label="Fechar" onPress={() => router.back()} /><View style={styles.headerTitle}><AppText style={styles.kicker}>NOVA CONEXÃO</AppText><AppText style={styles.title}>Adicionar servidor</AppText></View><View style={styles.headerSpacer} /></View>
-        <AppText style={styles.intro}>Conecte uma lista Xtream Codes ou importe sua playlist M3U para acessar seu conteúdo.</AppText>
-        <View style={styles.kindRow}><Chip label="Xtream Codes" selected={sourceKind === "Xtream Codes"} onPress={() => setSourceKind("Xtream Codes")} /><Chip label="Playlist M3U" selected={sourceKind === "Playlist M3U"} onPress={() => setSourceKind("Playlist M3U")} /></View>
+        <AppText style={styles.intro}>Conecte uma lista Xtream Codes para acessar seu conteúdo.</AppText>
         <View style={styles.form}>
           <Field label="Nome da lista" value={name} onChangeText={setName} placeholder="Ex.: Minha lista" />
-          <Field label={sourceKind === "Playlist M3U" ? "URL da playlist M3U" : "URL do servidor"} value={serverUrl} onChangeText={setServerUrl} placeholder="http://servidor.com:8080" keyboardType="url" autoCapitalize="none" />
-          {sourceKind === "Xtream Codes" ? <><Field label="Usuário" value={username} onChangeText={setUsername} placeholder="Seu usuário" autoCapitalize="none" /><Field label="Senha" value={password} onChangeText={setPassword} placeholder="Sua senha" secureTextEntry autoCapitalize="none" /></> : <View style={styles.tip}><Ionicons name="information-circle-outline" size={17} color={Colors.blueBright} /><AppText style={styles.tipText}>Use uma URL M3U ou M3U8 direta. O FlixPlay vai organizar canais e categorias automaticamente.</AppText></View>}
+          <Field label="URL do servidor" value={serverUrl} onChangeText={setServerUrl} placeholder="http://servidor.com:8080" keyboardType="url" autoCapitalize="none" />
+          <Field label="Usuário" value={username} onChangeText={setUsername} placeholder="Seu usuário" autoCapitalize="none" /><Field label="Senha" value={password} onChangeText={setPassword} placeholder="Sua senha" secureTextEntry autoCapitalize="none" />
+          {serverUrl.trim().startsWith("http://") ? <View style={styles.tip}><Ionicons name="shield-outline" size={17} color={Colors.amber} /><AppText style={styles.tipText}>Conexão sem criptografia fornecida pelo servidor.</AppText></View> : null}
         </View>
         {error ? <View style={styles.errorBox}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.errorText}>{error}</AppText></View> : null}
         <TVFocusable accessibilityRole="button" disabled={saving} onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed, saving && styles.disabled]}>{saving ? <ActivityIndicator color={Colors.white} /> : <><Ionicons name="link" size={17} color={Colors.white} /><AppText style={styles.submitText}>Conectar servidor</AppText></>}</TVFocusable>
@@ -88,7 +100,6 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1, color: Colors.blueBright },
   title: { fontFamily: "Inter_700Bold", fontSize: 20, color: Colors.text },
   intro: { fontSize: 14, lineHeight: 21, textAlign: "center", color: Colors.muted },
-  kindRow: { flexDirection: "row", justifyContent: "center", gap: 8 },
   form: { gap: 15, padding: 16, borderRadius: Radii.large, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
   field: { gap: 7 },
   fieldLabel: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.text },

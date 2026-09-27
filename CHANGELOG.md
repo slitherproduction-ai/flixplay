@@ -2,6 +2,52 @@
 
 Todas as alterações relevantes do FlixPlay são registradas neste arquivo.
 
+## [2.13.0] - 2026-09-27
+
+### Segurança e dados
+
+- Credenciais persistidas em cofre AES/GCM com chave não exportável do Android Keystore.
+- Migração automática e transacional do armazenamento legado; o texto simples é removido somente depois da gravação segura.
+- URLs, parâmetros Xtream e erros técnicos são sanitizados antes de logs e relatórios.
+- Catálogos passam a ser persistidos em SQLite, separados por servidor e consultáveis por páginas.
+- A exclusão de uma lista também remove seu cofre e seu cache local.
+
+### Sincronização e desempenho
+
+- TV ao vivo é disponibilizada primeiro; filmes e séries continuam a sincronização em segundo plano.
+- Progresso e falhas são registrados por etapa, sem descartar canais quando VOD ou séries falham.
+- Trocar de servidor cancela as requisições anteriores.
+- Cache offline é restaurado quando o servidor não responde.
+- Quick Switcher passa a usar lista virtualizada e deixa de limitar o catálogo aos primeiros 12 canais.
+- Catálogos sintéticos e playlists com 30.000 itens foram processados sem truncamento.
+
+### Player e interface
+
+- Cast simulado, perfil fictício, buffer decorativo e textos de demonstração foram removidos.
+- Seletores de áudio e legenda usam somente as faixas reais informadas pelo stream.
+- Cima e baixo no player ao vivo fazem zapping direto e circular.
+- Busca global real para canais, filmes e séries, com normalização de acentos.
+- Nova área de Diagnóstico mostra dados reais e gera relatório sanitizado, sem credenciais.
+- Permissão `REQUEST_INSTALL_PACKAGES` removida; download e consentimento ficam sob controle do navegador e do sistema.
+- Permissão de sobreposição `SYSTEM_ALERT_WINDOW` removida também dos manifestos de depuração.
+
+### Compatibilidade
+
+- Versão Android `2.13.0`, código de versão `20261004`.
+- APK universal para `armeabi-v7a` e `arm64-v8a`.
+- Android mínimo API 24 e Target SDK 36.
+- Pacote preservado: `com.fastshot.slitherproduction.flixplay`.
+- Certificado SHA-256 preservado em relação à versão 2.12.1: `0e74497b842b0fac4524cd2b194fc348857a17ffc177dd934a6823f9b8e599f7`.
+
+### Validação
+
+- Verificação TypeScript concluída sem erros.
+- Lint concluído sem avisos.
+- Expo config validado e bundle Android de produção gerado com sucesso.
+- Vinte e cinco testes automatizados aprovados em nove suítes.
+- APK universal validado com SHA-256 `7afc7ac9b96c05d3b415b42dec31ea4e53d996787d2009fc49c1ccbcbf5c6e70`.
+- Homologação física nos dispositivos do checklist permanece como próxima etapa.
+
 ## [2.12.1] - 2026-09-26
 
 ### Correções para Android TV e Fire TV

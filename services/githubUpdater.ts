@@ -8,6 +8,7 @@
 
 import { Linking, Platform } from "react-native";
 import { APP_INFO } from "@/constants/app";
+import { logTechnicalError } from "@/services/security/sanitize";
 
 const GITHUB_API =
   `https://api.github.com/repos/${APP_INFO.githubRepo}/releases/latest`;
@@ -39,6 +40,7 @@ export interface UpdateCheckResult {
   releaseName: string | null;
   releaseNotes: string | null;
   apkUrl: string | null;
+  apkSize: number | null;
   releaseUrl: string | null;
   publishedAt: string | null;
   error: string | null;
@@ -47,10 +49,15 @@ export interface UpdateCheckResult {
 // ─── Version comparison ───────────────────────────────────────────────────────
 
 /** Compare semver strings – returns true when remote > local. */
-function isNewer(remote: string, local: string): boolean {
-  const clean = (v: string) => v.replace(/^v/i, "").split(".").map(Number);
-  const r = clean(remote);
-  const l = clean(local);
+export function isNewer(remote: string, local: string): boolean {
+  const parse = (value: string): number[] | null => {
+    const normalized = value.trim().replace(/^v/i, "");
+    if (!/^\d+\.\d+\.\d+$/.test(normalized)) return null;
+    return normalized.split(".").map(Number);
+  };
+  const r = parse(remote);
+  const l = parse(local);
+  if (!r || !l) return false;
   for (let i = 0; i < Math.max(r.length, l.length); i++) {
     const rv = r[i] ?? 0;
     const lv = l[i] ?? 0;
@@ -61,12 +68,15 @@ function isNewer(remote: string, local: string): boolean {
 }
 
 /** Pick the first .apk asset from a release, or null. */
-function findApkAsset(assets: GitHubAsset[]): GitHubAsset | null {
+export function findApkAsset(assets: GitHubAsset[]): GitHubAsset | null {
   return (
     assets.find(
       (a) =>
-        a.name.toLowerCase().endsWith(".apk") ||
-        a.content_type === "application/vnd.android.package-archive",
+        a.size > 0 &&
+        a.browser_download_url.startsWith("https://") &&
+        a.name.toLowerCase().endsWith(".apk") &&
+        (a.content_type === "application/vnd.android.package-archive" ||
+          a.content_type === "application/octet-stream"),
     ) ?? null
   );
 }
@@ -105,6 +115,7 @@ export async function checkForGitHubUpdate(): Promise<UpdateCheckResult> {
     releaseName: null,
     releaseNotes: null,
     apkUrl: null,
+    apkSize: null,
     releaseUrl: null,
     publishedAt: null,
     error: null,
@@ -130,12 +141,13 @@ export async function checkForGitHubUpdate(): Promise<UpdateCheckResult> {
       releaseName: release.name || release.tag_name,
       releaseNotes: release.body ?? null,
       apkUrl: apkAsset?.browser_download_url ?? null,
+      apkSize: apkAsset?.size ?? null,
       releaseUrl: release.html_url,
       publishedAt: release.published_at,
       error: null,
     };
   } catch (err) {
-    console.error("[githubUpdater] checkForGitHubUpdate failed", err);
+    logTechnicalError("Updater/check", err);
     return {
       ...base,
       error: "Não foi possível verificar atualizações. Verifique sua conexão.",
@@ -146,8 +158,9 @@ export async function checkForGitHubUpdate(): Promise<UpdateCheckResult> {
 /**
  * Attempt to open the APK download URL so the system installer takes over.
  *
- * On Android, this opens the browser/file manager to download and install
- * the APK (requires REQUEST_INSTALL_PACKAGES permission + unknown sources).
+ * On Android, this opens the HTTPS release asset in the browser. The browser
+ * and system package installer own the download/consent flow, so the app does
+ * not request REQUEST_INSTALL_PACKAGES itself.
  * On other platforms, opens the release page instead.
  */
 export async function downloadAndInstallUpdate(
@@ -166,7 +179,7 @@ export async function downloadAndInstallUpdate(
       throw new Error("Não foi possível abrir a URL de download.");
     }
   } catch (err) {
-    console.error("[githubUpdater] downloadAndInstallUpdate failed", err);
+    logTechnicalError("Updater/download", err);
     throw new Error(
       "Não foi possível iniciar o download. Verifique as permissões e tente novamente.",
     );

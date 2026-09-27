@@ -2,7 +2,7 @@
   "expo": {
     "name": "FlixPlay",
     "slug": "flixplay",
-    "version": "2.12.1",
+    "version": "2.13.0",
     "orientation": "default",
     "icon": "./assets/images/flixplay_icon.png",
     "scheme": "fastshot",
@@ -23,7 +23,7 @@
         "backgroundColor": "#07090E"
       },
       "isTV": true,
-      "versionCode": 20261003,
+      "versionCode": 20261004,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
@@ -33,8 +33,7 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.REQUEST_INSTALL_PACKAGES"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
       "edgeToEdgeEnabled": true
     },

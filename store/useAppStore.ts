@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStateStorage } from '@/services/security/secureStorage';
+import { catalogDatabase } from '@/data/database/catalogDatabase';
 import type {
   ContentCache,
   ContentType,
@@ -16,6 +17,9 @@ export interface SyncState {
   lastSyncedServerId: string | null;
   syncError: string | null;
   syncProgress: string | null;
+  progressPercent: number;
+  stages: Record<"live" | "movies" | "series", "pending" | "running" | "complete" | "error">;
+  stageErrors: Partial<Record<"live" | "movies" | "series", string>>;
 }
 
 export interface PiPState {
@@ -86,6 +90,9 @@ const INITIAL_SYNC_STATE: SyncState = {
   lastSyncedServerId: null,
   syncError: null,
   syncProgress: null,
+  progressPercent: 0,
+  stages: { live: "pending", movies: "pending", series: "pending" },
+  stageErrors: {},
 };
 
 const INITIAL_PIP: PiPState = {
@@ -135,6 +142,7 @@ export const useAppStore = create<AppStore>()(
 
       removeServer: (id) =>
         set((state) => {
+          void catalogDatabase.clearServer(id);
           const isActive = state.activeServerId === id;
           return {
             servers: state.servers.filter((s) => s.id !== id),
@@ -145,12 +153,15 @@ export const useAppStore = create<AppStore>()(
         }),
 
       removeAllServers: () =>
-        set(() => ({
+        set(() => {
+          void catalogDatabase.clearAll();
+          return {
           servers: [],
           activeServerId: '',
           contentCache: EMPTY_CACHE,
           syncState: INITIAL_SYNC_STATE,
-        })),
+          };
+        }),
 
       logout: () =>
         set((state) => ({
@@ -251,7 +262,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'app-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => secureStateStorage),
       partialize: (state) => ({
         preferences: state.preferences,
         servers: state.servers,

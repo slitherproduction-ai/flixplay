@@ -4,7 +4,6 @@ describe("player UI state machine", () => {
   it.each([
     ["OPEN_QUICK_ZAPPING", "quick-zapping"],
     ["OPEN_EPG", "epg"],
-    ["OPEN_CAST", "cast"],
     ["SHOW_OSD", "osd"],
   ] as const)("keeps exactly one layer for %s", (type, expected) => {
     expect(reducePlayerUi("osd", { type })).toBe(expected);
@@ -16,7 +15,7 @@ describe("player UI state machine", () => {
   });
 
   it("closes the active layer before asking to leave", () => {
-    const active: PlayerUiLayer[] = ["osd", "quick-zapping", "epg", "cast"];
+    const active: PlayerUiLayer[] = ["osd", "quick-zapping", "epg"];
     active.forEach((layer) => {
       expect(reducePlayerUi(layer, { type: "BACK" })).toBe("hidden");
     });

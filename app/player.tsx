@@ -1,6 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
+import {
+  useVideoPlayer,
+  VideoView,
+  type AudioTrack,
+  type SubtitleTrack,
+} from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   useCallback,
@@ -15,6 +20,7 @@ import {
   ActivityIndicator,
   Animated,
   BackHandler,
+  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -24,11 +30,9 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from "react-native";
-import { DEMO_STREAM_URL } from "@/data/demo";
 import { Colors, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, GlassCard, IconButton } from "@/components/ui";
-import { useScreenLoad } from "@/hooks/useScreenLoad";
 import {
   getTVRemoteEvent,
   useTVRemote,
@@ -40,11 +44,13 @@ import { useChannelEpg } from "@/hooks/useChannelEpg";
 import { useAppStore } from "@/store/useAppStore";
 import { reducePlayerUi, type PlayerUiLayer } from "@/store/playerUiState";
 import type { ChannelItem, ContentType, EpgProgram } from "@/store/types";
+import { logTechnicalError } from "@/services/security/sanitize";
 
 const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
 const OSD_AUTO_HIDE_MS = 4000;
 
 function buildFallbackUrls(url: string, contentType: ContentType): string[] {
+  if (!url.trim()) return [];
   if (contentType !== "live") return [url];
   const base = url.replace(/\.(m3u8|ts)$/i, "");
   if (/\.m3u8$/i.test(url)) return [url, `${base}.ts`];
@@ -71,23 +77,9 @@ function formatRemaining(current: number, total: number): string {
   return `-${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-type Panel = "audio" | "subtitles" | "speed" | "ratio" | "buffer" | null;
+type Panel = "audio" | "subtitles" | "speed" | "ratio" | null;
 type ActivePanel = Exclude<Panel, null>;
 
-
-const AUDIO_OPTIONS = [
-  "Português (Original)",
-  "Inglês (Dublado)",
-  "Espanhol",
-  "Áudio 2",
-];
-
-const SUBTITLE_OPTIONS = [
-  "Desativadas",
-  "Português",
-  "Inglês",
-  "Espanhol",
-];
 
 const SPEED_OPTIONS = [
   { label: "0.5x", value: 0.5 },
@@ -112,38 +104,6 @@ const RATIO_OPTIONS: RatioOption[] = [
   { label: "Esticar", contentFit: "fill" },
 ];
 
-const BUFFER_OPTIONS = [
-  {
-    label: "Rápido (1s)",
-    desc: "Baixa latência — ideal para eventos ao vivo",
-    value: "Rápido",
-  },
-  {
-    label: "Normal (3s)",
-    desc: "Equilibrado — padrão recomendado",
-    value: "Normal",
-  },
-  {
-    label: "Estável / Alto (8s)",
-    desc: "Anti-travamento — conexões instáveis",
-    value: "Estável",
-  },
-];
-
-type CastDevice = {
-  id: string;
-  name: string;
-  type: "chromecast" | "smarttv" | "appletv" | "androidtv";
-  status: "available" | "connected" | "busy";
-};
-
-const MOCK_CAST_DEVICES: CastDevice[] = [
-  { id: "cc1", name: "Chromecast Sala", type: "chromecast", status: "available" },
-  { id: "lg1", name: "Smart TV LG WebOS", type: "smarttv", status: "available" },
-  { id: "atv1", name: "Apple TV 4K", type: "appletv", status: "available" },
-  { id: "atv2", name: "Android TV Quarto", type: "androidtv", status: "available" },
-];
-
 function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -166,7 +126,7 @@ function tryReadDuration(
       setDuration(dur);
     }
   } catch (durErr) {
-    console.error("Não foi possível ler duração do player", durErr);
+    logTechnicalError("Player/duration", durErr);
   }
 }
 
@@ -188,6 +148,8 @@ type RemoteHandlerParams = {
   handleSeek: (s: number) => void;
   handleTogglePlayback: () => void;
   openQuickSwitcher: () => void;
+  zapPrevious: () => void;
+  zapNext: () => void;
   showControlsWithTimer: () => void;
   setPanel: React.Dispatch<React.SetStateAction<Panel>>;
 };
@@ -200,7 +162,9 @@ function usePlayerRemote(p: RemoteHandlerParams) {
         return;
       }
       if (p.uiLayer !== "osd") {
-        if (p.uiLayer === "hidden") p.showControlsWithTimer();
+        if (p.uiLayer === "hidden" && p.contentType === "live" && event === "up") p.zapPrevious();
+        else if (p.uiLayer === "hidden" && p.contentType === "live" && event === "down") p.zapNext();
+        else if (p.uiLayer === "hidden") p.showControlsWithTimer();
         return;
       }
       p.showControlsWithTimer();
@@ -228,14 +192,17 @@ function handleSelectEvent(p: RemoteHandlerParams) {
 
 function handleUpEvent(p: RemoteHandlerParams) {
   if (p.contentType === "live") {
-    p.openQuickSwitcher();
+    p.zapPrevious();
   }
 }
 
 function handleDownEvent(p: RemoteHandlerParams) {
-  p.showControlsWithTimer();
-  p.setPanel(null);
-  setTimeout(() => p.playButtonRef.current?.focus(), 0);
+  if (p.contentType === "live") p.zapNext();
+  else {
+    p.showControlsWithTimer();
+    p.setPanel(null);
+    setTimeout(() => p.playButtonRef.current?.focus(), 0);
+  }
 }
 
 // ─── Pure helpers extracted to keep PlayerScreen under complexity budget ──────
@@ -268,18 +235,16 @@ export default function PlayerScreen() {
     thumbnail?: string | string[];
     seriesId?: string | string[];
   }>();
-  const id = readParam(params.id) ?? "demo-player";
-  const title = readParam(params.title) ?? "FlixPlay Demo";
+  const id = readParam(params.id) ?? "";
+  const title = readParam(params.title) ?? "Conteúdo";
   const type = readParam(params.type) ?? "movie";
-  const streamUrl = readParam(params.streamUrl) ?? DEMO_STREAM_URL;
-  const sourceSubtitle = readParam(params.subtitle) ?? "Retomar reprodução";
+  const streamUrl = readParam(params.streamUrl) ?? "";
+  const sourceSubtitle = readParam(params.subtitle) ?? "";
   const sourceThumbnail = readParam(params.thumbnail) ?? "";
   const sourceSeriesId = readParam(params.seriesId);
-  const { loading, error, retry } = useScreenLoad("o player");
   const tvMode = useTVMode();
   const saveHistory = useAppStore((state) => state.saveHistory);
   const removeHistoryItem = useAppStore((state) => state.removeHistoryItem);
-  const preferences = useAppStore((state) => state.preferences);
   const allChannels = useAppStore((state) => state.contentCache.liveChannels);
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
@@ -303,18 +268,14 @@ export default function PlayerScreen() {
   const durationSetRef = useRef(false);
 
   // ─── Options state ───────────────────────────────────────────────────────────
-  const [selectedAudio, setSelectedAudio] = useState(AUDIO_OPTIONS[0]);
-  const [selectedSubtitle, setSelectedSubtitle] = useState(SUBTITLE_OPTIONS[0]);
+  const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
+  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([]);
+  const [selectedAudio, setSelectedAudio] = useState<AudioTrack | null>(null);
+  const [selectedSubtitle, setSelectedSubtitle] = useState<SubtitleTrack | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [selectedRatio, setSelectedRatio] = useState<RatioOption>(RATIO_OPTIONS[0]);
-  const bufferMode =
-    typeof preferences.bufferMode === "string"
-      ? preferences.bufferMode
-      : "Normal";
-  const setPreference = useAppStore((state) => state.setPreference);
 
   // ─── Overlays ─────────────────────────────────────────────────────────────
-  const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const playButtonRef = useRef<TVFocusableHandle>(null);
   const videoViewRef = useRef<VideoView>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -331,7 +292,7 @@ export default function PlayerScreen() {
   );
 
   const player = useVideoPlayer(
-    { uri: fallbackUrls[0], headers: IPTV_HEADERS },
+    { uri: fallbackUrls[0] ?? "", headers: IPTV_HEADERS },
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
@@ -417,12 +378,19 @@ export default function PlayerScreen() {
           player.replace({ uri: fallbackUrls[nextAttempt], headers: IPTV_HEADERS });
           player.play();
         } catch (replaceErr) {
-          console.error("Falha ao tentar URL de fallback", replaceErr);
+          logTechnicalError("Player/fallback", replaceErr);
           setPlayerError(extractErrorMessage(status));
         }
       } else {
         setPlayerError(extractErrorMessage(status));
       }
+    });
+
+    const sourceSub = player.addListener("sourceLoad", (payload) => {
+      setAudioTracks(payload.availableAudioTracks);
+      setSubtitleTracks(payload.availableSubtitleTracks);
+      setSelectedAudio(player.audioTrack);
+      setSelectedSubtitle(player.subtitleTrack);
     });
 
     const timeSub = player.addListener(
@@ -457,6 +425,7 @@ export default function PlayerScreen() {
     return () => {
       statusSub.remove();
       timeSub.remove();
+      sourceSub.remove();
     };
   }, [contentType, fallbackUrls, id, persistProgress, player]);
 
@@ -478,7 +447,7 @@ export default function PlayerScreen() {
         p["playbackRate"] = playbackRate;
       }
     } catch (rateErr) {
-      console.error("Falha ao definir velocidade de reprodução", rateErr);
+      logTechnicalError("Player/rate", rateErr);
     }
   }, [playbackRate]);
 
@@ -525,7 +494,7 @@ export default function PlayerScreen() {
         player.seekBy(delta);
         setCurrentTime(targetSecs);
       } catch (seekErr) {
-        console.error("Falha ao buscar posição no seek bar", seekErr);
+        logTechnicalError("Player/seekbar", seekErr);
       }
     },
     [contentType, currentTime, duration, player],
@@ -564,7 +533,7 @@ export default function PlayerScreen() {
     try {
       persistProgress(currentTime, duration);
     } catch (saveError) {
-      console.error("Falha ao salvar histórico do player", saveError);
+      logTechnicalError("Player/progress", saveError);
     }
     router.back();
   }, [currentTime, duration, persistProgress, router]);
@@ -603,7 +572,7 @@ export default function PlayerScreen() {
         showControlsWithTimer();
         setPlayerError(null);
       } catch (seekError) {
-        console.error("Falha ao buscar no stream", seekError);
+        logTechnicalError("Player/seek", seekError);
         setPlayerError("Não foi possível alterar o ponto da reprodução.");
       }
     },
@@ -638,12 +607,26 @@ export default function PlayerScreen() {
         setPanel(null);
         showControlsWithTimer();
       } catch (switchError) {
-        console.error("Falha ao trocar de canal", switchError);
+        logTechnicalError("Player/zapping", switchError);
         setPlayerError("Não foi possível trocar para este canal.");
       }
     },
     [allChannels, player, router, showControlsWithTimer],
   );
+
+  const zapByOffset = useCallback(
+    (offset: number) => {
+      if (allChannels.length === 0) return;
+      const currentIndex = allChannels.findIndex((channel) => channel.id === id);
+      const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+      const nextIndex = (baseIndex + offset + allChannels.length) % allChannels.length;
+      handleSwitchChannel(allChannels[nextIndex].id);
+    },
+    [allChannels, handleSwitchChannel, id],
+  );
+
+  const zapPrevious = useCallback(() => zapByOffset(-1), [zapByOffset]);
+  const zapNext = useCallback(() => zapByOffset(1), [zapByOffset]);
 
   const handleTap = useCallback(() => {
     if (uiLayer === "hidden") {
@@ -657,6 +640,10 @@ export default function PlayerScreen() {
   }, [clearHideTimer, showControlsWithTimer, uiLayer]);
 
   const handleRetry = useCallback(() => {
+    if (!fallbackUrls[0]) {
+      setPlayerError("Endereço do stream não informado.");
+      return;
+    }
     setPlayerError(null);
     urlAttemptRef.current = 0;
     durationSetRef.current = false;
@@ -664,28 +651,30 @@ export default function PlayerScreen() {
       player.replace({ uri: fallbackUrls[0], headers: IPTV_HEADERS });
       player.play();
     } catch (retryErr) {
-      console.error("Falha ao reiniciar reprodução", retryErr);
-      void retry();
+      logTechnicalError("Player/retry", retryErr);
+      setPlayerError("Não foi possível reiniciar a reprodução.");
     }
-  }, [fallbackUrls, player, retry]);
+  }, [fallbackUrls, player]);
 
   // ─── Option selectors ────────────────────────────────────────────────────
   const handleSelectAudio = useCallback(
-    (option: string) => {
-      setSelectedAudio(option);
+    (track: AudioTrack) => {
+      player.audioTrack = track;
+      setSelectedAudio(track);
       setPanel(null);
       showControlsWithTimer();
     },
-    [showControlsWithTimer],
+    [player, showControlsWithTimer],
   );
 
   const handleSelectSubtitle = useCallback(
-    (option: string) => {
-      setSelectedSubtitle(option);
+    (track: SubtitleTrack | null) => {
+      player.subtitleTrack = track;
+      setSelectedSubtitle(track);
       setPanel(null);
       showControlsWithTimer();
     },
-    [showControlsWithTimer],
+    [player, showControlsWithTimer],
   );
 
   const handleSelectSpeed = useCallback(
@@ -706,15 +695,6 @@ export default function PlayerScreen() {
     [showControlsWithTimer],
   );
 
-  const handleSelectBuffer = useCallback(
-    (value: string) => {
-      setPreference("bufferMode", value);
-      setPanel(null);
-      showControlsWithTimer();
-    },
-    [setPreference, showControlsWithTimer],
-  );
-
   // ─── Native Picture-in-Picture ───────────────────────────────────────────
   const handleTogglePip = useCallback(async () => {
     if (Platform.OS !== "web") {
@@ -722,7 +702,7 @@ export default function PlayerScreen() {
         await videoViewRef.current?.startPictureInPicture();
         return;
       } catch (pipError) {
-        console.error("PiP nativo indisponível; ativando miniplayer interno", pipError);
+        logTechnicalError("Player/PiP", pipError);
       }
     }
     const pipSubtitle = contentType === "live" ? "Canal ao vivo" : sourceSubtitle;
@@ -730,11 +710,6 @@ export default function PlayerScreen() {
     persistProgress(currentTime, duration);
     router.back();
   }, [activatePip, backdrop, contentType, currentTime, duration, id, persistProgress, router, sourceSubtitle, streamUrl, title]);
-
-  // ─── Cast ─────────────────────────────────────────────────────────────────
-  const handleCastConnect = useCallback((deviceId: string) => {
-    setConnectedDevice((prev) => (prev === deviceId ? null : deviceId));
-  }, []);
 
   // ─── TV remote ───────────────────────────────────────────────────────────
   const handleOpenQuickSwitcher = useCallback(() => {
@@ -753,12 +728,6 @@ export default function PlayerScreen() {
     dispatchUi({ type: "OPEN_EPG" });
   }, [clearHideTimer]);
 
-  const handleOpenCast = useCallback(() => {
-    clearHideTimer();
-    setPanel(null);
-    dispatchUi({ type: "OPEN_CAST" });
-  }, [clearHideTimer]);
-
   const handleCloseOverlay = useCallback(() => {
     dispatchUi({ type: "HIDE" });
   }, []);
@@ -773,6 +742,8 @@ export default function PlayerScreen() {
       handleSeek,
       handleTogglePlayback,
       openQuickSwitcher: handleOpenQuickSwitcher,
+      zapPrevious,
+      zapNext,
       showControlsWithTimer,
       setPanel,
     }),
@@ -784,6 +755,8 @@ export default function PlayerScreen() {
       handleSeek,
       handleTogglePlayback,
       handleOpenQuickSwitcher,
+      zapNext,
+      zapPrevious,
       showControlsWithTimer,
     ],
   );
@@ -845,22 +818,11 @@ export default function PlayerScreen() {
         startsPictureInPictureAutomatically={Platform.OS === "android" && !tvMode}
       />
 
-      {/* Subtitle overlay */}
-      {selectedSubtitle !== "Desativadas" ? (
-        <View style={styles.subtitleOverlay} pointerEvents="none">
-          <AppText style={styles.subtitleText}>
-            [Legenda {selectedSubtitle} — aguardando stream]
-          </AppText>
-        </View>
-      ) : null}
-
       {/* Buffering indicator */}
       {isBuffering ? (
         <View style={styles.bufferingOverlay} pointerEvents="none">
           <ActivityIndicator size="large" color={Colors.blueBright} />
-          <AppText style={styles.bufferingText}>
-            Buffering — {bufferMode}
-          </AppText>
+          <AppText style={styles.bufferingText}>Carregando stream...</AppText>
         </View>
       ) : null}
 
@@ -878,12 +840,10 @@ export default function PlayerScreen() {
           <PlayerTopBar
             title={title}
             contentType={contentType}
-            connectedDevice={connectedDevice}
             onBack={handleRequestExit}
             onToggleQuickSwitcher={handleOpenQuickSwitcher}
             onTogglePip={handleTogglePip}
             onOpenEpg={handleOpenEpg}
-            onOpenCast={handleOpenCast}
           />
           <PlayerBottomPanel
             playButtonRef={playButtonRef}
@@ -895,9 +855,10 @@ export default function PlayerScreen() {
             progressPct={progressPct}
             selectedAudio={selectedAudio}
             selectedSubtitle={selectedSubtitle}
+            audioTracks={audioTracks}
+            subtitleTracks={subtitleTracks}
             playbackRate={playbackRate}
             selectedRatio={selectedRatio}
-            bufferMode={bufferMode}
             currentEpg={epg.current}
             nextEpg={epg.next}
             epgLoading={epg.isLoading}
@@ -912,7 +873,6 @@ export default function PlayerScreen() {
             onSelectSubtitle={handleSelectSubtitle}
             onSelectSpeed={handleSelectSpeed}
             onSelectRatio={handleSelectRatio}
-            onSelectBuffer={handleSelectBuffer}
           />
         </Animated.View>
 
@@ -926,8 +886,8 @@ export default function PlayerScreen() {
         />
 
         <PlayerStatus
-          loading={loading}
-          error={playerError ?? error}
+          loading={!playerError && player.status === "loading"}
+          error={playerError}
           onRetry={handleRetry}
         />
       </View>
@@ -944,21 +904,6 @@ export default function PlayerScreen() {
           programs={epg.programs}
           isLoading={epg.isLoading}
           error={epg.error}
-          onClose={handleCloseOverlay}
-        />
-      </Modal>
-
-      {/* Cast Modal */}
-      <Modal
-        visible={uiLayer === "cast"}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCloseOverlay}
-      >
-        <CastModal
-          devices={MOCK_CAST_DEVICES}
-          connectedDevice={connectedDevice}
-          onConnect={handleCastConnect}
           onClose={handleCloseOverlay}
         />
       </Modal>
@@ -1000,21 +945,17 @@ export default function PlayerScreen() {
 function PlayerTopBar({
   title,
   contentType,
-  connectedDevice,
   onBack,
   onToggleQuickSwitcher,
   onTogglePip,
   onOpenEpg,
-  onOpenCast,
 }: {
   title: string;
   contentType: ContentType;
-  connectedDevice: string | null;
   onBack: () => void;
   onToggleQuickSwitcher: () => void;
   onTogglePip: () => void;
   onOpenEpg: () => void;
-  onOpenCast: () => void;
 }) {
   return (
     <View pointerEvents="box-none" style={styles.topBar}>
@@ -1031,7 +972,7 @@ function PlayerTopBar({
             ]}
           />
           <AppText style={styles.playerMeta}>
-            {contentType === "live" ? "AO VIVO" : "FLIXPLAY DEMO"}
+            {contentType === "live" ? "AO VIVO" : contentType === "episode" ? "EPISÓDIO" : "VÍDEO"}
           </AppText>
         </View>
       </View>
@@ -1048,17 +989,13 @@ function PlayerTopBar({
           label="Picture-in-Picture"
           onPress={onTogglePip}
         />
-        <IconButton
-          icon="wifi-outline"
-          label="Espelhar / Cast"
-          active={connectedDevice !== null}
-          onPress={onOpenCast}
-        />
-        <IconButton
-          icon="albums-outline"
-          label="Abrir canais recentes"
-          onPress={onToggleQuickSwitcher}
-        />
+        {contentType === "live" ? (
+          <IconButton
+            icon="albums-outline"
+            label="Abrir grade de canais"
+            onPress={onToggleQuickSwitcher}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -1094,7 +1031,7 @@ function QuickSwitcher({
         : channelList.filter((channel) => channel.categoryName === category);
     const current = filtered.find((channel) => channel.id === currentId);
     const others = filtered.filter((channel) => channel.id !== currentId);
-    return current ? [current, ...others].slice(0, 12) : others.slice(0, 12);
+    return current ? [current, ...others] : others;
   }, [category, channelList, currentId, favoriteChannelIds]);
 
   if (!visible) return null;
@@ -1119,23 +1056,31 @@ function QuickSwitcher({
           </TVFocusable>
         ))}
       </ScrollView>
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.quickChannelScroll}>
-        <View style={styles.quickGrid}>
-          {visibleChannels.map((channel) => (
-            <QuickChannel
-              key={channel.id}
-              channelId={channel.id}
-              name={channel.name}
-              logo={channel.logo}
-              program={channel.currentEpg.title}
-              progress={channel.currentEpg.progress}
-              active={channel.id === currentId}
-              onSwitch={onSwitch}
-            />
-          ))}
-        </View>
-        {visibleChannels.length === 0 ? <AppText style={styles.quickEmpty}>Nenhum canal disponível nesta grade.</AppText> : null}
-      </ScrollView>
+      <FlatList
+        data={visibleChannels}
+        keyExtractor={(channel) => channel.id}
+        numColumns={2}
+        initialNumToRender={20}
+        maxToRenderPerBatch={25}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === "android"}
+        showsVerticalScrollIndicator={false}
+        style={styles.quickChannelScroll}
+        contentContainerStyle={styles.quickGrid}
+        columnWrapperStyle={styles.quickGridRow}
+        renderItem={({ item: channel }) => (
+          <QuickChannel
+            channelId={channel.id}
+            name={channel.name}
+            logo={channel.logo}
+            program={channel.currentEpg.title}
+            progress={channel.currentEpg.progress}
+            active={channel.id === currentId}
+            onSwitch={onSwitch}
+          />
+        )}
+        ListEmptyComponent={<AppText style={styles.quickEmpty}>Nenhum canal disponível nesta grade.</AppText>}
+      />
     </GlassCard>
   );
 }
@@ -1236,9 +1181,10 @@ function PlayerBottomPanel({
   progressPct,
   selectedAudio,
   selectedSubtitle,
+  audioTracks,
+  subtitleTracks,
   playbackRate,
   selectedRatio,
-  bufferMode,
   currentEpg,
   nextEpg,
   epgLoading,
@@ -1253,7 +1199,6 @@ function PlayerBottomPanel({
   onSelectSubtitle,
   onSelectSpeed,
   onSelectRatio,
-  onSelectBuffer,
 }: {
   playButtonRef: Ref<TVFocusableHandle>;
   contentType: ContentType;
@@ -1262,11 +1207,12 @@ function PlayerBottomPanel({
   currentTime: number;
   duration: number;
   progressPct: number;
-  selectedAudio: string;
-  selectedSubtitle: string;
+  selectedAudio: AudioTrack | null;
+  selectedSubtitle: SubtitleTrack | null;
+  audioTracks: AudioTrack[];
+  subtitleTracks: SubtitleTrack[];
   playbackRate: number;
   selectedRatio: RatioOption;
-  bufferMode: string;
   currentEpg: EpgProgram | null;
   nextEpg: EpgProgram | null;
   epgLoading: boolean;
@@ -1277,11 +1223,10 @@ function PlayerBottomPanel({
   onProgressGrant: (e: GestureResponderEvent) => void;
   onProgressMove: (e: GestureResponderEvent) => void;
   onProgressRelease: () => void;
-  onSelectAudio: (option: string) => void;
-  onSelectSubtitle: (option: string) => void;
+  onSelectAudio: (option: AudioTrack) => void;
+  onSelectSubtitle: (option: SubtitleTrack | null) => void;
   onSelectSpeed: (value: number) => void;
   onSelectRatio: (option: RatioOption) => void;
-  onSelectBuffer: (value: string) => void;
 }) {
   const handleBackward = useCallback(() => onSeek(-10), [onSeek]);
   const handleForward = useCallback(() => onSeek(10), [onSeek]);
@@ -1410,20 +1355,24 @@ function PlayerBottomPanel({
 
       {/* Option buttons row */}
       <View style={styles.optionRow}>
-        <PlayerOptionButton
-          icon="musical-notes-outline"
-          label="Áudio"
-          panel="audio"
-          active={panel === "audio"}
-          onPanelChange={onPanelChange}
-        />
-        <PlayerOptionButton
-          icon="chatbox-ellipses-outline"
-          label="Legendas"
-          panel="subtitles"
-          active={panel === "subtitles"}
-          onPanelChange={onPanelChange}
-        />
+        {audioTracks.length > 1 ? (
+          <PlayerOptionButton
+            icon="musical-notes-outline"
+            label="Áudio"
+            panel="audio"
+            active={panel === "audio"}
+            onPanelChange={onPanelChange}
+          />
+        ) : null}
+        {subtitleTracks.length > 0 ? (
+          <PlayerOptionButton
+            icon="chatbox-ellipses-outline"
+            label="Legendas"
+            panel="subtitles"
+            active={panel === "subtitles"}
+            onPanelChange={onPanelChange}
+          />
+        ) : null}
         <PlayerOptionButton
           icon="speedometer-outline"
           label="Velocidade"
@@ -1438,15 +1387,6 @@ function PlayerBottomPanel({
           active={panel === "ratio"}
           onPanelChange={onPanelChange}
         />
-        {isLive ? (
-          <PlayerOptionButton
-            icon="wifi-outline"
-            label="Buffer"
-            panel="buffer"
-            active={panel === "buffer"}
-            onPanelChange={onPanelChange}
-          />
-        ) : null}
       </View>
 
       {panel ? (
@@ -1454,14 +1394,14 @@ function PlayerBottomPanel({
           panel={panel}
           selectedAudio={selectedAudio}
           selectedSubtitle={selectedSubtitle}
+          audioTracks={audioTracks}
+          subtitleTracks={subtitleTracks}
           playbackRate={playbackRate}
           selectedRatio={selectedRatio}
-          bufferMode={bufferMode}
           onSelectAudio={onSelectAudio}
           onSelectSubtitle={onSelectSubtitle}
           onSelectSpeed={onSelectSpeed}
           onSelectRatio={onSelectRatio}
-          onSelectBuffer={onSelectBuffer}
         />
       ) : null}
     </View>
@@ -1470,27 +1410,40 @@ function PlayerBottomPanel({
 
 type ActivePanelSectionProps = {
   panel: ActivePanel;
-  selectedAudio: string;
-  selectedSubtitle: string;
+  selectedAudio: AudioTrack | null;
+  selectedSubtitle: SubtitleTrack | null;
+  audioTracks: AudioTrack[];
+  subtitleTracks: SubtitleTrack[];
   playbackRate: number;
   selectedRatio: RatioOption;
-  bufferMode: string;
-  onSelectAudio: (o: string) => void;
-  onSelectSubtitle: (o: string) => void;
+  onSelectAudio: (o: AudioTrack) => void;
+  onSelectSubtitle: (o: SubtitleTrack | null) => void;
   onSelectSpeed: (v: number) => void;
   onSelectRatio: (o: RatioOption) => void;
-  onSelectBuffer: (v: string) => void;
 };
 
+function trackKey(track: AudioTrack | SubtitleTrack): string {
+  return track.id ?? `${track.language}:${track.label}:${track.name ?? ""}`;
+}
+
+function trackLabel(track: AudioTrack | SubtitleTrack): string {
+  const name = track.name?.trim() || track.label?.trim();
+  const language = track.language?.trim();
+  if (name && language && name.toLocaleLowerCase() !== language.toLocaleLowerCase()) {
+    return `${name} (${language})`;
+  }
+  return name || language || "Faixa padrão";
+}
+
 function ActivePanelSection(props: ActivePanelSectionProps) {
-  const { panel, selectedAudio, selectedSubtitle, playbackRate, selectedRatio, bufferMode,
-    onSelectAudio, onSelectSubtitle, onSelectSpeed, onSelectRatio, onSelectBuffer } = props;
+  const { panel, selectedAudio, selectedSubtitle, audioTracks, subtitleTracks, playbackRate, selectedRatio,
+    onSelectAudio, onSelectSubtitle, onSelectSpeed, onSelectRatio } = props;
 
   if (panel === "audio") {
     return (
       <OptionPanel title="Faixa de Áudio">
-        {AUDIO_OPTIONS.map((opt) => (
-          <OptionChip key={opt} label={opt} selected={opt === selectedAudio} onSelect={() => onSelectAudio(opt)} />
+        {audioTracks.map((track) => (
+          <OptionChip key={trackKey(track)} label={trackLabel(track)} selected={selectedAudio ? trackKey(track) === trackKey(selectedAudio) : track.isDefault === true} onSelect={() => onSelectAudio(track)} />
         ))}
       </OptionPanel>
     );
@@ -1498,8 +1451,9 @@ function ActivePanelSection(props: ActivePanelSectionProps) {
   if (panel === "subtitles") {
     return (
       <OptionPanel title="Legendas">
-        {SUBTITLE_OPTIONS.map((opt) => (
-          <OptionChip key={opt} label={opt} selected={opt === selectedSubtitle} onSelect={() => onSelectSubtitle(opt)} />
+        <OptionChip label="Desativadas" selected={selectedSubtitle === null} onSelect={() => onSelectSubtitle(null)} />
+        {subtitleTracks.map((track) => (
+          <OptionChip key={trackKey(track)} label={trackLabel(track)} selected={selectedSubtitle ? trackKey(track) === trackKey(selectedSubtitle) : false} onSelect={() => onSelectSubtitle(track)} />
         ))}
       </OptionPanel>
     );
@@ -1522,13 +1476,7 @@ function ActivePanelSection(props: ActivePanelSectionProps) {
       </OptionPanel>
     );
   }
-  return (
-    <OptionPanel title="Buffer / Latência (Canais ao Vivo)">
-      {BUFFER_OPTIONS.map((opt) => (
-        <OptionChipDetail key={opt.value} label={opt.label} detail={opt.desc} selected={opt.value === bufferMode} onSelect={() => onSelectBuffer(opt.value)} />
-      ))}
-    </OptionPanel>
-  );
+  return null;
 }
 
 function PlayerOptionButton({
@@ -1620,48 +1568,6 @@ function OptionChip({
       >
         {label}
       </AppText>
-      {selected ? (
-        <Ionicons name="checkmark" size={14} color={Colors.blueBright} />
-      ) : null}
-    </TVFocusable>
-  );
-}
-
-function OptionChipDetail({
-  label,
-  detail,
-  selected,
-  onSelect,
-}: {
-  label: string;
-  detail: string;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const handlePress = useCallback(() => {
-    onSelect();
-  }, [onSelect]);
-
-  return (
-    <TVFocusable
-      accessibilityRole="button"
-      onPress={handlePress}
-      style={[
-        styles.optionValueDetail,
-        selected && styles.optionValueSelected,
-      ]}
-    >
-      <View style={styles.optionValueDetailInner}>
-        <AppText
-          style={[
-            styles.optionValueText,
-            selected && styles.optionValueTextSelected,
-          ]}
-        >
-          {label}
-        </AppText>
-        <AppText style={styles.optionValueDetailDesc}>{detail}</AppText>
-      </View>
       {selected ? (
         <Ionicons name="checkmark" size={14} color={Colors.blueBright} />
       ) : null}
@@ -1792,138 +1698,6 @@ function EpgProgramRow({ entry }: { entry: EpgProgram }) {
   );
 }
 
-// ─── Cast Modal ───────────────────────────────────────────────────────────────
-
-const CAST_ICONS: Record<CastDevice["type"], keyof typeof Ionicons.glyphMap> = {
-  chromecast: "logo-google",
-  smarttv: "tv-outline",
-  appletv: "logo-apple",
-  androidtv: "logo-android",
-};
-
-function CastModal({
-  devices,
-  connectedDevice,
-  onConnect,
-  onClose,
-}: {
-  devices: CastDevice[];
-  connectedDevice: string | null;
-  onConnect: (deviceId: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <View style={styles.modalBackdrop}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={styles.castSheet}>
-        <View style={styles.castHeader}>
-          <View>
-            <AppText style={styles.castKicker}>ESPELHAMENTO / CAST</AppText>
-            <AppText style={styles.castTitle}>Dispositivos Disponíveis</AppText>
-          </View>
-          <TVFocusable onPress={onClose} style={styles.epgCloseBtn} accessibilityLabel="Fechar Cast">
-            <Ionicons name="close" size={20} color={Colors.text} />
-          </TVFocusable>
-        </View>
-
-        {connectedDevice ? (
-          <View style={styles.castConnectedBanner}>
-            <Ionicons name="checkmark-circle" size={16} color={Colors.green} />
-            <AppText style={styles.castConnectedText}>
-              Transmitindo para:{" "}
-              {devices.find((d) => d.id === connectedDevice)?.name ?? ""}
-            </AppText>
-          </View>
-        ) : (
-          <View style={styles.castScanRow}>
-            <ActivityIndicator size="small" color={Colors.blueBright} />
-            <AppText style={styles.castScanText}>
-              Buscando dispositivos na rede...
-            </AppText>
-          </View>
-        )}
-
-        <View style={styles.castDeviceList}>
-          {devices.map((device) => (
-            <CastDeviceRow
-              key={device.id}
-              device={device}
-              isConnected={connectedDevice === device.id}
-              onConnect={onConnect}
-            />
-          ))}
-        </View>
-
-        <View style={styles.castFooter}>
-          <Ionicons
-            name="information-circle-outline"
-            size={14}
-            color={Colors.subtle}
-          />
-          <AppText style={styles.castFooterText}>
-            Certifique-se de que os dispositivos estão na mesma rede Wi-Fi
-          </AppText>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function CastDeviceRow({
-  device,
-  isConnected,
-  onConnect,
-}: {
-  device: CastDevice;
-  isConnected: boolean;
-  onConnect: (deviceId: string) => void;
-}) {
-  const handlePress = useCallback(() => {
-    onConnect(device.id);
-  }, [device.id, onConnect]);
-
-  return (
-    <TVFocusable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.castDevice,
-        isConnected && styles.castDeviceConnected,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View
-        style={[
-          styles.castDeviceIcon,
-          isConnected && styles.castDeviceIconActive,
-        ]}
-      >
-        <Ionicons
-          name={CAST_ICONS[device.type]}
-          size={20}
-          color={isConnected ? Colors.white : Colors.blueBright}
-        />
-      </View>
-      <View style={styles.castDeviceCopy}>
-        <AppText style={styles.castDeviceName}>{device.name}</AppText>
-        <AppText style={styles.castDeviceType}>
-          {device.type === "chromecast"
-            ? "Chromecast"
-            : device.type === "smarttv"
-            ? "Smart TV"
-            : device.type === "appletv"
-            ? "Apple TV"
-            : "Android TV"}
-        </AppText>
-      </View>
-      <View style={[styles.castConnectBtn, isConnected && styles.castConnectBtnActive]}>
-        <AppText style={[styles.castConnectText, isConnected && styles.castConnectTextActive]}>
-          {isConnected ? "Desconectar" : "Conectar"}
-        </AppText>
-      </View>
-    </TVFocusable>
-  );
-}
-
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -1986,29 +1760,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.blue,
   },
   exitPrimaryText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.white },
-
-  // Subtitle overlay
-  subtitleOverlay: {
-    position: "absolute",
-    bottom: 130,
-    left: 30,
-    right: 30,
-    alignItems: "center",
-  },
-  subtitleText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    color: Colors.white,
-    textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: "rgba(0,0,0,0.72)",
-    textShadowColor: "rgba(0,0,0,0.9)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
 
   // Buffering
   bufferingOverlay: {
@@ -2096,10 +1847,11 @@ const styles = StyleSheet.create({
   quickCategoryText: { fontSize: 10, color: Colors.muted },
   quickCategoryTextActive: { color: Colors.white },
   quickChannelScroll: { maxHeight: 230 },
-  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  quickGrid: { gap: 6 },
+  quickGridRow: { gap: 6 },
   quickEmpty: { paddingVertical: 20, textAlign: "center", color: Colors.subtle },
   quickChannel: {
-    width: "49%",
+    flex: 1,
     minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
@@ -2318,20 +2070,6 @@ const styles = StyleSheet.create({
     color: Colors.muted,
   },
   optionValueTextSelected: { color: Colors.white },
-  optionValueDetail: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    minWidth: 160,
-  },
-  optionValueDetailInner: { flex: 1, gap: 2 },
-  optionValueDetailDesc: { fontSize: 9, color: Colors.subtle },
 
   // EPG Modal
   modalBackdrop: {
@@ -2468,126 +2206,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.blueBright,
   },
   epgDescription: { fontSize: 11, lineHeight: 16, color: Colors.muted },
-
-  // Cast Modal
-  castSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: "#0D111A",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.12)",
-    paddingBottom: 36,
-    ...Shadows.card,
-  },
-  castHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
-  },
-  castKicker: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 9,
-    letterSpacing: 1,
-    color: Colors.blueBright,
-  },
-  castTitle: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 18,
-    color: Colors.text,
-    marginTop: 2,
-  },
-  castConnectedBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 20,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.3)",
-    backgroundColor: "rgba(16,185,129,0.1)",
-  },
-  castConnectedText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    color: "#6EE7B7",
-  },
-  castScanRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  castScanText: { fontSize: 12, color: Colors.muted },
-  castDeviceList: { paddingHorizontal: 16, paddingTop: 8, gap: 8 },
-  castDevice: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    backgroundColor: "rgba(255,255,255,0.05)",
-  },
-  castDeviceConnected: {
-    borderColor: "rgba(96,165,250,0.4)",
-    backgroundColor: "rgba(59,130,246,0.12)",
-  },
-  castDeviceIcon: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 13,
-    backgroundColor: "rgba(59,130,246,0.15)",
-  },
-  castDeviceIconActive: {
-    backgroundColor: Colors.blue,
-  },
-  castDeviceCopy: { flex: 1, gap: 3 },
-  castDeviceName: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-    color: Colors.text,
-  },
-  castDeviceType: { fontSize: 11, color: Colors.subtle },
-  castConnectBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(96,165,250,0.4)",
-    backgroundColor: "rgba(59,130,246,0.1)",
-  },
-  castConnectBtnActive: {
-    borderColor: "rgba(229,9,20,0.4)",
-    backgroundColor: "rgba(229,9,20,0.1)",
-  },
-  castConnectText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-    color: Colors.blueBright,
-  },
-  castConnectTextActive: { color: Colors.red },
-  castFooter: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 6,
-    marginHorizontal: 20,
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  castFooterText: { flex: 1, fontSize: 11, color: Colors.subtle, lineHeight: 16 },
 
   pressed: { opacity: 0.72 },
 });

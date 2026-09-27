@@ -7,6 +7,7 @@ import {
 } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem, EpgProgram, ServerProfile } from "@/store/types";
+import { logTechnicalError } from "@/services/security/sanitize";
 
 export const EPG_CACHE_TTL_MS = 5 * 60 * 1000;
 const EPG_CLOCK_INTERVAL_MS = 30 * 1000;
@@ -85,7 +86,7 @@ export function useChannelEpg(channelId: string | undefined) {
         if (normalized.length > 0) updateChannelEpg(channel.id, normalized);
       } catch (loadError) {
         if (cancelled) return;
-        console.error("Falha ao carregar EPG real", loadError);
+        logTechnicalError("EPG", loadError);
         setError("Programação indisponível para este canal.");
       } finally {
         if (!cancelled) setIsLoading(false);

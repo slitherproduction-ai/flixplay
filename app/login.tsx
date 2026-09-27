@@ -23,6 +23,7 @@ import type { XtreamUserInfo } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { logTechnicalError } from "@/services/security/sanitize";
 
 interface DiagInfo {
   testedUrl: string;
@@ -59,14 +60,20 @@ function buildDiagInfoFromError(err: unknown): DiagInfo | null {
 
 /** Maps a successfully authenticated user_info into the profile fields to persist. */
 function buildProfileUpdate(userInfo: XtreamUserInfo) {
-  const hasM3u8 =
-    Array.isArray(userInfo.allowed_output_formats) &&
-    userInfo.allowed_output_formats.includes("m3u8");
+  const formats = Array.isArray(userInfo.allowed_output_formats)
+    ? userInfo.allowed_output_formats.map((value) => value.toLowerCase())
+    : [];
+  const format = formats.includes("m3u8")
+    ? "HLS"
+    : formats.includes("ts")
+      ? "TS"
+      : null;
   return {
     expiryDate: parseExpiryDisplay(userInfo.exp_date ?? null),
-    maxConnections: Number(userInfo.max_connections) || 1,
-    activeConnections: Number(userInfo.active_cons) || 0,
-    format: (hasM3u8 ? "HLS" : "TS") as ServerProfile["format"],
+    maxConnections: userInfo.max_connections ? Number(userInfo.max_connections) : null,
+    activeConnections: userInfo.active_cons ? Number(userInfo.active_cons) : null,
+    format: format as ServerProfile["format"],
+    status: userInfo.status ?? null,
   };
 }
 
@@ -122,6 +129,11 @@ function formatAddedAt(iso?: string): string {
   } catch {
     return "Data inválida";
   }
+}
+
+function maskUsername(value: string): string {
+  if (value.length <= 2) return "••";
+  return `${value.slice(0, 1)}${"•".repeat(Math.min(6, value.length - 2))}${value.slice(-1)}`;
 }
 
 function validateLoginFields(host: string, username: string, password: string): string | null {
@@ -235,7 +247,7 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: 
                     {server.serverUrl}
                   </AppText>
                   <AppText style={modalStyles.serverMeta}>
-                    {server.username} · Adicionado em {formatAddedAt(server.addedAt)}
+                    {maskUsername(server.username)} · Adicionado em {formatAddedAt(server.addedAt)}
                   </AppText>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={Colors.subtle} />
@@ -325,9 +337,9 @@ export default function LoginScreen() {
         password,
         isActive: true,
         expiryDate: "Não informado",
-        maxConnections: 1,
-        activeConnections: 0,
-        format: "HLS",
+        maxConnections: null,
+        activeConnections: null,
+        format: null,
         addedAt: new Date().toISOString(),
       };
 
@@ -348,7 +360,7 @@ export default function LoginScreen() {
       addServer({ ...profile, ...buildProfileUpdate(userInfo) });
       router.replace("/(tabs)");
     } catch (connectError) {
-      console.error("Falha ao conectar servidor Xtream", connectError);
+      logTechnicalError("Login Xtream", connectError);
       setError(mapConnectError(connectError));
       const diag = buildDiagInfoFromError(connectError);
       if (diag) setDiagInfo(diag);

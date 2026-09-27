@@ -12,9 +12,11 @@ export interface ServerProfile {
   password: string;
   isActive: boolean;
   expiryDate: string;
-  maxConnections: number;
-  activeConnections: number;
-  format: "TS" | "HLS" | "M3U8";
+  maxConnections: number | null;
+  activeConnections: number | null;
+  format: "TS" | "HLS" | "M3U8" | null;
+  status?: string | null;
+  lastSyncedAt?: string | null;
   addedAt?: string;
 }
 
@@ -58,7 +60,7 @@ export interface VodMovie {
   plot: string;
   streamUrl: string;
   resumePositionMs?: number;
-  quality: "4K" | "FHD" | "HD";
+  quality?: "4K" | "FHD" | "HD";
 }
 
 export interface SeriesItem {

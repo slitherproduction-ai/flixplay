@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import type { ChannelItem, EpgProgram, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
+import { logTechnicalError } from "@/services/security/sanitize";
 
 export interface XtreamCategory {
   category_id: string;
@@ -215,16 +216,17 @@ function buildApiUrl(
 }
 
 /** Fetch with an independent AbortController timeout so retries get a fresh clock. */
-async function timedFetch(url: string, ms: number): Promise<Response> {
+async function timedFetch(url: string, ms: number, externalSignal?: AbortSignal): Promise<Response> {
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), ms);
+  const abortFromCaller = () => ctrl.abort();
+  externalSignal?.addEventListener("abort", abortFromCaller, { once: true });
   try {
     const res = await fetch(url, { headers: XTREAM_HEADERS, signal: ctrl.signal });
-    clearTimeout(tid);
     return res;
-  } catch (err) {
+  } finally {
     clearTimeout(tid);
-    throw err;
+    externalSignal?.removeEventListener("abort", abortFromCaller);
   }
 }
 
@@ -237,9 +239,9 @@ function isAbortError(err: unknown): boolean {
  * Credentials must never be forwarded to third-party CORS proxies. When the
  * browser blocks the request, users should prefer HTTPS or the native app.
  */
-async function fetchWebDirect(url: string): Promise<Response> {
+async function fetchWebDirect(url: string, signal?: AbortSignal): Promise<Response> {
   try {
-    return await timedFetch(url, REQUEST_TIMEOUT_MS);
+    return await timedFetch(url, REQUEST_TIMEOUT_MS, signal);
   } catch (directErr) {
     if (isAbortError(directErr)) {
       throw new XtreamApiError(
@@ -268,12 +270,12 @@ function isCleartextBlockError(err: unknown): boolean {
  * might already have cleartext enabled but the error message is misleading.
  * Only after both attempts fail do we surface a diagnostic.
  */
-async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
+async function fetchNativeWithProtocolSwap(url: string, signal?: AbortSignal): Promise<Response> {
   let firstError: unknown;
 
   // Attempt 1: original URL
   try {
-    return await timedFetch(url, REQUEST_TIMEOUT_MS);
+    return await timedFetch(url, REQUEST_TIMEOUT_MS, signal);
   } catch (err) {
     if (isAbortError(err)) {
       throw new XtreamApiError(
@@ -291,7 +293,7 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
     : url.replace("http://", "https://");
 
   try {
-    return await timedFetch(altUrl, REQUEST_TIMEOUT_MS);
+    return await timedFetch(altUrl, REQUEST_TIMEOUT_MS, signal);
   } catch (altErr) {
     if (isAbortError(altErr)) {
       throw new XtreamApiError(
@@ -317,10 +319,10 @@ async function fetchNativeWithProtocolSwap(url: string): Promise<Response> {
   );
 }
 
-function fetchWithFallbacks(url: string): Promise<Response> {
+function fetchWithFallbacks(url: string, signal?: AbortSignal): Promise<Response> {
   return Platform.OS === "web"
-    ? fetchWebDirect(url)
-    : fetchNativeWithProtocolSwap(url);
+    ? fetchWebDirect(url, signal)
+    : fetchNativeWithProtocolSwap(url, signal);
 }
 
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */
@@ -390,13 +392,14 @@ async function requestXtream<T>(
   profile: ServerProfile,
   action?: string,
   params: Record<string, string> = {},
+  signal?: AbortSignal,
 ): Promise<T> {
   const url = buildApiUrl(profile, action, params);
   try {
-    const response = await fetchWithFallbacks(url);
+    const response = await fetchWithFallbacks(url, signal);
     return await parseXtreamResponse<T>(response);
   } catch (err) {
-    console.error("Falha na requisição Xtream Codes", err);
+    logTechnicalError("Xtream", err);
     // Attach the clean base URL for diagnostics if not already set
     if (err instanceof XtreamApiError && !err.testedUrl) {
       err.testedUrl = profile.serverUrl;
@@ -439,34 +442,37 @@ export async function authenticateXtream(profile: ServerProfile): Promise<Xtream
   return normalizeAuthResponse(raw);
 }
 
-export const getLiveCategories = (profile: ServerProfile) =>
-  requestXtream<XtreamCategory[]>(profile, "get_live_categories");
+export const getLiveCategories = (profile: ServerProfile, signal?: AbortSignal) =>
+  requestXtream<XtreamCategory[]>(profile, "get_live_categories", {}, signal);
 
-export const getLiveStreams = (profile: ServerProfile, categoryId?: string) =>
+export const getLiveStreams = (profile: ServerProfile, categoryId?: string, signal?: AbortSignal) =>
   requestXtream<XtreamLiveStream[]>(
     profile,
     "get_live_streams",
     categoryId ? { category_id: categoryId } : {},
+    signal,
   );
 
-export const getVodCategories = (profile: ServerProfile) =>
-  requestXtream<XtreamCategory[]>(profile, "get_vod_categories");
+export const getVodCategories = (profile: ServerProfile, signal?: AbortSignal) =>
+  requestXtream<XtreamCategory[]>(profile, "get_vod_categories", {}, signal);
 
-export const getVodStreams = (profile: ServerProfile, categoryId?: string) =>
+export const getVodStreams = (profile: ServerProfile, categoryId?: string, signal?: AbortSignal) =>
   requestXtream<XtreamVodStream[]>(
     profile,
     "get_vod_streams",
     categoryId ? { category_id: categoryId } : {},
+    signal,
   );
 
-export const getSeriesCategories = (profile: ServerProfile) =>
-  requestXtream<XtreamCategory[]>(profile, "get_series_categories");
+export const getSeriesCategories = (profile: ServerProfile, signal?: AbortSignal) =>
+  requestXtream<XtreamCategory[]>(profile, "get_series_categories", {}, signal);
 
-export const getSeries = (profile: ServerProfile, categoryId?: string) =>
+export const getSeries = (profile: ServerProfile, categoryId?: string, signal?: AbortSignal) =>
   requestXtream<XtreamSeriesStream[]>(
     profile,
     "get_series",
     categoryId ? { category_id: categoryId } : {},
+    signal,
   );
 
 export const getSeriesInfo = (profile: ServerProfile, seriesId: string) =>
@@ -536,7 +542,14 @@ export function mapVodStreamToMovie(
   profile: ServerProfile,
 ): VodMovie {
   const rating = parseFloat(stream.rating) || 0;
-  const year = parseInt(stream.year ?? "0", 10) || new Date().getFullYear();
+  const year = parseInt(stream.year ?? "0", 10) || 0;
+  const quality = /\b(4K|UHD)\b/i.test(stream.name)
+    ? "4K"
+    : /\bFHD\b|1080P/i.test(stream.name)
+      ? "FHD"
+      : /\bHD\b|720P/i.test(stream.name)
+        ? "HD"
+        : undefined;
   return {
     id: `movie-${stream.stream_id}`,
     title: stream.name,
@@ -549,7 +562,7 @@ export function mapVodStreamToMovie(
     genre: category?.category_name ?? "Geral",
     plot: stream.plot ?? "",
     streamUrl: createVodUrl(profile, String(stream.stream_id), stream.container_extension || "mp4"),
-    quality: "HD",
+    quality,
   };
 }
 
@@ -559,8 +572,8 @@ export function mapSeriesStreamToItem(
 ): SeriesItem {
   const rating = parseFloat(stream.rating) || 0;
   const year = stream.releaseDate
-    ? parseInt(stream.releaseDate.slice(0, 4), 10) || new Date().getFullYear()
-    : new Date().getFullYear();
+    ? parseInt(stream.releaseDate.slice(0, 4), 10) || 0
+    : 0;
   return {
     id: `series-${stream.series_id}`,
     title: stream.name,
@@ -569,7 +582,7 @@ export function mapSeriesStreamToItem(
     backdrop: stream.cover || "",
     rating: Math.min(10, Math.max(0, rating)),
     year,
-    seasonsCount: 1,
+    seasonsCount: 0,
     genre: category?.category_name ?? "Geral",
     plot: stream.plot ?? "",
   };

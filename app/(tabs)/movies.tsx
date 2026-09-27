@@ -206,7 +206,7 @@ export default function MoviesScreen() {
       <PosterCard
         title={item.title}
         image={item.poster}
-        meta={`${item.year} · ${item.genre}`}
+        meta={`${item.year > 0 ? item.year : "Ano não informado"} · ${item.genre}`}
         rating={item.rating}
         quality={item.quality}
         width={cardWidth}

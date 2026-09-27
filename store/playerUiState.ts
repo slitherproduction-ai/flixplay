@@ -3,7 +3,6 @@ export type PlayerUiLayer =
   | "osd"
   | "quick-zapping"
   | "epg"
-  | "cast"
   | "exit-confirmation";
 
 export type PlayerUiEvent =
@@ -12,7 +11,6 @@ export type PlayerUiEvent =
   | { type: "HIDE" }
   | { type: "OPEN_QUICK_ZAPPING" }
   | { type: "OPEN_EPG" }
-  | { type: "OPEN_CAST" }
   | { type: "REQUEST_EXIT" }
   | { type: "CANCEL_EXIT" }
   | { type: "BACK" };
@@ -32,8 +30,6 @@ export function reducePlayerUi(
       return "quick-zapping";
     case "OPEN_EPG":
       return "epg";
-    case "OPEN_CAST":
-      return "cast";
     case "REQUEST_EXIT":
       return "exit-confirmation";
     case "AUTO_HIDE":

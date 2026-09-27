@@ -6,8 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, Chip, EmptyState, IconButton, ScreenState, SectionHeader } from "@/components/ui";
-import { useScreenLoad } from "@/hooks/useScreenLoad";
+import { AppText, Chip, EmptyState, ErrorState, IconButton, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
@@ -186,7 +185,6 @@ export default function DetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
-  const { loading, error, retry } = useScreenLoad("os detalhes");
   const tvMode = useTVMode();
 
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
@@ -353,17 +351,11 @@ export default function DetailsScreen() {
     [router],
   );
 
-  const handleRetry = useCallback(() => {
-    if (missingError) {
-      router.back();
-      return;
-    }
-    void retry();
-  }, [missingError, retry, router]);
+  const handleRetry = useCallback(() => router.back(), [router]);
 
   return (
     <View style={styles.screen}>
-      <ScreenState loading={loading} error={error ?? missingError} retry={handleRetry}>
+      {missingError ? <ErrorState message={missingError} onRetry={handleRetry} /> : null}
         {movie || show ? (
           <DetailsContent
             movie={movie}
@@ -386,7 +378,6 @@ export default function DetailsScreen() {
             onSimilar={handleSimilar}
           />
         ) : null}
-      </ScreenState>
     </View>
   );
 }
@@ -526,7 +517,7 @@ function ContentSummary({
         <View style={styles.titleCopy}>
           <AppText style={Type.title}>{title}</AppText>
           <View style={styles.metaRow}>
-            <AppText style={styles.meta}>{movie?.year ?? show?.year}</AppText>
+            <AppText style={styles.meta}>{(movie?.year ?? show?.year ?? 0) > 0 ? (movie?.year ?? show?.year) : "Ano não informado"}</AppText>
             <View style={styles.metaDot} />
             <AppText style={styles.meta}>{movie?.genre ?? show?.genre}</AppText>
             {movie ? (
@@ -769,7 +760,7 @@ function SimilarSection({
             <View style={styles.similarMeta}>
               <Ionicons name="star" size={10} color={Colors.amber} />
               <AppText style={styles.similarMetaText}>
-                {item.year} · {item.rating.toFixed(1)}
+                {item.year > 0 ? item.year : "Ano não informado"} · {item.rating.toFixed(1)}
               </AppText>
             </View>
           </TVFocusable>

@@ -25,7 +25,12 @@ function computePosterWidth(tvMode: boolean, width: number): number {
 }
 
 function seasonsMeta(count: number): string {
+  if (count <= 0) return "Temporadas não informadas";
   return `${count} temporada${count !== 1 ? "s" : ""}`;
+}
+
+function yearMeta(year: number): string {
+  return year > 0 ? String(year) : "Ano não informado";
 }
 
 interface HeroBannerProps {
@@ -49,7 +54,7 @@ function HeroBanner({ hero, height, onPlay, onDetails }: HeroBannerProps) {
         <AppText style={styles.heroTitle}>{hero.title}</AppText>
         <AppText numberOfLines={2} style={styles.heroDescription}>{hero.plot}</AppText>
         <View style={styles.heroMeta}>
-          <AppText style={styles.heroMetaText}>{hero.year}</AppText>
+          <AppText style={styles.heroMetaText}>{yearMeta(hero.year)}</AppText>
           <View style={styles.metaDot} />
           <AppText style={styles.heroMetaText}>{hero.duration}</AppText>
           <View style={styles.metaDot} />
@@ -109,7 +114,7 @@ export default function HomeScreen() {
 
   const hero = movies[0] ?? null;
 
-  const handleSearch = useCallback(() => { router.push("/movies"); }, [router]);
+  const handleSearch = useCallback(() => { router.push("/search"); }, [router]);
   const handleContinueWatchingAll = useCallback(() => { router.push("/continue-watching"); }, [router]);
   const handleHeroDetails = useCallback(() => {
     if (hero) router.push(`/details/${hero.id}`);
@@ -214,10 +219,6 @@ export default function HomeScreen() {
           </View>
           <View style={styles.topActions}>
             <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir perfil" onPress={handleSearch} style={styles.avatarButton}>
-              <AppText style={styles.avatarText}>FP</AppText>
-              <View style={styles.onlineDot} />
-            </TVFocusable>
           </View>
         </View>
 
@@ -258,7 +259,7 @@ export default function HomeScreen() {
                   key={movie.id}
                   title={movie.title}
                   image={movie.poster}
-                  meta={`${movie.year} · ${movie.genre}`}
+                  meta={`${yearMeta(movie.year)} · ${movie.genre}`}
                   rating={movie.rating}
                   quality={movie.quality}
                   width={posterWidth}
@@ -270,7 +271,7 @@ export default function HomeScreen() {
                   key={item.id}
                   title={item.title}
                   image={item.poster}
-                  meta={`${item.year} · ${seasonsMeta(item.seasonsCount)}`}
+                  meta={`${yearMeta(item.year)} · ${seasonsMeta(item.seasonsCount)}`}
                   rating={item.rating}
                   width={posterWidth}
                   onPress={() => handleContent(item.id)}
@@ -303,7 +304,7 @@ export default function HomeScreen() {
             <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
             <HorizontalScroller>
               {recentMovies.map((movie) => (
-                <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${movie.year} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />
+                <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${yearMeta(movie.year)} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />
               ))}
             </HorizontalScroller>
           </View>
@@ -314,7 +315,7 @@ export default function HomeScreen() {
             <SectionHeader title="Séries em alta" onPress={handleOpenSeries} />
             <HorizontalScroller>
               {popularSeries.map((item) => (
-                <PosterCard key={item.id} title={item.title} image={item.poster} meta={`${item.year} · ${seasonsMeta(item.seasonsCount)}`} rating={item.rating} width={posterWidth} onPress={() => handleContent(item.id)} />
+                <PosterCard key={item.id} title={item.title} image={item.poster} meta={`${yearMeta(item.year)} · ${seasonsMeta(item.seasonsCount)}`} rating={item.rating} width={posterWidth} onPress={() => handleContent(item.id)} />
               ))}
             </HorizontalScroller>
           </View>
@@ -339,9 +340,6 @@ const styles = StyleSheet.create({
   eyebrow: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.5, color: Colors.blueBright },
   brandLogo: { width: 128, height: 48 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 9 },
-  avatarButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 21, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: "#263653" },
-  avatarText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.text },
-  onlineDot: { position: "absolute", right: 1, bottom: 1, width: 9, height: 9, borderRadius: 5, borderWidth: 2, borderColor: Colors.background, backgroundColor: Colors.green },
   heroWrap: { height: 340, overflow: "hidden", borderRadius: Radii.large, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: Colors.backgroundRaised, ...Shadows.card },
   heroTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(5, 7, 12, 0.36)" },
   heroGlow: { position: "absolute", right: -40, bottom: -100, left: -40, height: 250, backgroundColor: "rgba(5, 7, 12, 0.92)" },

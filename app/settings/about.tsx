@@ -14,17 +14,17 @@ import {
   View,
 } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, GlassCard, IconButton, ScreenState } from "@/components/ui";
+import { AppText, GlassCard, IconButton } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
-import { useScreenLoad } from "@/hooks/useScreenLoad";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import {
   checkForGitHubUpdate,
   downloadAndInstallUpdate,
   type UpdateCheckResult,
 } from "@/services/githubUpdater";
+import { logTechnicalError } from "@/services/security/sanitize";
 
 type ChangeTag = "Novidade" | "Melhoria" | "Correção";
 
@@ -42,8 +42,19 @@ type VersionEntry = {
 
 const CHANGELOG: VersionEntry[] = [
   {
-    version: "v2.12.1",
+    version: "v2.13.0",
     label: "Versão Atual",
+    date: "2026.09",
+    changes: [
+      { tag: "Novidade", text: "Credenciais migradas para cofre criptografado pelo Android Keystore." },
+      { tag: "Novidade", text: "Cache SQLite por servidor, catálogo offline e sincronização progressiva por etapa." },
+      { tag: "Melhoria", text: "Áudio e legendas agora refletem e controlam somente as faixas reais do stream." },
+      { tag: "Melhoria", text: "Zapping completo virtualizado, busca global e diagnóstico técnico sanitizado." },
+      { tag: "Correção", text: "Cast, perfil, buffer e estados demonstrativos foram removidos da produção." },
+    ],
+  },
+  {
+    version: "v2.12.1",
     date: "2026.09",
     changes: [
       { tag: "Correção", text: "Menu lateral agora é opaco, compacto e mantém todas as opções visíveis durante a navegação." },
@@ -88,7 +99,7 @@ const CHANGELOG: VersionEntry[] = [
       { tag: "Melhoria", text: "Home para TV redimensionada para exibir de cinco a sete títulos por linha." },
       { tag: "Melhoria", text: "Navegação D-Pad com foco ampliado, carrosséis virtualizados e rolagem fluida." },
       { tag: "Correção", text: "OSD do player agora desaparece após quatro segundos com transição suave." },
-      { tag: "Correção", text: "EPG, Zapping Rápido, Cast e controles agora são mutuamente exclusivos." },
+      { tag: "Correção", text: "EPG, Zapping Rápido e controles agora são mutuamente exclusivos." },
       { tag: "Melhoria", text: "Botão Voltar fecha a camada ativa antes de solicitar a saída do conteúdo." },
     ],
   },
@@ -161,6 +172,10 @@ function formatPublishedAt(iso: string | null): string {
   }
 }
 
+function formatDownloadSize(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 // ─── Update Modal helpers (module-level keeps complexity out of the component)
 
 async function runInstallUpdate(
@@ -171,7 +186,7 @@ async function runInstallUpdate(
   try {
     await downloadAndInstallUpdate(apkUrl, releaseUrl);
   } catch (err) {
-    console.error("[UpdateModal] install error", err);
+    logTechnicalError("UpdateModal/install", err);
     onError(err instanceof Error ? err.message : "Falha ao iniciar a instalação.");
   }
 }
@@ -180,7 +195,7 @@ async function openReleaseUrl(url: string): Promise<void> {
   try {
     await Linking.openURL(url);
   } catch (e) {
-    console.error("[UpdateModal] open release url failed", e);
+    logTechnicalError("UpdateModal/release", e);
   }
 }
 
@@ -306,6 +321,12 @@ function UpdateModal({
                   <AppText style={modalStyles.metaTextSub}>{formatPublishedAt(result.publishedAt)}</AppText>
                 </View>
               )}
+              {result.apkSize ? (
+                <View style={modalStyles.metaItem}>
+                  <Ionicons name="download-outline" size={14} color={Colors.subtle} />
+                  <AppText style={modalStyles.metaTextSub}>{formatDownloadSize(result.apkSize)}</AppText>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -356,7 +377,6 @@ function UpdateModal({
 
 export default function AboutScreen() {
   const router = useRouter();
-  const { loading, error: loadError, retry } = useScreenLoad("informações do aplicativo");
   const tvMode = useTVMode();
   const autoUpdate = useAppStore((state) => state.preferences["autoUpdate"]);
   const setPreference = useAppStore((state) => state.setPreference);
@@ -385,7 +405,7 @@ export default function AboutScreen() {
       // Open modal to show result (with or without update)
       setModalVisible(true);
     } catch (err) {
-      console.error("Falha ao verificar atualizações", err);
+      logTechnicalError("About/update-check", err);
       setActionError("Não foi possível verificar atualizações. Tente novamente.");
       setCheckState("idle");
     }
@@ -396,26 +416,10 @@ export default function AboutScreen() {
     try {
       await Linking.openURL(url);
     } catch (linkError) {
-      console.error(`Falha ao abrir ${destination}`, linkError);
+      logTechnicalError("About/open-link", linkError);
       setActionError(`Não foi possível abrir ${destination}. Verifique sua conexão e tente novamente.`);
     }
   }, []);
-
-  const handleSupport = useCallback(() => {
-    void openExternalLink("mailto:suporte@flixplay.app", "o suporte");
-  }, [openExternalLink]);
-
-  const handleTerms = useCallback(() => {
-    void openExternalLink("https://flixplay.app/termos", "os termos de uso");
-  }, [openExternalLink]);
-
-  const handleLicenses = useCallback(() => {
-    void openExternalLink("https://flixplay.app/licencas", "as licenças");
-  }, [openExternalLink]);
-
-  const handleCommunity = useCallback(() => {
-    void openExternalLink("https://discord.gg/flixplay", "a comunidade Discord");
-  }, [openExternalLink]);
 
   const handleGitHub = useCallback(() => {
     void openExternalLink(
@@ -430,7 +434,6 @@ export default function AboutScreen() {
     <View style={styles.screen}>
       <View style={styles.ambientTop} />
       <View style={styles.ambientBottom} />
-      <ScreenState loading={loading} error={loadError} retry={retry}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
@@ -470,7 +473,7 @@ export default function AboutScreen() {
               <TechBadge label="ExoPlayer / HLS" />
               <TechBadge label="Xtream Codes API" />
               <TechBadge label="EPG" />
-              <TechBadge label="PiP & Cast" />
+              <TechBadge label="PiP nativo" />
             </View>
           </View>
 
@@ -607,19 +610,8 @@ export default function AboutScreen() {
             <AppText style={Type.section}>Ajuda e transparência</AppText>
             <AppText style={styles.sectionSubtitle}>Estamos por perto quando você precisar</AppText>
           </View>
-          <GlassCard style={styles.linksCard} intensity={16}>
-            <AboutLink icon="chatbubble-ellipses-outline" title="Falar com o suporte" body="Envie uma mensagem para nossa equipe" onPress={handleSupport} />
-            <View style={styles.cardDivider} />
-            <AboutLink icon="people-outline" title="Comunidade FlixPlay" body="Participe das conversas no Discord" onPress={handleCommunity} />
-            <View style={styles.cardDivider} />
-            <AboutLink icon="document-text-outline" title="Termos de uso" body="Leia como o serviço funciona" onPress={handleTerms} />
-            <View style={styles.cardDivider} />
-            <AboutLink icon="code-slash-outline" title="Licenças de código aberto" body="Tecnologias que tornam o app possível" onPress={handleLicenses} />
-          </GlassCard>
-
           <AppText style={styles.footer}>FlixPlay · Feito para sua sala</AppText>
         </ScrollView>
-      </ScreenState>
 
       {/* Update result modal */}
       <UpdateModal
@@ -704,35 +696,6 @@ function VersionCard({ release, isLast }: { release: VersionEntry; isLast: boole
   );
 }
 
-function AboutLink({
-  icon,
-  title,
-  body,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  body: string;
-  onPress: () => void;
-}) {
-  return (
-    <TVFocusable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.aboutLink, pressed && styles.pressed]}
-    >
-      <View style={styles.aboutLinkIcon}>
-        <Ionicons name={icon} size={18} color={Colors.blueBright} />
-      </View>
-      <View style={styles.aboutLinkCopy}>
-        <AppText style={styles.aboutLinkTitle}>{title}</AppText>
-        <AppText style={styles.aboutLinkBody}>{body}</AppText>
-      </View>
-      <Ionicons name="arrow-up-outline" size={17} color={Colors.subtle} />
-    </TVFocusable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   ambientTop: { position: "absolute", top: -150, right: -105, width: 310, height: 310, borderRadius: 155, backgroundColor: "rgba(59,130,246,0.1)" },
@@ -814,12 +777,6 @@ const styles = StyleSheet.create({
   autoUpdateCopy: { flex: 1, gap: 3 },
   autoUpdateTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
   autoUpdateBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
-  linksCard: { paddingHorizontal: 14 },
-  aboutLink: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11 },
-  aboutLinkIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.11)" },
-  aboutLinkCopy: { flex: 1, gap: 3 },
-  aboutLinkTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  aboutLinkBody: { fontSize: 11, color: Colors.muted },
   footer: { alignSelf: "center", fontSize: 10, color: Colors.subtle },
   pressed: { opacity: 0.74, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.55 },

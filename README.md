@@ -4,12 +4,22 @@ Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Nati
 
 ## Versão atual
 
-- **2.12.1** — código de versão Android `20261003`.
+- **2.13.0** — código de versão Android `20261004`.
 - Pacote Android: `com.fastshot.slitherproduction.flixplay`.
 - APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
 - A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
 
-## Novidades da 2.12.1
+## Novidades da 2.13.0
+
+- Cofre de credenciais baseado em Android Keystore, com migração automática do armazenamento legado.
+- Cache SQLite separado por servidor, sincronização progressiva e restauração offline.
+- Player sem funções simuladas: faixas reais de áudio/legendas e remoção de Cast/buffer fictícios.
+- Quick Switcher virtualizado com catálogo completo e zapping direto por cima/baixo.
+- Busca global de canais, filmes e séries.
+- Diagnóstico técnico com dados reais e relatório sanitizado.
+- Atualizador com SemVer estrito e seleção segura de APK HTTPS.
+
+### Mantido da 2.12.1
 
 - Menu lateral opaco e compacto, sem blocos visuais do conteúdo ao fundo.
 - Sequência D-Pad vertical determinística no menu lateral.
@@ -42,7 +52,7 @@ Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Nati
 
 - Home de TV com 5–7 títulos visíveis por linha, foco 1,05x e navegação D-Pad.
 - OSD com auto-hide configurado em 4 segundos e animação de fade-out.
-- Máquina de estados exclusiva para OSD, Zapping Rápido, EPG e Cast.
+- Máquina de estados exclusiva para OSD, Zapping Rápido e EPG.
 - A tecla Voltar fecha primeiro a camada ativa e, depois, solicita confirmação de saída.
 - Mantidos o PiP nativo, EPG real e progresso real de filmes e episódios da versão 2.9.0.
 
@@ -53,19 +63,20 @@ bun install
 npx expo start
 ```
 
-O arquivo `bun.lock` fixa as dependências. O projeto Android é gerado a partir de `app.json` e dos plugins em `plugins/`.
+O arquivo `bun.lock` fixa as dependências. A pasta `android/` faz parte do código-fonte desde a versão 2.13.0 porque contém os módulos nativos do cofre Android Keystore e do catálogo SQLite.
 
 ## Compilar Android
 
 Instale JDK 17, Android SDK 36, Build Tools, NDK 27.1.12297006 e CMake 3.22.1. Configure `ANDROID_HOME` e `ANDROID_SDK_ROOT` para o SDK local e execute:
 
 ```bash
-npx expo prebuild --platform android --clean
 cd android
 ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 ```
 
-O arquivo gerado fica em `android/app/build/outputs/apk/release/app-release.apk`. O repositório não inclui SDK, dependências instaladas, cache de compilação, chaves privadas ou arquivos locais. O build gerado usa a chave de desenvolvimento do Android; para distribuição contínua, configure uma chave de assinatura própria e mantenha a mesma chave nas próximas versões. Um APK assinado com chave diferente não atualiza uma instalação existente sem reinstalação.
+Não execute `expo prebuild --clean` sem antes preservar e reaplicar os módulos nativos em `android/app/src/main/java/.../security` e `android/app/src/main/java/.../data`.
+
+O arquivo gerado fica em `android/app/build/outputs/apk/release/app-release.apk`. O repositório não inclui SDK, dependências instaladas, cache de compilação, chaves privadas ou arquivos locais. Antes do build de distribuição, configure a chave de assinatura preservada das versões anteriores. Um APK assinado com chave diferente não atualiza uma instalação existente sem reinstalação.
 
 ## Atualizações pelo aplicativo
 

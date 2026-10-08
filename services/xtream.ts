@@ -287,10 +287,9 @@ async function fetchNativeWithProtocolSwap(url: string, signal?: AbortSignal): P
     firstError = err;
   }
 
-  // Attempt 2: swap http ↔ https
-  const altUrl = url.startsWith("https://")
-    ? url.replace("https://", "http://")
-    : url.replace("http://", "https://");
+  // An explicitly secure endpoint must never be downgraded to HTTP.
+  const altUrl = getSafeTransportCandidates(url)[1];
+  if (!altUrl) throw firstError;
 
   try {
     return await timedFetch(altUrl, REQUEST_TIMEOUT_MS, signal);
@@ -329,8 +328,12 @@ function fetchWithFallbacks(url: string, signal?: AbortSignal): Promise<Response
 async function parseXtreamResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const denied = response.status === 401 || response.status === 403;
+    const responseText = await response.text().catch(() => "");
+    const tlsFailure = /tls|ssl|handshake|certificate/i.test(responseText);
     const msg = denied
       ? `Acesso negado pelo servidor (HTTP ${response.status}). Usuário ou senha incorretos.`
+      : tlsFailure
+        ? "Falha TLS/SSL na conexão com o servidor. Verifique o certificado, a porta e o protocolo HTTPS."
       : `Servidor respondeu com status ${response.status}.`;
     throw new XtreamApiError(msg, response.status);
   }
@@ -594,6 +597,7 @@ export function parseM3uPlaylist(text: string): M3uEntry[] {
     .map((line) => line.trim())
     .filter(Boolean);
   const entries: M3uEntry[] = [];
+  const seenUrls = new Set<string>();
   for (let index = 0; index < lines.length; index += 1) {
     const metadata = lines[index];
     if (!metadata.startsWith("#EXTINF")) continue;
@@ -603,12 +607,25 @@ export function parseM3uPlaylist(text: string): M3uEntry[] {
       metadata.split(",").slice(1).join(",").trim() || "Canal sem nome";
     const group = metadata.match(/group-title="([^"]*)"/)?.[1] ?? "Geral";
     const logo = metadata.match(/tvg-logo="([^"]*)"/)?.[1] ?? "";
-    const id =
-      metadata.match(/tvg-id="([^"]*)"/)?.[1] ?? `m3u-${entries.length + 1}`;
-    entries.push({ id, name: title, logo, group, url });
+    if (seenUrls.has(url)) { index += 1; continue; }
+    seenUrls.add(url);
+    const tvgId = metadata.match(/tvg-id="([^"]*)"/)?.[1] ?? "";
+    const id = tvgId || `m3u-${entries.length + 1}`;
+    const number = metadata.match(/tvg-chno="([^"]*)"/)?.[1];
+    const days = Number(metadata.match(/catchup-days="([^"]*)"/)?.[1]);
+    const source = metadata.match(/catchup-source="([^"]*)"/)?.[1];
+    entries.push({ id, tvgId, name: title, logo, group, number, url,
+      ...(Number.isFinite(days) && days > 0 ? { catchupDays: days } : {}),
+      ...(source ? { catchupSource: source } : {}),
+    });
     index += 1;
   }
   return entries;
+}
+
+/** Returns candidates without weakening a user-provided secure endpoint. */
+export function getSafeTransportCandidates(url: string): string[] {
+  return url.startsWith("http://") ? [url, url.replace(/^http:\/\//, "https://")] : [url];
 }
 
 export function mapLiveStreamToChannel(

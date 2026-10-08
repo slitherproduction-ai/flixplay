@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "FlixPlay",
+    "name": "ELVANOQ",
     "slug": "flixplay",
-    "version": "2.13.0",
+    "version": "2.17.0",
     "orientation": "default",
-    "icon": "./assets/images/flixplay_icon.png",
+    "icon": "./assets/images/brand/ELVANOQ_app_icon_v2.png",
     "scheme": "fastshot",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -19,11 +19,12 @@
     "android": {
       "package": "com.fastshot.slitherproduction.flixplay",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/flixplay_icon.png",
-        "backgroundColor": "#07090E"
+        "foregroundImage": "./assets/images/brand/ELVANOQ_adaptive_foreground_v2.png",
+        "backgroundImage": "./assets/images/brand/ELVANOQ_adaptive_background_v2.png",
+        "backgroundColor": "#070B14"
       },
       "isTV": true,
-      "versionCode": 20261004,
+      "versionCode": 20261015,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
@@ -46,13 +47,13 @@
       "expo-router",
       "./plugins/withAndroidCleartext",
       "./plugins/withAndroidTV",
+      "./plugins/withAndroidArmArchitectures",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/flixplay_icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#07090E"
+          "image": "./assets/images/brand/ELVANOQ_splash_mobile_v2.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#020714"
         }
       ],
       "@react-native-community/datetimepicker",

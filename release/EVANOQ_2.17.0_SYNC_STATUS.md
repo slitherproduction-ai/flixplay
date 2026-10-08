@@ -1,18 +1,27 @@
-# EVANOQ 2.17.0 — sincronização pendente
+# EVANOQ 2.17.0 — Status de sincronização
 
-Data: 2026-10-08.
+Data: 2026-10-08
 
-Este branch registra a preparação para migrar o código do antigo FlixPlay 2.13.0 para EVANOQ 2.17.0. **A árvore de código da versão 2.17.0 ainda NÃO foi enviada ao GitHub. Não usar este branch para gerar um release.**
+## Fonte de verdade
+- Arquivo: `ELVANOQ-2.17.0-checkpoint-45-reproducible-arm-build-source-no-secrets.tar.zst`
+- SHA-256: `ef5ca5d601e327c00739e003502b4b2f9fae0ac27675105847138bae08ef9a57`
+- Contagem: 233 arquivos extraídos, 208 desconsiderando o cache `.expo/`.
+- Versão do `package.json` e `app.json`: `2.17.0`
+- Android versionCode: `20261015`
+- Package: `com.fastshot.slitherproduction.flixplay`
+- Fonte `android/`: ausente no checkpoint. Não copiar a pasta da versão 2.13.0 como se fosse build atual.
 
-Fonte local de referência: `ELVANOQ-2.17.0-checkpoint-45-reproducible-arm-build-source-no-secrets.tar.zst` (checkpoint 45, sem segredos). A fonte está preservada na Biblioteca do usuário, não neste repositório.
+## Situação do GitHub
+A branch principal permanece na antiga versão FlixPlay 2.13.0.
+**Esta branch ainda não contém o código 2.17.0.**
+O pacote de fontes foi inspecionado localmente, mas não publicado. A ferramenta de transferência do repositório não recebeu sua árvore completa e o Git CLI deste ambiente não alcança o host GitHub.
 
-Escopo da sincronização completa: player/OSD, favoritos, PIN parental, ação Trailer com ícone, identidade visual, M3U/XMLTV/catch-up, EPG, metadados TMDB, paginação SQLite, cache, diagnóstico, testes e documentação.
+## Condições para liberar a migração
+1. Transferir todos os 208 arquivos de código/documentação (excluindo caches e quaisquer credenciais), preservando nomes e diretórios.
+2. Não versionar APK, keystore, senhas, certificados, tokens ou `.env`.
+3. Comparar alterações com `main`, evitando regressões nas telas de player, favoritos, parental e trailer.
+4. Reconstruir/verificar o projeto Android compatível com Expo 57 e dependências nativas atuais.
+5. Rodar testes, build e homologação física em mobile e dispositivos TV.
+6. Publicar release somente após as validações.
 
-Regras:
-- Não sobrescrever as correções do checkpoint 45 com a versão 2.13.0.
-- Não incluir keystore, passwords, tokens, arquivos `.env`, caches ou binários temporários.
-- Preservar o package `com.fastshot.slitherproduction.flixplay`, SDK mínimo 24 e ABIs ARMv7/ARM64.
-- Checar reprodução no smartphone, Android TV e Fire TV/FireStick antes do release.
-- Validar e sincronizar os fontes Android nativos; não assumir que o Android antigo representa a versão atual.
-
-**Estado: somente preparação de branch. Publicação do código-fonte completo e do release ainda pendentes.**
+**Não mesclar o PR nesta situação.**

@@ -59,6 +59,8 @@ export class AdminLicensesService {
       }
       // A per-device advisory lock serializes all administrative license mutations in PostgreSQL.
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${deviceId}))`;
+      const prior = await this.receipt(tx, key, actorId, 'issue', deviceId);
+      if (prior) return prior;
       const now = new Date();
       const overlapping = await tx.license.findFirst({
         where: { deviceId, revokedAt: null, status: { in: ['TRIAL', 'ACTIVE', 'GRACE_PERIOD', 'SUSPENDED'] }, expiresAt: { gt: now } },
@@ -70,6 +72,7 @@ export class AdminLicensesService {
         select: { id: true, status: true, startsAt: true, expiresAt: true, deviceId: true },
       });
       await tx.auditLog.create({ data: { actorId, action: 'license.test_issued', subjectType: 'license', subjectId: license.id, metadata: { deviceId, planCode: plan.code } } });
+      await this.remember(tx, key, actorId, 'issue', deviceId, license);
       return license;
     });
   }

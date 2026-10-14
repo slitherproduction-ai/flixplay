@@ -75,6 +75,7 @@ model Device {
   pairingSessions PairingSession[]
   proofChallenges DeviceProofChallenge[]
   proofPublicKey String?
+  proofAlgorithm String?
   @@index([userId])
 }
 

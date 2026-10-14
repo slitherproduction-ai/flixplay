@@ -49,7 +49,7 @@ describe('License lifecycle on PostgreSQL', () => {
     delete process.env.LICENSE_ADMIN_WRITES_ENABLED;
   });
 
-  const adminAuth = { authenticate: vi.fn().mockImplementation(async () => adminId) };
+  const adminAuth = { authenticateAdmin: vi.fn().mockImplementation(async () => adminId) };
   const service = new AdminLicensesService(database as any, adminAuth as any);
 
   it('issues only one active license under concurrent requests, then renews and revokes', async () => {

@@ -1,7 +1,10 @@
 import 'reflect-metadata';
-import { Controller, Get, Module } from '@nestjs/common';
+import { Controller, Get, Module, ValidationPipe } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { z } from 'zod';
+import { DevicesModule } from './devices/devices.module';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -15,16 +18,24 @@ const env = envSchema.parse(process.env);
 class HealthController {
   @Get('health')
   health() {
-    return { status: 'ok', service: 'elvanoq-license-api', version: '0.1.0' };
+    return { status: 'ok', service: 'elvanoq-license-api', version: '0.2.0' };
   }
 }
 
-@Module({ controllers: [HealthController] })
+@Module({
+  imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    DevicesModule,
+  ],
+  controllers: [HealthController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+})
 class AppModule {}
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bodyParser: true });
+  const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: env.CORS_ORIGINS.split(',').map(x => x.trim()), credentials: false });
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   app.enableShutdownHooks();
   await app.listen(env.PORT, '0.0.0.0');
 }

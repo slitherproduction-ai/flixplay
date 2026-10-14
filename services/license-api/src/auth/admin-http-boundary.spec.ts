@@ -24,7 +24,7 @@ describe('HTTP security boundary', () => {
   let app: INestApplication;
   let url: string;
   beforeAll(async () => {
-    app = await NestFactory.create(SecurityRoutesTestModule, { logger: false });
+    app = await NestFactory.create(SecurityRoutesTestModule, { logger: ['error'] });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
     await app.listen(0, '127.0.0.1');
     const address = app.getHttpServer().address() as { port: number };

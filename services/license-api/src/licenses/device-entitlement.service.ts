@@ -29,10 +29,11 @@ export class DeviceEntitlementService {
     const issuedAt = Math.floor(Date.now() / 1000);
     const exp = Math.min(issuedAt + 5 * 60, Math.floor(license.expiresAt.getTime() / 1000));
     if (exp <= issuedAt) return { authorized: false, status: 'EXPIRED' as const };
+    const kid = process.env.ENTITLEMENT_KEY_ID || 'v1';
     const token = issueEntitlement({
       iss: 'elvanoq-cloud', aud: 'elvanoq-play', sub: deviceId, deviceId,
       licenseId: license.id, iat: issuedAt, exp,
-    }, pem);
+    }, pem, kid);
     return { authorized: true, status: license.status, expiresAt: license.expiresAt, entitlement: token, tokenExpiresAt: new Date(exp * 1000).toISOString() };
   }
 }

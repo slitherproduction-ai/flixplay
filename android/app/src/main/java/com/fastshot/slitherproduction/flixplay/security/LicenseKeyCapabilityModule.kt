@@ -87,7 +87,7 @@ class LicenseKeyCapabilityModule(context: ReactApplicationContext) : ReactContex
       val content = publicKeyPem
         .replace("-----BEGIN PUBLIC KEY-----", "")
         .replace("-----END PUBLIC KEY-----", "")
-        .replace(Regex("\\s"), "")
+        .replace(Regex("""\s+"""), "")
       val publicBytes = Base64.decode(content, Base64.DEFAULT)
       val message = Base64.decode(messageBase64, Base64.NO_WRAP)
       val signatureBytes = Base64.decode(signatureBase64, Base64.NO_WRAP)

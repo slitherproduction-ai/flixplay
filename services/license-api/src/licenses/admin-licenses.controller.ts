@@ -3,6 +3,9 @@ import { IsUUID, Equals, IsISO8601 } from 'class-validator';
 import { AdminLicensesService } from './admin-licenses.service';
 
 class ConfirmationDto {
+  @IsUUID('4')
+  requestKey!: string;
+
   @Equals('CONFIRMAR_OPERACAO_TESTE')
   confirmation!: string;
 }
@@ -23,18 +26,18 @@ export class AdminLicensesController {
 
   @Post('issue')
   issue(@Headers('authorization') auth: string | undefined, @Body() body: IssueDto) {
-    return this.service.issue(auth, body.deviceId);
+    return this.service.issue(auth, body.deviceId, body.requestKey);
   }
 
   @Post(':id/renew')
   @HttpCode(HttpStatus.OK)
   renew(@Headers('authorization') auth: string | undefined, @Param('id') id: string, @Body() body: RenewDto) {
-    return this.service.renew(auth, id, body.expectedExpiresAt);
+    return this.service.renew(auth, id, body.expectedExpiresAt, body.requestKey);
   }
 
   @Post(':id/revoke')
   @HttpCode(HttpStatus.OK)
   revoke(@Headers('authorization') auth: string | undefined, @Param('id') id: string, @Body() body: ConfirmationDto) {
-    return this.service.revoke(auth, id);
+    return this.service.revoke(auth, id, body.requestKey);
   }
 }

@@ -3,7 +3,7 @@ import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 
-class CredentialsDto {
+export class CredentialsDto {
   @IsEmail()
   @MaxLength(254)
   email!: string;

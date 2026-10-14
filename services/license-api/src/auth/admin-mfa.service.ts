@@ -60,6 +60,23 @@ export class AdminMfaService {
     throw new UnauthorizedException('Invalid or unavailable MFA verification');
   }
 
+  async revokeOtherSessions(authorization: string | undefined) {
+    const actorId = await this.auth.authenticateAdmin(authorization);
+    const token = /^Bearer ([A-Za-z0-9_-]{40,80})$/.exec(authorization ?? '')?.[1];
+    if (!token) throw new UnauthorizedException('Session missing');
+    return this.db.$transaction(async tx => {
+      const revoked = await tx.customerSession.updateMany({
+        where: { userId: actorId, revokedAt: null, tokenHash: { not: sha256(token) } },
+        data: { revokedAt: new Date(), mfaVerifiedAt: null },
+      });
+      await tx.auditLog.create({
+        data: { actorId, action: 'admin.sessions.other_revoked', subjectType: 'admin_session', subjectId: actorId,
+          metadata: { revokedCount: revoked.count } },
+      });
+      return { sessionsRevoked: revoked.count };
+    });
+  }
+
   async verify(authorization: string | undefined, code: string) {
     const actor = await this.adminIdentity(authorization);
     const credential = await this.db.adminMfaCredential.findUnique({ where: { userId: actor.id } });

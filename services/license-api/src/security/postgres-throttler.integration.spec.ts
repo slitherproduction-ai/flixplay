@@ -100,4 +100,9 @@ describe('PostgreSQL distributed rate limiting', () => {
       expect(group.filter(x => x.isBlocked)).toHaveLength(2);
     }
   });
+  it('rejects when storage is unavailable rather than granting access', async () => {
+    const brokenClient = { $transaction: async () => { throw new Error('simulated outage'); } };
+    const storage = new PostgresThrottlerStorage(brokenClient as unknown as PrismaService);
+    await expect(storage.increment('test-key', 60000, 5, 60000, 'default')).rejects.toThrow('simulated outage');
+  });
 });

@@ -10,7 +10,7 @@ class RegisterProofKeyDto {
 class ProofDto {
   @IsString() @MinLength(43) @MaxLength(43)
   nonce!: string;
-  @IsString() @MinLength(86) @MaxLength(86)
+  @IsString() @MinLength(86) @MaxLength(128)
   signature!: string;
 }
 

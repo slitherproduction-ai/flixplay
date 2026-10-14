@@ -177,6 +177,8 @@ model AdminMfaCredential {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   secretCipher String
   lastUsedStep BigInt   @default(-1)
+  failedAttempts Int @default(0)
+  lockedUntil DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

@@ -42,7 +42,7 @@ export class AdminLicensesService {
         throw new ConflictException('Annual plan not provisioned correctly');
       }
       // A per-device advisory lock serializes all administrative license mutations in PostgreSQL.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${deviceId}))`;
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${deviceId}))`;
       const now = new Date();
       const overlapping = await tx.license.findFirst({
         where: { deviceId, revokedAt: null, status: { in: ['TRIAL', 'ACTIVE', 'GRACE_PERIOD', 'SUSPENDED'] }, expiresAt: { gt: now } },
@@ -63,7 +63,7 @@ export class AdminLicensesService {
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId }, include: { plan: true } });
       if (!existing) throw new NotFoundException('License not found');
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
       if (existing.revokedAt || existing.status === LicenseStatus.REVOKED || existing.status === LicenseStatus.SUSPENDED) {
         throw new ConflictException('Revoked or suspended licenses cannot be renewed');
       }
@@ -88,7 +88,7 @@ export class AdminLicensesService {
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId } });
       if (!existing) throw new NotFoundException('License not found');
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
       if (existing.revokedAt || existing.status === LicenseStatus.REVOKED) return { id: existing.id, status: LicenseStatus.REVOKED };
       const license = await tx.license.update({ where: { id: licenseId }, data: { status: LicenseStatus.REVOKED, revokedAt: new Date() }, select: { id: true, status: true } });
       await tx.auditLog.create({ data: { actorId, action: 'license.test_revoked', subjectType: 'license', subjectId: license.id } });

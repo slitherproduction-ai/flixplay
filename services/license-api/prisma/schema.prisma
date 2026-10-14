@@ -179,6 +179,7 @@ model AdminMfaCredential {
   lastUsedStep BigInt   @default(-1)
   failedAttempts Int @default(0)
   lockedUntil DateTime?
+  revokedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

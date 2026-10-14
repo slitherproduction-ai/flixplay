@@ -33,7 +33,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      - name: Confirm Android SDK on runner
+        run: test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}" && echo "Android SDK available"
       - name: Install JavaScript dependencies
         run: npm ci --no-audit --no-fund
       - name: Check project TypeScript

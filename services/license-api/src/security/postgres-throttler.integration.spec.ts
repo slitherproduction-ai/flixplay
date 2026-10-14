@@ -41,4 +41,33 @@ describe('PostgreSQL distributed rate limiting', () => {
     expect(blocked.isBlocked).toBe(true);
     expect(separate.isBlocked).toBe(false);
   });
+  it('removes expired buckets but retains active blocks', async () => {
+    const expiredKey = 'maintenance:' + randomUUID();
+    const blockedKey = 'maintenance:' + randomUUID();
+    const liveKey = 'maintenance:' + randomUUID();
+    keys.push(expiredKey, blockedKey, liveKey);
+    const past = new Date(Date.now() - 120_000);
+    const future = new Date(Date.now() + 120_000);
+    await firstDb.apiThrottleBucket.createMany({ data: [
+      { key: expiredKey, hits: 3, windowEndsAt: past },
+      { key: blockedKey, hits: 9, windowEndsAt: past, blockedUntil: future },
+      { key: liveKey, hits: 1, windowEndsAt: future },
+    ] });
+    expect(await first.purgeExpired()).toBeGreaterThanOrEqual(1);
+    expect(await firstDb.apiThrottleBucket.findUnique({ where: { key: expiredKey } })).toBeNull();
+    expect(await firstDb.apiThrottleBucket.findUnique({ where: { key: blockedKey } })).not.toBeNull();
+    expect(await firstDb.apiThrottleBucket.findUnique({ where: { key: liveKey } })).not.toBeNull();
+  });
+  it('does not purge an active block after its counting window has elapsed', async () => {
+    const key = randomUUID();
+    keys.push('default:' + key);
+    await first.increment(key, 10, 1, 60_000, 'default');
+    await second.increment(key, 10, 1, 60_000, 'default');
+    await firstDb.apiThrottleBucket.update({
+      where: { key: 'default:' + key }, data: { windowEndsAt: new Date(Date.now() - 5_000) },
+    });
+    await second.purgeExpired();
+    const active = await firstDb.apiThrottleBucket.findUnique({ where: { key: 'default:' + key } });
+    expect(active?.blockedUntil?.getTime()).toBeGreaterThan(Date.now());
+  });
 });

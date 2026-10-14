@@ -34,6 +34,6 @@ export class DeviceProofController {
   @HttpCode(HttpStatus.OK)
   async validate(@Param('id') id: string, @Headers('authorization') auth: string | undefined, @Body() body: ProofDto) {
     await this.proof.consume(id, auth, body.nonce, body.signature);
-    return this.entitlement.getEntitlement(id, auth);
+    return this.entitlement.getEntitlement(id, auth, true);
   }
 }

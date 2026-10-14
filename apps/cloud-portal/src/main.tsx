@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
+import { CommercialPlan } from './commercial-plan';
 
 const base = (import.meta.env.VITE_LICENSE_API_URL as string | undefined)?.replace(/\/$/, '');
 const apiConfigured = Boolean(base && /^https:\/\//.test(base));
@@ -111,6 +112,7 @@ function App() {
     </section> : null}
     {message ? <p role="status" className="message">{message}</p> : null}
     {linked ? <p role="status" className="success">Dispositivo confirmado. ID: {linked.deviceId}</p> : null}
+    <CommercialPlan />
     <footer>Portal em desenvolvimento · Nenhuma cobrança é realizada nesta página.</footer>
   </section></main>;
 }

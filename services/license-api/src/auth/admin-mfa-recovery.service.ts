@@ -43,4 +43,29 @@ export class AdminMfaRecoveryService {
       return { id: recoveryId, status: 'APPROVED', resetEnabled: false, ...(grant ? { oneTimeGrant: grant } : {}) };
     });
   }
+  async consumeTestGrant(header: string | undefined, recoveryId: string, grant: string) {
+    if (process.env.NODE_ENV === 'production' || process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED !== 'true') {
+      throw new ForbiddenException('Recovery grants disabled');
+    }
+    const actor = await this.auth.authenticateAdmin(header);
+    if (!/^[A-Za-z0-9_-]{43}$/.test(grant)) throw new ConflictException('Invalid recovery grant');
+    const hash = createHash('sha256').update(grant).digest('hex');
+    return this.db.$transaction(async tx => {
+      const request = await tx.adminMfaRecoveryRequest.findUnique({ where: { id: recoveryId } });
+      if (!request || request.status !== 'APPROVED' || !request.approvedById ||
+          actor !== request.approvedById || request.grantHash !== hash) {
+        throw new ForbiddenException('Recovery grant unavailable');
+      }
+      const consumed = await tx.adminMfaRecoveryRequest.updateMany({
+        where: { id: recoveryId, grantHash: hash, grantConsumedAt: null,
+          grantExpiresAt: { gt: new Date() }, status: 'APPROVED' },
+        data: { grantConsumedAt: new Date() },
+      });
+      if (consumed.count !== 1) throw new ConflictException('Recovery grant expired or consumed');
+      await tx.auditLog.create({ data: { actorId: actor, action: 'admin.mfa.recovery_grant_test_consumed',
+        subjectType: 'admin_mfa_recovery', subjectId: recoveryId } });
+      return { consumed: true, resetEnabled: false };
+    });
+  }
+
 }

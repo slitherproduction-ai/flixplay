@@ -50,4 +50,25 @@ describe('HTTP security boundary', () => {
     expect(response.status).toBe(400);
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
+  it('rejects invalid login credentials at the HTTP boundary', async () => {
+    const response = await fetch(url + '/v1/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'invalid-email', password: 'short' }),
+    });
+    expect(response.status).toBe(400);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+  });
+  it('rejects additional unexpected login fields', async () => {
+    const response = await fetch(url + '/v1/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@example.test', password: 'adequate-test-password', isAdmin: true }),
+    });
+    expect(response.status).toBe(400);
+  });
+  it('rejects invalid TOTP codes', async () => {
+    const response = await fetch(url + '/v1/auth/admin-mfa/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: '12AB' }),
+    });
+    expect(response.status).toBe(400);
+  });
 });

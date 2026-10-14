@@ -63,8 +63,8 @@ export class AdminMfaService {
   async revokeOwnCredential(authorization: string | undefined) {
     const actorId = await this.auth.authenticateAdmin(authorization);
     await this.db.$transaction(async tx => {
-      const removed = await tx.adminMfaCredential.deleteMany({ where: { userId: actorId } });
-      if (removed.count !== 1) throw new ConflictException('MFA credential not enrolled');
+      const removed = await tx.adminMfaCredential.updateMany({ where: { userId: actorId, revokedAt: null }, data: { revokedAt: new Date() } });
+      if (removed.count !== 1) throw new ConflictException('No active MFA credential');
       await tx.customerSession.updateMany({
         where: { userId: actorId, revokedAt: null },
         data: { revokedAt: new Date(), mfaVerifiedAt: null },
@@ -96,7 +96,7 @@ export class AdminMfaService {
   async verify(authorization: string | undefined, code: string) {
     const actor = await this.adminIdentity(authorization);
     const credential = await this.db.adminMfaCredential.findUnique({ where: { userId: actor.id } });
-    if (!credential) throw new UnauthorizedException('MFA enrollment required');
+    if (!credential || credential.revokedAt) throw new UnauthorizedException('MFA enrollment required');
     if (!/^[0-9]{6}$/.test(code)) return this.rejected(actor.id, 'INVALID_FORMAT');
     if (credential.lockedUntil && credential.lockedUntil > new Date()) {
       throw new UnauthorizedException('MFA temporarily locked');

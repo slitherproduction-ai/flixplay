@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../database/prisma.service';
 import { generateKeyPairSync, randomBytes, randomUUID, sign } from 'node:crypto';
 import { DeviceProofService, proofPayload } from './device-proof.service';
 import { sha256 } from './device-auth';
 
-const db = new PrismaClient();
+const db = new PrismaService();
 const deviceIdRef = { value: '' };
 const secret = randomBytes(32).toString('base64url');
 const keypair = generateKeyPairSync('ed25519');

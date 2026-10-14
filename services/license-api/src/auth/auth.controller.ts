@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Header, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -14,6 +14,7 @@ class CredentialsDto {
   password!: string;
 }
 
+@Header('Cache-Control', 'no-store')
 @Controller('v1/auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}

@@ -25,3 +25,12 @@ Isolated NestJS API foundation for the ELVANOQ Play commercial licensing platfor
 ## Current scope
 
 Schema for users, devices, plans, licenses, pairing sessions, payments and audit logs; environment validation; a read-only health endpoint. Next increment: authentication, database access layer, migration SQL, secure registration and pairing with rate limits and tests.
+
+## Checkpoint 02 — Device bootstrapping (not a full activation flow)
+
+- `POST /v1/devices/register` with JSON `{"platform":"ANDROID_TV","displayName":"Sala"}` returns an opaque device ID, public code and **one-time visible** device secret.
+- `POST /v1/devices/:id/pairing` requires `Authorization: Bearer <deviceSecret>` and returns an 8-digit code valid for five minutes.
+- All API routes have a basic per-IP rate limit. In multi-instance deployments, replace in-memory throttling with shared storage and configure trusted reverse-proxy IP forwarding safely.
+- Pairing claims by authenticated customers, license grants, user accounts and paid checkouts are **not implemented**.
+- The device secret must be stored using Android secure storage; it is not a physical MAC and is not a playlist credential.
+- Add security regression tests and a staging migration before exposing any of these endpoints publicly.

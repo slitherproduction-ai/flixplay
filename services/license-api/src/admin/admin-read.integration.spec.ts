@@ -26,7 +26,7 @@ describe('admin read isolation', () => {
     await db.$disconnect();
   });
   it('rejects customers and exposes no password hashes to administrators', async () => {
-    const fakeAuth = { authenticate: async (header: string | undefined) => header === adminToken ? adminId : customerId } as unknown as AuthService;
+    const fakeAuth = { authenticateAdmin: async (header: string | undefined) => header === adminToken ? adminId : customerId } as unknown as AuthService;
     const instance = new AdminReadService(db, fakeAuth);
     await expect(instance.overview(customerToken)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(instance.customers(customerToken, 1)).rejects.toBeInstanceOf(ForbiddenException);
@@ -38,7 +38,7 @@ describe('admin read isolation', () => {
     expect(JSON.stringify(result)).not.toContain('tokenHash');
   });
   it('restricts pagination to a bounded range', async () => {
-    const fakeAuth = { authenticate: async () => adminId } as unknown as AuthService;
+    const fakeAuth = { authenticateAdmin: async () => adminId } as unknown as AuthService;
     const instance = new AdminReadService(db, fakeAuth);
     expect((await instance.customers(adminToken, -42)).page).toBe(1);
     expect((await instance.licenses(adminToken, 99999)).page).toBe(1000);

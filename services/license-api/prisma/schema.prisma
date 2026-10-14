@@ -194,5 +194,8 @@ model AdminMfaRecoveryRequest {
   createdAt DateTime @default(now())
   approvedAt DateTime?
   expiresAt DateTime
+  grantHash String? @unique
+  grantExpiresAt DateTime?
+  grantConsumedAt DateTime?
   @@index([targetUserId, status])
 }

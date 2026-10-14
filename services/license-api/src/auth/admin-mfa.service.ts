@@ -41,14 +41,36 @@ export class AdminMfaService {
     return { setupUri: uri, message: 'Save this authenticator configuration securely; it is shown once.' };
   }
 
+  private async rejected(userId: string, reason: string): Promise<never> {
+    await this.db.$transaction(async tx => {
+      const row = await tx.adminMfaCredential.update({
+        where: { userId }, data: { failedAttempts: { increment: 1 } },
+        select: { failedAttempts: true },
+      });
+      if (row.failedAttempts >= 5) {
+        await tx.adminMfaCredential.update({
+          where: { userId }, data: { lockedUntil: new Date(Date.now() + 15 * 60_000), failedAttempts: 0 },
+        });
+      }
+      await tx.auditLog.create({
+        data: { actorId: userId, action: 'admin.mfa.denied', subjectType: 'admin_mfa', subjectId: userId,
+          metadata: { reason } },
+      });
+    });
+    throw new UnauthorizedException('Invalid or unavailable MFA verification');
+  }
+
   async verify(authorization: string | undefined, code: string) {
     const actor = await this.adminIdentity(authorization);
-    if (!/^[0-9]{6}$/.test(code)) throw new UnauthorizedException('Invalid MFA code');
+    if (!/^[0-9]{6}$/.test(code)) return this.rejected(actor.id, 'INVALID_FORMAT');
     const credential = await this.db.adminMfaCredential.findUnique({ where: { userId: actor.id } });
     if (!credential) throw new UnauthorizedException('MFA enrollment required');
+    if (credential.lockedUntil && credential.lockedUntil > new Date()) {
+      throw new UnauthorizedException('MFA temporarily locked');
+    }
     const secret = decryptMfaSecret(credential.secretCipher, actor.id);
     const step = verifyTotp(secret, code);
-    if (step === null) throw new UnauthorizedException('Invalid MFA code');
+    if (step === null) return this.rejected(actor.id, 'INVALID_CODE');
     const token = /^Bearer ([A-Za-z0-9_-]{40,80})$/.exec(authorization ?? '')?.[1];
     if (!token) throw new UnauthorizedException('Session missing');
     const result = await this.db.$transaction(async tx => {
@@ -63,7 +85,10 @@ export class AdminMfaService {
       });
       return updated.count === 1;
     });
-    if (!result) throw new UnauthorizedException('Expired session or reused MFA code');
+    if (!result) return this.rejected(actor.id, 'REUSED_CODE_OR_SESSION');
+    await this.db.adminMfaCredential.update({
+      where: { userId: actor.id }, data: { failedAttempts: 0, lockedUntil: null },
+    });
     return { verified: true };
   }
 }

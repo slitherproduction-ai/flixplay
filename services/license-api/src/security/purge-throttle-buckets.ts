@@ -9,8 +9,12 @@ async function main() {
   try {
     await db.$connect();
     const storage = new PostgresThrottlerStorage(db);
+    const before = await storage.getStats();
+    const start = process.hrtime.bigint();
     const count = await storage.purgeExpired(500);
-    console.log('Expired throttle buckets removed:', count);
+    const elapsedMs = Number(process.hrtime.bigint() - start) / 1_000_000;
+    const after = await storage.getStats();
+    console.log(JSON.stringify({ event: 'throttle_cleanup', before, removed: count, after, durationMs: Math.round(elapsedMs) }));
   } finally {
     await db.$disconnect();
   }

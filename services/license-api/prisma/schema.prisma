@@ -183,3 +183,16 @@ model AdminMfaCredential {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+model AdminMfaRecoveryRequest {
+  id String @id @default(uuid()) @db.Uuid
+  targetUserId String @db.Uuid
+  initiatedById String @db.Uuid
+  approvedById String? @db.Uuid
+  evidenceReference String
+  status String @default("PENDING")
+  createdAt DateTime @default(now())
+  approvedAt DateTime?
+  expiresAt DateTime
+  @@index([targetUserId, status])
+}

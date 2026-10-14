@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { randomBytes, createHash } from 'node:crypto';
 import { PrismaService } from '../database/prisma.service';
 import { AuthService } from './auth.service';
 
@@ -34,10 +35,12 @@ export class AdminMfaRecoveryService {
       const recovery = await tx.adminMfaRecoveryRequest.findUnique({ where: { id: recoveryId } });
       if (!recovery || recovery.status !== 'PENDING' || recovery.expiresAt <= new Date()) throw new ConflictException('Recovery request is not pending');
       if (approver === recovery.initiatedById || approver === recovery.targetUserId) throw new ForbiddenException('Independent approver required');
-      const updated = await tx.adminMfaRecoveryRequest.updateMany({ where: { id: recoveryId, status: 'PENDING', approvedById: null, expiresAt: { gt: new Date() } }, data: { status: 'APPROVED', approvedById: approver, approvedAt: new Date() } });
+      const grantEnabled = process.env.NODE_ENV !== 'production' && process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED === 'true';
+      const grant = grantEnabled ? randomBytes(32).toString('base64url') : null;
+      const updated = await tx.adminMfaRecoveryRequest.updateMany({ where: { id: recoveryId, status: 'PENDING', approvedById: null, expiresAt: { gt: new Date() } }, data: { status: 'APPROVED', approvedById: approver, approvedAt: new Date(), ...(grant ? { grantHash: createHash('sha256').update(grant).digest('hex'), grantExpiresAt: new Date(Date.now() + 10 * 60_000) } : {}) } });
       if (updated.count !== 1) throw new ConflictException('Recovery already processed');
       await tx.auditLog.create({ data: { actorId: approver, action: 'admin.mfa.recovery_approved', subjectType: 'admin_mfa_recovery', subjectId: recoveryId } });
-      return { id: recoveryId, status: 'APPROVED', resetEnabled: false };
+      return { id: recoveryId, status: 'APPROVED', resetEnabled: false, ...(grant ? { oneTimeGrant: grant } : {}) };
     });
   }
 }

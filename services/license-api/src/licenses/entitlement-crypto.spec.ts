@@ -19,6 +19,15 @@ describe('signed entitlements', () => {
     expect(verifyEntitlement(forged, publicKey, now)).toBeNull();
     expect(verifyEntitlement(token, publicKey, now + 301)).toBeNull();
   });
+  it('supports staged rotation and rejects unknown key identifiers', () => {
+    const next = generateKeyPairSync('ed25519');
+    const nextPrivate = next.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    const nextPublic = next.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const token = issueEntitlement(claims, nextPrivate, 'v2');
+    expect(verifyEntitlement(token, [{ kid: 'v1', pem: publicKey }, { kid: 'v2', pem: nextPublic }], now, 'device')).toEqual(claims);
+    expect(verifyEntitlement(token, [{ kid: 'v1', pem: publicKey }], now)).toBeNull();
+    expect(verifyEntitlement(token, [{ kid: 'v2', pem: nextPublic }], now, 'other-device')).toBeNull();
+  });
   it('rejects tokens with too long a lifetime', () => {
     expect(verifyEntitlement(issueEntitlement({ ...claims, exp: now + 3600 }, privateKey), publicKey, now)).toBeNull();
   });

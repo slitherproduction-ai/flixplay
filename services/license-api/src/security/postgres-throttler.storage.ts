@@ -7,6 +7,18 @@ import { PrismaService } from '../database/prisma.service';
 export class PostgresThrottlerStorage implements ThrottlerStorage {
   constructor(private readonly db: PrismaService) {}
 
+  async getStats() {
+    const now = new Date();
+    const [total, expired, activelyBlocked] = await Promise.all([
+      this.db.apiThrottleBucket.count(),
+      this.db.apiThrottleBucket.count({
+        where: { windowEndsAt: { lt: now }, OR: [{ blockedUntil: null }, { blockedUntil: { lt: now } }] },
+      }),
+      this.db.apiThrottleBucket.count({ where: { blockedUntil: { gt: now } } }),
+    ]);
+    return { total, expired, activelyBlocked };
+  }
+
   async purgeExpired(maxRows = 500): Promise<number> {
     const now = new Date();
     const take = Math.max(1, Math.min(1000, Math.floor(maxRows)));

@@ -9,9 +9,23 @@ on:
     paths:
       - "services/license-api/**"
       - ".github/workflows/elvanoq-cloud-ci.yml"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: elvanoq
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test -d elvanoq"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: services/license-api
@@ -23,13 +37,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Validate schema
+      - name: Generate lockfile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-api-package-lock
+          path: services/license-api/package-lock.json
+          if-no-files-found: error
+      - name: Validate Prisma
         run: npx prisma validate
       - name: Generate Prisma client
         run: npm run db:generate
-      - name: Compile
+      - name: Validate schema on disposable PostgreSQL
+        run: npx prisma db push --skip-generate
+      - name: Generate initial migration SQL artifact for review
+        run: mkdir -p migration-output && npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > migration-output/initial.sql
+      - name: Upload migration SQL
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-api-initial-migration-review
+          path: services/license-api/migration-output/initial.sql
+      - name: Compile TypeScript
         run: npm run build
-      - name: Unit tests
+      - name: Run unit tests
         run: npm test

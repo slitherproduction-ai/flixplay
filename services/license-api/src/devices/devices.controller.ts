@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { IsEnum, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { DevicePlatform } from '@prisma/client';
 import { AuthService } from '../auth/auth.service';
@@ -23,6 +23,12 @@ class ClaimPairingDto {
 @Controller('v1/devices')
 export class DevicesController {
   constructor(private readonly devices: DevicesService, private readonly auth: AuthService) {}
+
+  @Get('mine')
+  async mine(@Headers('authorization') authorization: string | undefined) {
+    const userId = await this.auth.authenticate(authorization);
+    return this.devices.listForCustomer(userId);
+  }
 
   @Post('register')
   async register(@Body() body: RegisterDeviceDto) {

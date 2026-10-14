@@ -97,7 +97,7 @@ function Admin() {
       <h2>Confirmação de segurança</h2>
       <p className="muted">Digite o código do aplicativo autenticador para abrir o painel.</p>
       <form onSubmit={verifyMfa}>
-        <label>Código de seis dígitos<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={e=>setMfaCode(e.target.value.replace(/\\D/g,'').slice(0,6))}/></label>
+        <label>Código de seis dígitos<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={e=>setMfaCode(e.target.value.replace(/\D/g,'').slice(0,6))}/></label>
         <button disabled={busy || mfaCode.length !== 6}>Verificar código</button>
       </form>
       <button className="secondary" type="button" disabled={busy} onClick={()=>void enrollMfa()}>Cadastrar meu autenticador</button>

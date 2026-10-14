@@ -15,7 +15,7 @@ export class AdminLicensesService {
     if (process.env.LICENSE_ADMIN_WRITES_ENABLED !== 'true' || process.env.NODE_ENV === 'production') {
       throw new ForbiddenException('Administrative license mutations are disabled');
     }
-    const actorId = await this.auth.authenticate(header);
+    const actorId = await this.auth.authenticateAdmin(header);
     const actor = await this.db.user.findUnique({ where: { id: actorId }, select: { role: true } });
     if (actor?.role !== 'ADMIN') throw new ForbiddenException('Administrator required');
     return actorId;

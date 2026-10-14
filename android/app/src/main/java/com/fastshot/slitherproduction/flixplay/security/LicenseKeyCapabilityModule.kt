@@ -82,6 +82,23 @@ class LicenseKeyCapabilityModule(context: ReactApplicationContext) : ReactContex
    * Ed25519. On older API levels this explicitly returns false (never bypasses).
    */
   @ReactMethod
+  fun inspectEd25519Verifier(promise: Promise) {
+    val result = Arguments.createMap()
+    result.putInt("apiLevel", Build.VERSION.SDK_INT)
+    result.putString("algorithm", "Ed25519")
+    try {
+      KeyFactory.getInstance("Ed25519")
+      Signature.getInstance("Ed25519")
+      result.putBoolean("supported", true)
+      result.putString("reason", "Platform crypto providers expose Ed25519 primitives; device verification still required")
+    } catch (error: Exception) {
+      result.putBoolean("supported", false)
+      result.putString("reason", "Platform Ed25519 provider unavailable")
+    }
+    promise.resolve(result)
+  }
+
+  @ReactMethod
   fun verifyEd25519(publicKeyPem: String, messageBase64: String, signatureBase64: String, promise: Promise) {
     try {
       val content = publicKeyPem

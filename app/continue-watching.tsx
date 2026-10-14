@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -12,8 +12,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Radii } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
+import { ParentalGate } from "@/components/parental-gate";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
+import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { ContentType, PlayHistory } from "@/store/types";
 
 function formatRelativeTime(iso: string): string {
@@ -141,7 +143,9 @@ export default function ContinueWatchingScreen() {
   const allHistory = useAppStore((state) => state.history);
   const removeHistoryItem = useAppStore((state) => state.removeHistoryItem);
   const clearHistory = useAppStore((state) => state.clearHistory);
+  const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const vodMovies = useAppStore((state) => state.contentCache.vodMovies);
+  const [pendingHistoryItem, setPendingHistoryItem] = useState<PlayHistory | null>(null);
   // Only show movies and series (not live TV), sorted by last watched.
   // For episodes: deduplicate by series — keep only the most recently watched
   // episode per series so each show appears once (like Netflix / Prime Video).
@@ -169,6 +173,10 @@ export default function ContinueWatchingScreen() {
   }, [allHistory]);
 
   const handleResume = useCallback((item: PlayHistory) => {
+    if (isPlaybackBlocked(item.contentId, item.seriesId, isContentBlocked)) {
+      setPendingHistoryItem(item);
+      return;
+    }
     const type = item.type as ContentType;
     if (item.streamUrl) {
       router.push({
@@ -203,7 +211,18 @@ export default function ContinueWatchingScreen() {
       // For series/episodes, navigate to details
       router.push(`/details/${item.seriesId ?? item.contentId}`);
     }
-  }, [router, vodMovies]);
+  }, [isContentBlocked, router, vodMovies]);
+
+  const resumeAuthorized = useCallback(() => {
+    const item = pendingHistoryItem;
+    setPendingHistoryItem(null);
+    if (!item) return;
+    if (item.streamUrl) {
+      router.push({ pathname: "/player", params: { id: item.contentId, title: item.title, type: item.type, streamUrl: item.streamUrl, subtitle: item.subtitle, thumbnail: item.thumbnail, seriesId: item.seriesId } });
+      return;
+    }
+    router.push(`/details/${item.seriesId ?? item.contentId}`);
+  }, [pendingHistoryItem, router]);
 
   const handleRemove = useCallback((contentId: string) => {
     removeHistoryItem(contentId);
@@ -239,6 +258,7 @@ export default function ContinueWatchingScreen() {
 
   return (
     <View style={styles.screen}>
+      <ParentalGate visible={pendingHistoryItem !== null} onAuthorized={resumeAuthorized} onClose={() => setPendingHistoryItem(null)} />
       {/* Ambient glow */}
       <View style={styles.ambient} />
 
@@ -287,7 +307,7 @@ export default function ContinueWatchingScreen() {
             <Ionicons name="time-outline" size={36} color={Colors.subtle} />
             <AppText style={styles.emptyTitle}>Sem conteúdo recente</AppText>
             <AppText style={styles.emptyBody}>
-              Assista filmes e séries pelo FlixPlay e eles aparecerão aqui para continuar de onde parou.
+              Assista filmes e séries pelo ELVANOQ e eles aparecerão aqui para continuar de onde parou.
             </AppText>
           </View>
         }

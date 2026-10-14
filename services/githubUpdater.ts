@@ -6,7 +6,9 @@
  * always receives a well-typed result — even when the repo has no releases yet.
  */
 
-import { Linking, Platform } from "react-native";
+import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
 import { APP_INFO } from "@/constants/app";
 import { logTechnicalError } from "@/services/security/sanitize";
 
@@ -45,6 +47,15 @@ export interface UpdateCheckResult {
   publishedAt: string | null;
   error: string | null;
 }
+
+export type UpdateDownloadProgress = {
+  writtenBytes: number;
+  totalBytes: number | null;
+  fraction: number | null;
+};
+
+const APK_MIME_TYPE = "application/vnd.android.package-archive";
+const GRANT_READ_URI_PERMISSION = 1;
 
 // ─── Version comparison ───────────────────────────────────────────────────────
 
@@ -156,32 +167,70 @@ export async function checkForGitHubUpdate(): Promise<UpdateCheckResult> {
 }
 
 /**
- * Attempt to open the APK download URL so the system installer takes over.
- *
- * On Android, this opens the HTTPS release asset in the browser. The browser
- * and system package installer own the download/consent flow, so the app does
- * not request REQUEST_INSTALL_PACKAGES itself.
- * On other platforms, opens the release page instead.
+ * Downloads an APK into the app cache and opens Android's package installer.
+ * The user always confirms the installation in the system UI; silent installs
+ * are intentionally not supported.
  */
 export async function downloadAndInstallUpdate(
   apkUrl: string,
-  releaseUrl?: string | null,
+  expectedBytes?: number | null,
+  onProgress?: (progress: UpdateDownloadProgress) => void,
 ): Promise<void> {
+  if (Platform.OS !== "android") {
+    throw new Error("A instalação interna está disponível somente no Android.");
+  }
+  if (!apkUrl.startsWith("https://")) {
+    throw new Error("A atualização não possui uma URL segura para download.");
+  }
+
   try {
-    const target =
-      Platform.OS === "android" && apkUrl
-        ? apkUrl
-        : (releaseUrl ?? apkUrl);
-    const canOpen = await Linking.canOpenURL(target);
-    if (canOpen) {
-      await Linking.openURL(target);
-    } else {
-      throw new Error("Não foi possível abrir a URL de download.");
+    const cacheDirectory = FileSystem.cacheDirectory;
+    if (!cacheDirectory) {
+      throw new Error("Não foi possível preparar o armazenamento da atualização.");
     }
+
+    const destination = `${cacheDirectory}elvanoq-update.apk`;
+    const previous = await FileSystem.getInfoAsync(destination);
+    if (previous.exists) {
+      await FileSystem.deleteAsync(destination, { idempotent: true });
+    }
+
+    const download = FileSystem.createDownloadResumable(
+      apkUrl,
+      destination,
+      { headers: { Accept: APK_MIME_TYPE } },
+      ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+        const total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : null;
+        onProgress?.({
+          writtenBytes: totalBytesWritten,
+          totalBytes: total,
+          fraction: total ? Math.min(1, totalBytesWritten / total) : null,
+        });
+      },
+    );
+    const result = await download.downloadAsync();
+    if (!result || result.status < 200 || result.status >= 300) {
+      throw new Error("O servidor não retornou um pacote de atualização válido.");
+    }
+
+    const downloaded = await FileSystem.getInfoAsync(destination);
+    if (!downloaded.exists || !downloaded.size) {
+      throw new Error("O arquivo da atualização não foi baixado corretamente.");
+    }
+    if (expectedBytes && downloaded.size < Math.floor(expectedBytes * 0.98)) {
+      throw new Error("O download da atualização ficou incompleto. Tente novamente.");
+    }
+
+    const contentUri = await FileSystem.getContentUriAsync(destination);
+    await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+      data: contentUri,
+      type: APK_MIME_TYPE,
+      flags: GRANT_READ_URI_PERMISSION,
+    });
   } catch (err) {
     logTechnicalError("Updater/download", err);
     throw new Error(
-      "Não foi possível iniciar o download. Verifique as permissões e tente novamente.",
+      "Não foi possível baixar a atualização. Verifique a conexão e permita instalações desta fonte nas configurações do Android.",
     );
   }
 }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "ELVANOQ",
     "slug": "flixplay",
-    "version": "2.17.0",
+    "version": "2.17.11",
     "orientation": "default",
     "icon": "./assets/images/brand/ELVANOQ_app_icon_v2.png",
     "scheme": "fastshot",
@@ -24,7 +24,7 @@
         "backgroundColor": "#070B14"
       },
       "isTV": true,
-      "versionCode": 20261015,
+      "versionCode": 20261026,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
@@ -34,7 +34,8 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
       "edgeToEdgeEnabled": true
     },
@@ -51,7 +52,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/brand/ELVANOQ_splash_mobile_v2.png",
+          "image": "./assets/images/brand/ELVANOQ_splash_native_mark_v3.png",
           "resizeMode": "cover",
           "backgroundColor": "#020714"
         }

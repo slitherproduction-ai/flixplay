@@ -41,3 +41,4 @@ export function shouldResumeAt(positionSeconds: number, durationSeconds: number)
     positionSeconds < durationSeconds * 0.95
   );
 }
+

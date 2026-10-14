@@ -7,6 +7,8 @@ export interface ServerScopedUserData {
   favoriteSeriesIds: string[];
   history: PlayHistory[];
   blockedContentIds: string[];
+  /** Number of playback sessions per catalogue item for this server. */
+  playCounts: Record<string, number>;
 }
 
 export type UserDataByServer = Record<string, ServerScopedUserData>;
@@ -18,6 +20,7 @@ export const EMPTY_SERVER_USER_DATA: ServerScopedUserData = {
   favoriteSeriesIds: [],
   history: [],
   blockedContentIds: [],
+  playCounts: {},
 };
 
 export function getServerUserData(data: UserDataByServer, serverId: string): ServerScopedUserData {
@@ -32,6 +35,7 @@ export function copyServerUserData(data: ServerScopedUserData): ServerScopedUser
     favoriteSeriesIds: [...data.favoriteSeriesIds],
     history: [...data.history],
     blockedContentIds: [...data.blockedContentIds],
+    playCounts: { ...(data.playCounts ?? {}) },
   };
 }
 
@@ -55,7 +59,16 @@ export function migrateLegacyServerUserData(
   activeServerId: string,
   legacy: Partial<ServerScopedUserData>,
 ): UserDataByServer {
-  if (current && Object.keys(current).length > 0) return current;
+  // Add newly introduced scoped fields to existing persisted server records.
+  // This keeps upgrades from producing an undefined playback ranking.
+  if (current && Object.keys(current).length > 0) {
+    return Object.fromEntries(
+      Object.entries(current).map(([serverId, userData]) => [
+        serverId,
+        { ...EMPTY_SERVER_USER_DATA, ...userData, playCounts: userData.playCounts ?? {} },
+      ]),
+    );
+  }
   if (!activeServerId) return current ?? {};
   return {
     [activeServerId]: {
@@ -66,6 +79,7 @@ export function migrateLegacyServerUserData(
       favoriteSeriesIds: legacy.favoriteSeriesIds ?? [],
       history: (legacy.history ?? []).map((item) => ({ ...item, serverId: activeServerId })),
       blockedContentIds: [],
+      playCounts: legacy.playCounts ?? {},
     },
   };
 }

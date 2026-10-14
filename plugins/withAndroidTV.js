@@ -96,6 +96,9 @@ function withAndroidTV(config) {
     if (application?.$) {
       // Hardware-accelerated rendering is required for smooth video playback
       application.$["android:hardwareAccelerated"] = "true";
+      // Credentials and catalogs must never enter Android Auto Backup.
+      application.$["android:allowBackup"] = "false";
+      application.$["android:fullBackupContent"] = "false";
       // Large heap helps with multi-stream buffering and EPG parsing
       application.$["android:largeHeap"] = "true";
 

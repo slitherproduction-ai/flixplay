@@ -1,24 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
+import { BlurView } from "expo-blur";
 import { usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { APP_INFO } from "@/constants/app";
-import { Colors, Radii } from "@/constants/theme";
+import { Colors } from "@/constants/theme";
 import { TV_ROUTES, isTvRouteActive, type TvRoute } from "@/core/navigation/tv-routes";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
+import { BrandLogo } from "@/components/brand-logo";
 
-export const TV_NAV_COLLAPSED_WIDTH = 68;
-const TV_NAV_EXPANDED_WIDTH = 204;
+/**
+ * The TV rail always occupies its full width. Keeping the scene inset equal to
+ * this value prevents the expanded navigation from covering search, filters or
+ * the first content card.
+ */
+export const TV_NAV_COLLAPSED_WIDTH = 72;
+const TV_NAV_EXPANDED_WIDTH = 224;
 
 export function TvSideNavigation() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
-  const width = useRef(new Animated.Value(TV_NAV_COLLAPSED_WIDTH)).current;
-  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const menuHasFocus = useRef(false);
   const routeRefs = useRef<Record<TvRoute["key"], TVFocusableHandle | null>>({
     home: null,
     live: null,
@@ -27,32 +29,40 @@ export function TvSideNavigation() {
     settings: null,
   });
   const [focusHandles, setFocusHandles] = useState<number[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const [focusedRouteKey, setFocusedRouteKey] = useState<TvRoute["key"] | null>(null);
+  const focusedRouteRef = useRef<TvRoute["key"] | null>(null);
+  const focusEpoch = useRef(0);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
+  const cancelCollapse = useCallback(() => {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    collapseTimer.current = null;
   }, []);
-
-  useEffect(() => {
-    Animated.timing(width, {
-      toValue: expanded ? TV_NAV_EXPANDED_WIDTH : TV_NAV_COLLAPSED_WIDTH,
-      duration: 180,
-      useNativeDriver: false,
-    }).start();
-  }, [expanded, width]);
-
-  const expand = useCallback(() => {
-    menuHasFocus.current = true;
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+  const handleNavigationFocus = useCallback((routeKey: TvRoute["key"]) => {
+    cancelCollapse();
+    focusEpoch.current += 1;
+    focusedRouteRef.current = routeKey;
+    setFocusedRouteKey(routeKey);
     setExpanded(true);
-  }, []);
-
-  const scheduleCollapse = useCallback(() => {
-    menuHasFocus.current = false;
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+  }, [cancelCollapse]);
+  const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
+    // Android TV emits blur before the next item receives focus. Keep a short
+    // guard window and only fold if this exact item was not replaced by a
+    // neighbouring rail destination. This is the YouTube-style expand-on-focus
+    // behaviour without the former icon/label flicker.
+    const epochAtBlur = focusEpoch.current;
+    cancelCollapse();
     collapseTimer.current = setTimeout(() => {
-      if (!menuHasFocus.current) setExpanded(false);
-    }, 320);
-  }, []);
+      collapseTimer.current = null;
+      if (focusEpoch.current !== epochAtBlur || focusedRouteRef.current !== routeKey) return;
+      focusedRouteRef.current = null;
+      setFocusedRouteKey(null);
+      setExpanded(false);
+    }, 420);
+  }, [cancelCollapse]);
+
+  useEffect(() => () => cancelCollapse(), [cancelCollapse]);
 
   const resolveFocusHandles = useCallback(() => {
     requestAnimationFrame(() => {
@@ -65,18 +75,27 @@ export function TvSideNavigation() {
   }, [pathname, router]);
 
   return (
-    <Animated.View style={[styles.shell, { width }]}>
+    <View style={styles.slot}>
+      <View style={[styles.shell, expanded && styles.shellExpanded]}>
+      <BlurView
+        intensity={52}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View pointerEvents="none" style={styles.glassWash} />
       <View style={styles.brand}>
-        <Image source={require("../assets/images/flixplay_icon.png")} contentFit="contain" style={styles.logo} />
-        <View style={styles.brandCopy}>
-            <AppText style={styles.brandName}>FlixPlay</AppText>
-            <AppText style={styles.brandHint}>ENTRETENIMENTO</AppText>
+        <BrandLogo variant="symbol" style={styles.logo} accessibilityLabel="Símbolo ELVANOQ" />
+        <View style={[styles.brandCopy, expanded && styles.brandCopyExpanded]}>
+            <AppText style={styles.brandName}>ELVANOQ</AppText>
+            <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
         </View>
       </View>
 
       <View style={styles.navList} onLayout={resolveFocusHandles}>
         {TV_ROUTES.map((route, index) => {
           const selected = isTvRouteActive(pathname, route.href);
+          const focused = focusedRouteKey === route.key;
           const ownHandle = focusHandles[index] || undefined;
           return (
             <TVFocusable
@@ -88,14 +107,15 @@ export function TvSideNavigation() {
               focusId={route.key}
               focusScope="tv-side-navigation"
               restoreFocus
-              onFocus={expand}
-              onBlur={scheduleCollapse}
               nextFocusUp={focusHandles[index - 1] || ownHandle}
               nextFocusDown={focusHandles[index + 1] || ownHandle}
               nextFocusLeft={ownHandle}
+              onFocus={() => handleNavigationFocus(route.key)}
+              onBlur={() => handleNavigationBlur(route.key)}
               onPress={() => openRoute(route)}
               style={({ pressed }) => [
                 styles.navItem,
+                expanded && styles.navItemExpanded,
                 selected && styles.navItemSelected,
                 pressed && styles.navItemPressed,
               ]}
@@ -104,10 +124,12 @@ export function TvSideNavigation() {
               <View style={[styles.activeBar, selected && styles.activeBarVisible]} />
               <Ionicons
                 name={selected ? route.icon.replace("-outline", "") as TvRoute["icon"] : route.icon}
-                size={25}
-                color={selected ? Colors.blueBright : Colors.muted}
+                size={24}
+                // Every available destination remains visible while the rail
+                // is open; focus only changes the selected surface.
+                color={focused ? Colors.background : selected ? Colors.blueBright : expanded ? "rgba(238,244,252,0.88)" : "rgba(216,226,239,0.80)"}
               />
-              <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected]}>
+              <AppText numberOfLines={1} style={[styles.navLabel, expanded && styles.navLabelExpanded, selected && styles.navLabelSelected, focused && styles.navLabelFocused]}>
                 {route.label}
               </AppText>
             </TVFocusable>
@@ -115,49 +137,65 @@ export function TvSideNavigation() {
         })}
       </View>
 
-      <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
-    </Animated.View>
+      <View style={styles.footer}>
+        <View style={styles.footerDivider} />
+        <AppText numberOfLines={1} style={[styles.version, expanded && styles.versionExpanded]}>{APP_INFO.versionLabel}</AppText>
+      </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  slot: { width: TV_NAV_COLLAPSED_WIDTH, flexShrink: 0, overflow: "visible", zIndex: 20, elevation: 20 },
   shell: {
+    width: TV_NAV_COLLAPSED_WIDTH,
     position: "absolute",
-    zIndex: 50,
-    elevation: 30,
-    left: 0,
     top: 0,
     bottom: 0,
-    overflow: "hidden",
-    paddingTop: 24,
-    paddingBottom: 20,
+    left: 0,
+    flexShrink: 0,
+    paddingTop: 22,
+    paddingBottom: 16,
     paddingHorizontal: 12,
-    backgroundColor: "#080C16",
+    // A dark translucent wash preserves contrast without hiding the native
+    // BlurView placed directly beneath this surface.
+    backgroundColor: "rgba(9,17,31,0.54)",
     borderRightWidth: 1,
-    borderRightColor: Colors.border,
+    borderRightColor: "rgba(186,221,255,0.12)",
   },
-  brand: { height: 52, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4, overflow: "hidden" },
-  logo: { width: 36, height: 36, borderRadius: 10, flexShrink: 0 },
-  brandCopy: { gap: 1, minWidth: 145 },
-  brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 18 },
-  brandHint: { color: Colors.blueBright, fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 1.1 },
-  navList: { flex: 1, justifyContent: "center", gap: 8 },
+  shellExpanded: { width: TV_NAV_EXPANDED_WIDTH, shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 26, shadowOffset: { width: 12, height: 0 }, elevation: 22 },
+  glassWash: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8,15,26,0.30)" },
+  brand: { height: 54, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 6, marginBottom: 16 },
+  logo: { width: 28, height: 28, borderRadius: 8, flexShrink: 0 },
+  brandCopy: { width: 0, opacity: 0, overflow: "hidden", gap: 2 },
+  brandCopyExpanded: { width: 132, opacity: 1 },
+  brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 15, letterSpacing: -0.25 },
+  brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 1.2 },
+  navList: { flex: 1, justifyContent: "center", gap: 5 },
   navItem: {
     height: 48,
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    paddingHorizontal: 9,
-    borderRadius: Radii.medium,
+    justifyContent: "center",
+    gap: 0,
+    paddingHorizontal: 0,
+    borderRadius: 8,
     overflow: "hidden",
   },
-  navItemSelected: { backgroundColor: "rgba(59,130,246,0.13)" },
-  navItemFocused: { backgroundColor: "rgba(59,130,246,0.24)", borderColor: Colors.blueBright },
-  navItemPressed: { opacity: 0.76 },
-  activeBar: { position: "absolute", left: 0, width: 3, height: 24, borderRadius: 2, opacity: 0 },
+  navItemExpanded: { justifyContent: "flex-start", gap: 13, paddingHorizontal: 12 },
+  navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
+  navItemFocused: { borderWidth: 2, backgroundColor: Colors.white, borderColor: "rgba(255,255,255,0.96)", transform: [{ scale: 1 }], opacity: 1 },
+  navItemPressed: { opacity: 0.9 },
+  activeBar: { position: "absolute", left: 2, width: 3, height: 18, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
-  navLabel: { minWidth: 118, color: Colors.muted, fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  navLabel: { width: 0, opacity: 0, overflow: "hidden", color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 14 },
+  navLabelExpanded: { width: 126, opacity: 1 },
   navLabelSelected: { color: Colors.text },
-  version: { minWidth: 155, color: Colors.subtle, fontSize: 9, paddingHorizontal: 5 },
+  navLabelFocused: { color: Colors.background },
+  footer: { gap: 11, paddingHorizontal: 7, overflow: "hidden" },
+  footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
+  version: { width: 0, opacity: 0, color: "rgba(181,201,225,0.46)", fontSize: 9 },
+  versionExpanded: { width: 155, opacity: 1 },
 });

@@ -14,16 +14,18 @@ import { Colors, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
-import { AppText, Chip, EmptyState, PosterCard, SearchField, SectionHeader } from "@/components/ui";
+import { AppText, Chip, EmptyState, GlassCard, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { VodMovie } from "@/store/types";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
+import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
+import { CatalogBackground } from "@/components/catalog-background";
 
 const MOVIES_FOCUS_SCOPE = "movies-grid";
 
-const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z"] as const;
+const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z", "Z-A"] as const;
 type SortOption = typeof SORT_OPTIONS[number];
 
 const FAVORITES_LABEL = "Favoritos";
@@ -44,11 +46,13 @@ interface MoviesHeaderProps {
   refresh: () => void;
   setGenre: (g: string) => void;
   setSort: (s: SortOption) => void;
+  query: string;
+  setQuery: (value: string) => void;
 }
 
 function MoviesHeader({
   isSyncing, syncError, syncProgress, genres, genre, sort,
-  filteredCount, totalCount, refresh, setGenre, setSort,
+  filteredCount, totalCount, refresh, setGenre, setSort, query, setQuery,
 }: MoviesHeaderProps) {
   return (
     <View style={styles.headerBlock}>
@@ -93,6 +97,16 @@ function MoviesHeader({
           <Ionicons name="refresh" size={22} color={Colors.blueBright} />
         </TVFocusable>
       </View>
+
+      {genre !== FAVORITES_LABEL ? (
+        <GlassCard style={styles.searchBar} intensity={16}>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar por título ou gênero"
+          />
+        </GlassCard>
+      ) : null}
 
       <View style={styles.filterBlock}>
         <AppText style={styles.filterLabel}>Categorias</AppText>
@@ -160,6 +174,7 @@ export default function MoviesScreen() {
   const [query, setQuery] = useState("");
 
   const movies = useAppStore((state) => state.contentCache.vodMovies);
+  const activeServerId = useAppStore((state) => state.activeServerId);
   const cachedCategories = useAppStore((state) => state.contentCache.vodCategories);
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
@@ -179,22 +194,32 @@ export default function MoviesScreen() {
   );
 
   const filteredMovies = useMemo(() => {
-    if (genre === FAVORITES_LABEL) {
-      return movies.filter((movie) => favoriteMovieIds.includes(movie.id));
-    }
     const q = query.trim().toLowerCase();
     return movies
       .filter((movie) => {
-        const matchGenre = genre === "Todos" || movie.genre === genre;
+        const matchGenre = genre === FAVORITES_LABEL
+          ? favoriteMovieIds.includes(movie.id)
+          : genre === "Todos" || movie.genre === genre;
         const matchQ = !q || `${movie.title} ${movie.genre}`.toLowerCase().includes(q);
         return matchGenre && matchQ;
       })
       .sort((a, b) => {
         if (sort === "Melhor avaliados") return b.rating - a.rating;
         if (sort === "A-Z") return a.title.localeCompare(b.title);
-        return b.year - a.year;
+        if (sort === "Z-A") return b.title.localeCompare(a.title);
+        // Xtream returns `added` for catalog insertion. Release year is not a
+        // substitute: old films may be inserted today and must appear first.
+        const addedA = Date.parse(a.addedAt ?? "") || 0;
+        const addedB = Date.parse(b.addedAt ?? "") || 0;
+        return addedB - addedA || a.title.localeCompare(b.title);
       });
   }, [movies, genre, query, sort, favoriteMovieIds]);
+  const pager = useCatalogPagination<VodMovie>(activeServerId, "vodMovies", {
+    categoryName: genre === FAVORITES_LABEL || genre === "Todos" ? "" : genre,
+    query: genre === FAVORITES_LABEL ? "" : query.trim(),
+    sort: sort === "Melhor avaliados" ? "rating_desc" : sort === "A-Z" ? "name_asc" : sort === "Z-A" ? "name_desc" : "added_desc",
+  });
+  const visibleMovies = pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredMovies;
 
   const handleMovie = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -239,14 +264,16 @@ export default function MoviesScreen() {
         genres={genres}
         genre={genre}
         sort={sort}
-        filteredCount={filteredMovies.length}
+        filteredCount={visibleMovies.length}
         totalCount={movies.length}
         refresh={refresh}
         setGenre={handleSetGenre}
         setSort={handleSetSort}
+        query={query}
+        setQuery={setQuery}
       />
     ),
-    [isSyncing, syncError, syncProgress, genres, genre, sort, filteredMovies.length, movies.length, refresh, handleSetGenre, handleSetSort],
+    [isSyncing, syncError, syncProgress, genres, genre, sort, visibleMovies.length, movies.length, refresh, handleSetGenre, handleSetSort, query],
   );
 
   const listEmptyElement = useMemo(
@@ -286,21 +313,12 @@ export default function MoviesScreen() {
 
   return (
     <View style={styles.screen}>
+      <CatalogBackground />
       <View style={styles.ambient} />
-      {/* SearchField outside FlatList prevents TextInput from remounting on query change */}
-      {genre !== FAVORITES_LABEL ? (
-        <View style={[styles.searchBar, { paddingHorizontal: hPad }]}>
-          <SearchField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscar por título ou gênero"
-          />
-        </View>
-      ) : null}
       <FlatList
         ref={listRef}
         key={`movies-${numColumns}`}
-        data={filteredMovies}
+        data={visibleMovies}
         numColumns={numColumns}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
@@ -322,6 +340,9 @@ export default function MoviesScreen() {
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
         onScrollToIndexFailed={onScrollToIndexFailed}
+        onEndReached={pager.enabled && genre !== FAVORITES_LABEL ? pager.loadMore : undefined}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={pager.loading && visibleMovies.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
       />
     </View>
   );
@@ -338,7 +359,9 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     backgroundColor: "rgba(59, 130, 246, 0.07)",
   },
-  searchBar: { paddingTop: 14, paddingBottom: 4 },
+  // The field lives inside the virtualized header so Android cannot cover it
+  // with the FlatList native surface.
+  searchBar: { marginTop: -2, marginBottom: 2, padding: 6, borderRadius: 14 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 40 },
   tvContent: { paddingBottom: 54 },
   headerBlock: { gap: 19, paddingTop: 22, marginBottom: 16 },
@@ -401,6 +424,7 @@ const styles = StyleSheet.create({
   sortContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
   columnWrapper: { alignItems: "flex-start" },
   rowSeparator: { height: 20 },
+  pageLoader: { paddingVertical: 20 },
   empty: {
     alignItems: "center",
     justifyContent: "center",

@@ -1,5 +1,8 @@
-const SENSITIVE_KEYS = /^(username|user|password|pass|passwd|pwd|token|auth|authorization|access[_-]?token|refresh[_-]?token|api[_-]?key|secret|pin|cookie|set-cookie|session|sessionid)$/i;
-const SENSITIVE_ASSIGNMENT = /\b(username|user|password|pass|passwd|pwd|token|auth|authorization|access[_-]?token|refresh[_-]?token|api[_-]?key|secret|pin|cookie|set-cookie|session|sessionid)\b(\s*[=:]\s*)([^\s,;&}\]]+)/gi;
+const SENSITIVE_KEYS =
+  /^(username|user|password|pass|passwd|pwd|token|auth|authorization|access[_-]?token|refresh[_-]?token|api[_-]?key|secret|pin|cookie|set-cookie|session|sessionid)$/i;
+
+const SENSITIVE_ASSIGNMENT =
+  /\b(username|user|password|pass|passwd|pwd|token|auth|authorization|access[_-]?token|refresh[_-]?token|api[_-]?key|secret|pin|cookie|set-cookie|session|sessionid)\b(\s*[=:]\s*)([^\s,;&}\]]+)/gi;
 
 export function sanitizeUrl(value: string): string {
   try {
@@ -13,7 +16,7 @@ export function sanitizeUrl(value: string): string {
       /\/(live|movie|series)\/[^/]+\/[^/]+\//i,
       "/$1/***/***/",
     );
-    return parsed.toString().replace(SENSITIVE_ASSIGNMENT, "$1$2***");
+    return parsed.toString();
   } catch {
     return "[URL removida]";
   }

@@ -38,6 +38,7 @@ export interface XtreamLiveStream {
   epg_channel_id?: string;
   category_id: string;
   tv_archive: number;
+  tv_archive_duration?: number | string;
   direct_source?: string;
 }
 
@@ -165,10 +166,14 @@ export function refreshEpgProgress(
 
 export interface M3uEntry {
   id: string;
+  tvgId: string;
   name: string;
   logo: string;
   group: string;
+  number: string | null;
   url: string;
+  catchupDays?: number;
+  catchupSource?: string;
 }
 
 export class XtreamApiError extends Error {
@@ -190,6 +195,19 @@ export class XtreamApiError extends Error {
  * mobile connection, so 40 s is more realistic than the old 15 s limit.
  */
 const REQUEST_TIMEOUT_MS = 40000;
+const LARGE_CATALOG_TIMEOUT_MS = 120000;
+
+/**
+ * Full VOD/series payloads are commonly much larger than the live catalogue.
+ * Keeping the authentication/category timeout short still gives fast feedback,
+ * while large catalogue actions get enough time on entry-level TV devices and
+ * slower providers.
+ */
+export function getXtreamRequestTimeoutMs(action?: string): number {
+  return action === "get_vod_streams" || action === "get_series"
+    ? LARGE_CATALOG_TIMEOUT_MS
+    : REQUEST_TIMEOUT_MS;
+}
 
 /**
  * User-Agent widely accepted by IPTV servers.
@@ -239,13 +257,17 @@ function isAbortError(err: unknown): boolean {
  * Credentials must never be forwarded to third-party CORS proxies. When the
  * browser blocks the request, users should prefer HTTPS or the native app.
  */
-async function fetchWebDirect(url: string, signal?: AbortSignal): Promise<Response> {
+async function fetchWebDirect(
+  url: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<Response> {
   try {
-    return await timedFetch(url, REQUEST_TIMEOUT_MS, signal);
+    return await timedFetch(url, timeoutMs, signal);
   } catch (directErr) {
     if (isAbortError(directErr)) {
       throw new XtreamApiError(
-        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
+        `Host não respondeu (Timeout após ${Math.round(timeoutMs / 1000)}s). Verifique a URL e sua conexão.`,
         0,
       );
     }
@@ -264,46 +286,42 @@ function isCleartextBlockError(err: unknown): boolean {
 }
 
 /**
- * Native strategy: try original URL first, then swap protocol (http↔https).
- * Cleartext blocking is NOT treated as a terminal error — we first attempt the
- * alternate protocol (HTTPS) because the server might support it, or the build
- * might already have cleartext enabled but the error message is misleading.
- * Only after both attempts fail do we surface a diagnostic.
+ * Produces the only transport candidates that may be attempted automatically.
+ * An explicitly configured HTTP endpoint may be upgraded to HTTPS. An HTTPS
+ * endpoint is never downgraded to cleartext because that would send credentials
+ * over a weaker transport without the user's consent.
  */
-async function fetchNativeWithProtocolSwap(url: string, signal?: AbortSignal): Promise<Response> {
+export function getSafeTransportCandidates(url: string): string[] {
+  if (url.startsWith("http://")) {
+    return [url, url.replace(/^http:\/\//, "https://")];
+  }
+  return [url];
+}
+
+async function fetchNativeWithSafeFallback(
+  url: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<Response> {
   let firstError: unknown;
 
-  // Attempt 1: original URL
-  try {
-    return await timedFetch(url, REQUEST_TIMEOUT_MS, signal);
-  } catch (err) {
-    if (isAbortError(err)) {
-      throw new XtreamApiError(
-        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
-        0,
-      );
+  const candidates = getSafeTransportCandidates(url);
+  for (const [index, candidate] of candidates.entries()) {
+    try {
+      return await timedFetch(candidate, timeoutMs, signal);
+    } catch (err) {
+      if (isAbortError(err)) {
+        throw new XtreamApiError(
+          `Host não respondeu (Timeout após ${Math.round(timeoutMs / 1000)}s). Verifique a URL e sua conexão.`,
+          0,
+        );
+      }
+      if (err instanceof XtreamApiError) throw err;
+      if (index === 0) firstError = err;
     }
-    if (err instanceof XtreamApiError) throw err;
-    firstError = err;
   }
 
-  // An explicitly secure endpoint must never be downgraded to HTTP.
-  const altUrl = getSafeTransportCandidates(url)[1];
-  if (!altUrl) throw firstError;
-
-  try {
-    return await timedFetch(altUrl, REQUEST_TIMEOUT_MS, signal);
-  } catch (altErr) {
-    if (isAbortError(altErr)) {
-      throw new XtreamApiError(
-        "Host não respondeu (Timeout após 40s). Verifique a URL e sua conexão.",
-        0,
-      );
-    }
-    if (altErr instanceof XtreamApiError) throw altErr;
-  }
-
-  // Both attempts failed — surface the most actionable error
+  // Every allowed attempt failed — surface the most actionable error.
   if (isCleartextBlockError(firstError)) {
     throw new XtreamApiError(
       "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
@@ -318,22 +336,52 @@ async function fetchNativeWithProtocolSwap(url: string, signal?: AbortSignal): P
   );
 }
 
-function fetchWithFallbacks(url: string, signal?: AbortSignal): Promise<Response> {
+function fetchWithFallbacks(
+  url: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<Response> {
   return Platform.OS === "web"
-    ? fetchWebDirect(url, signal)
-    : fetchNativeWithProtocolSwap(url, signal);
+    ? fetchWebDirect(url, timeoutMs, signal)
+    : fetchNativeWithSafeFallback(url, timeoutMs, signal);
+}
+
+/**
+ * Xtream clones do not all use the same JSON shape. Standard panels return an
+ * array, while some return an object keyed by numeric IDs or wrap the list in
+ * `data`, `results`, `streams`, `categories` or `series`.
+ */
+export function normalizeXtreamList<T>(body: unknown): T[] {
+  if (Array.isArray(body)) return body as T[];
+  if (!body || typeof body !== "object") return [];
+
+  const record = body as Record<string, unknown>;
+  for (const key of ["data", "results", "streams", "categories", "series"]) {
+    if (Array.isArray(record[key])) return record[key] as T[];
+  }
+
+  const entries = Object.entries(record);
+  if (
+    entries.length > 0 &&
+    entries.every(([key, value]) => /^\d+$/.test(key) && value !== null && typeof value === "object")
+  ) {
+    return entries
+      .sort(([left], [right]) => Number(left) - Number(right))
+      .map(([, value]) => value as T);
+  }
+
+  return [];
 }
 
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */
 async function parseXtreamResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const denied = response.status === 401 || response.status === 403;
-    const responseText = await response.text().catch(() => "");
-    const tlsFailure = /tls|ssl|handshake|certificate/i.test(responseText);
+    const tlsGatewayFailure = response.status === 502 || response.status === 525 || response.status === 526;
     const msg = denied
       ? `Acesso negado pelo servidor (HTTP ${response.status}). Usuário ou senha incorretos.`
-      : tlsFailure
-        ? "Falha TLS/SSL na conexão com o servidor. Verifique o certificado, a porta e o protocolo HTTPS."
+      : tlsGatewayFailure
+        ? "O domínio do servidor falhou na conexão segura (TLS/SSL). A autenticação não foi enviada. Use o endereço e a porta Xtream fornecidos pelo provedor ou solicite a correção do certificado."
       : `Servidor respondeu com status ${response.status}.`;
     throw new XtreamApiError(msg, response.status);
   }
@@ -398,8 +446,9 @@ async function requestXtream<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   const url = buildApiUrl(profile, action, params);
+  const timeoutMs = getXtreamRequestTimeoutMs(action);
   try {
-    const response = await fetchWithFallbacks(url, signal);
+    const response = await fetchWithFallbacks(url, timeoutMs, signal);
     return await parseXtreamResponse<T>(response);
   } catch (err) {
     logTechnicalError("Xtream", err);
@@ -409,6 +458,16 @@ async function requestXtream<T>(
     }
     mapFetchError(err);
   }
+}
+
+async function requestXtreamList<T>(
+  profile: ServerProfile,
+  action: string,
+  params: Record<string, string> = {},
+  signal?: AbortSignal,
+): Promise<T[]> {
+  const body = await requestXtream<unknown>(profile, action, params, signal);
+  return normalizeXtreamList<T>(body);
 }
 
 /**
@@ -446,10 +505,10 @@ export async function authenticateXtream(profile: ServerProfile): Promise<Xtream
 }
 
 export const getLiveCategories = (profile: ServerProfile, signal?: AbortSignal) =>
-  requestXtream<XtreamCategory[]>(profile, "get_live_categories", {}, signal);
+  requestXtreamList<XtreamCategory>(profile, "get_live_categories", {}, signal);
 
 export const getLiveStreams = (profile: ServerProfile, categoryId?: string, signal?: AbortSignal) =>
-  requestXtream<XtreamLiveStream[]>(
+  requestXtreamList<XtreamLiveStream>(
     profile,
     "get_live_streams",
     categoryId ? { category_id: categoryId } : {},
@@ -457,10 +516,10 @@ export const getLiveStreams = (profile: ServerProfile, categoryId?: string, sign
   );
 
 export const getVodCategories = (profile: ServerProfile, signal?: AbortSignal) =>
-  requestXtream<XtreamCategory[]>(profile, "get_vod_categories", {}, signal);
+  requestXtreamList<XtreamCategory>(profile, "get_vod_categories", {}, signal);
 
 export const getVodStreams = (profile: ServerProfile, categoryId?: string, signal?: AbortSignal) =>
-  requestXtream<XtreamVodStream[]>(
+  requestXtreamList<XtreamVodStream>(
     profile,
     "get_vod_streams",
     categoryId ? { category_id: categoryId } : {},
@@ -468,10 +527,10 @@ export const getVodStreams = (profile: ServerProfile, categoryId?: string, signa
   );
 
 export const getSeriesCategories = (profile: ServerProfile, signal?: AbortSignal) =>
-  requestXtream<XtreamCategory[]>(profile, "get_series_categories", {}, signal);
+  requestXtreamList<XtreamCategory>(profile, "get_series_categories", {}, signal);
 
 export const getSeries = (profile: ServerProfile, categoryId?: string, signal?: AbortSignal) =>
-  requestXtream<XtreamSeriesStream[]>(
+  requestXtreamList<XtreamSeriesStream>(
     profile,
     "get_series",
     categoryId ? { category_id: categoryId } : {},
@@ -565,7 +624,9 @@ export function mapVodStreamToMovie(
     genre: category?.category_name ?? "Geral",
     plot: stream.plot ?? "",
     streamUrl: createVodUrl(profile, String(stream.stream_id), stream.container_extension || "mp4"),
+    containerExtension: stream.container_extension || "mp4",
     quality,
+    addedAt: stream.added || undefined,
   };
 }
 
@@ -597,7 +658,7 @@ export function parseM3uPlaylist(text: string): M3uEntry[] {
     .map((line) => line.trim())
     .filter(Boolean);
   const entries: M3uEntry[] = [];
-  const seenUrls = new Set<string>();
+  const seen = new Set<string>();
   for (let index = 0; index < lines.length; index += 1) {
     const metadata = lines[index];
     if (!metadata.startsWith("#EXTINF")) continue;
@@ -605,27 +666,31 @@ export function parseM3uPlaylist(text: string): M3uEntry[] {
     if (!url || url.startsWith("#")) continue;
     const title =
       metadata.split(",").slice(1).join(",").trim() || "Canal sem nome";
-    const group = metadata.match(/group-title="([^"]*)"/)?.[1] ?? "Geral";
-    const logo = metadata.match(/tvg-logo="([^"]*)"/)?.[1] ?? "";
-    if (seenUrls.has(url)) { index += 1; continue; }
-    seenUrls.add(url);
-    const tvgId = metadata.match(/tvg-id="([^"]*)"/)?.[1] ?? "";
+    // M3U attributes use quoted values. `tvg-chno` and `channel-number` are
+    // both seen in the wild, so preserve either without inventing a number.
+    const attribute = (name: string) => metadata.match(new RegExp(`${name}="([^"]*)"`, "i"))?.[1]?.trim() ?? "";
+    const tvgId = attribute("tvg-id");
+    const group = attribute("group-title") || "Geral";
+    const logo = attribute("tvg-logo");
+    const number = attribute("tvg-chno") || attribute("channel-number") || null;
+    const catchupMode = attribute("catchup").toLowerCase();
+    const catchupDays = Number(attribute("catchup-days"));
+    const catchupSource = attribute("catchup-source");
     const id = tvgId || `m3u-${entries.length + 1}`;
-    const number = metadata.match(/tvg-chno="([^"]*)"/)?.[1];
-    const days = Number(metadata.match(/catchup-days="([^"]*)"/)?.[1]);
-    const source = metadata.match(/catchup-source="([^"]*)"/)?.[1];
-    entries.push({ id, tvgId, name: title, logo, group, number, url,
-      ...(Number.isFinite(days) && days > 0 ? { catchupDays: days } : {}),
-      ...(source ? { catchupSource: source } : {}),
-    });
+    // A playlist often repeats a channel under more than one group. The stream
+    // URL is the only reliable deduplication key when tvg-id is absent.
+    const dedupeKey = `${tvgId || id}\u0000${url}`;
+    if (!seen.has(dedupeKey)) {
+      seen.add(dedupeKey);
+      entries.push({
+        id, tvgId, name: title, logo, group, number, url,
+        catchupDays: catchupMode && catchupMode !== "none" && Number.isFinite(catchupDays) && catchupDays > 0 ? catchupDays : undefined,
+        catchupSource: catchupMode && catchupMode !== "none" && catchupSource ? catchupSource : undefined,
+      });
+    }
     index += 1;
   }
   return entries;
-}
-
-/** Returns candidates without weakening a user-provided secure endpoint. */
-export function getSafeTransportCandidates(url: string): string[] {
-  return url.startsWith("http://") ? [url, url.replace(/^http:\/\//, "https://")] : [url];
 }
 
 export function mapLiveStreamToChannel(
@@ -642,6 +707,9 @@ export function mapLiveStreamToChannel(
     categoryId: category.category_id,
     categoryName: category.category_name,
     epgChannelId: stream.epg_channel_id,
+    catchupDays: Number(stream.tv_archive) === 1 && Number(stream.tv_archive_duration) > 0
+      ? Number(stream.tv_archive_duration)
+      : undefined,
     currentEpg: {
       title: "Carregando programação...",
       start: "--:--",

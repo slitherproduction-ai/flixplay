@@ -14,12 +14,14 @@ import { Colors, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
-import { AppText, Chip, EmptyState, PosterCard, SearchField, SectionHeader } from "@/components/ui";
+import { AppText, Chip, EmptyState, GlassCard, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem } from "@/store/types";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
+import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
+import { CatalogBackground } from "@/components/catalog-background";
 
 const SERIES_FOCUS_SCOPE = "series-grid";
 
@@ -44,11 +46,13 @@ interface SeriesHeaderProps {
   totalCount: number;
   refresh: () => void;
   setGenre: (g: string) => void;
+  query: string;
+  setQuery: (value: string) => void;
 }
 
 function SeriesHeader({
   isSyncing, syncError, syncProgress, genres, genre,
-  filteredCount, totalCount, refresh, setGenre,
+  filteredCount, totalCount, refresh, setGenre, query, setQuery,
 }: SeriesHeaderProps) {
   return (
     <View style={styles.headerBlock}>
@@ -93,6 +97,16 @@ function SeriesHeader({
           <Ionicons name="refresh" size={22} color={Colors.red} />
         </TVFocusable>
       </View>
+
+      {genre !== FAVORITES_LABEL ? (
+        <GlassCard style={styles.searchBar} intensity={16}>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar por título ou ator"
+          />
+        </GlassCard>
+      ) : null}
 
       <ScrollView
         horizontal
@@ -148,6 +162,7 @@ export default function SeriesScreen() {
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<SeriesItem>(SERIES_FOCUS_SCOPE, tvMode, numColumns);
 
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
+  const activeServerId = useAppStore((state) => state.activeServerId);
   const cachedCategories = useAppStore((state) => state.contentCache.seriesCategories);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
@@ -168,6 +183,12 @@ export default function SeriesScreen() {
       return matchGenre && matchQ;
     });
   }, [seriesList, genre, query, favoriteSeriesIds]);
+  const pager = useCatalogPagination<SeriesItem>(activeServerId, "seriesList", {
+    categoryName: genre === FAVORITES_LABEL || genre === "Todas" ? "" : genre,
+    query: genre === FAVORITES_LABEL ? "" : query.trim(),
+    sort: "name_asc",
+  });
+  const visibleSeries = pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredSeries;
 
   const handleSeries = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -207,13 +228,15 @@ export default function SeriesScreen() {
         syncProgress={syncProgress}
         genres={genres}
         genre={genre}
-        filteredCount={filteredSeries.length}
+        filteredCount={visibleSeries.length}
         totalCount={seriesList.length}
         refresh={refresh}
         setGenre={handleSetGenre}
+        query={query}
+        setQuery={setQuery}
       />
     ),
-    [isSyncing, syncError, syncProgress, genres, genre, filteredSeries.length, seriesList.length, refresh, handleSetGenre],
+    [isSyncing, syncError, syncProgress, genres, genre, visibleSeries.length, seriesList.length, refresh, handleSetGenre, query],
   );
 
   const listEmptyElement = useMemo(
@@ -253,21 +276,12 @@ export default function SeriesScreen() {
 
   return (
     <View style={styles.screen}>
+      <CatalogBackground />
       <View style={styles.ambient} />
-      {/* SearchField outside FlatList to prevent TextInput remount on query change */}
-      {genre !== FAVORITES_LABEL ? (
-        <View style={[styles.searchBar, { paddingHorizontal: hPad }]}>
-          <SearchField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscar por título ou ator"
-          />
-        </View>
-      ) : null}
       <FlatList
         ref={listRef}
         key={`series-${numColumns}`}
-        data={filteredSeries}
+        data={visibleSeries}
         numColumns={numColumns}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
@@ -289,6 +303,9 @@ export default function SeriesScreen() {
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
         onScrollToIndexFailed={onScrollToIndexFailed}
+        onEndReached={pager.enabled && genre !== FAVORITES_LABEL ? pager.loadMore : undefined}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={pager.loading && visibleSeries.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
       />
     </View>
   );
@@ -305,7 +322,9 @@ const styles = StyleSheet.create({
     borderRadius: 140,
     backgroundColor: "rgba(229, 9, 20, 0.06)",
   },
-  searchBar: { paddingTop: 14, paddingBottom: 4 },
+  // The field is part of the virtualized header so Android never draws the
+  // FlatList native surface above it.
+  searchBar: { marginTop: -2, marginBottom: 2, padding: 6, borderRadius: 14 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 40 },
   tvContent: { paddingBottom: 54 },
   headerBlock: { gap: 19, paddingTop: 22, marginBottom: 16 },
@@ -363,6 +382,7 @@ const styles = StyleSheet.create({
   genreContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
   columnWrapper: { alignItems: "flex-start" },
   rowSeparator: { height: 20 },
+  pageLoader: { paddingVertical: 20 },
   empty: {
     alignItems: "center",
     justifyContent: "center",

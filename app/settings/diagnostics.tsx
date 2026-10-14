@@ -34,7 +34,10 @@ export default function DiagnosticsScreen() {
     setCacheBytes(await catalogDatabase.getApproximateSize());
   }, []);
 
-  useEffect(() => { void refreshCacheSize(); }, [refreshCacheSize]);
+  useEffect(() => {
+    const timer = setTimeout(() => void refreshCacheSize(), 0);
+    return () => clearTimeout(timer);
+  }, [refreshCacheSize]);
 
   const testConnection = useCallback(async () => {
     if (!activeServer) return;
@@ -67,7 +70,7 @@ export default function DiagnosticsScreen() {
   }, [activeServerId, clearContentCache, forceResync, router]);
 
   const report = useMemo(() => [
-    `FlixPlay ${APP_INFO.version} (${APP_INFO.build})`,
+    `ELVANOQ ${APP_INFO.version} (${APP_INFO.build})`,
     `Plataforma: ${Platform.OS}`,
     `Dispositivo: ${Constants.deviceName ?? "Não informado"}`,
     `Sistema: ${String(Platform.Version)}`,
@@ -82,7 +85,7 @@ export default function DiagnosticsScreen() {
   ].join("\n"), [activeServer?.status, cache, cacheBytes, latencyMs, syncState.syncError]);
 
   const shareReport = useCallback(async () => {
-    await Share.share({ title: "Diagnóstico FlixPlay", message: report });
+    await Share.share({ title: "Diagnóstico ELVANOQ", message: report });
   }, [report]);
 
   const rows = [

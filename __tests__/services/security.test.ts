@@ -25,4 +25,25 @@ describe("security sanitization", () => {
     expect(result).not.toContain("alice");
     expect(result).not.toContain("secret");
   });
+
+  it("removes tokens, API keys, PINs and authorization headers", () => {
+    const result = sanitizeError(
+      "access_token=abc123 api_key: top-secret pin=9876 Authorization: Bearer ey.secret.value",
+    );
+    expect(result).not.toContain("abc123");
+    expect(result).not.toContain("top-secret");
+    expect(result).not.toContain("9876");
+    expect(result).not.toContain("ey.secret.value");
+  });
+
+  it("removes URL userinfo and extended sensitive query parameters", () => {
+    const result = sanitizeUrl(
+      "https://alice:secret@iptv.example/api?access_token=abc&api_key=def&sessionid=ghi",
+    );
+    expect(result).not.toContain("alice");
+    expect(result).not.toContain("secret");
+    expect(result).not.toContain("abc");
+    expect(result).not.toContain("def");
+    expect(result).not.toContain("ghi");
+  });
 });

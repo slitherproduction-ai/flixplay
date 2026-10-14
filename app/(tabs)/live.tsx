@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,14 +19,16 @@ import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, GlassCard, IconButton, SearchField, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
-import { useEpgPreload, useEpgPreloader } from "@/hooks/useEpgPreload";
+import { EPG_LIVE_PRELOAD_LIMIT, useEpgPreload, useEpgPreloader } from "@/hooks/useEpgPreload";
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem } from "@/store/types";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
+import { ParentalGate } from "@/components/parental-gate";
+import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
+import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels";
 
-const LIVE_EPG_INITIAL_PRELOAD = 30;
 const LIVE_FOCUS_SCOPE = "live-channels";
 
 // ---------------------------------------------------------------------------
@@ -55,9 +59,10 @@ interface GridCardProps {
   onFavorite: (id: string) => void;
   focusIndex: number;
   restoreFocus: boolean;
+  onPreview: (channel: ChannelItem) => void;
 }
 
-function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite, focusIndex, restoreFocus }: GridCardProps) {
+function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite, focusIndex, restoreFocus, onPreview }: GridCardProps) {
   const handlePress = useCallback(() => onPress(channel.id), [channel.id, onPress]);
   const handleFav = useCallback(() => onFavorite(channel.id), [channel.id, onFavorite]);
 
@@ -70,6 +75,7 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite, 
         focusScope={LIVE_FOCUS_SCOPE}
         focusIndex={focusIndex}
         restoreFocus={restoreFocus}
+        onFocus={() => onPreview(channel)}
         onPress={handlePress}
         style={gridStyles.cardPressable}
       >
@@ -137,9 +143,10 @@ interface ListRowProps {
   onFavorite: (id: string) => void;
   focusIndex: number;
   restoreFocus: boolean;
+  onPreview: (channel: ChannelItem) => void;
 }
 
-function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onFavorite, focusIndex, restoreFocus }: ListRowProps) {
+function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onFavorite, focusIndex, restoreFocus, onPreview }: ListRowProps) {
   const handlePress = useCallback(() => onPress(channel.id), [channel.id, onPress]);
   const handleLong = useCallback(() => onLongPress(channel.id), [channel.id, onLongPress]);
   const handleFav = useCallback(() => onFavorite(channel.id), [channel.id, onFavorite]);
@@ -154,11 +161,13 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
           focusScope={LIVE_FOCUS_SCOPE}
           focusIndex={focusIndex}
           restoreFocus={restoreFocus}
+          onFocus={() => onPreview(channel)}
           onPress={handlePress}
           onLongPress={handleLong}
-          style={styles.channelPressable}
+          style={[styles.channelPressable, tvMode && styles.tvChannelPressable]}
+          focusStyle={tvMode ? styles.tvChannelFocused : undefined}
         >
-          <View style={styles.channelImage}>
+          <View style={[styles.channelImage, tvMode && styles.tvChannelImage]}>
             {channel.logo ? (
               <Image
                 source={{ uri: channel.logo }}
@@ -173,7 +182,7 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
           </View>
           <View style={styles.channelDetails}>
             <View style={styles.channelTitleRow}>
-              <AppText style={styles.channelNumber}>{channel.number}</AppText>
+              <AppText style={[styles.channelNumber, tvMode && styles.tvChannelNumber]}>{channel.number}</AppText>
               <AppText style={styles.channelTitle}>{channel.name}</AppText>
               <View style={styles.liveBadge}>
                 <View style={styles.liveDot} />
@@ -195,7 +204,7 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
             </AppText>
           </View>
         </TVFocusable>
-        <TVFocusable
+        {!tvMode ? <TVFocusable
           accessibilityRole="button"
           accessibilityLabel={
             isFavorite
@@ -211,7 +220,7 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
             size={20}
             color={isFavorite ? Colors.amber : Colors.muted}
           />
-        </TVFocusable>
+        </TVFocusable> : null}
       </View>
     </GlassCard>
   );
@@ -233,6 +242,7 @@ interface LiveHeaderProps {
   refresh: () => void;
   toggleViewMode: () => void;
   setCategory: (c: string) => void;
+  tvMode: boolean;
 }
 
 const FAVORITES_LABEL = "Favoritos";
@@ -249,6 +259,7 @@ function LiveHeader({
   refresh,
   toggleViewMode,
   setCategory,
+  tvMode,
 }: LiveHeaderProps) {
   return (
     <View style={styles.headerBlock}>
@@ -275,22 +286,30 @@ function LiveHeader({
         </View>
       ) : null}
 
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <AppText style={styles.kicker}>AO VIVO AGORA</AppText>
-          <AppText style={Type.display}>TV ao Vivo</AppText>
-          <AppText style={styles.headerSubtitle}>
-            {isSyncing
-              ? (syncProgress ?? "Carregando...")
-              : `${channels.length} canais disponíveis`}
-          </AppText>
-        </View>
+      <View style={[styles.header, tvMode && styles.tvHeader]}>
+        {tvMode ? (
+          <View style={styles.tvGuideStatus}>
+            <AppText style={styles.tvGuideCount}>
+              {isSyncing ? (syncProgress ?? "Carregando canais") : `${channels.length} canais disponíveis`}
+            </AppText>
+            <TvLiveUtility />
+          </View>
+        ) : (
+          <View style={styles.headerCopy}>
+            <AppText style={styles.kicker}>GUIA AO VIVO</AppText>
+            <AppText style={Type.display}>TV ao Vivo</AppText>
+            <AppText style={styles.headerSubtitle}>
+              {isSyncing ? (syncProgress ?? "Carregando...") : `${channels.length} canais disponíveis`}
+            </AppText>
+          </View>
+        )}
         <View style={styles.headerActions}>
+          {!tvMode ? <>
           <TVFocusable
             accessibilityRole="button"
             accessibilityLabel={viewMode === "grid" ? "Mudar para lista" : "Mudar para grade"}
             onPress={toggleViewMode}
-            style={({ pressed }) => [styles.viewToggle, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.viewToggle, tvMode && styles.tvViewToggle, pressed && styles.pressed]}
           >
             <Ionicons
               name={viewMode === "grid" ? "list-outline" : "grid-outline"}
@@ -298,21 +317,23 @@ function LiveHeader({
               color={Colors.text}
             />
           </TVFocusable>
-          <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} />
+          <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} size={tvMode ? 36 : 42} />
+          </> : null}
         </View>
       </View>
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.categoryScroller}
-        contentContainerStyle={styles.categoryContent}
+        style={[styles.categoryScroller, tvMode && styles.tvCategoryScroller]}
+        contentContainerStyle={[styles.categoryContent, tvMode && styles.tvCategoryContent]}
       >
         {categories.map((item, index) => (
           <Chip
             key={item}
             label={item}
             selected={category === item}
+              selectedTone={tvMode ? "light" : "blue"}
             hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(LIVE_FOCUS_SCOPE)}
             onPress={() => setCategory(item)}
             icon={item === FAVORITES_LABEL ? "star" : undefined}
@@ -328,6 +349,78 @@ function LiveHeader({
   );
 }
 
+function TvLiveUtility() {
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <View style={styles.tvUtility}>
+      <Ionicons name="radio-outline" size={18} color={Colors.text} />
+      <AppText style={styles.tvUtilityTime}>{clock.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</AppText>
+      <Ionicons name="settings-outline" size={19} color={Colors.muted} />
+    </View>
+  );
+}
+
+function TvChannelPreview({
+  channel,
+  width,
+  top,
+}: {
+  channel: ChannelItem | undefined;
+  width: number;
+  top: number;
+}) {
+  const source = channel?.streamUrl ? { uri: channel.streamUrl } : null;
+  const player = useVideoPlayer(source, (videoPlayer) => {
+    // The guide preview is an actual live preview, not a silent poster.  Use
+    // a dedicated audio session so the selected channel is immediately heard.
+    videoPlayer.muted = false;
+    videoPlayer.volume = 1;
+    videoPlayer.audioMixingMode = "doNotMix";
+    videoPlayer.play();
+  });
+  if (!channel) return null;
+  const epg = channel.currentEpg;
+  const hasSchedule = Boolean(epg.start || epg.end) && epg.title !== "Sem programação";
+  return (
+    <GlassCard style={[styles.tvPreview, { width, top }]} intensity={28}>
+      <View style={styles.tvPreviewStage}>
+        <VideoView player={player} contentFit="cover" nativeControls={false} style={StyleSheet.absoluteFill} />
+        {channel.logo ? <Image source={{ uri: channel.logo }} contentFit="contain" style={styles.tvPreviewWatermark} /> : null}
+        <LinearGradient colors={["rgba(3,8,16,0.06)", "rgba(3,8,16,0.66)"]} style={StyleSheet.absoluteFill} />
+        <View style={styles.tvPreviewLiveBadge}><View style={styles.liveDot} /><AppText style={styles.tvPreviewLiveText}>AO VIVO</AppText></View>
+      </View>
+      <View style={styles.tvPreviewCopy}>
+        <AppText numberOfLines={2} style={styles.tvPreviewChannel}>{channel.name}</AppText>
+        <AppText numberOfLines={2} style={styles.tvPreviewProgram}>{epg.title || "Carregando programação…"}</AppText>
+        {hasSchedule ? (
+          <View style={styles.tvPreviewTimeline}>
+            <AppText style={styles.tvPreviewTime}>{epg.start}</AppText>
+            <View style={styles.tvPreviewTrack}><View style={[styles.tvPreviewFill, { width: `${epg.progress}%` }]} /></View>
+            <AppText style={styles.tvPreviewTime}>{epg.end}</AppText>
+          </View>
+        ) : (
+          <View style={styles.tvPreviewLoading}><ActivityIndicator size="small" color={Colors.blueBright} /><AppText style={styles.tvPreviewLoadingText}>Buscando programação</AppText></View>
+        )}
+        <AppText numberOfLines={2} style={styles.tvPreviewDescription}>{epg.description || "Programação ao vivo do canal selecionado."}</AppText>
+        <View style={styles.tvPreviewGuide}>
+          <View style={[styles.tvPreviewGuideItem, styles.tvPreviewGuideItemActive]}>
+            <AppText style={styles.tvPreviewGuideLabel}>AGORA</AppText>
+            <AppText numberOfLines={1} style={styles.tvPreviewGuideTitle}>{epg.title || "Ao vivo"}</AppText>
+          </View>
+          <View style={styles.tvPreviewGuideItem}>
+            <AppText style={styles.tvPreviewGuideLabel}>PRÓXIMO</AppText>
+            <AppText numberOfLines={1} style={styles.tvPreviewGuideTitle}>{channel.nextProgram || "Programação não informada"}</AppText>
+          </View>
+        </View>
+      </View>
+    </GlassCard>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
@@ -335,16 +428,24 @@ function LiveHeader({
 export default function LiveScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [category, setCategory] = useState("Todos");
   const [query, setQuery] = useState("");
   const [viewMode, toggleViewMode] = useViewMode();
+  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const [previewChannelId, setPreviewChannelId] = useState<string | null>(null);
 
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
+  const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
+  const activeServerId = useAppStore((state) => state.activeServerId);
   const cachedCategories = useAppStore((state) => state.contentCache.liveCategories);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
+  // The TV guide is intentionally a list: its row-to-preview relationship is
+  // the primary D-pad interaction and must not change with a persisted mobile
+  // grid preference.
+  const effectiveViewMode: ViewMode = tvMode ? "list" : viewMode;
 
   const categories = useMemo(
     () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
@@ -360,8 +461,37 @@ export default function LiveScreen() {
       return matchCat && matchQ;
     });
   }, [channels, category, query, favoriteChannelIds]);
-  useEpgPreload(filteredChannels, LIVE_EPG_INITIAL_PRELOAD);
+  const pager = useCatalogPagination<ChannelItem>(activeServerId, "liveChannels", {
+    categoryName: category === FAVORITES_LABEL || category === "Todos" ? "" : category,
+    query: category === FAVORITES_LABEL ? "" : query.trim(),
+    sort: "channel_number",
+  });
+  const visibleChannels = useMemo(
+    () => pager.enabled && category !== FAVORITES_LABEL
+      ? hydratePagedChannelsWithEpg(pager.items, channels)
+      : filteredChannels,
+    [pager.enabled, pager.items, category, filteredChannels, channels],
+  );
+  // Preload beyond the rendered window so cards already have Now/Next as the
+  // user changes category or scrolls. The queue keeps the provider protected.
+  useEpgPreload(visibleChannels, EPG_LIVE_PRELOAD_LIMIT);
   const preloadVisibleEpg = useEpgPreloader();
+
+  useEffect(() => {
+    if (!previewChannelId && visibleChannels[0]) setPreviewChannelId(visibleChannels[0].id);
+  }, [previewChannelId, visibleChannels]);
+
+  const previewChannel = useMemo(
+    () => channels.find((channel) => channel.id === previewChannelId) ?? visibleChannels[0],
+    [channels, previewChannelId, visibleChannels],
+  );
+
+  const handlePreviewChannel = useCallback((channel: ChannelItem) => {
+    setPreviewChannelId(channel.id);
+    // The focused row receives priority, so the now/next panel updates before
+    // the user presses OK to start playback.
+    preloadVisibleEpg([channel], 1);
+  }, [preloadVisibleEpg]);
 
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: { item: ChannelItem }[] }) => {
@@ -374,6 +504,10 @@ export default function LiveScreen() {
     (channelId: string) => {
       const channel = channels.find((item) => item.id === channelId);
       if (!channel) return;
+      if (isContentBlocked(channel.id)) {
+        setPendingChannelId(channel.id);
+        return;
+      }
       router.push({
         pathname: "/player",
         params: {
@@ -384,8 +518,16 @@ export default function LiveScreen() {
         },
       });
     },
-    [channels, router],
+    [channels, isContentBlocked, router],
   );
+
+  const openAuthorizedChannel = useCallback(() => {
+    if (!pendingChannelId) return;
+    const channel = channels.find((item) => item.id === pendingChannelId);
+    setPendingChannelId(null);
+    if (!channel) return;
+    router.push({ pathname: "/player", params: { id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl } });
+  }, [channels, pendingChannelId, router]);
 
   const handleGuide = useCallback(
     (channelId: string) => {
@@ -401,7 +543,10 @@ export default function LiveScreen() {
 
   const isEmpty = !isSyncing && channels.length === 0;
 
-  const horizontalPadding = tvMode ? 46 : 20;
+  const horizontalPadding = tvMode ? Math.max(22, Math.min(34, Math.round(width * 0.024))) : 20;
+  const tvPreviewWidth = Math.round(Math.min(620, Math.max(390, width * 0.43)));
+  const tvPreviewGap = Math.max(18, Math.round(width * 0.018));
+  const tvPreviewTop = Math.max(148, Math.min(188, Math.round(height * 0.19)));
   const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const columnGap = 10;
   const numGridColumns = tvMode
@@ -409,13 +554,13 @@ export default function LiveScreen() {
     : (width >= 768 ? 3 : 2);
   const gridCardWidth =
     (availableWidth - horizontalPadding * 2 - columnGap * (numGridColumns - 1)) / numGridColumns;
-  const activeColumns = viewMode === "grid" ? numGridColumns : 1;
+  const activeColumns = effectiveViewMode === "grid" ? numGridColumns : 1;
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<ChannelItem>(LIVE_FOCUS_SCOPE, tvMode, activeColumns);
 
   const renderItem = useCallback(
     ({ item: channel, index }: { item: ChannelItem; index: number }) => {
       const isFavorite = favoriteChannelIds.includes(channel.id);
-      if (viewMode === "grid") {
+      if (effectiveViewMode === "grid") {
         return (
           <GridChannelCard
             channel={channel}
@@ -425,6 +570,7 @@ export default function LiveScreen() {
             onFavorite={toggleFavoriteChannel}
             focusIndex={index}
             restoreFocus={tvMode}
+            onPreview={handlePreviewChannel}
           />
         );
       }
@@ -438,10 +584,11 @@ export default function LiveScreen() {
           onFavorite={toggleFavoriteChannel}
           focusIndex={index}
           restoreFocus={tvMode}
+          onPreview={handlePreviewChannel}
         />
       );
     },
-    [favoriteChannelIds, viewMode, gridCardWidth, handleChannel, handleGuide, toggleFavoriteChannel, tvMode],
+    [favoriteChannelIds, effectiveViewMode, gridCardWidth, handleChannel, handleGuide, toggleFavoriteChannel, tvMode, handlePreviewChannel],
   );
 
   const keyExtractor = useCallback((item: ChannelItem) => item.id, []);
@@ -460,15 +607,16 @@ export default function LiveScreen() {
         filteredCount={filteredChannels.length}
         categories={categories}
         category={category}
-        viewMode={viewMode}
+        viewMode={effectiveViewMode}
         refresh={refresh}
         toggleViewMode={toggleViewMode}
         setCategory={handleCategoryChange}
+        tvMode={tvMode}
       />
     ),
     [
       isSyncing, syncError, syncProgress, channels, filteredChannels.length,
-      categories, category, viewMode, refresh, toggleViewMode, handleCategoryChange,
+      categories, category, effectiveViewMode, refresh, toggleViewMode, handleCategoryChange, tvMode,
     ],
   );
 
@@ -510,6 +658,7 @@ export default function LiveScreen() {
 
   return (
     <View style={styles.screen}>
+      <ParentalGate visible={pendingChannelId !== null} onAuthorized={openAuthorizedChannel} onClose={() => setPendingChannelId(null)} />
       <View style={styles.ambient} />
       {/* Search field rendered OUTSIDE FlatList so it never remounts on query change */}
       <View style={[styles.searchBar, { paddingHorizontal: horizontalPadding }]}>
@@ -521,9 +670,9 @@ export default function LiveScreen() {
       </View>
       <FlatList
         ref={listRef}
-        key={viewMode === "grid" ? `grid-${numGridColumns}` : "list"}
-        data={filteredChannels}
-        numColumns={viewMode === "grid" ? numGridColumns : 1}
+        key={effectiveViewMode === "grid" ? `grid-${numGridColumns}` : "list"}
+        data={visibleChannels}
+        numColumns={effectiveViewMode === "grid" ? numGridColumns : 1}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeaderElement}
@@ -535,11 +684,12 @@ export default function LiveScreen() {
         contentContainerStyle={[
           styles.content,
           tvMode && styles.tvContent,
+          tvMode && [styles.tvContentWithPreview, { paddingRight: tvPreviewWidth + tvPreviewGap }],
           { paddingHorizontal: horizontalPadding },
         ]}
-        columnWrapperStyle={viewMode === "grid" ? { gap: columnGap } : undefined}
+        columnWrapperStyle={effectiveViewMode === "grid" ? { gap: columnGap } : undefined}
         ItemSeparatorComponent={
-          viewMode === "list" ? () => <View style={styles.rowSeparator} /> : null
+          effectiveViewMode === "list" ? () => <View style={styles.rowSeparator} /> : null
         }
         initialNumToRender={20}
         maxToRenderPerBatch={25}
@@ -547,7 +697,11 @@ export default function LiveScreen() {
         removeClippedSubviews={Platform.OS === "android"}
         onViewableItemsChanged={handleViewableItemsChanged}
         onScrollToIndexFailed={onScrollToIndexFailed}
+        onEndReached={pager.enabled && category !== FAVORITES_LABEL ? pager.loadMore : undefined}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={pager.loading && visibleChannels.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
       />
+      {tvMode ? <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} top={tvPreviewTop} /> : null}
     </View>
   );
 }
@@ -650,7 +804,10 @@ const styles = StyleSheet.create({
   searchBar: { paddingTop: 14, paddingBottom: 4 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 35 },
   tvContent: { paddingBottom: 50 },
-  headerBlock: { gap: 18, paddingTop: 22, marginBottom: 10 },
+  // A dedicated right pane gives the guide the same stable two-column rhythm
+  // as a TV interface: channel navigation left, selected programme right.
+  tvContentWithPreview: {},
+  headerBlock: { gap: 13, paddingTop: 12, marginBottom: 6 },
   syncBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -688,10 +845,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 14,
   },
+  tvHeader: { minHeight: 34, justifyContent: "flex-end" },
   headerCopy: { flex: 1, gap: 4 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tvGuideStatus: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
+  tvGuideCount: { color: "rgba(226,239,255,0.72)", fontFamily: "Inter_500Medium", fontSize: 11 },
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.green },
   headerSubtitle: { fontSize: 13, color: Colors.muted },
+  tvKicker: { fontSize: 9, letterSpacing: 1.6 },
+  tvHeaderTitle: { fontSize: 22, lineHeight: 27, letterSpacing: -0.45 },
+  tvHeaderSubtitle: { fontSize: 11 },
   viewToggle: {
     width: 40,
     height: 40,
@@ -702,12 +865,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.glass,
   },
+  tvViewToggle: { width: 36, height: 36, borderRadius: 11 },
   pressed: { opacity: 0.72 },
   categoryScroller: { flexGrow: 0, marginHorizontal: -20 },
   categoryContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
+  tvCategoryScroller: { marginTop: -2 },
+  tvCategoryContent: { gap: 7, paddingVertical: 0 },
   rowSeparator: { height: 10 },
+  pageLoader: { paddingVertical: 20 },
   channelCard: { minHeight: 116, borderRadius: Radii.medium },
-  tvChannelCard: { minHeight: 146 },
+  tvChannelCard: { minHeight: 68, borderRadius: 11, backgroundColor: "rgba(9,18,33,0.72)", borderColor: "rgba(152,196,240,0.13)" },
   channelRow: { flex: 1, flexDirection: "row", alignItems: "center" },
   channelPressable: {
     flex: 1,
@@ -716,6 +883,8 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 11,
   },
+  tvChannelPressable: { gap: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  tvChannelFocused: { borderWidth: 1, borderColor: "rgba(255,255,255,0.95)", backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1 }], opacity: 1 },
   channelImage: {
     width: 80,
     height: 88,
@@ -725,11 +894,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: Colors.backgroundRaised,
   },
+  tvChannelImage: { width: 52, height: 54, borderRadius: 9 },
   imageVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8, 12, 22, 0.45)" },
   channelInitials: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.white },
   channelDetails: { flex: 1, gap: 6 },
   channelTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   channelNumber: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.subtle },
+  tvChannelNumber: { minWidth: 30, fontSize: 11, color: "rgba(226,239,255,0.78)", fontVariant: ["tabular-nums"] },
   channelTitle: { flexShrink: 1, fontFamily: "Inter_700Bold", fontSize: 15, color: Colors.text },
   liveBadge: {
     flexDirection: "row",
@@ -787,4 +958,33 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.blue,
   },
   syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.white },
+  tvPreview: {
+    position: "absolute",
+    right: 30,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(190,224,255,0.24)",
+    overflow: "hidden",
+  },
+  tvPreviewStage: { aspectRatio: 16 / 9, backgroundColor: "#07101d", overflow: "hidden" },
+  tvPreviewWatermark: { position: "absolute", right: 14, bottom: 13, width: 66, height: 42, opacity: 0.78 },
+  tvPreviewLiveBadge: { position: "absolute", top: 11, right: 11, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(116,16,36,0.88)" },
+  tvPreviewLiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: "#FFD8DD" },
+  tvPreviewCopy: { gap: 8, padding: 15 },
+  tvPreviewChannel: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 22, color: Colors.text },
+  tvPreviewProgram: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, color: Colors.text },
+  tvPreviewTimeline: { flexDirection: "row", alignItems: "center", gap: 7 },
+  tvPreviewTime: { fontSize: 10, color: Colors.subtle, fontVariant: ["tabular-nums"] },
+  tvPreviewTrack: { flex: 1, height: 4, borderRadius: 3, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.16)" },
+  tvPreviewFill: { height: "100%", borderRadius: 3, backgroundColor: Colors.blueBright },
+  tvPreviewLoading: { minHeight: 22, flexDirection: "row", alignItems: "center", gap: 8 },
+  tvPreviewLoadingText: { fontSize: 11, color: Colors.muted },
+  tvPreviewDescription: { fontSize: 11, lineHeight: 15, color: "rgba(215,229,245,0.72)" },
+  tvPreviewGuide: { flexDirection: "row", gap: 8, marginTop: 2 },
+  tvPreviewGuideItem: { flex: 1, gap: 4, minHeight: 55, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: "rgba(174,208,241,0.13)", backgroundColor: "rgba(11,24,42,0.68)" },
+  tvPreviewGuideItemActive: { borderLeftWidth: 3, borderLeftColor: Colors.blueBright, backgroundColor: "rgba(26,93,153,0.20)" },
+  tvPreviewGuideLabel: { color: Colors.blueBright, fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.7 },
+  tvPreviewGuideTitle: { color: Colors.text, fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  tvUtility: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 10, borderRadius: 10, backgroundColor: "rgba(12,23,40,0.54)" },
+  tvUtilityTime: { color: Colors.text, fontFamily: "Inter_600SemiBold", fontSize: 15, fontVariant: ["tabular-nums"] },
 });

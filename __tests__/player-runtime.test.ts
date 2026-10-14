@@ -58,3 +58,4 @@ describe("player runtime policies", () => {
     expect(guard.isCurrent(second)).toBe(false);
   });
 });
+

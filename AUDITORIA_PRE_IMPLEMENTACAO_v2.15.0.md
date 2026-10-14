@@ -1,8 +1,8 @@
 # Auditoria pré-implementação — FlixPlay 2.15.0
 
-Data da auditoria: 28/09/2026
-Base auditada: FlixPlay 2.14.0 (`versionCode 20261005`)
-Pacote: `com.fastshot.slitherproduction.flixplay`
+Data da auditoria: 28/09/2026  
+Base auditada: FlixPlay 2.14.0 (`versionCode 20261005`)  
+Pacote: `com.fastshot.slitherproduction.flixplay`  
 Escopo: baseline técnico anterior a qualquer alteração funcional da versão 2.15.0.
 
 ## 1. Preservação da base

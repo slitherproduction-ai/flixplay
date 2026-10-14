@@ -57,17 +57,20 @@ export function useChannelEpg(channelId: string | undefined) {
   const channel = channels.find((item) => item.id === channelId);
   const profile = servers.find((server) => server.id === activeServerId) ?? servers[0];
   const [programs, setPrograms] = useState<EpgProgram[]>(channel?.epgPrograms ?? []);
-  const [clock, setClock] = useState(Date.now());
+  const [clock, setClock] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => setClock(Date.now()), EPG_CLOCK_INTERVAL_MS);
-    return () => clearInterval(interval);
+    const updateClock = () => setClock(Date.now());
+    const timer = setTimeout(updateClock, 0);
+    const interval = setInterval(updateClock, EPG_CLOCK_INTERVAL_MS);
+    return () => { clearTimeout(timer); clearInterval(interval); };
   }, []);
 
   useEffect(() => {
-    setPrograms(channel?.epgPrograms ?? []);
+    const timer = setTimeout(() => setPrograms(channel?.epgPrograms ?? []), 0);
+    return () => clearTimeout(timer);
   }, [channelId, channel?.epgPrograms]);
 
   useEffect(() => {
@@ -75,8 +78,6 @@ export function useChannelEpg(channelId: string | undefined) {
     if (hasFreshEpg(channel)) return;
 
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
 
     const load = async () => {
       try {
@@ -93,9 +94,14 @@ export function useChannelEpg(channelId: string | undefined) {
       }
     };
 
-    void load();
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+      setError(null);
+      void load();
+    }, 0);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [channel, profile, updateChannelEpg]);
 

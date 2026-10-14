@@ -1,6 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -15,6 +13,7 @@ import {
 } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, GlassCard, IconButton } from "@/components/ui";
+import { BrandLogo } from "@/components/brand-logo";
 import { APP_INFO } from "@/constants/app";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
@@ -40,80 +39,124 @@ type VersionEntry = {
   changes: ChangeItem[];
 };
 
-const CHANGELOG: VersionEntry[] = [
+const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.13.0",
-    label: "Versão Atual",
-    date: "2026.09",
+    version: "v2.17.11",
+    date: "2026.10",
     changes: [
-      { tag: "Novidade", text: "Credenciais migradas para cofre criptografado pelo Android Keystore." },
-      { tag: "Novidade", text: "Cache SQLite por servidor, catálogo offline e sincronização progressiva por etapa." },
-      { tag: "Melhoria", text: "Áudio e legendas agora refletem e controlam somente as faixas reais do stream." },
-      { tag: "Melhoria", text: "Zapping completo virtualizado, busca global e diagnóstico técnico sanitizado." },
-      { tag: "Correção", text: "Cast, perfil, buffer e estados demonstrativos foram removidos da produção." },
+      { tag: "Melhoria", text: "O menu lateral da TV segue o padrão retrátil, com ícones compactos e rótulos estáveis durante toda a navegação pelo controle." },
+      { tag: "Melhoria", text: "A Tela Inicial da TV recebeu um destaque cinematográfico mais equilibrado e fileiras com proporção adequada para telas grandes." },
+      { tag: "Melhoria", text: "O Guia TV ao vivo ganhou lista compacta, preview responsivo com programação Agora/Próximo e áudio no canal focado." },
     ],
   },
   {
-    version: "v2.12.1",
-    date: "2026.09",
+    version: "v2.17.10",
+    date: "2026.10",
     changes: [
-      { tag: "Correção", text: "Menu lateral agora é opaco, compacto e mantém todas as opções visíveis durante a navegação." },
-      { tag: "Correção", text: "Textos não interativos deixam de capturar o foco do D-Pad no modo TV." },
-      { tag: "Melhoria", text: "Rotas do menu usam sequência nativa de foco para subir e descer sem saltos." },
-      { tag: "Melhoria", text: "Login em TV inicia com o foco no campo Host / URL do servidor." },
+      { tag: "Melhoria", text: "O blur nativo agora é percebido somente nas superfícies Glass, com transparência refinada no login, barra de navegação, miniplayer e menu lateral TV." },
+      { tag: "Correção", text: "A versão de release foi recompilada nativamente a partir do código-fonte e da configuração de produção do TMDB." },
     ],
   },
   {
-    version: "v2.12.0",
-    date: "2026.09",
+    version: "v2.17.9",
+    date: "2026.10",
     changes: [
-      { tag: "Novidade", text: "Menu lateral retrátil no modo TV, otimizado para navegação por controle remoto." },
-      { tag: "Melhoria", text: "Memória de foco restaura o último filme, série, canal e item do menu acessado." },
-      { tag: "Melhoria", text: "Grade de canais ao vivo ampliada para quatro a seis itens por linha em televisores." },
-      { tag: "Melhoria", text: "Navegação mobile preservada com barra inferior e comportamento touch independente." },
+      { tag: "Melhoria", text: "Superfícies Glass receberam blur nativo mais visível no Android, com transparência refinada para revelar o conteúdo ao fundo." },
+      { tag: "Melhoria", text: "Login, barra de navegação, miniplayer e controles agora seguem o acabamento translúcido inspirado no Apple TV." },
     ],
   },
   {
-    version: "v2.11.0",
-    date: "2026.09",
+    version: "v2.17.8",
+    date: "2026.10",
     changes: [
-      { tag: "Novidade", text: "Nova identidade FlixPlay aplicada ao login, Home, Splash, launcher e tela Sobre." },
-      { tag: "Melhoria", text: "Grades de filmes e séries mais compactas, com três cards por linha em smartphones." },
-      { tag: "Melhoria", text: "Integração Trakt.tv e seus dados locais removidos dos ajustes." },
+      { tag: "Melhoria", text: "O rodapé de acesso mostra versão e build do aplicativo em smartphone e TV." },
+      { tag: "Melhoria", text: "Detalhes de filmes e séries usam arte full-bleed com degradê cinematográfico e leitura mais limpa." },
+      { tag: "Melhoria", text: "Superfícies Glass receberam blur mais consistente e a Início da TV ganhou navegação lateral premium e compacta." },
     ],
   },
   {
-    version: "v2.10.1",
-    date: "2026.09",
+    version: "v2.17.6",
+    date: "2026.10",
     changes: [
-      { tag: "Correção", text: "Aviso de saída responsivo e totalmente visível em smartphones." },
-      { tag: "Melhoria", text: "EPG pré-carregado na Home e nos canais visíveis, antes da reprodução." },
-      { tag: "Melhoria", text: "Informações de servidor e validade removidas da tela inicial." },
-      { tag: "Melhoria", text: "Recursos visuais antigos e arquivos de desenvolvimento sem uso foram removidos." },
+      { tag: "Melhoria", text: "Guia TV ao vivo redesenhado com lista premium, preview silencioso do canal focado e painel de programação em tempo real." },
+      { tag: "Correção", text: "Enter/OK e DPAD_CENTER voltam a exibir o OSD do player e preservam a navegação pelos controles." },
+      { tag: "Melhoria", text: "Início, Filmes e Séries receberam destaques cinematográficos full-bleed; o menu lateral TV agora expande somente quando recebe foco." },
+      { tag: "Correção", text: "Configuração do TMDB passou a ser injetada de forma confiável no build de produção." },
     ],
   },
   {
-    version: "v2.10.0",
-    date: "2026.09",
+    version: "v2.17.5",
+    date: "2026.10",
     changes: [
-      { tag: "Melhoria", text: "Home para TV redimensionada para exibir de cinco a sete títulos por linha." },
-      { tag: "Melhoria", text: "Navegação D-Pad com foco ampliado, carrosséis virtualizados e rolagem fluida." },
-      { tag: "Correção", text: "OSD do player agora desaparece após quatro segundos com transição suave." },
-      { tag: "Correção", text: "EPG, Zapping Rápido e controles agora são mutuamente exclusivos." },
-      { tag: "Melhoria", text: "Botão Voltar fecha a camada ativa antes de solicitar a saída do conteúdo." },
+      { tag: "Correção", text: "Release reconstruído sobre a base estável 2.17.2, preservando as entregas de navegação TV, guia ao vivo e controles do player." },
+      { tag: "Correção", text: "A tela de login usa os fundos cinematográficos corretos em smartphone e TV, sem os círculos azuis decorativos." },
+      { tag: "Correção", text: "Metadados de versão foram unificados em todo o aplicativo." },
     ],
   },
   {
-    version: "v2.9.0",
-    date: "2026.09",
+    version: "v2.17.2",
+    date: "2026.10",
     changes: [
-      { tag: "Novidade", text: "Zapping rápido com escolha da grade/categoria de canais ao vivo." },
-      { tag: "Melhoria", text: "Picture-in-Picture migrado para a implementação nativa do Android e smartphones." },
-      { tag: "Melhoria", text: "EPG real com programa atual e próximo exibidos durante a reprodução." },
-      { tag: "Correção", text: "Progresso real e retomada automática para filmes e episódios em Continuar Assistindo." },
+      { tag: "Melhoria", text: "O player passou a respeitar as áreas seguras do celular, mantendo ações e ajustes de volume acessíveis em tela cheia." },
+      { tag: "Melhoria", text: "Séries agora exibem Pular abertura e Próximo episódio quando essas opções estão disponíveis." },
+      { tag: "Correção", text: "A linha do tempo usa posicionamento direto e passou a avançar ou recuar exatamente no ponto tocado." },
+      { tag: "Melhoria", text: "O painel inferior do player recebeu degradê profundo para leitura mais nítida sobre qualquer vídeo." },
+      { tag: "Correção", text: "A busca voltou a aparecer e funcionar nas abas Filmes e Séries em smartphones." },
+      { tag: "Correção", text: "O splash de abertura foi atualizado com o ícone atual, sem bordas brancas externas." },
+    ],
+  },
+  {
+    version: "v2.17.1",
+    date: "2026.10",
+    changes: [
+      { tag: "Novidade", text: "O Destaque da Semana agora prioriza o conteúdo mais assistido por você e, sem histórico, a melhor avaliação TMDB." },
+      { tag: "Melhoria", text: "Filmes e séries receberam arte limpa no topo e degradê cinematográfico para uma leitura mais confortável." },
+      { tag: "Melhoria", text: "A tela de login foi redesenhada com painel Glass, botão premium e layout responsivo para smartphone e TV." },
+      { tag: "Correção", text: "O fluxo de login para TV preserva a sequência de foco do controle remoto entre campos e ações." },
+    ],
+  },
+  {
+    version: "v2.17.0",
+    date: "2026.10",
+    changes: [
+      { tag: "Novidade", text: "Listas M3U e guia XMLTV podem ser importados diretamente pelo cadastro de servidor." },
+      { tag: "Novidade", text: "Programas encerrados podem ser assistidos do início quando o provedor declara Catch-up." },
+      { tag: "Melhoria", text: "Catálogos grandes usam carregamento paginado para manter TV, Filmes e Séries fluidos." },
+      { tag: "Correção", text: "Validação global de código concluída, com regras de qualidade aplicadas ao projeto." },
+      { tag: "Correção", text: "Favoritos e histórico agora ficam isolados por lista/servidor." },
+      { tag: "Correção", text: "Mais recentes usa a data real de inclusão do catálogo Xtream." },
+      { tag: "Melhoria", text: "Filmes e séries continuam sendo sincronizados quando somente os canais falham." },
+    ],
+  },
+  {
+    version: "v2.16.4",
+    date: "2026.10",
+    changes: [
+      { tag: "Correção", text: "A inicialização agora apresenta recuperação segura quando o cofre do dispositivo não responde." },
+      { tag: "Melhoria", text: "O login ganhou largura adequada para TV e logo maior em smartphones." },
+      { tag: "Melhoria", text: "A saída exige dois toques em Voltar e confirmação explícita." },
     ],
   },
 ];
+
+function getVisibleChangelog(currentVersion: string): VersionEntry[] {
+  const normalizedCurrent = currentVersion.startsWith("v")
+    ? currentVersion
+    : `v${currentVersion}`;
+  const currentIndex = VERSION_HISTORY.findIndex(
+    (entry) => entry.version === normalizedCurrent,
+  );
+  const firstVisibleIndex = currentIndex >= 0 ? currentIndex : 0;
+
+  return VERSION_HISTORY.slice(firstVisibleIndex, firstVisibleIndex + 2).map(
+    (entry, index) => ({
+      ...entry,
+      label: index === 0 && entry.version === normalizedCurrent ? "Versão Atual" : undefined,
+    }),
+  );
+}
+
+const CHANGELOG = getVisibleChangelog(APP_INFO.version);
 
 const TAG_COLORS: Record<ChangeTag, { backgroundColor: string; color: string }> = {
   Novidade: { backgroundColor: "rgba(59,130,246,0.16)", color: Colors.blueBright },
@@ -180,11 +223,11 @@ function formatDownloadSize(bytes: number): string {
 
 async function runInstallUpdate(
   apkUrl: string,
-  releaseUrl: string | null | undefined,
+  apkSize: number | null | undefined,
   onError: (msg: string) => void,
 ): Promise<void> {
   try {
-    await downloadAndInstallUpdate(apkUrl, releaseUrl);
+    await downloadAndInstallUpdate(apkUrl, apkSize);
   } catch (err) {
     logTechnicalError("UpdateModal/install", err);
     onError(err instanceof Error ? err.message : "Falha ao iniciar a instalação.");
@@ -271,7 +314,7 @@ function UpdateModal({
     setInstalling(true);
     await runInstallUpdate(
       result?.apkUrl ?? result?.releaseUrl ?? "",
-      result?.releaseUrl,
+      result?.apkSize,
       setInstallError,
     );
     setInstalling(false);
@@ -444,7 +487,7 @@ export default function AboutScreen() {
             <IconButton icon="close" label="Fechar" onPress={() => router.back()} />
             <View style={styles.headerCopy}>
               <AppText style={styles.kicker}>SOBRE O APLICATIVO</AppText>
-              <AppText style={styles.headerTitle}>FlixPlay</AppText>
+              <AppText style={styles.headerTitle}>ELVANOQ</AppText>
             </View>
             <View style={styles.headerSpacer} />
           </View>
@@ -453,18 +496,13 @@ export default function AboutScreen() {
           <View style={styles.heroCard}>
             <View style={styles.heroGlow} />
             <View style={styles.appIcon}>
-              <Image
-                source={require("@/assets/images/flixplay_icon.png")}
-                contentFit="cover"
-                accessibilityLabel="Ícone FlixPlay"
-                style={StyleSheet.absoluteFill}
-              />
+              <BrandLogo variant="symbol" accessibilityLabel="Ícone ELVANOQ" style={StyleSheet.absoluteFill} />
             </View>
             <AppText style={styles.heroName}>{APP_INFO.name}</AppText>
             <AppText style={styles.heroVersion}>{APP_INFO.versionLabel}</AppText>
             <View style={styles.stableBadge}>
-              <View style={styles.stableDot} />
-              <AppText style={styles.stableText}>Versão estável e atualizada</AppText>
+              <Ionicons name="information-circle-outline" size={13} color={Colors.blueBright} />
+              <AppText style={styles.stableText}>Versão instalada</AppText>
             </View>
             <AppText style={styles.heroSummary}>
               Sua central de entretenimento para assistir ao vivo, explorar catálogos e continuar cada história no ponto certo.
@@ -477,7 +515,7 @@ export default function AboutScreen() {
             </View>
           </View>
 
-          {/* GitHub integration status card */}
+          {/* GitHub update source */}
           <GlassCard style={styles.githubCard} intensity={18}>
             <View style={styles.githubRow}>
               <View style={styles.githubIconWrap}>
@@ -485,10 +523,9 @@ export default function AboutScreen() {
               </View>
               <View style={styles.githubCopy}>
                 <View style={styles.githubTitleRow}>
-                  <AppText style={styles.githubTitle}>Auto-Update GitHub Integrado</AppText>
+                  <AppText style={styles.githubTitle}>Atualizações via GitHub Releases</AppText>
                   <View style={styles.githubActiveBadge}>
-                    <View style={styles.githubActiveDot} />
-                    <AppText style={styles.githubActiveText}>ATIVO</AppText>
+                    <AppText style={styles.githubActiveText}>VERIFICAÇÃO MANUAL</AppText>
                   </View>
                 </View>
                 <AppText style={styles.githubRepo}>{APP_INFO.githubRepo}</AppText>
@@ -508,24 +545,24 @@ export default function AboutScreen() {
 
           {/* Technology card */}
           <View style={styles.sectionHeading}>
-            <AppText style={Type.section}>O que move o FlixPlay</AppText>
+            <AppText style={Type.section}>O que move o ELVANOQ</AppText>
             <AppText style={styles.sectionSubtitle}>Tecnologias pensadas para uma reprodução fluida</AppText>
           </View>
           <GlassCard style={styles.technologyCard} intensity={18}>
             <TechnologyRow icon="play-circle-outline" title="Motor de Reprodução" body="ExoPlayer com suporte a streams HLS adaptativos." />
             <View style={styles.cardDivider} />
-            <TechnologyRow icon="server-outline" title="Suas fontes, do seu jeito" body="Xtream Codes, playlists M3U e múltiplos servidores." />
+            <TechnologyRow icon="server-outline" title="Suas fontes, do seu jeito" body="Xtream Codes e múltiplos servidores cadastrados pelo usuário." />
             <View style={styles.cardDivider} />
             <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e progresso local para acompanhar seu conteúdo." />
             <View style={styles.cardDivider} />
-            <TechnologyRow icon="logo-github" title="Atualizações automáticas" body={`GitHub Releases · ${APP_INFO.githubRepo}`} />
+            <TechnologyRow icon="logo-github" title="Verificação de atualizações" body={`GitHub Releases · ${APP_INFO.githubRepo}`} />
           </GlassCard>
 
           {/* Changelog */}
           <View style={styles.changelogHeader}>
             <View style={styles.sectionHeading}>
               <AppText style={Type.section}>Histórico de versões</AppText>
-              <AppText style={styles.sectionSubtitle}>Tudo o que evoluiu até aqui</AppText>
+              <AppText style={styles.sectionSubtitle}>As duas versões mais recentes desta instalação</AppText>
             </View>
             <View style={styles.releaseCount}>
               <AppText style={styles.releaseCountText}>{CHANGELOG.length} releases</AppText>
@@ -555,7 +592,7 @@ export default function AboutScreen() {
                 <View style={styles.successCopy}>
                   <AppText style={styles.successTitle}>Você está em dia!</AppText>
                   <AppText style={styles.successBody}>
-                    O FlixPlay {APP_INFO.versionLabel} é a versão mais recente.
+                    O ELVANOQ {APP_INFO.versionLabel} é a versão mais recente.
                   </AppText>
                 </View>
               </Animated.View>
@@ -597,7 +634,7 @@ export default function AboutScreen() {
                 </AppText>
               </View>
               <Switch
-                value={autoUpdate === true}
+                value={autoUpdate !== false}
                 onValueChange={(val) => setPreference("autoUpdate", val)}
                 trackColor={{ false: Colors.border, true: Colors.blue }}
                 thumbColor={Colors.white}
@@ -610,7 +647,7 @@ export default function AboutScreen() {
             <AppText style={Type.section}>Ajuda e transparência</AppText>
             <AppText style={styles.sectionSubtitle}>Estamos por perto quando você precisar</AppText>
           </View>
-          <AppText style={styles.footer}>FlixPlay · Feito para sua sala</AppText>
+          <AppText style={styles.footer}>ELVANOQ · Sua mídia. Sua experiência.</AppText>
         </ScrollView>
 
       {/* Update result modal */}
@@ -713,7 +750,6 @@ const styles = StyleSheet.create({
   heroName: { marginTop: 14, ...Type.display },
   heroVersion: { marginTop: 4, fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.blueBright },
   stableBadge: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radii.pill, backgroundColor: "rgba(16,185,129,0.13)" },
-  stableDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.green },
   stableText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#6EE7B7" },
   heroSummary: { maxWidth: 320, marginTop: 15, textAlign: "center", fontSize: 13, lineHeight: 20, color: Colors.muted },
   techRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 18 },
@@ -727,7 +763,6 @@ const styles = StyleSheet.create({
   githubTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   githubTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   githubActiveBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.15)" },
-  githubActiveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.green },
   githubActiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
   githubRepo: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
   githubEndpoint: { fontSize: 9, color: Colors.subtle },

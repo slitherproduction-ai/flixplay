@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { fetchChannelEpg, hasFreshEpg } from "@/hooks/useChannelEpg";
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem, ServerProfile } from "@/store/types";
 
+/**
+ * Enough parallelism to make the guide visible while the first rows render,
+ * without flooding low-end TV devices or providers with a burst of requests.
+ */
 const EPG_PRELOAD_CONCURRENCY = 4;
+export const EPG_HOME_PRELOAD_LIMIT = 60;
+export const EPG_LIVE_PRELOAD_LIMIT = 80;
 type UpdateChannelEpg = ReturnType<typeof useAppStore.getState>["updateChannelEpg"];
 type EpgJob = { key: string; profile: ServerProfile; channel: ChannelItem; update: UpdateChannelEpg };
 
@@ -61,14 +67,12 @@ export function useEpgPreloader() {
 
 export function useEpgPreload(channels: ChannelItem[], limit = 30) {
   const preload = useEpgPreloader();
-  const channelsRef = useRef(channels);
-  channelsRef.current = channels;
   const signature = useMemo(
     () => channels.slice(0, limit).map((channel) => channel.id).join("|"),
     [channels, limit],
   );
 
   useEffect(() => {
-    preload(channelsRef.current, limit);
-  }, [limit, preload, signature]);
+    preload(channels, limit);
+  }, [channels, limit, preload, signature]);
 }

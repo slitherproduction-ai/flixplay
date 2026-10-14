@@ -70,17 +70,10 @@
 - `./gradlew :app:compileDebugKotlin --offline --no-daemon`: não executado; o wrapper tentou obter Gradle 9.3.1 e a rede recusou a conexão.
 - Certificado preservado no projeto completo: SHA-256 `0E:74:49:7B:84:2B:0F:AC:45:24:CD:2B:19:4F:C3:48:85:7A:17:FF:C1:77:DD:93:4A:68:23:F9:B8:E5:99:F7`.
 
-## Atualização pós-build
-
-- APK universal 2.13.0 gerado posteriormente para `armeabi-v7a` e `arm64-v8a`.
-- Versão `2.13.0` e pacote `com.fastshot.slitherproduction.flixplay` confirmados no artefato.
-- Certificado do APK comparado diretamente com a versão 2.12.1 e confirmado como idêntico.
-- SHA-256 do APK: `7afc7ac9b96c05d3b415b42dec31ea4e53d996787d2009fc49c1ccbcbf5c6e70`.
-
 ## Limitações restantes
 
 - O player ainda deve ser dividido fisicamente em componentes menores em uma próxima iteração; o comportamento falso foi removido, mas o arquivo continua grande.
 - Controle parental não foi exposto, pois não houve tempo de concluir o bloqueio ponta a ponta sem criar uma função meramente visual.
 - Busca de episódios ocorre apenas dentro dos detalhes da série; o índice global ainda cobre canais, filmes e séries.
 - SHA-256 do atualizador ainda depende de um downloader nativo controlado pelo app; a versão atual abre o asset HTTPS no navegador e não afirma validação inexistente.
-- A homologação física ainda depende dos dispositivos reais listados no checklist.
+- Homologação física e build assinado dependem de ambiente Android/Gradle e dispositivos reais.

@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStateStorage } from '@/services/security/secureStorage';
 import { catalogDatabase } from '@/data/database/catalogDatabase';
+import {
+  EMPTY_SERVER_USER_DATA,
+  getServerUserData,
+  migrateLegacyServerUserData,
+  updateServerUserData,
+  withoutServerUserData,
+  type UserDataByServer,
+} from './serverScopedData';
 import type {
   ContentCache,
   ContentType,
@@ -44,15 +52,21 @@ interface AppStore {
   favoriteMovieIds: string[];
   favoriteSeriesIds: string[];
   history: PlayHistory[];
+  blockedContentIds: string[];
+  /** Active-server projection of the persistent playback ranking. */
+  playCounts: Record<string, number>;
+  /** Persisted per-server data. The flat fields above are active-server projections for UI compatibility. */
+  userDataByServer: UserDataByServer;
   contentCache: ContentCache;
   syncState: SyncState;
   pip: PiPState;
   setHydrated: () => void;
+  setHydrating: () => void;
   setPreference: (key: string, value: string | number | boolean | null) => void;
   addServer: (server: ServerProfile) => void;
   setActiveServer: (id: string) => void;
-  removeServer: (id: string) => void;
-  removeAllServers: () => void;
+  removeServer: (id: string) => Promise<void>;
+  removeAllServers: () => Promise<void>;
   logout: () => void;
   /** Legacy generic toggle (kept for compatibility) */
   toggleFavorite: (id: string) => void;
@@ -65,6 +79,9 @@ interface AppStore {
   saveHistory: (item: PlayHistory) => void;
   removeHistoryItem: (contentId: string) => void;
   clearHistory: () => void;
+  recordContentPlay: (contentId: string) => void;
+  toggleContentBlocked: (id: string) => void;
+  isContentBlocked: (id: string) => boolean;
   setContentCache: (cache: Partial<ContentCache>) => void;
   updateChannelEpg: (channelId: string, programs: EpgProgram[]) => void;
   setSyncState: (state: Partial<SyncState>) => void;
@@ -117,11 +134,15 @@ export const useAppStore = create<AppStore>()(
       favoriteMovieIds: [],
       favoriteSeriesIds: [],
       history: [],
+      blockedContentIds: [],
+      playCounts: {},
+      userDataByServer: {},
       contentCache: EMPTY_CACHE,
       syncState: INITIAL_SYNC_STATE,
       pip: INITIAL_PIP,
 
       setHydrated: () => set({ _hasHydrated: true }),
+      setHydrating: () => set({ _hasHydrated: false }),
 
       setPreference: (key, value) =>
         set((state) => ({ preferences: { ...state.preferences, [key]: value } })),
@@ -130,38 +151,70 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({
           servers: [...state.servers.map((item) => ({ ...item, isActive: false })), { ...server, isActive: true }],
           activeServerId: server.id,
+          favoriteIds: [],
+          favoriteChannelIds: [],
+          favoriteMovieIds: [],
+          favoriteSeriesIds: [],
+          history: [],
+          blockedContentIds: [],
+          playCounts: {},
+          userDataByServer: state.userDataByServer[server.id]
+            ? state.userDataByServer
+            : { ...state.userDataByServer, [server.id]: EMPTY_SERVER_USER_DATA },
+          contentCache: EMPTY_CACHE,
           syncState: { ...INITIAL_SYNC_STATE },
         })),
 
       setActiveServer: (id) =>
-        set((state) => ({
+        set((state) => {
+          const userData = getServerUserData(state.userDataByServer, id);
+          return {
           activeServerId: id,
           servers: state.servers.map((server) => ({ ...server, isActive: server.id === id })),
+          contentCache: EMPTY_CACHE,
           syncState: { ...INITIAL_SYNC_STATE },
-        })),
+          favoriteIds: userData.favoriteIds,
+          favoriteChannelIds: userData.favoriteChannelIds,
+          favoriteMovieIds: userData.favoriteMovieIds,
+          favoriteSeriesIds: userData.favoriteSeriesIds,
+          history: userData.history,
+          blockedContentIds: userData.blockedContentIds,
+          playCounts: userData.playCounts,
+        };
+        }),
 
-      removeServer: (id) =>
+      removeServer: async (id) => {
+        await catalogDatabase.clearServer(id);
         set((state) => {
-          void catalogDatabase.clearServer(id);
           const isActive = state.activeServerId === id;
           return {
             servers: state.servers.filter((s) => s.id !== id),
             activeServerId: isActive ? '' : state.activeServerId,
             contentCache: isActive ? EMPTY_CACHE : state.contentCache,
             syncState: isActive ? INITIAL_SYNC_STATE : state.syncState,
+            userDataByServer: withoutServerUserData(state.userDataByServer, id),
+            ...(isActive ? EMPTY_SERVER_USER_DATA : {}),
           };
-        }),
+        });
+      },
 
-      removeAllServers: () =>
-        set(() => {
-          void catalogDatabase.clearAll();
-          return {
+      removeAllServers: async () => {
+        await catalogDatabase.clearAll();
+        set(() => ({
           servers: [],
           activeServerId: '',
           contentCache: EMPTY_CACHE,
           syncState: INITIAL_SYNC_STATE,
-          };
-        }),
+          favoriteIds: [],
+          favoriteChannelIds: [],
+          favoriteMovieIds: [],
+          favoriteSeriesIds: [],
+          history: [],
+          blockedContentIds: [],
+          playCounts: {},
+          userDataByServer: {},
+        }));
+      },
 
       logout: () =>
         set((state) => ({
@@ -169,54 +222,95 @@ export const useAppStore = create<AppStore>()(
           servers: state.servers.map((server) => ({ ...server, isActive: false })),
           contentCache: EMPTY_CACHE,
           syncState: INITIAL_SYNC_STATE,
+          favoriteIds: [],
+          favoriteChannelIds: [],
+          favoriteMovieIds: [],
+          favoriteSeriesIds: [],
+          history: [],
+          blockedContentIds: [],
+          playCounts: {},
         })),
 
       toggleFavorite: (id) =>
-        set((state) => ({
-          favoriteIds: state.favoriteIds.includes(id)
+        set((state) => {
+          const favoriteIds = state.favoriteIds.includes(id)
             ? state.favoriteIds.filter((favoriteId) => favoriteId !== id)
-            : [...state.favoriteIds, id],
-        })),
+            : [...state.favoriteIds, id];
+          return { favoriteIds, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, favoriteIds })) };
+        }),
 
       toggleFavoriteChannel: (id) =>
-        set((state) => ({
-          favoriteChannelIds: state.favoriteChannelIds.includes(id)
+        set((state) => {
+          const favoriteChannelIds = state.favoriteChannelIds.includes(id)
             ? state.favoriteChannelIds.filter((fid) => fid !== id)
-            : [...state.favoriteChannelIds, id],
-        })),
+            : [...state.favoriteChannelIds, id];
+          return { favoriteChannelIds, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, favoriteChannelIds })) };
+        }),
 
       toggleFavoriteMovie: (id) =>
-        set((state) => ({
-          favoriteMovieIds: state.favoriteMovieIds.includes(id)
+        set((state) => {
+          const favoriteMovieIds = state.favoriteMovieIds.includes(id)
             ? state.favoriteMovieIds.filter((fid) => fid !== id)
-            : [...state.favoriteMovieIds, id],
-        })),
+            : [...state.favoriteMovieIds, id];
+          return { favoriteMovieIds, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, favoriteMovieIds })) };
+        }),
 
       toggleFavoriteSeries: (id) =>
-        set((state) => ({
-          favoriteSeriesIds: state.favoriteSeriesIds.includes(id)
+        set((state) => {
+          const favoriteSeriesIds = state.favoriteSeriesIds.includes(id)
             ? state.favoriteSeriesIds.filter((fid) => fid !== id)
-            : [...state.favoriteSeriesIds, id],
-        })),
+            : [...state.favoriteSeriesIds, id];
+          return { favoriteSeriesIds, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, favoriteSeriesIds })) };
+        }),
 
       isFavoriteChannel: (id) => get().favoriteChannelIds.includes(id),
       isFavoriteMovie: (id) => get().favoriteMovieIds.includes(id),
       isFavoriteSeries: (id) => get().favoriteSeriesIds.includes(id),
 
       saveHistory: (item) =>
-        set((state) => ({
-          history: [
-            item,
+        set((state) => {
+          const scopedItem = { ...item, serverId: state.activeServerId || item.serverId };
+          const history = [
+            scopedItem,
             ...state.history.filter((h) => h.contentId !== item.contentId),
-          ].slice(0, 50),
-        })),
+          ].slice(0, 50);
+          return { history, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, history })) };
+        }),
 
       removeHistoryItem: (contentId) =>
-        set((state) => ({
-          history: state.history.filter((h) => h.contentId !== contentId),
-        })),
+        set((state) => {
+          const history = state.history.filter((h) => h.contentId !== contentId);
+          return { history, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, history })) };
+        }),
 
-      clearHistory: () => set({ history: [] }),
+      clearHistory: () => set((state) => ({ history: [], userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, history: [] })) })),
+
+      // Persist a truthful, per-server count for each new playback session.
+      // History is intentionally de-duplicated, so it cannot be used as a
+      // "most watched" metric by itself.
+      recordContentPlay: (contentId) => {
+        if (!contentId) return;
+        set((state) => {
+          const playCounts = {
+            ...state.playCounts,
+            [contentId]: (state.playCounts[contentId] ?? 0) + 1,
+          };
+          return {
+            playCounts,
+            userDataByServer: updateServerUserData(
+              state.userDataByServer,
+              state.activeServerId,
+              (data) => ({ ...data, playCounts }),
+            ),
+          };
+        });
+      },
+
+      toggleContentBlocked: (id) => set((state) => {
+        const blockedContentIds = state.blockedContentIds.includes(id) ? state.blockedContentIds.filter((value) => value !== id) : [...state.blockedContentIds, id];
+        return { blockedContentIds, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, blockedContentIds })) };
+      }),
+      isContentBlocked: (id) => get().blockedContentIds.includes(id),
 
       setContentCache: (cache) =>
         set((state) => ({ contentCache: { ...state.contentCache, ...cache } })),
@@ -272,11 +366,35 @@ export const useAppStore = create<AppStore>()(
         favoriteMovieIds: state.favoriteMovieIds,
         favoriteSeriesIds: state.favoriteSeriesIds,
         history: state.history,
+        blockedContentIds: state.blockedContentIds,
+        playCounts: state.playCounts,
+        userDataByServer: state.userDataByServer,
         // Do NOT persist contentCache — it can be > 6 MB and crash AsyncStorage.
         // Do NOT persist pip — PiP is a session-only state.
       }),
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated();
+      onRehydrateStorage: () => (state, _error) => {
+        // `state` is undefined when AsyncStorage or AndroidKeyStore rejects.
+        // Marking hydration complete from the store closure prevents the root
+        // route from spinning forever and safely sends the user to login.
+        if (state) {
+          const userDataByServer = migrateLegacyServerUserData(
+            state.userDataByServer,
+            state.activeServerId,
+            state,
+          );
+          const activeData = getServerUserData(userDataByServer, state.activeServerId);
+          state.userDataByServer = userDataByServer;
+          state.favoriteIds = activeData.favoriteIds;
+          state.favoriteChannelIds = activeData.favoriteChannelIds;
+          state.favoriteMovieIds = activeData.favoriteMovieIds;
+          state.favoriteSeriesIds = activeData.favoriteSeriesIds;
+          state.history = activeData.history;
+          state.blockedContentIds = activeData.blockedContentIds;
+          state.playCounts = activeData.playCounts;
+          state.setHydrated();
+          return;
+        }
+        queueMicrotask(() => useAppStore.getState().setHydrated());
       },
     }
   )

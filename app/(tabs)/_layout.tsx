@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import type React from "react";
-import { Platform, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
+import { Platform, StyleSheet, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { useXtreamSync } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
-import { TvSideNavigation, TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { TvSideNavigation } from "@/components/tv-side-navigation";
 import { View } from "react-native";
 
 // ---------------------------------------------------------------------------
@@ -76,23 +77,36 @@ export default function TabsLayout() {
         tabBarButton: tvMode ? undefined : tabBarButton,
         sceneStyle: {
           backgroundColor: Colors.background,
-          marginLeft: tvMode ? TV_NAV_COLLAPSED_WIDTH : 0,
         },
         tabBarActiveTintColor: Colors.blueBright,
         tabBarInactiveTintColor: Colors.subtle,
+        tabBarActiveBackgroundColor: "rgba(109, 202, 255, 0.16)",
+        tabBarItemStyle: {
+          marginHorizontal: 3,
+          marginVertical: 6,
+          borderRadius: 14,
+        },
         tabBarLabelStyle: {
           fontFamily: "Inter_500Medium",
           fontSize: 10,
           marginBottom: 2,
         },
+        tabBarBackground: () => (
+          <BlurView
+            intensity={52}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        ),
         tabBarStyle: {
           display: tvMode ? "none" : "flex",
           height: 64 + insets.bottom,
-          paddingTop: 8,
+          paddingTop: 5,
           paddingBottom: Math.max(insets.bottom, 8),
           borderTopWidth: 1,
-          borderTopColor: Colors.border,
-          backgroundColor: "rgba(10, 14, 24, 0.96)",
+          borderTopColor: "rgba(190, 222, 255, 0.14)",
+          backgroundColor: "rgba(8, 13, 23, 0.52)",
         },
       }}
     >
@@ -137,9 +151,9 @@ export default function TabsLayout() {
   if (!tvMode) return navigator;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      {navigator}
+    <View style={{ flex: 1, flexDirection: "row", backgroundColor: Colors.background }}>
       <TvSideNavigation />
+      <View style={{ flex: 1, minWidth: 0 }}>{navigator}</View>
     </View>
   );
 }

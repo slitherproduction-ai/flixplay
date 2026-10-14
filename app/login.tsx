@@ -1,29 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
+import { BlurTargetView, BlurView } from "expo-blur";
+import Constants from "expo-constants";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  findNodeHandle,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Radii, Shadows } from "@/constants/theme";
-import { TVFocusable } from "@/components/tv-focusable";
+import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
+import { BrandLogo } from "@/components/brand-logo";
 import { authenticateXtream, XtreamApiError } from "@/services/xtream";
 import type { XtreamUserInfo } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { logTechnicalError } from "@/services/security/sanitize";
+
+const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? "2.17.8";
+const APP_BUILD = Constants.nativeBuildVersion ?? "20261023";
 
 interface DiagInfo {
   testedUrl: string;
@@ -139,7 +146,7 @@ function maskUsername(value: string): string {
 function validateLoginFields(host: string, username: string, password: string): string | null {
   const normalised = normalizeUrl(host);
   if (!isValidServerUrl(normalised)) {
-    return "Informe o Host / URL do servidor. Exemplos: flixplay.sbs, http://192.168.1.1:8080";
+    return "Informe o Host / URL do servidor. Exemplos: servidor.exemplo.com, http://192.168.1.1:8080";
   }
   if (!username.trim()) return "Informe o usuário.";
   if (!password) return "Informe a senha.";
@@ -181,9 +188,20 @@ interface SavedListsModalProps {
 
 function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: SavedListsModalProps) {
   const insets = useSafeAreaInsets();
+  const closeButtonRef = useRef<TVFocusableHandle>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => closeButtonRef.current?.focus(), 120);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <View style={[modalStyles.screen, { paddingBottom: insets.bottom }]}>
+    <View
+      accessibilityViewIsModal
+      importantForAccessibility="yes"
+      onAccessibilityEscape={onClose}
+      style={[modalStyles.screen, { paddingBottom: insets.bottom }]}
+    >
       <View style={modalStyles.header}>
         <View style={modalStyles.grabber} />
         <View style={modalStyles.titleRow}>
@@ -193,8 +211,10 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: 
           </View>
         </View>
         <TVFocusable
+          ref={closeButtonRef}
           accessibilityRole="button"
           accessibilityLabel="Fechar"
+          hasTVPreferredFocus
           onPress={onClose}
           style={modalStyles.closeBtn}
         >
@@ -282,7 +302,16 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: 
 
 export default function LoginScreen() {
   const router = useRouter();
+  // Android's native BlurView needs an explicit source view. Keeping the
+  // poster mosaic and its veil together in this target makes the glass card
+  // refract the actual artwork behind it instead of falling back to no blur.
+  const backdropRef = useRef<View>(null);
   const tvMode = useTVMode();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const compactMobile = !tvMode && viewportWidth < 600;
+  // Fire TV and many 720p Android TV panels have substantially less vertical
+  // space than a 1080p television. Keep the entire entry flow visible there.
+  const compactTv = tvMode && viewportHeight < 900;
   const insets = useSafeAreaInsets();
   const addServer = useAppStore((state) => state.addServer);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
@@ -300,17 +329,39 @@ export default function LoginScreen() {
   const [diagInfo, setDiagInfo] = useState<DiagInfo | null>(null);
   const [showSavedLists, setShowSavedLists] = useState(false);
   const [focusedField, setFocusedField] = useState<"host" | "username" | "password" | "listName" | null>(null);
+  const [accessMethod, setAccessMethod] = useState<"chooser" | "xtream">("chooser");
 
   const hostRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const listNameRef = useRef<TextInput>(null);
+  const connectButtonRef = useRef<TVFocusableHandle>(null);
+  const savedListsButtonRef = useRef<TVFocusableHandle>(null);
+  const [formFocusHandles, setFormFocusHandles] = useState({
+    host: 0,
+    username: 0,
+    password: 0,
+    listName: 0,
+    connect: 0,
+  });
+
+  const resolveFormFocusHandles = useCallback(() => {
+    requestAnimationFrame(() => {
+      setFormFocusHandles({
+        host: findNodeHandle(hostRef.current) ?? 0,
+        username: findNodeHandle(usernameRef.current) ?? 0,
+        password: findNodeHandle(passwordRef.current) ?? 0,
+        listName: findNodeHandle(listNameRef.current) ?? 0,
+        connect: connectButtonRef.current?.getNodeHandle() ?? 0,
+      });
+    });
+  }, []);
 
   useEffect(() => {
-    if (!tvMode) return;
+    if (!tvMode || accessMethod !== "xtream") return;
     const timer = setTimeout(() => hostRef.current?.focus(), 350);
     return () => clearTimeout(timer);
-  }, [tvMode]);
+  }, [accessMethod, tvMode]);
 
   /**
    * Core connect logic. Accepts an explicit `effectiveHost` so both the main
@@ -393,6 +444,13 @@ export default function LoginScreen() {
     [router, setActiveServer]
   );
 
+  const openSavedLists = useCallback(() => setShowSavedLists(true), []);
+
+  const closeSavedLists = useCallback(() => {
+    setShowSavedLists(false);
+    requestAnimationFrame(() => savedListsButtonRef.current?.focus());
+  }, []);
+
   const handleDeleteServer = useCallback(
     (id: string, name: string) => {
       Alert.alert(
@@ -403,7 +461,13 @@ export default function LoginScreen() {
           {
             text: "Excluir",
             style: "destructive",
-            onPress: () => removeServer(id),
+            onPress: async () => {
+              try {
+                await removeServer(id);
+              } catch {
+                Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+              }
+            },
           },
         ]
       );
@@ -420,21 +484,32 @@ export default function LoginScreen() {
         {
           text: "Excluir todas",
           style: "destructive",
-          onPress: () => {
-            removeAllServers();
-            setShowSavedLists(false);
+          onPress: async () => {
+            try {
+              await removeAllServers();
+              closeSavedLists();
+            } catch {
+              Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+            }
           },
         },
       ]
     );
-  }, [removeAllServers]);
+  }, [closeSavedLists, removeAllServers]);
 
   return (
     <View style={styles.screen}>
-      {/* Ambient orbs */}
-      <View style={styles.orb1} />
-      <View style={styles.orb2} />
-      <View style={styles.orb3} />
+      <BlurTargetView ref={backdropRef} collapsable={false} style={styles.loginBackdrop} pointerEvents="none">
+        <Image
+          source={tvMode
+            ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v3.jpg")
+            : require("@/assets/images/brand/ELVANOQ_login_mobile_backdrop_v3.jpg")}
+          contentFit="cover"
+          contentPosition={tvMode ? "center" : "top"}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.loginBackdropVeil, tvMode && styles.tvBackdropVeil]} />
+      </BlurTargetView>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -445,28 +520,84 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.content,
-            { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 },
+            tvMode && styles.tvContent,
+            compactTv && styles.tvCompactContent,
+            { paddingTop: insets.top + (compactTv ? 14 : 32), paddingBottom: insets.bottom + (compactTv ? 14 : 32) },
           ]}
         >
           {/* Logo section */}
-          <View style={styles.logoArea}>
-            <Image
-              source={require("@/assets/images/flixplay_logo.jpg")}
-              contentFit="contain"
-              accessibilityLabel="FlixPlay"
-              style={styles.brandLogo}
-            />
-            <AppText style={styles.logoSubtitle}>Plataforma IPTV · Xtream Codes</AppText>
+          <View style={[styles.logoArea, tvMode && styles.tvLogoArea, compactTv && styles.tvCompactLogoArea]}>
+            <View style={styles.logoKicker}>
+              <Ionicons name="shield-checkmark-outline" size={12} color={Colors.blueBright} />
+              <AppText style={styles.logoKickerText}>ACESSO SEGURO</AppText>
+            </View>
+            <BrandLogo variant="loginWordmark" accessibilityLabel="ELVANOQ" style={[styles.brandLogo, tvMode ? (compactTv ? styles.brandLogoTvCompact : styles.brandLogoTv) : compactMobile && styles.brandLogoMobile]} />
           </View>
 
           {/* Glass card */}
-          <View style={styles.card}>
-            <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
-            <View style={styles.cardInner}>
-              <AppText style={styles.cardTitle}>Entrar na conta</AppText>
+          <View style={[styles.card, tvMode && styles.tvCard, compactTv && styles.tvCompactCard]} onLayout={resolveFormFocusHandles}>
+            <BlurView
+              blurTarget={backdropRef}
+              intensity={72}
+              blurReductionFactor={1}
+              tint="dark"
+              blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.cardHighlight} pointerEvents="none" />
+            <View style={[styles.cardInner, tvMode && styles.tvCardInner, compactTv && styles.tvCompactCardInner]}>
+              <AppText style={styles.cardEyebrow}>COMECE AQUI</AppText>
+              <AppText style={styles.cardTitle}>Configure sua lista{`\n`}para começar</AppText>
               <AppText style={styles.cardSubtitle}>
-                Conecte seu servidor Xtream Codes
+                {accessMethod === "chooser"
+                  ? "Escolha como deseja conectar seu conteúdo ao ELVANOQ."
+                  : "Informe os dados do seu acesso Xtream Codes para conectar seu conteúdo."}
               </AppText>
+
+              {accessMethod === "chooser" ? (
+                <>
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel="Conexão Xtream Codes"
+                    hasTVPreferredFocus={tvMode}
+                    onPress={() => setAccessMethod("xtream")}
+                    style={({ pressed }) => [styles.xtreamAccess, compactTv && styles.tvCompactXtreamAccess, pressed && styles.pressed]}
+                    // The card is intentionally white. Its focus treatment
+                    // preserves that premium surface instead of inheriting the
+                    // generic dark TV focus background.
+                    focusStyle={styles.xtreamAccessFocused}
+                  >
+                    <View style={styles.xtreamAccessIcon}><Ionicons name="server-outline" size={22} color={Colors.background} /></View>
+                    <View style={styles.m3uAccessCopy}>
+                      <AppText style={styles.xtreamAccessTitle}>Conexão Xtream Codes</AppText>
+                      <AppText style={styles.xtreamAccessMeta}>Host, usuário e senha do seu provedor</AppText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={22} color={Colors.background} />
+                  </TVFocusable>
+
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel="Importar lista M3U"
+                    onPress={() => router.push("/server/add?source=m3u")}
+                    style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
+                  >
+                    <View style={styles.m3uAccessIcon}><Ionicons name="document-text-outline" size={18} color={Colors.blueBright} /></View>
+                    <View style={styles.m3uAccessCopy}><AppText style={styles.m3uAccessTitle}>Lista M3U</AppText><AppText style={styles.m3uAccessMeta}>Importar M3U/M3U Plus com XMLTV opcional</AppText></View>
+                    <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
+                  </TVFocusable>
+                </>
+              ) : (
+                <>
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel="Voltar para métodos de conexão"
+                    onPress={() => setAccessMethod("chooser")}
+                    style={({ pressed }) => [styles.methodBackButton, pressed && styles.pressed]}
+                  >
+                    <Ionicons name="chevron-back" size={15} color={Colors.blueBright} />
+                    <AppText style={styles.methodBackText}>Métodos de conexão</AppText>
+                  </TVFocusable>
 
               {/* Host field */}
               <View style={styles.fieldGroup}>
@@ -477,8 +608,10 @@ export default function LoginScreen() {
                   </View>
                   <TextInput
                     ref={hostRef}
-                    autoFocus={tvMode}
-                    hasTVPreferredFocus={tvMode}
+                    autoFocus={tvMode && accessMethod === "xtream"}
+                    hasTVPreferredFocus={tvMode && accessMethod === "xtream"}
+                    accessibilityLabel="Host ou URL do servidor"
+                    {...({ nextFocusDown: formFocusHandles.username || undefined } as Record<string, number | undefined>)}
                     value={host}
                     onChangeText={setHost}
                     placeholder="http://servidor.tv:8080"
@@ -517,6 +650,11 @@ export default function LoginScreen() {
                   <TextInput
                     ref={usernameRef}
                     value={username}
+                    accessibilityLabel="Usuário"
+                    {...({
+                      nextFocusUp: formFocusHandles.host || undefined,
+                      nextFocusDown: formFocusHandles.password || undefined,
+                    } as Record<string, number | undefined>)}
                     onChangeText={setUsername}
                     placeholder="Seu usuário"
                     placeholderTextColor={Colors.subtle}
@@ -550,6 +688,11 @@ export default function LoginScreen() {
                   <TextInput
                     ref={passwordRef}
                     value={password}
+                    accessibilityLabel="Senha"
+                    {...({
+                      nextFocusUp: formFocusHandles.username || undefined,
+                      nextFocusDown: formFocusHandles.listName || undefined,
+                    } as Record<string, number | undefined>)}
                     onChangeText={setPassword}
                     placeholder="Sua senha"
                     placeholderTextColor={Colors.subtle}
@@ -589,6 +732,11 @@ export default function LoginScreen() {
                   <TextInput
                     ref={listNameRef}
                     value={listName}
+                    accessibilityLabel="Nome da lista, opcional"
+                    {...({
+                      nextFocusUp: formFocusHandles.password || undefined,
+                      nextFocusDown: formFocusHandles.connect || undefined,
+                    } as Record<string, number | undefined>)}
                     onChangeText={setListName}
                     placeholder="Ex.: Minha Lista IPTV"
                     placeholderTextColor={Colors.subtle}
@@ -651,11 +799,13 @@ export default function LoginScreen() {
 
               {/* Connect button */}
               <TVFocusable
+                ref={connectButtonRef}
                 accessibilityRole="button"
                 accessibilityLabel="Conectar e Carregar Lista"
                 disabled={loading}
                 onPress={handleConnect}
                 hasTVPreferredFocus={!tvMode}
+                nextFocusUp={formFocusHandles.listName || undefined}
                 style={({ pressed }) => [
                   styles.connectBtn,
                   pressed && styles.pressed,
@@ -663,10 +813,10 @@ export default function LoginScreen() {
                 ]}
               >
                 {loading ? (
-                  <ActivityIndicator color={Colors.white} size="small" />
+                  <ActivityIndicator color={Colors.background} size="small" />
                 ) : (
                   <>
-                    <Ionicons name="link" size={17} color={Colors.white} />
+                    <Ionicons name="link" size={17} color={Colors.background} />
                     <AppText style={styles.connectBtnText}>
                       Conectar e Carregar Lista
                     </AppText>
@@ -680,16 +830,19 @@ export default function LoginScreen() {
                   Credenciais salvas apenas neste dispositivo
                 </AppText>
               </View>
+                </>
+              )}
             </View>
           </View>
 
           {/* Secondary actions */}
-          <View style={styles.secondaryRow}>
+          <View style={[styles.secondaryRow, compactTv && styles.tvCompactSecondaryRow]}>
             <TVFocusable
+              ref={savedListsButtonRef}
               accessibilityRole="button"
               accessibilityLabel="Ver listas salvas"
-              onPress={() => setShowSavedLists(true)}
-              style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+              onPress={openSavedLists}
+              style={({ pressed }) => [styles.secondaryBtn, compactTv && styles.tvCompactSecondaryBtn, pressed && styles.pressed]}
             >
               <Ionicons name="list" size={16} color={Colors.blueBright} />
               <AppText style={styles.secondaryBtnText}>Listas Salvas</AppText>
@@ -700,6 +853,12 @@ export default function LoginScreen() {
               ) : null}
             </TVFocusable>
           </View>
+
+          <View style={[styles.releaseFooter, tvMode && styles.tvReleaseFooter, compactTv && styles.tvCompactReleaseFooter]}>
+            <AppText style={styles.releaseFooterText}>
+              ELVANOQ · Versão {APP_VERSION} · Build {APP_BUILD}
+            </AppText>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -709,16 +868,21 @@ export default function LoginScreen() {
         animationType="slide"
         presentationStyle={Platform.OS === "ios" ? "pageSheet" : "overFullScreen"}
         transparent={Platform.OS !== "ios"}
-        onRequestClose={() => setShowSavedLists(false)}
+        onRequestClose={closeSavedLists}
       >
         {Platform.OS !== "ios" ? (
-          <View style={styles.modalOverlay}>
+          <View
+            accessibilityViewIsModal
+            importantForAccessibility="yes"
+            onAccessibilityEscape={closeSavedLists}
+            style={styles.modalOverlay}
+          >
             <SavedListsModal
               servers={servers}
               onSelect={handleSelectSaved}
               onDelete={handleDeleteServer}
               onDeleteAll={handleDeleteAll}
-              onClose={() => setShowSavedLists(false)}
+              onClose={closeSavedLists}
             />
           </View>
         ) : (
@@ -727,7 +891,7 @@ export default function LoginScreen() {
             onSelect={handleSelectSaved}
             onDelete={handleDeleteServer}
             onDeleteAll={handleDeleteAll}
-            onClose={() => setShowSavedLists(false)}
+            onClose={closeSavedLists}
           />
         )}
       </Modal>
@@ -740,76 +904,99 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  orb1: {
-    position: "absolute",
-    top: -80,
-    left: -60,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: "rgba(59,130,246,0.13)",
-  },
-  orb2: {
-    position: "absolute",
-    bottom: 80,
-    right: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: "rgba(96,165,250,0.07)",
-  },
-  orb3: {
-    position: "absolute",
-    top: "40%",
-    left: "50%",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(139,92,246,0.05)",
-  },
+  loginBackdrop: { ...StyleSheet.absoluteFill },
+  loginBackdropVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(2, 6, 15, 0.06)" },
+  tvBackdropVeil: { backgroundColor: "rgba(2, 6, 15, 0.10)" },
   keyboardView: {
     flex: 1,
   },
   content: {
+    flexGrow: 1,
+    justifyContent: "center",
     gap: 20,
     paddingHorizontal: 20,
     alignItems: "stretch",
   },
+  tvContent: {
+    width: "40%",
+    maxWidth: 520,
+    alignSelf: "flex-start",
+    marginLeft: "8%",
+    gap: 18,
+    paddingHorizontal: 0,
+  },
+  tvCompactContent: { width: "38%", maxWidth: 470, marginLeft: "7%", gap: 11 },
+  releaseFooter: { alignItems: "center", paddingTop: 2, paddingBottom: 4 },
+  tvReleaseFooter: { alignItems: "flex-start", paddingTop: 6 },
+  tvCompactReleaseFooter: { paddingTop: 1, paddingBottom: 0 },
+  releaseFooterText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.25, color: "rgba(219, 234, 254, 0.54)" },
   logoArea: {
     alignItems: "center",
-    gap: 6,
-    paddingBottom: 4,
+    gap: 8,
+    paddingBottom: 8,
   },
-  brandLogo: { width: "78%", maxWidth: 360, aspectRatio: 1536 / 691 },
-  logoSubtitle: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    letterSpacing: 0.2,
-    color: Colors.muted,
-  },
+  tvLogoArea: { alignItems: "flex-start", paddingBottom: 12 },
+  tvCompactLogoArea: { gap: 5, paddingBottom: 3 },
+  logoKicker: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(34,211,238,0.22)", backgroundColor: "rgba(5,17,35,0.48)" },
+  logoKickerText: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.1, color: Colors.blueBright },
+  brandLogo: { width: 270, height: 81 },
+  brandLogoMobile: { width: 270, height: 81 },
+  brandLogoTv: { width: 465, maxWidth: 465, height: 141 },
+  brandLogoTvCompact: { width: 330, maxWidth: 330, height: 100 },
   card: {
     overflow: "hidden",
-    borderRadius: Radii.large,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: Colors.glass,
+    borderColor: "rgba(191,219,254,0.18)",
+    // The translucent tint lets the native BlurView behind this surface remain
+    // visible, while keeping the login controls readable over poster artwork.
+    backgroundColor: "rgba(10,15,25,0.20)",
     ...Shadows.card,
   },
+  tvCard: { borderRadius: 28, borderColor: "rgba(191,219,254,0.24)", backgroundColor: "rgba(8,14,27,0.22)" },
+  tvCompactCard: { borderRadius: 22 },
+  cardHighlight: { position: "absolute", top: 0, right: 0, left: 0, height: 1, backgroundColor: "rgba(255,255,255,0.26)" },
   cardInner: {
-    gap: 14,
-    padding: 20,
+    gap: 15,
+    padding: 22,
   },
+  tvCardInner: { gap: 17, paddingHorizontal: 34, paddingVertical: 30 },
+  tvCompactCardInner: { gap: 10, paddingHorizontal: 22, paddingVertical: 18 },
+  cardEyebrow: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.3, color: Colors.blueBright, marginBottom: -8 },
   cardTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 19,
+    fontSize: 21,
     color: Colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.45,
+    lineHeight: 26,
   },
   cardSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 20,
     color: Colors.muted,
     marginTop: -8,
   },
+  m3uAccess: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1, borderColor: "rgba(147,197,253,0.20)", backgroundColor: "rgba(255,255,255,0.045)" },
+  xtreamAccess: { minHeight: 86, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 15, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.96)", backgroundColor: Colors.white },
+  tvCompactM3uAccess: { minHeight: 52, paddingHorizontal: 10 },
+  tvCompactXtreamAccess: { minHeight: 72, paddingHorizontal: 13, gap: 11, borderRadius: 16 },
+  xtreamAccessFocused: {
+    // Override TVFocusable's generic blue surface: focused Xtream stays white.
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.blueBright,
+    opacity: 1,
+    transform: [{ scale: 1 }],
+  },
+  xtreamAccessIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "rgba(15,23,42,0.10)", borderWidth: 1, borderColor: "rgba(15,23,42,0.12)" },
+  xtreamAccessTitle: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.background },
+  xtreamAccessMeta: { fontSize: 12, lineHeight: 17, color: "rgba(10,18,34,0.64)" },
+  m3uAccessIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.14)" },
+  m3uAccessCopy: { flex: 1, gap: 2 },
+  m3uAccessTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  m3uAccessMeta: { fontSize: 10, color: Colors.muted },
+  methodBackButton: { alignSelf: "flex-start", minHeight: 30, flexDirection: "row", alignItems: "center", gap: 4, marginBottom: -5, paddingHorizontal: 4, borderRadius: 9 },
+  methodBackText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
   fieldGroup: {
     gap: 6,
   },
@@ -826,32 +1013,35 @@ const styles = StyleSheet.create({
     color: Colors.subtle,
   },
   inputWrapper: {
-    height: 50,
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: Radii.small,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: "rgba(7,9,14,0.5)",
+    backgroundColor: "rgba(3,7,14,0.46)",
     overflow: "hidden",
   },
   inputWrapperFocused: {
     borderWidth: 2,
     borderColor: Colors.blueBright,
-    backgroundColor: "rgba(59,130,246,0.14)",
+    backgroundColor: "rgba(36,99,235,0.14)",
   },
   inputIconBox: {
-    width: 44,
-    height: "100%",
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRightWidth: 1,
-    borderRightColor: Colors.border,
+    marginLeft: 8,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(34,211,238,0.18)",
+    backgroundColor: "rgba(14,38,67,0.52)",
   },
   input: {
     flex: 1,
     height: "100%",
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
@@ -889,14 +1079,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
-    borderRadius: Radii.pill,
-    backgroundColor: Colors.blue,
-    marginTop: 4,
+    borderRadius: 15,
+    backgroundColor: Colors.white,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.92)",
   },
   connectBtnText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
-    color: Colors.white,
+    color: Colors.background,
   },
   pressed: {
     opacity: 0.72,
@@ -919,21 +1111,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 0,
-    borderRadius: Radii.medium,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.glassSoft,
+    borderColor: "rgba(191,219,254,0.15)",
+    backgroundColor: "rgba(15,20,31,0.55)",
     overflow: "hidden",
   },
   secondaryBtn: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
     paddingHorizontal: 14,
   },
+  tvCompactSecondaryRow: { borderRadius: 15 },
+  tvCompactSecondaryBtn: { minHeight: 46 },
   secondaryDivider: {
     width: 1,
     height: 28,

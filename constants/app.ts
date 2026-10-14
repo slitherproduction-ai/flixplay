@@ -1,7 +1,7 @@
 export const APP_INFO = {
-  name: "FlixPlay",
-  version: "2.13.0",
-  build: "20261004",
-  versionLabel: "v2.13.0 • Build 20261004",
+  name: "ELVANOQ",
+  version: "2.17.11",
+  build: "20261026",
+  versionLabel: "v2.17.11 • Build 20261026",
   githubRepo: "slitherproduction-ai/flixplay",
 } as const;

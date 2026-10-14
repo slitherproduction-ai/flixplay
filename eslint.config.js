@@ -5,7 +5,8 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    // Browser-only debugging helper; it is not bundled by Expo/Hermes.
+    ignores: ['dist/*', 'inspector-overlay.js'],
   },
   {
     files: ['serve-expo.js'],

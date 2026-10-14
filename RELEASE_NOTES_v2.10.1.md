@@ -29,17 +29,6 @@ Build Android: `20260930`
 - Android mínimo API 24; alvo 36.
 - APK universal com `armeabi-v7a` e `arm64-v8a`.
 
-## Segurança
-
-- Conexões Xtream permanecem diretas com o servidor informado pelo usuário.
-- Credenciais não são encaminhadas por proxies CORS públicos.
-
-## Validação
-
-- TypeScript concluído sem erros.
-- Lint concluído sem erros.
-- 11 testes automatizados aprovados em 5 suítes.
-
 ## Observação de instalação e distribuição
 
 A chave privada usada no APK 2.10.0 não estava presente na cópia recuperada do projeto. O APK 2.10.1 foi assinado com uma nova chave de desenvolvimento preservada no pacote de recuperação; portanto, pode ser necessário desinstalar a versão anterior antes de instalar esta versão. Para publicação em loja, use uma chave definitiva e preserve-a em todas as atualizações.

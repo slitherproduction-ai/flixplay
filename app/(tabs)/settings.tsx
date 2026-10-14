@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { APP_INFO } from "@/constants/app";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, GlassCard, SectionHeader } from "@/components/ui";
+import { AppText, SectionHeader } from "@/components/ui";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
@@ -16,13 +16,10 @@ export default function SettingsScreen() {
   const { isSyncing, refresh: syncRefresh } = useSyncStatus();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
-  const preferences = useAppStore((state) => state.preferences);
-  const setPreference = useAppStore((state) => state.setPreference);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const removeServer = useAppStore((state) => state.removeServer);
   const removeAllServers = useAppStore((state) => state.removeAllServers);
   const logout = useAppStore((state) => state.logout);
-  const autoOpen = preferences.autoOpenLastChannel === true;
   const activeServer = servers.find((server) => server.id === activeServerId);
 
   const handleServer = useCallback((id: string) => {
@@ -57,10 +54,12 @@ export default function SettingsScreen() {
         {
           text: "Excluir",
           style: "destructive",
-          onPress: () => {
-            removeServer(id);
-            if (isActive) {
-              router.replace("/login");
+          onPress: async () => {
+            try {
+              await removeServer(id);
+              if (isActive) router.replace("/login");
+            } catch {
+              Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
             }
           },
         },
@@ -77,9 +76,13 @@ export default function SettingsScreen() {
         {
           text: "Excluir todas",
           style: "destructive",
-          onPress: () => {
-            removeAllServers();
-            router.replace("/login");
+          onPress: async () => {
+            try {
+              await removeAllServers();
+              router.replace("/login");
+            } catch {
+              Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+            }
           },
         },
       ]
@@ -100,7 +103,7 @@ export default function SettingsScreen() {
       <View style={styles.ambient} />
         <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
           <View style={styles.header}>
-            <View style={styles.headerCopy}><AppText style={styles.kicker}>CONTROLE DA SUA CONTA</AppText><AppText style={Type.display}>Ajustes</AppText><AppText style={styles.subtitle}>Personalize sua experiência FlixPlay</AppText></View>
+          <View style={styles.headerCopy}><AppText style={styles.kicker}>CONTROLE DA SUA CONTA</AppText><AppText style={Type.display}>Ajustes</AppText><AppText style={styles.subtitle}>Personalize sua experiência ELVANOQ</AppText></View>
           </View>
 
           <View style={styles.section}>
@@ -137,19 +140,34 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <SectionHeader title="Preferências do Player" />
-            <GlassCard style={styles.preferencesCard} intensity={16}>
-              <View style={styles.preferenceRow}><View style={styles.preferenceIcon}><Ionicons name="play-circle-outline" size={19} color={Colors.blueBright} /></View><View style={styles.preferenceCopy}><AppText style={styles.preferenceTitle}>Motor de reprodução</AppText><AppText style={styles.preferenceMeta}>Seleção automática de HLS e TS</AppText></View><AppText style={styles.preferenceValue}>Expo Video</AppText></View>
-              <View style={styles.preferenceDivider} />
-              <TVFocusable accessibilityRole="switch" accessibilityState={{ checked: autoOpen }} accessibilityLabel="Abrir último canal" onPress={() => setPreference("autoOpenLastChannel", !autoOpen)} style={styles.preferenceRow} focusStyle={styles.preferenceRowFocused}><View style={styles.preferenceIcon}><Ionicons name="radio-outline" size={19} color={Colors.blueBright} /></View><View style={styles.preferenceCopy}><AppText style={styles.preferenceTitle}>Abrir último canal</AppText><AppText style={styles.preferenceMeta}>Retomar ao iniciar o app</AppText></View><Switch focusable={false} pointerEvents="none" value={autoOpen} trackColor={{ false: "#293246", true: Colors.blue }} thumbColor={Colors.white} /></TVFocusable>
-              <View style={styles.preferenceDivider} />
-              <TVFocusable accessibilityRole="switch" accessibilityState={{ checked: tvMode }} accessibilityLabel="Modo Android TV" onPress={() => { if (!Platform.isTV) setPreference("tvModeEnabled", !tvMode); }} style={styles.preferenceRow} focusStyle={styles.preferenceRowFocused}><View style={styles.preferenceIcon}><Ionicons name="tv-outline" size={19} color={Colors.blueBright} /></View><View style={styles.preferenceCopy}><AppText style={styles.preferenceTitle}>Modo Android TV</AppText><AppText style={styles.preferenceMeta}>{Platform.isTV ? "Detectado automaticamente neste dispositivo" : tvMode ? "Modo TV forçado manualmente" : "Ative para navegar com controle remoto"}</AppText></View><Switch focusable={false} pointerEvents="none" value={tvMode} trackColor={{ false: "#293246", true: Colors.blue }} thumbColor={Colors.white} /></TVFocusable>
-            </GlassCard>
+            <SectionHeader title="Reprodução" subtitle="Controles, formato e comportamento do player" />
+            <SettingsRow icon="play-circle-outline" title="Preferências do player" subtitle="OSD, salto no vídeo, formato e inicialização" onPress={() => router.push("/settings/player")} emphasis />
           </View>
 
           <View style={styles.section}>
-            <SectionHeader title="Sobre o FlixPlay" subtitle="Versão, recursos e histórico de atualizações" />
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir informações sobre o FlixPlay" onPress={handleAbout} style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}>
+            <SectionHeader title="Segurança" subtitle="Proteção de acesso ao conteúdo" />
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Configurar controle parental" onPress={() => router.push("/settings/parental")} style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}>
+              <View style={styles.aboutIcon}><Ionicons name="lock-closed-outline" size={20} color={Colors.blueBright} /></View>
+              <View style={styles.aboutCopy}><AppText style={styles.aboutTitle}>Controle parental</AppText><AppText style={styles.aboutMeta}>Criar, alterar ou remover o PIN seguro</AppText></View>
+              <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
+            </TVFocusable>
+          </View>
+
+          <View style={styles.section}>
+            <SectionHeader title="Dados e suporte" subtitle="Status da lista, atualização e diagnóstico" />
+            <View style={styles.statusStrip}>
+              <StatusItem label="LISTA" value={activeServer?.status ?? "Indisponível"} tone="success" />
+              <StatusItem label="FORMATO" value={activeServer?.format ?? "Auto"} />
+              <StatusItem label="CONEXÕES" value={activeServer?.activeConnections ?? "—"} />
+            </View>
+            {activeServer?.serverUrl.startsWith("http://") ? <View style={styles.httpWarning}><Ionicons name="shield-outline" size={16} color={Colors.amber} /><AppText style={styles.httpWarningText}>Conexão sem criptografia fornecida pelo servidor.</AppText></View> : null}
+            <SettingsRow icon="refresh" title="Atualizar lista IPTV" subtitle={isSyncing ? "Sincronizando…" : "Recarregar canais, filmes e séries do servidor"} onPress={handleSyncIptv} disabled={isSyncing} emphasis />
+            <SettingsRow icon="pulse-outline" title="Diagnóstico" subtitle="Conexão, catálogo, cache e relatório sanitizado" onPress={() => router.push("/settings/diagnostics")} />
+          </View>
+
+          <View style={styles.section}>
+            <SectionHeader title="Sobre" subtitle="Versão, recursos e histórico de atualizações" />
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir informações sobre o ELVANOQ" onPress={handleAbout} style={({ pressed }) => [styles.aboutRow, pressed && styles.pressed]}>
               <View style={styles.aboutIcon}>
                 <Ionicons name="sparkles-outline" size={20} color={Colors.blueBright} />
               </View>
@@ -164,12 +182,6 @@ export default function SettingsScreen() {
             </TVFocusable>
           </View>
 
-          <View style={styles.infoGrid}><View style={styles.infoTile}><AppText style={styles.infoLabel}>CONEXÕES ATIVAS</AppText><AppText style={styles.infoValue}>{activeServer?.activeConnections ?? "Não informado"}{activeServer?.maxConnections !== null && activeServer?.maxConnections !== undefined ? <AppText style={styles.infoMuted}> / {activeServer.maxConnections}</AppText> : null}</AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>FORMATO DE SAÍDA</AppText><AppText style={styles.infoValue}>{activeServer?.format ?? "Não informado"}</AppText></View><View style={styles.infoTile}><AppText style={styles.infoLabel}>STATUS DA LISTA</AppText><AppText style={styles.infoValueSmall}>{activeServer?.status ?? "Não informado"}</AppText></View></View>
-          {activeServer?.serverUrl.startsWith("http://") ? <View style={styles.httpWarning}><Ionicons name="shield-outline" size={16} color={Colors.amber} /><AppText style={styles.httpWarningText}>Conexão sem criptografia fornecida pelo servidor.</AppText></View> : null}
-
-          <TVFocusable accessibilityRole="button" disabled={isSyncing} onPress={handleSyncIptv} style={[styles.syncIptv, isSyncing && styles.syncIptvDisabled]}><View style={styles.syncIptvIcon}><Ionicons name="refresh" size={18} color={Colors.blueBright} /></View><View style={styles.syncIptvCopy}><AppText style={styles.syncIptvTitle}>Atualizar Lista IPTV</AppText><AppText style={styles.syncIptvBody}>{isSyncing ? "Sincronizando..." : "Recarregar canais, filmes e séries do servidor"}</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
-
-          <TVFocusable accessibilityRole="button" accessibilityLabel="Abrir diagnóstico técnico" onPress={() => router.push("/settings/diagnostics")} style={styles.syncIptv}><View style={styles.syncIptvIcon}><Ionicons name="pulse-outline" size={18} color={Colors.blueBright} /></View><View style={styles.syncIptvCopy}><AppText style={styles.syncIptvTitle}>Diagnóstico</AppText><AppText style={styles.syncIptvBody}>Conexão, catálogo, cache e relatório sanitizado</AppText></View><Ionicons name="chevron-forward" size={17} color={Colors.subtle} /></TVFocusable>
 
           <TVFocusable
             accessibilityRole="button"
@@ -193,6 +205,20 @@ export default function SettingsScreen() {
   );
 }
 
+function SettingsRow({ icon, title, subtitle, onPress, disabled = false, emphasis = false }: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; onPress: () => void; disabled?: boolean; emphasis?: boolean }) {
+  return (
+    <TVFocusable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.settingsRow, emphasis && styles.settingsRowEmphasis, disabled && styles.settingsRowDisabled, pressed && styles.pressed]}>
+      <View style={[styles.settingsRowIcon, emphasis && styles.settingsRowIconEmphasis]}><Ionicons name={icon} size={20} color={Colors.blueBright} /></View>
+      <View style={styles.settingsRowCopy}><AppText style={styles.settingsRowTitle}>{title}</AppText><AppText style={styles.settingsRowMeta}>{subtitle}</AppText></View>
+      {disabled ? null : <Ionicons name="chevron-forward" size={18} color={Colors.subtle} />}
+    </TVFocusable>
+  );
+}
+
+function StatusItem({ label, value, tone }: { label: string; value: string | number; tone?: "success" }) {
+  return <View style={styles.statusItem}><AppText style={styles.statusLabel}>{label}</AppText><AppText numberOfLines={1} style={[styles.statusValue, tone === "success" && styles.statusValueSuccess]}>{value}</AppText></View>;
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   ambient: { position: "absolute", top: -130, right: -100, width: 290, height: 290, borderRadius: 145, backgroundColor: "rgba(59, 130, 246, 0.07)" },
@@ -203,6 +229,19 @@ const styles = StyleSheet.create({
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },
   subtitle: { fontSize: 13, color: Colors.muted },
   section: { gap: 12 },
+  settingsRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 12, padding: 13, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(190,222,255,0.14)", backgroundColor: "rgba(20,30,48,0.66)" },
+  settingsRowEmphasis: { borderColor: "rgba(96,165,250,0.28)", backgroundColor: "rgba(40,86,149,0.16)", ...Shadows.card },
+  settingsRowDisabled: { opacity: 0.58 },
+  settingsRowIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 14, borderWidth: 1, borderColor: "rgba(190,222,255,0.11)", backgroundColor: "rgba(59,130,246,0.10)" },
+  settingsRowIconEmphasis: { borderColor: "rgba(96,165,250,0.32)", backgroundColor: "rgba(59,130,246,0.18)" },
+  settingsRowCopy: { flex: 1, gap: 4 },
+  settingsRowTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
+  settingsRowMeta: { fontSize: 11, lineHeight: 16, color: Colors.muted },
+  statusStrip: { flexDirection: "row", gap: 8, padding: 10, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(190,222,255,0.12)", backgroundColor: "rgba(12,18,31,0.62)" },
+  statusItem: { flex: 1, gap: 4, minWidth: 0, paddingHorizontal: 4 },
+  statusLabel: { fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 0.7, color: Colors.subtle },
+  statusValue: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  statusValueSuccess: { color: Colors.green },
   serverList: { gap: 8 },
   serverRowContainer: { flexDirection: "row", alignItems: "stretch", borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft, overflow: "hidden" },
   serverRowContainerActive: { borderColor: "rgba(59, 130, 246, 0.46)", backgroundColor: "rgba(59, 130, 246, 0.11)" },
@@ -229,6 +268,15 @@ const styles = StyleSheet.create({
   preferenceTitle: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.text },
   preferenceMeta: { fontSize: 10, color: Colors.subtle },
   preferenceValue: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
+  choiceRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  choiceOptions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  choiceButton: { minWidth: 48, minHeight: 38, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.04)" },
+  choiceButtonSelected: { borderColor: Colors.blueBright, backgroundColor: "rgba(59,130,246,0.22)" },
+  choiceButtonFocused: { borderColor: Colors.white, backgroundColor: "rgba(59,130,246,0.34)", transform: [{ scale: 1.04 }] },
+  choiceButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.muted },
+  choiceButtonTextSelected: { color: Colors.white },
+  userAgentRow: { minHeight: 88, flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  userAgentInput: { width: "46%", minHeight: 44, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.borderStrong, backgroundColor: "rgba(7,9,14,0.72)", fontFamily: "Inter_400Regular", fontSize: 11, color: Colors.text },
   preferenceDivider: { height: 1, backgroundColor: Colors.border },
   aboutRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 11, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(96,165,250,0.26)", backgroundColor: "rgba(59,130,246,0.08)" },
   aboutIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, borderWidth: 1, borderColor: "rgba(147,197,253,0.3)", backgroundColor: "rgba(96,165,250,0.15)" },

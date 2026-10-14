@@ -7,7 +7,7 @@ export function BrandLogo({
   style,
   accessibilityLabel = "ELVANOQ",
 }: {
-  variant?: "logo" | "wordmark" | "symbol";
+  variant?: "logo" | "wordmark" | "loginWordmark" | "symbol";
   style?: StyleProp<ImageStyle>;
   accessibilityLabel?: string;
 }) {
@@ -25,3 +25,4 @@ export function BrandLogo({
 const styles = StyleSheet.create({
   base: { width: 180, height: 54 },
 });
+

@@ -2,7 +2,11 @@ module.exports = function (api) {
   const platform = api.caller((c) => c?.platform);
   const isDev = api.caller((c) => c?.isDev);
   const sourceMeta = process.env.EXPO_SOURCE_METADATA;
-  api.cache.using(() => `${platform}:${isDev}:${sourceMeta}`);
+  // Public Expo variables are compiled into the JavaScript bundle. Include the
+  // TMDB value in the transform-cache key so changing it cannot reuse a bundle
+  // that was produced without the variable.
+  const tmdbAccessToken = process.env.EXPO_PUBLIC_TMDB_ACCESS_TOKEN;
+  api.cache.using(() => `${platform}:${isDev}:${sourceMeta}:${tmdbAccessToken}`);
 
   const plugins = [];
 

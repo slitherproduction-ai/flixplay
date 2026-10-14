@@ -18,6 +18,9 @@ export interface ServerProfile {
   status?: string | null;
   lastSyncedAt?: string | null;
   addedAt?: string;
+  sourceType?: "xtream" | "m3u";
+  m3uUrl?: string;
+  xmltvUrl?: string;
 }
 
 export interface EpgProgram {
@@ -44,6 +47,10 @@ export interface ChannelItem {
   nextProgram: string;
   epgPrograms?: EpgProgram[];
   epgUpdatedAt?: string;
+  /** Provider-declared archive window. Absent means Catch-up must stay unavailable. */
+  catchupDays?: number;
+  /** M3U catchup-source template. Kept in memory only; catalog persistence strips it. */
+  catchupSource?: string;
   streamUrl: string;
 }
 
@@ -59,8 +66,12 @@ export interface VodMovie {
   genre: string;
   plot: string;
   streamUrl: string;
+  /** Non-sensitive hint used to rebuild authenticated URLs only in memory. */
+  containerExtension?: string;
   resumePositionMs?: number;
   quality?: "4K" | "FHD" | "HD";
+  /** Xtream's `added` value, retained for truthful newest-first ordering. */
+  addedAt?: string;
 }
 
 export interface SeriesItem {
@@ -100,6 +111,8 @@ export interface ContentCache {
 }
 
 export interface PlayHistory {
+  /** Optional for legacy records; newly written items are always scoped. */
+  serverId?: string;
   contentId: string;
   type: ContentType;
   title: string;

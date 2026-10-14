@@ -4,12 +4,36 @@ Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Nati
 
 ## Versão atual
 
-- **2.13.0** — código de versão Android `20261004`.
+- **2.15.0** — código de versão Android `20261006`.
 - Pacote Android: `com.fastshot.slitherproduction.flixplay`.
 - APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
 - A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
 
-## Novidades da 2.13.0
+## Estado da versão
+
+A versão 2.15.0 foi gerada como candidata para homologação. Critérios, minutas e roteiros de validação ficam em [`release/README.md`](release/README.md). Até a conclusão dos testes físicos e da atualização assinada em aparelhos reais, ela deve ser tratada como **Release Candidate — não autorizada para lançamento público**.
+
+## Novidades da 2.15.0
+
+- SQLite schema v2 com migração aditiva, índices, paginação, busca e proteção contra respostas vazias.
+- Busca global paginada no banco, com debounce e normalização de acentos.
+- URLs autenticadas removidas do cache persistente e reconstruídas somente em memória.
+- Proteção contra downgrade de HTTPS e sanitização ampliada de logs.
+- Controle parental nativo protegido por Android Keystore, PBKDF2 e bloqueio progressivo.
+- Player protegido contra eventos atrasados, com fallback seguro e salvamento de progresso em pausa, background e PiP.
+- Menu lateral da TV sem sobreposição, foco do login determinístico e progresso real nos detalhes.
+
+## Mantido da 2.14.0
+
+- Digitação direta do número do canal com confirmação automática após 1,5 segundo.
+- Mapeamento de CH+/CH- e botões coloridos para favoritos, proporção, faixas e EPG.
+- OSD configurável em 3, 5 ou 7 segundos.
+- Salto de VOD configurável em 10, 30 ou 60 segundos.
+- Preferência real de stream HLS/TS e User-Agent personalizado aplicado às requisições.
+- Zapping agrupado para evitar corridas ao pressionar o controle rapidamente.
+- Histórico da tela **Sobre** limitado às duas versões mais recentes.
+
+### Mantido da 2.13.0
 
 - Cofre de credenciais baseado em Android Keystore, com migração automática do armazenamento legado.
 - Cache SQLite separado por servidor, sincronização progressiva e restauração offline.
@@ -63,20 +87,19 @@ bun install
 npx expo start
 ```
 
-O arquivo `bun.lock` fixa as dependências. A pasta `android/` faz parte do código-fonte desde a versão 2.13.0 porque contém os módulos nativos do cofre Android Keystore e do catálogo SQLite.
+O arquivo `bun.lock` fixa as dependências. O projeto Android é gerado a partir de `app.json` e dos plugins em `plugins/`.
 
 ## Compilar Android
 
 Instale JDK 17, Android SDK 36, Build Tools, NDK 27.1.12297006 e CMake 3.22.1. Configure `ANDROID_HOME` e `ANDROID_SDK_ROOT` para o SDK local e execute:
 
 ```bash
+npx expo prebuild --platform android --clean
 cd android
 ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
 ```
 
-Não execute `expo prebuild --clean` sem antes preservar e reaplicar os módulos nativos em `android/app/src/main/java/.../security` e `android/app/src/main/java/.../data`.
-
-O arquivo gerado fica em `android/app/build/outputs/apk/release/app-release.apk`. O repositório não inclui SDK, dependências instaladas, cache de compilação, chaves privadas ou arquivos locais. Antes do build de distribuição, configure a chave de assinatura preservada das versões anteriores. Um APK assinado com chave diferente não atualiza uma instalação existente sem reinstalação.
+O arquivo gerado fica em `android/app/build/outputs/apk/release/app-release.apk`. O repositório não inclui SDK, dependências instaladas, cache de compilação, chaves privadas ou arquivos locais. O build gerado usa a chave de desenvolvimento do Android; para distribuição contínua, configure uma chave de assinatura própria e mantenha a mesma chave nas próximas versões. Um APK assinado com chave diferente não atualiza uma instalação existente sem reinstalação.
 
 ## Atualizações pelo aplicativo
 

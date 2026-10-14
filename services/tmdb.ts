@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const CACHE_PREFIX = "elvanoq_tmdb_v1_";
@@ -25,7 +26,12 @@ function cleanTitle(title: string) {
 }
 
 function readAccessToken() {
-  return process.env.EXPO_PUBLIC_TMDB_ACCESS_TOKEN?.trim() ?? "";
+  // EXPO_PUBLIC values are available to Metro during development, while a
+  // standalone Android build reads the same value from Expo's resolved config.
+  // Keeping both paths makes TMDB work in preview, release and local builds.
+  const fromEnvironment = process.env.EXPO_PUBLIC_TMDB_ACCESS_TOKEN?.trim();
+  const fromConfig = Constants.expoConfig?.extra?.tmdbAccessToken;
+  return fromEnvironment || (typeof fromConfig === "string" ? fromConfig.trim() : "");
 }
 
 export function isTmdbConfigured() {

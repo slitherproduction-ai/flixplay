@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   FlatList,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +16,23 @@ import {
 } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
+
+/**
+ * Screens expose their visual root here so GlassCard can opt into Android's
+ * native blur without every call site having to thread a ref through props.
+ * A local prop still wins for cases such as the login poster backdrop.
+ */
+const GlassBlurTargetContext = React.createContext<React.RefObject<View | null> | undefined>(undefined);
+
+export function GlassBlurTargetProvider({
+  blurTarget,
+  children,
+}: {
+  blurTarget: React.RefObject<View | null>;
+  children: React.ReactNode;
+}) {
+  return <GlassBlurTargetContext.Provider value={blurTarget}>{children}</GlassBlurTargetContext.Provider>;
+}
 
 export function AppText({ style, children, selectable = !Platform.isTV, ...props }: React.ComponentProps<typeof Text>) {
   return (
@@ -29,17 +45,32 @@ export function AppText({ style, children, selectable = !Platform.isTV, ...props
 export function GlassCard({
   children,
   style,
-  intensity = 24,
+  intensity = 60,
+  blurTarget,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   intensity?: number;
+  /** Visual layer behind this card. Required for native Android blur. */
+  blurTarget?: React.RefObject<View | null>;
 }) {
+  const inheritedBlurTarget = React.useContext(GlassBlurTargetContext);
+  const resolvedBlurTarget = blurTarget ?? inheritedBlurTarget;
   return (
     <View style={[styles.glassShell, Shadows.card, style]}>
       {/* pointerEvents="none" prevents the BlurView from intercepting taps that
           should reach interactive children (Pressable, TVFocusable, etc.). */}
-      <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <BlurView
+        blurTarget={resolvedBlurTarget}
+        intensity={Math.max(68, intensity)}
+        tint="dark"
+        // Expo's Android implementation deliberately falls back to "none"
+        // without a target. Do not request the native method until a screen
+        // provides the visual layer to sample.
+        blurMethod={Platform.OS === "android" && resolvedBlurTarget ? "dimezisBlurViewSdk31Plus" : undefined}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={styles.glassContent}>{children}</View>
     </View>
   );
@@ -109,12 +140,14 @@ export function Chip({
   onPress,
   hasTVPreferredFocus = false,
   icon,
+  selectedTone = "blue",
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
   hasTVPreferredFocus?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  selectedTone?: "blue" | "light";
 }) {
   return (
     <TVFocusable
@@ -122,17 +155,21 @@ export function Chip({
       accessibilityState={{ selected }}
       onPress={onPress}
       hasTVPreferredFocus={hasTVPreferredFocus}
-      style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+      // White selected filters use dark copy. Keep that surface white while
+      // focused instead of letting TVFocusable's default blue overlay muddy
+      // the active state.
+      focusStyle={selected && selectedTone === "light" ? styles.chipSelectedLightFocused : undefined}
+      style={({ pressed }) => [styles.chip, selected && (selectedTone === "light" ? styles.chipSelectedLight : styles.chipSelected), pressed && styles.pressed]}
     >
       {icon ? (
         <Ionicons
           name={icon}
           size={12}
-          color={selected ? Colors.text : Colors.subtle}
+          color={selected ? Colors.background : Colors.subtle}
           style={{ marginRight: 2 }}
         />
       ) : null}
-      <AppText style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</AppText>
+      <AppText style={[styles.chipText, selected && (selectedTone === "light" ? styles.chipTextSelectedLight : styles.chipTextSelected)]}>{label}</AppText>
     </TVFocusable>
   );
 }
@@ -154,7 +191,7 @@ export function Chip({
 export const SearchField = React.memo(function SearchField({
   value,
   onChangeText,
-  placeholder = "Buscar no FlixPlay",
+  placeholder = "Buscar no ELVANOQ",
 }: {
   value: string;
   onChangeText: (value: string) => void;
@@ -430,8 +467,22 @@ export const styles = StyleSheet.create({
     backgroundColor: Colors.glassSoft,
   },
   chipSelected: {
-    borderColor: Colors.blue,
+    // Category filters are navigation controls, not a destructive/primary
+    // confirmation. A saturated blue state remains legible on TV and avoids
+    // the glaring white pill visible from across the room.
+    borderColor: "rgba(111,207,255,0.96)",
     backgroundColor: Colors.blue,
+  },
+  chipSelectedLight: {
+    borderColor: "rgba(255,255,255,0.96)",
+    backgroundColor: Colors.white,
+  },
+  chipSelectedLightFocused: {
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.blueBright,
+    opacity: 1,
+    transform: [{ scale: 1.025 }],
   },
   chipText: {
     fontFamily: "Inter_500Medium",
@@ -440,6 +491,9 @@ export const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: Colors.white,
+  },
+  chipTextSelectedLight: {
+    color: Colors.background,
   },
   searchField: {
     height: 48,

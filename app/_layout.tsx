@@ -1,16 +1,19 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { FontMap } from "@/constants/Typography";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useState } from "react";
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
+import { TVFocusable } from "@/components/tv-focusable";
+import { UpdateAvailableNotice } from "@/components/update-available-notice";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -95,6 +98,70 @@ const errStyles = StyleSheet.create({
     backgroundColor: "#2563EB",
   },
   btnText: { fontSize: 15, fontWeight: "600", color: "#fff" },
+});
+
+function isRootRoute(pathname: string) {
+  return ["/", "/index", "/live", "/movies", "/series", "/settings"].includes(pathname);
+}
+
+/** Prevents accidental exit while keeping Back available to stacked screens. */
+function RootExitGuard() {
+  const pathname = usePathname();
+  const [visible, setVisible] = useState(false);
+  const lastBackAt = React.useRef(0);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (visible) {
+        setVisible(false);
+        return true;
+      }
+      if (!isRootRoute(pathname)) return false;
+
+      const now = Date.now();
+      if (now - lastBackAt.current > 1800) {
+        lastBackAt.current = now;
+        ToastAndroid.show("Pressione Voltar novamente para sair", ToastAndroid.SHORT);
+        return true;
+      }
+      lastBackAt.current = 0;
+      setVisible(true);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [pathname, visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+      <View accessibilityViewIsModal style={exitStyles.backdrop}>
+        <View style={exitStyles.dialog}>
+          <Text style={exitStyles.title}>Deseja sair do aplicativo?</Text>
+          <Text style={exitStyles.body}>Você poderá continuar de onde parou ao abrir novamente.</Text>
+          <View style={exitStyles.actions}>
+            <TVFocusable hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Não, continuar no aplicativo" onPress={() => setVisible(false)} style={exitStyles.secondary}>
+              <Text style={exitStyles.secondaryText}>Não</Text>
+            </TVFocusable>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Sim, sair do aplicativo" onPress={() => BackHandler.exitApp()} style={exitStyles.primary}>
+              <Text style={exitStyles.primaryText}>Sim</Text>
+            </TVFocusable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const exitStyles = StyleSheet.create({
+  backdrop: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "rgba(0,0,0,0.72)" },
+  dialog: { width: "100%", maxWidth: 430, gap: 12, padding: 24, borderRadius: 20, backgroundColor: Colors.backgroundRaised, borderWidth: 1, borderColor: Colors.border },
+  title: { color: Colors.text, fontSize: 20, fontWeight: "700" },
+  body: { color: Colors.muted, fontSize: 14, lineHeight: 20 },
+  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
+  secondary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
+  primary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: Colors.blue },
+  secondaryText: { color: Colors.text, fontSize: 15, fontWeight: "700" },
+  primaryText: { color: Colors.white, fontSize: 15, fontWeight: "700" },
 });
 
 // ---------------------------------------------------------------------------
@@ -268,6 +335,12 @@ function PiPOverlay() {
         },
       ]}
     >
+      <BlurView
+        intensity={52}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       {/* Thin progress bar at very top of the mini player */}
       {pip.type !== "live" ? (
         <View style={pipStyles.progressTrack}>
@@ -344,9 +417,9 @@ const pipStyles = StyleSheet.create({
     right: 0,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0D111A",
+    backgroundColor: "rgba(13,17,26,0.56)",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.14)",
+    borderTopColor: "rgba(173,216,255,0.24)",
     zIndex: 9999,
     elevation: 20,
     shadowColor: "#000",
@@ -455,24 +528,30 @@ export default function RootLayout() {
     <AppErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: Colors.background },
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="login" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="details/[id]" options={{ presentation: "card" }} />
-            <Stack.Screen name="player" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="continue-watching" options={{ presentation: "card" }} />
-            <Stack.Screen name="server/add" options={{ presentation: "modal" }} />
-            <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
-          </Stack>
-          {/* Global floating PiP overlay — renders above all screens */}
-          <PiPOverlay />
+          <View style={{ flex: 1 }}>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: Colors.background },
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="login" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="details/[id]" options={{ presentation: "card" }} />
+                <Stack.Screen name="player" options={{ presentation: "fullScreenModal" }} />
+                <Stack.Screen name="continue-watching" options={{ presentation: "card" }} />
+                <Stack.Screen name="watch-later" options={{ presentation: "card" }} />
+                <Stack.Screen name="server/add" options={{ presentation: "modal" }} />
+                <Stack.Screen name="settings/player" options={{ presentation: "card" }} />
+                <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
+              </Stack>
+              <RootExitGuard />
+              <UpdateAvailableNotice />
+              {/* Global floating PiP overlay — renders above all screens */}
+              <PiPOverlay />
+          </View>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </AppErrorBoundary>

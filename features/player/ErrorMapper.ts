@@ -33,3 +33,4 @@ export function mapPlayerError(error: unknown): PlayerErrorInfo {
   }
   return { kind: "unknown", message: "O stream não pôde ser reproduzido." };
 }
+

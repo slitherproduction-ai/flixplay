@@ -34,4 +34,18 @@ describe("large catalogs", () => {
     ]).flat()].join("\n");
     expect(parseM3uPlaylist(playlist)).toHaveLength(30_000);
   });
+
+  it("keeps 100,000 generated channels addressable without an artificial cap", () => {
+    const startedAt = Date.now();
+    const channels = Array.from({ length: 100_000 }, (_, index) =>
+      mapLiveStreamToChannel(
+        { stream_id: index + 1, name: `Canal ${index + 1}`, stream_icon: "", category_id: "1", tv_archive: 0 },
+        { category_id: "1", category_name: "Geral", parent_id: 0 },
+        profile,
+      ),
+    );
+    expect(channels).toHaveLength(100_000);
+    expect(channels[99_999]?.streamId).toBe("100000");
+    expect(Date.now() - startedAt).toBeLessThan(15_000);
+  });
 });

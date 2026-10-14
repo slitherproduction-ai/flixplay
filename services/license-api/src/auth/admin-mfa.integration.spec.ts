@@ -71,7 +71,8 @@ describe('admin session MFA and code replay', () => {
     await expect(mfa.revokeOwnCredential('Bearer ' + token)).resolves.toEqual({ revoked: true, sessionsRevoked: true });
     await expect(auth.authenticate('Bearer ' + token)).rejects.toThrow();
     const fresh = randomBytes(32).toString('base64url');
-    await db.customerSession.create({ data: { userId: adminId, tokenHash: sha256(fresh), expiresAt: new Date(Date.now() + 600_000) } });
+    await db.customerSession.create({ data: { userId: adminId, tokenHash: sha256(fresh), expiresAt: new Date(Date.now() + 600_000), mfaVerifiedAt: new Date() } });
+    await expect(auth.authenticateAdmin('Bearer ' + fresh)).rejects.toThrow('MFA verification required');
     await expect(mfa.enroll('Bearer ' + fresh)).rejects.toThrow('already enrolled');
     await expect(mfa.verify('Bearer ' + fresh, '123456')).rejects.toThrow();
   });

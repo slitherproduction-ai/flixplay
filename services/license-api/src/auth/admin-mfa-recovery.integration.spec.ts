@@ -51,6 +51,27 @@ describe('independent administrator MFA recovery approval', () => {
     expect(requests.filter(x => x.status === 'rejected')).toHaveLength(1);
     requestIds.push(accepted[0].value.id);
   });
+  it('issues and consumes an expiring grant only once in test mode without modifying MFA', async () => {
+    const before = process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED;
+    process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED = 'true';
+    try {
+      const result = await service.request(headers[0], users[0], 'GRANT-TEST-2026').catch(() => null);
+      expect(result).toBeNull();
+      const another = await service.request(headers[0], users[2], 'GRANT-TEST-2026');
+      requestIds.push(another.id);
+      const approved = await service.approve(headers[1], another.id);
+      expect(approved.resetEnabled).toBe(false);
+      expect(approved.oneTimeGrant).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      const token = approved.oneTimeGrant!;
+      await expect(service.consumeTestGrant(headers[1], another.id, token)).resolves.toEqual({ consumed: true, resetEnabled: false });
+      await expect(service.consumeTestGrant(headers[1], another.id, token)).rejects.toThrow();
+      const row = await db.adminMfaRecoveryRequest.findUniqueOrThrow({ where: { id: another.id } });
+      expect(row.grantHash).not.toEqual(token);
+    } finally {
+      if (before === undefined) delete process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED;
+      else process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED = before;
+    }
+  });
   it('does not approve a recovery whose expiry has elapsed', async () => {
     const result = await service.request(headers[0], users[0], 'CASE-EVIDENCE-EXPIRED').catch(() => null);
     expect(result).toBeNull();

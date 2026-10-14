@@ -62,10 +62,19 @@ describe('License lifecycle on PostgreSQL', () => {
     const issueKey = randomUUID();
     const firstIssueReplay = await service.issue('Bearer fake', deviceId, issueKey).catch(() => null);
     expect(firstIssueReplay).toBeNull();
-    const beforeRenew = issued.expiresAt.getTime();
+    const concurrentKey = randomUUID();
+    const sameKey = await Promise.allSettled([
+      service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString(), concurrentKey),
+      service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString(), concurrentKey),
+    ]);
+    expect(sameKey.filter(x => x.status === 'fulfilled')).toHaveLength(2);
+    const concurrentResults = sameKey as PromiseFulfilledResult<Awaited<ReturnType<typeof service.renew>>>[];
+    expect(concurrentResults[0].value.expiresAt.toISOString()).toBe(concurrentResults[1].value.expiresAt.toISOString());
+    expect(await database.adminMutationReceipt.count({ where: { requestKey: concurrentKey } })).toBe(1);
+    const beforeRenew = concurrentResults[0].value.expiresAt.getTime();
     const renewalKey = randomUUID();
-    const renewed = await service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString(), renewalKey);
-    const replay = await service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString(), renewalKey);
+    const renewed = await service.renew('Bearer fake', issued.id, concurrentResults[0].value.expiresAt.toISOString(), renewalKey);
+    const replay = await service.renew('Bearer fake', issued.id, concurrentResults[0].value.expiresAt.toISOString(), renewalKey);
     expect(replay.id).toBe(renewed.id);
     expect(replay.expiresAt.toISOString()).toBe(renewed.expiresAt.toISOString());
     expect(renewed.expiresAt.getTime()).toBeGreaterThan(beforeRenew);

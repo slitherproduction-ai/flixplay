@@ -1,0 +1,5 @@
+# Checkpoint 37 — Auditoria e dupla aprovação de recuperação MFA
+
+Estrutura PostgreSQL `AdminMfaRecoveryRequest`, com solicitante, administrador alvo, referência de evidência (identificador, não dados pessoais), prazo de uma hora e aprovador independente. Endpoints internos criam a solicitação e registram sua aprovação, exigindo sessão ADMIN com MFA recente. A pessoa que inicia ou perde o acesso não pode aprovar. O segundo uso de uma solicitação aprovada é rejeitado. Os eventos de solicitação e aprovação são auditados.
+
+**Não existe redefinição ou recuperação automática nesta entrega.** A resposta da aprovação contém `resetEnabled: false`; nenhuma credencial MFA é removida ou restaurada. A conferência de identidade e evidências ainda exige um procedimento externo, e faltam controles de duplicidade concorrente, expiração e processo de recuperação de uso único antes de qualquer habilitação operacional. Produção de licenças permanece com mutações desabilitadas, sem pagamentos, deploy Hostinger ou APK novo.

@@ -3,7 +3,7 @@ import { IsString, Matches } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import { AdminMfaService } from './admin-mfa.service';
 
-class MfaCodeDto {
+export class MfaCodeDto {
   @IsString()
   @Matches(/^[0-9]{6}$/)
   code!: string;

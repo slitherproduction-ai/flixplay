@@ -11,6 +11,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.KeyFactory
+import java.security.spec.X509EncodedKeySpec
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 
@@ -73,6 +75,34 @@ class LicenseKeyCapabilityModule(context: ReactApplicationContext) : ReactContex
   fun publicKeyPem(promise: Promise) {
     try { promise.resolve(pemPublicKey()) }
     catch (error: Exception) { promise.reject("LICENSE_KEY_MISSING", error) }
+  }
+
+  /**
+   * Verify server entitlements only when the Android crypto provider implements
+   * Ed25519. On older API levels this explicitly returns false (never bypasses).
+   */
+  @ReactMethod
+  fun verifyEd25519(publicKeyPem: String, messageBase64: String, signatureBase64: String, promise: Promise) {
+    try {
+      val content = publicKeyPem
+        .replace("-----BEGIN PUBLIC KEY-----", "")
+        .replace("-----END PUBLIC KEY-----", "")
+        .replace(Regex("\\s"), "")
+      val publicBytes = Base64.decode(content, Base64.DEFAULT)
+      val message = Base64.decode(messageBase64, Base64.NO_WRAP)
+      val signatureBytes = Base64.decode(signatureBase64, Base64.NO_WRAP)
+      if (publicBytes.size > 256 || message.isEmpty() || message.size > 4096 || signatureBytes.size != 64) {
+        promise.resolve(false)
+        return
+      }
+      val key = KeyFactory.getInstance("Ed25519").generatePublic(X509EncodedKeySpec(publicBytes))
+      val verifier = Signature.getInstance("Ed25519")
+      verifier.initVerify(key)
+      verifier.update(message)
+      promise.resolve(verifier.verify(signatureBytes))
+    } catch (error: Exception) {
+      promise.resolve(false)
+    }
   }
 
   @ReactMethod

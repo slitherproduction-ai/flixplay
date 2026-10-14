@@ -40,12 +40,25 @@ enum PaymentStatus {
 model User {
   id        String   @id @default(uuid()) @db.Uuid
   email     String   @unique
+  passwordHash String
   role      Role     @default(CUSTOMER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   devices   Device[]
   licenses  License[]
   payments  Payment[]
+  sessions  CustomerSession[]
+}
+
+model CustomerSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  @@index([userId, expiresAt])
 }
 
 model Device {

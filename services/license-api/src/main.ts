@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { z } from 'zod';
+import { AuthModule } from './auth/auth.module';
 import { DevicesModule } from './devices/devices.module';
 
 const envSchema = z.object({
@@ -26,6 +27,7 @@ class HealthController {
   imports: [
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
     DevicesModule,
+    AuthModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

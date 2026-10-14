@@ -33,13 +33,13 @@ export class AdminLicensesService {
     throw new ConflictException('Transaction conflict');
   }
 
-  private async receipt(tx: Prisma.TransactionClient, key: string, actor: string, operation: string, target: string) {
+  private async receipt<T>(tx: Prisma.TransactionClient, key: string, actor: string, operation: string, target: string): Promise<T | null> {
     const stored = await tx.adminMutationReceipt.findUnique({ where: { requestKey: key } });
     if (!stored) return null;
     if (stored.actorId !== actor || stored.operation !== operation || stored.targetId !== target) {
       throw new ConflictException('Idempotency key belongs to a different request');
     }
-    return stored.result;
+    return stored.result as unknown as T;
   }
 
   private async remember(tx: Prisma.TransactionClient, key: string, actor: string, operation: string, target: string, result: object) {
@@ -48,7 +48,7 @@ export class AdminLicensesService {
     });
   }
 
-  async issue(header: string | undefined, deviceId: string, key = randomUUID()) {
+  async issue(header: string | undefined, deviceId: string, key: string = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const device = await tx.device.findUnique({ where: { id: deviceId }, select: { userId: true } });
@@ -59,8 +59,8 @@ export class AdminLicensesService {
       }
       // A per-device advisory lock serializes all administrative license mutations in PostgreSQL.
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${deviceId}))`;
-      const prior = await this.receipt(tx, key, actorId, 'issue', deviceId);
-      if (prior) return prior;
+      const prior = await this.receipt<{ id: string; status: LicenseStatus; deviceId: string; startsAt: string; expiresAt: string }>(tx, key, actorId, 'issue', deviceId);
+      if (prior) return { ...prior, startsAt: new Date(prior.startsAt), expiresAt: new Date(prior.expiresAt) };
       const now = new Date();
       const overlapping = await tx.license.findFirst({
         where: { deviceId, revokedAt: null, status: { in: ['TRIAL', 'ACTIVE', 'GRACE_PERIOD', 'SUSPENDED'] }, expiresAt: { gt: now } },
@@ -77,14 +77,14 @@ export class AdminLicensesService {
     });
   }
 
-  async renew(header: string | undefined, licenseId: string, expectedExpiresAt?: string, key = randomUUID()) {
+  async renew(header: string | undefined, licenseId: string, expectedExpiresAt?: string, key: string = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId }, include: { plan: true } });
       if (!existing) throw new NotFoundException('License not found');
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
-      const prior = await this.receipt(tx, key, actorId, 'renew', licenseId);
-      if (prior) return prior;
+      const prior = await this.receipt<{ id: string; status: LicenseStatus; expiresAt: string }>(tx, key, actorId, 'renew', licenseId);
+      if (prior) return { ...prior, expiresAt: new Date(prior.expiresAt) };
       const current = await tx.license.findUnique({ where: { id: licenseId }, select: { expiresAt: true, status: true, revokedAt: true } });
       if (!expectedExpiresAt || !current || current.expiresAt.toISOString() !== expectedExpiresAt || current.status !== existing.status || current.revokedAt?.getTime() !== existing.revokedAt?.getTime()) {
         throw new ConflictException('License changed since confirmation');
@@ -109,13 +109,13 @@ export class AdminLicensesService {
     });
   }
 
-  async revoke(header: string | undefined, licenseId: string, key = randomUUID()) {
+  async revoke(header: string | undefined, licenseId: string, key: string = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId } });
       if (!existing) throw new NotFoundException('License not found');
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
-      const prior = await this.receipt(tx, key, actorId, 'revoke', licenseId);
+      const prior = await this.receipt<{ id: string; status: LicenseStatus }>(tx, key, actorId, 'revoke', licenseId);
       if (prior) return prior;
       if (existing.revokedAt || existing.status === LicenseStatus.REVOKED) return { id: existing.id, status: LicenseStatus.REVOKED };
       const license = await tx.license.update({ where: { id: licenseId }, data: { status: LicenseStatus.REVOKED, revokedAt: new Date() }, select: { id: true, status: true } });

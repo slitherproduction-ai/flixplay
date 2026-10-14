@@ -28,6 +28,7 @@ describe('admin session MFA and code replay', () => {
     await db.customerSession.create({ data: { userId: adminId, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 600_000) } });
   });
   afterAll(async () => {
+    if (adminId) await db.auditLog.deleteMany({ where: { actorId: adminId, action: 'admin.mfa.denied' } });
     if (adminId) await db.user.delete({ where: { id: adminId } });
     if (customerId) await db.user.delete({ where: { id: customerId } });
     await db.$disconnect();
@@ -45,6 +46,18 @@ describe('admin session MFA and code replay', () => {
     await expect(auth.authenticateAdmin(header)).resolves.toBe(adminId);
     await expect(mfa.verify(header, code)).rejects.toThrow();
     await expect(mfa.enroll(header)).rejects.toThrow();
+  });
+  it('records failed codes without secrets and locks out after repeated attempts', async () => {
+    const header = 'Bearer ' + token;
+    for (let i = 0; i < 5; i++) {
+      await expect(mfa.verify(header, 'not-a-code')).rejects.toThrow();
+    }
+    const credential = await db.adminMfaCredential.findUniqueOrThrow({ where: { userId: adminId } });
+    expect(credential.lockedUntil?.getTime()).toBeGreaterThan(Date.now());
+    const logs = await db.auditLog.findMany({ where: { actorId: adminId, action: 'admin.mfa.denied' } });
+    expect(logs.length).toBeGreaterThanOrEqual(5);
+    expect(JSON.stringify(logs)).not.toContain(credential.secretCipher);
+    await expect(mfa.verify(header, '123456')).rejects.toThrow('temporarily locked');
   });
   it('rejects customer enrollment', async () => {
     const customerToken = randomBytes(32).toString('base64url');

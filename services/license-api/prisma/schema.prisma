@@ -48,6 +48,7 @@ model User {
   licenses  License[]
   payments  Payment[]
   sessions  CustomerSession[]
+  adminMfa  AdminMfaCredential?
 }
 
 model CustomerSession {
@@ -168,4 +169,13 @@ model AdminMutationReceipt {
   result      Json
   createdAt   DateTime @default(now())
   @@index([actorId, createdAt])
+}
+
+model AdminMfaCredential {
+  userId       String   @id @db.Uuid
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secretCipher String
+  lastUsedStep BigInt   @default(-1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

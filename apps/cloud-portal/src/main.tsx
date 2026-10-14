@@ -31,9 +31,9 @@ function App() {
     if (pending) return;
     setPending(true); setMessage('');
     try {
-      const auth = await post<{ token: string }>('/v1/auth/login', null, { email, password });
-      if (!auth.token) throw new Error('Resposta de login inválida');
-      setToken(auth.token); setPassword(''); setMessage('Sessão iniciada. Informe o código exibido no seu dispositivo.');
+      const auth = await post<{ accessToken: string }>('/v1/auth/login', null, { email, password });
+      if (!auth.accessToken) throw new Error('Resposta de login inválida');
+      setToken(auth.accessToken); setPassword(''); setMessage('Sessão iniciada. Informe o código exibido no seu dispositivo.');
     } catch { setMessage('Não foi possível autenticar. Verifique seus dados e a conexão.'); }
     finally { setPending(false); }
   }

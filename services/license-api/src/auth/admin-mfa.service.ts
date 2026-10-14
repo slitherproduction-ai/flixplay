@@ -76,7 +76,7 @@ export class AdminMfaService {
     const result = await this.db.$transaction(async tx => {
       const consumed = await tx.adminMfaCredential.updateMany({
         where: { userId: actor.id, lastUsedStep: { lt: BigInt(step) } },
-        data: { lastUsedStep: BigInt(step) },
+        data: { lastUsedStep: BigInt(step), failedAttempts: 0, lockedUntil: null },
       });
       if (consumed.count !== 1) return false;
       const updated = await tx.customerSession.updateMany({
@@ -86,9 +86,6 @@ export class AdminMfaService {
       return updated.count === 1;
     });
     if (!result) return this.rejected(actor.id, 'REUSED_CODE_OR_SESSION');
-    await this.db.adminMfaCredential.update({
-      where: { userId: actor.id }, data: { failedAttempts: 0, lockedUntil: null },
-    });
     return { verified: true };
   }
 }

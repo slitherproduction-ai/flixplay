@@ -38,6 +38,7 @@ describe('License lifecycle on PostgreSQL', () => {
   afterAll(async () => {
     if (deviceId) {
       await database.auditLog.deleteMany({ where: { subjectType: 'license', action: { startsWith: 'license.test_' } } });
+      await database.adminMutationReceipt.deleteMany({ where: { actorId: adminId } });
       await database.license.deleteMany({ where: { deviceId } });
       await database.device.delete({ where: { id: deviceId } });
     }
@@ -68,9 +69,14 @@ describe('License lifecycle on PostgreSQL', () => {
     expect(replay.id).toBe(renewed.id);
     expect(replay.expiresAt.toISOString()).toBe(renewed.expiresAt.toISOString());
     expect(renewed.expiresAt.getTime()).toBeGreaterThan(beforeRenew);
+    await expect(service.revoke('Bearer fake', issued.id, renewalKey)).rejects.toThrow();
+    expect(await database.adminMutationReceipt.count({ where: { requestKey: renewalKey } })).toBe(1);
 
     await expect(service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString())).rejects.toThrow();
-    const revoked = await service.revoke('Bearer fake', issued.id);
+    const revokeKey = randomUUID();
+    const revoked = await service.revoke('Bearer fake', issued.id, revokeKey);
+    const revokeReplay = await service.revoke('Bearer fake', issued.id, revokeKey);
+    expect(revokeReplay).toEqual(revoked);
     expect(revoked.status).toBe('REVOKED');
     await expect(service.renew('Bearer fake', issued.id)).rejects.toThrow();
     await expect(service.issue('Bearer fake', deviceId)).resolves.toMatchObject({ status: 'ACTIVE' });

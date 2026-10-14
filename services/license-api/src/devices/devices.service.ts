@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DevicePlatform, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { createDeviceSecret, pairingCode, publicDeviceCode, sha256, verifyDeviceSecret } from './device-auth';
@@ -25,7 +25,7 @@ export class DevicesService {
   }
 
   async startPairing(deviceId: string, authorization: string | undefined) {
-    // No customer linking is exposed until account auth and claim validation are implemented.
+    // Device-authenticated request; account linking is a separate authenticated transaction.
     const device = await this.db.device.findUnique({ where: { id: deviceId } });
     if (!device) throw new NotFoundException('Device not found');
     verifyDeviceSecret(authorization, device.deviceKeyHash);
@@ -36,5 +36,31 @@ export class DevicesService {
       await tx.pairingSession.create({ data: { deviceId, codeHash: sha256(code), expiresAt } });
     });
     return { pairingCode: code, expiresAt: expiresAt.toISOString() };
+  }
+  async claimPairing(userId: string, code: string) {
+    if (!/^\\d{8}$/.test(code)) throw new UnauthorizedException('Invalid or expired pairing code');
+    const codeHash = sha256(code);
+    const now = new Date();
+    // Atomic claim: competing claims cannot consume the same code twice.
+    const claimed = await this.db.$transaction(async (tx) => {
+      const pair = await tx.pairingSession.findUnique({ where: { codeHash } });
+      if (!pair || pair.expiresAt <= now || pair.consumedAt) return null;
+      const device = await tx.device.findUnique({ where: { id: pair.deviceId } });
+      if (!device || (device.userId && device.userId !== userId)) {
+        throw new ConflictException('Device already linked to another account');
+      }
+      const updated = await tx.pairingSession.updateMany({
+        where: { id: pair.id, consumedAt: null, expiresAt: { gt: now } },
+        data: { consumedAt: now },
+      });
+      if (updated.count !== 1) return null;
+      await tx.device.update({ where: { id: pair.deviceId }, data: { userId } });
+      await tx.auditLog.create({
+        data: { actorId: userId, action: 'device.claimed', subjectType: 'device', subjectId: pair.deviceId },
+      });
+      return pair.deviceId;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    if (!claimed) throw new UnauthorizedException('Invalid or expired pairing code');
+    return { deviceId: claimed, linked: true };
   }
 }

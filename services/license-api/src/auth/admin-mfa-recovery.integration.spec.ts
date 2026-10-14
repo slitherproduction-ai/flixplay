@@ -80,4 +80,44 @@ describe('independent administrator MFA recovery approval', () => {
     await db.adminMfaRecoveryRequest.update({ where: { id: latest!.id }, data: { expiresAt: new Date(Date.now() - 1_000) } });
     await expect(service.approve(headers[2], latest!.id)).rejects.toThrow('not pending');
   });
+  it('rejects concurrent redemption and cross-administrator grant use', async () => {
+    const old = process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED;
+    process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED = 'true';
+    try {
+      const req = await service.request(headers[0], users[2], 'CASE-CONCURRENT-GRANT');
+      requestIds.push(req.id);
+      const approval = await service.approve(headers[1], req.id);
+      const grant = approval.oneTimeGrant!;
+      await expect(service.consumeTestGrant(headers[0], req.id, grant)).rejects.toThrow();
+      const attempts = await Promise.allSettled([
+        service.consumeTestGrant(headers[1], req.id, grant),
+        service.consumeTestGrant(headers[1], req.id, grant),
+      ]);
+      expect(attempts.filter(a => a.status === 'fulfilled')).toHaveLength(1);
+      expect(attempts.filter(a => a.status === 'rejected')).toHaveLength(1);
+      const count = await db.auditLog.count({ where: { subjectId: req.id, action: 'admin.mfa.recovery_grant_test_consumed' } });
+      expect(count).toBe(1);
+    } finally {
+      if (old === undefined) delete process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED;
+      else process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED = old;
+    }
+  });
+  it('rejects an expired grant and never alters the MFA credential', async () => {
+    const old = process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED;
+    process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED = 'true';
+    try {
+      const req = await service.request(headers[0], users[2], 'CASE-GRANT-EXPIRATION');
+      requestIds.push(req.id);
+      const approved = await service.approve(headers[1], req.id);
+      await db.adminMfaRecoveryRequest.update({
+        where: { id: req.id }, data: { grantExpiresAt: new Date(Date.now() - 1000) },
+      });
+      await expect(service.consumeTestGrant(headers[1], req.id, approved.oneTimeGrant!)).rejects.toThrow('expired or consumed');
+      const row = await db.adminMfaRecoveryRequest.findUniqueOrThrow({ where: { id: req.id } });
+      expect(row.grantConsumedAt).toBeNull();
+    } finally {
+      if (old === undefined) delete process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED;
+      else process.env.ADMIN_MFA_RECOVERY_GRANTS_ENABLED = old;
+    }
+  });
 });

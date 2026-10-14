@@ -10,6 +10,7 @@ const auth = new AuthService(db);
 const service = new AdminMfaRecoveryService(db, auth);
 const users: string[] = [];
 const headers: string[] = [];
+const requestIds: string[] = [];
 let requestId = '';
 describe('independent administrator MFA recovery approval', () => {
   beforeAll(async () => {
@@ -23,8 +24,8 @@ describe('independent administrator MFA recovery approval', () => {
     }
   });
   afterAll(async () => {
-    if (requestId) await db.auditLog.deleteMany({ where: { subjectId: requestId, subjectType: 'admin_mfa_recovery' } });
-    if (requestId) await db.adminMfaRecoveryRequest.delete({ where: { id: requestId } });
+    if (requestIds.length) await db.auditLog.deleteMany({ where: { subjectId: { in: requestIds }, subjectType: 'admin_mfa_recovery' } });
+    if (requestIds.length) await db.adminMfaRecoveryRequest.deleteMany({ where: { id: { in: requestIds } } });
     for (const id of users) await db.user.delete({ where: { id } });
     await db.$disconnect();
   });
@@ -32,11 +33,30 @@ describe('independent administrator MFA recovery approval', () => {
     await expect(service.request(headers[0], users[0], 'EVIDENCE-REFERENCE-2026')).rejects.toThrow();
     const result = await service.request(headers[0], users[2], 'EVIDENCE-REFERENCE-2026');
     requestId = result.id;
+    requestIds.push(result.id);
     await expect(service.approve(headers[0], requestId)).rejects.toThrow();
     await expect(service.approve(headers[2], requestId)).rejects.toThrow();
     await expect(service.approve(headers[1], requestId)).resolves.toMatchObject({ status: 'APPROVED', resetEnabled: false });
     await expect(service.approve(headers[1], requestId)).rejects.toThrow();
     const logs = await db.auditLog.findMany({ where: { subjectId: requestId } });
     expect(logs.map(row => row.action)).toContain('admin.mfa.recovery_approved');
+  });
+  it('permits only one concurrent pending recovery for the same administrator', async () => {
+    const requests = await Promise.allSettled([
+      service.request(headers[0], users[1], 'CASE-EVIDENCE-2026-01'),
+      service.request(headers[0], users[1], 'CASE-EVIDENCE-2026-02'),
+    ]);
+    const accepted = requests.filter((x): x is PromiseFulfilledResult<Awaited<ReturnType<typeof service.request>>> => x.status === 'fulfilled');
+    expect(accepted).toHaveLength(1);
+    expect(requests.filter(x => x.status === 'rejected')).toHaveLength(1);
+    requestIds.push(accepted[0].value.id);
+  });
+  it('does not approve a recovery whose expiry has elapsed', async () => {
+    const result = await service.request(headers[0], users[0], 'CASE-EVIDENCE-EXPIRED').catch(() => null);
+    expect(result).toBeNull();
+    const latest = await db.adminMfaRecoveryRequest.findFirst({ where: { targetUserId: users[1], status: 'PENDING' } });
+    expect(latest).not.toBeNull();
+    await db.adminMfaRecoveryRequest.update({ where: { id: latest!.id }, data: { expiresAt: new Date(Date.now() - 1_000) } });
+    await expect(service.approve(headers[2], latest!.id)).rejects.toThrow('not pending');
   });
 });

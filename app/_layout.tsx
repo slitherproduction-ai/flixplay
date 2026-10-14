@@ -14,6 +14,7 @@ import { Colors } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { TVFocusable } from "@/components/tv-focusable";
 import { UpdateAvailableNotice } from "@/components/update-available-notice";
+import { LICENSE_OBSERVER_ENABLED, observeLicense } from "@/services/license-observer";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -513,6 +514,14 @@ const pipStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 export default function RootLayout() {
   const [loaded, error] = useFonts(FontMap);
+
+  useEffect(() => {
+    if (!LICENSE_OBSERVER_ENABLED) return;
+    // Default-off diagnostic: never changes playback or app navigation.
+    void observeLicense().then((state) => {
+      if (__DEV__) console.info('[LicenseObserver] state:', state);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {

@@ -1,0 +1,5 @@
+# Checkpoint 47 — PostgreSQL distributed request throttling
+
+Introduced `ApiThrottleBucket`, a migration, `PostgresThrottlerStorage`, and `ApiThrottlingModule` wired in `main.ts`. Each request uses the shared PostgreSQL database for counters and expiry; `SELECT ... FOR UPDATE` serializes increments across independent API instances and prevents oversubscription of configured route limits. Existing `@Throttle` values and the 10/minute default remain in place. Tests use two independent Prisma clients to verify shared thresholds, lockout, and named-key isolation. Cloud CI run 38626052536 passed.
+
+Safety and operational notes: request trackers use the standard Nest Express peer IP and **must not** blindly trust unverified forwarded IP headers. For multiple replicas, set up a trusted reverse-proxy boundary, monitored database capacity, indexes and bucket retention/cleanup, and load testing before release. This change adds a database query and write per API request and should be benchmarked before deployment. Recovery MFA resets and production license writes remain off. No Hostinger deployment, real payments or new Android APK.

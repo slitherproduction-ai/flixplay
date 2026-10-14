@@ -33,6 +33,21 @@ export class AdminLicensesService {
     throw new ConflictException('Transaction conflict');
   }
 
+  private async receipt(tx: Prisma.TransactionClient, key: string, actor: string, operation: string, target: string) {
+    const stored = await tx.adminMutationReceipt.findUnique({ where: { requestKey: key } });
+    if (!stored) return null;
+    if (stored.actorId !== actor || stored.operation !== operation || stored.targetId !== target) {
+      throw new ConflictException('Idempotency key belongs to a different request');
+    }
+    return stored.result;
+  }
+
+  private async remember(tx: Prisma.TransactionClient, key: string, actor: string, operation: string, target: string, result: object) {
+    await tx.adminMutationReceipt.create({
+      data: { requestKey: key, actorId: actor, operation, targetId: target, result: JSON.parse(JSON.stringify(result)) },
+    });
+  }
+
   async issue(header: string | undefined, deviceId: string, key = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {

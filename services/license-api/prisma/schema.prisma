@@ -199,3 +199,10 @@ model AdminMfaRecoveryRequest {
   grantConsumedAt DateTime?
   @@index([targetUserId, status])
 }
+
+model ApiThrottleBucket {
+  key String @id
+  hits Int @default(0)
+  windowEndsAt DateTime
+  blockedUntil DateTime?
+}

@@ -58,6 +58,7 @@ describe('admin session MFA and code replay', () => {
     expect(logs.length).toBeGreaterThanOrEqual(5);
     expect(JSON.stringify(logs)).not.toContain(credential.secretCipher);
     await expect(mfa.verify(header, '123456')).rejects.toThrow('temporarily locked');
+    await expect(mfa.verify(header, 'invalid')).rejects.toThrow('temporarily locked');
   });
   it('revokes other administrator sessions while preserving the current session', async () => {
     const other = randomBytes(32).toString('base64url');

@@ -53,7 +53,7 @@ describe('License lifecycle on PostgreSQL', () => {
 
   it('issues only one active license under concurrent requests, then renews and revokes', async () => {
     const attempts = await Promise.allSettled([service.issue('Bearer fake', deviceId), service.issue('Bearer fake', deviceId)]);
-    expect(attempts.filter(x => x.status === 'fulfilled')).toHaveLength(1);
+    expect(attempts.filter(x => x.status === 'fulfilled'), JSON.stringify(attempts.filter(x => x.status === 'rejected').map(x => String(x.reason)))).toHaveLength(1);
     expect(attempts.filter(x => x.status === 'rejected')).toHaveLength(1);
     const issued = (attempts.find(x => x.status === 'fulfilled') as PromiseFulfilledResult<Awaited<ReturnType<typeof service.issue>>>).value;
     expect(issued.status).toBe('ACTIVE');

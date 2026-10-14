@@ -8,7 +8,7 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cache_root="${ELVANOQ_BUILD_CACHE:-$project_root/.build-cache}"
 java_home="${JAVA_HOME:-$cache_root/jdk-17}"
 android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${ELVANOQ_ANDROID_SDK:-$project_root/android-sdk}}}"
-apk_name="ELVANOQ-v2.17.11-universal.apk"
+apk_name="ELVANOQ-v2.17.12-universal.apk"
 
 # Expo reads .env during bundling, but validating it here avoids publishing an
 # APK where the TMDB section silently has no credentials.

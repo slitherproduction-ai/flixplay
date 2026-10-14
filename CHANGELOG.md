@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.17.12] — 2026-10-14
+
+### Navegação de TV e guia ao vivo
+
+- Corrigido o menu lateral para manter ícones e rótulos visíveis durante mudanças rápidas de foco pelo controle remoto.
+- Rail lateral refinado com largura menor, ícones e tipografia proporcionais e expansão retrátil mais estável.
+- Guia de TV ao vivo recebeu ajustes de densidade e espaçamento para melhor aproveitamento de telas grandes.
+
+### Compatibilidade e validação
+
+- Compatível com Android, Android TV, Google TV, Fire TV e Fire Stick.
+- APK universal para `arm64-v8a` e `armeabi-v7a` validado com assinatura APK Signature Scheme v2.
+- TypeScript validado, build Android nativo concluído e 113 testes automatizados aprovados.
+
 ## [2.17.11] — 2026-10-13
 
 ### TV refinada e guia ao vivo responsivo

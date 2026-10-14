@@ -41,6 +41,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: "v2.17.12",
+    date: "2026.10",
+    changes: [
+      { tag: "Correção", text: "O menu lateral da TV mantém ícones e rótulos visíveis durante a troca rápida de foco pelo controle remoto." },
+      { tag: "Melhoria", text: "A navegação lateral foi refinada com rail mais estreito, ícones menores, textos proporcionais e comportamento retrátil inspirado em interfaces de TV modernas." },
+      { tag: "Melhoria", text: "O Guia TV ao vivo recebeu ajustes adicionais de densidade e espaçamento para melhor aproveitamento de telas grandes." },
+    ],
+  },
+  {
     version: "v2.17.11",
     date: "2026.10",
     changes: [

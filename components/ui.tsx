@@ -141,6 +141,7 @@ export function Chip({
   hasTVPreferredFocus = false,
   icon,
   selectedTone = "blue",
+  compact = false,
 }: {
   label: string;
   selected: boolean;
@@ -148,6 +149,8 @@ export function Chip({
   hasTVPreferredFocus?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   selectedTone?: "blue" | "light";
+  /** Compact density for TV guide filters. */
+  compact?: boolean;
 }) {
   return (
     <TVFocusable
@@ -159,7 +162,7 @@ export function Chip({
       // focused instead of letting TVFocusable's default blue overlay muddy
       // the active state.
       focusStyle={selected && selectedTone === "light" ? styles.chipSelectedLightFocused : undefined}
-      style={({ pressed }) => [styles.chip, selected && (selectedTone === "light" ? styles.chipSelectedLight : styles.chipSelected), pressed && styles.pressed]}
+      style={({ pressed }) => [styles.chip, compact && styles.chipCompact, selected && (selectedTone === "light" ? styles.chipSelectedLight : styles.chipSelected), pressed && styles.pressed]}
     >
       {icon ? (
         <Ionicons
@@ -169,7 +172,7 @@ export function Chip({
           style={{ marginRight: 2 }}
         />
       ) : null}
-      <AppText style={[styles.chipText, selected && (selectedTone === "light" ? styles.chipTextSelectedLight : styles.chipTextSelected)]}>{label}</AppText>
+      <AppText style={[styles.chipText, compact && styles.chipTextCompact, selected && (selectedTone === "light" ? styles.chipTextSelectedLight : styles.chipTextSelected)]}>{label}</AppText>
     </TVFocusable>
   );
 }
@@ -466,6 +469,10 @@ export const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.glassSoft,
   },
+  chipCompact: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+  },
   chipSelected: {
     // Category filters are navigation controls, not a destructive/primary
     // confirmation. A saturated blue state remains legible on TV and avoids
@@ -489,6 +496,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.muted,
   },
+  chipTextCompact: { fontSize: 11 },
   chipTextSelected: {
     color: Colors.white,
   },

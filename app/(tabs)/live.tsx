@@ -337,14 +337,22 @@ function LiveHeader({
             hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(LIVE_FOCUS_SCOPE)}
             onPress={() => setCategory(item)}
             icon={item === FAVORITES_LABEL ? "star" : undefined}
+            compact={tvMode}
           />
         ))}
       </ScrollView>
 
-      <SectionHeader
-        title={category === FAVORITES_LABEL ? "Canais favoritos" : "Canais disponíveis"}
-        subtitle={isSyncing ? "Carregando..." : `${filteredCount} canais`}
-      />
+      {tvMode ? (
+        <View style={styles.tvListHeading}>
+          <AppText style={styles.tvListTitle}>{category === FAVORITES_LABEL ? "Canais favoritos" : "Canais disponíveis"}</AppText>
+          <AppText style={styles.tvListCount}>{isSyncing ? "Carregando…" : `${filteredCount} canais`}</AppText>
+        </View>
+      ) : (
+        <SectionHeader
+          title={category === FAVORITES_LABEL ? "Canais favoritos" : "Canais disponíveis"}
+          subtitle={isSyncing ? "Carregando..." : `${filteredCount} canais`}
+        />
+      )}
     </View>
   );
 }
@@ -368,10 +376,12 @@ function TvChannelPreview({
   channel,
   width,
   top,
+  right,
 }: {
   channel: ChannelItem | undefined;
   width: number;
   top: number;
+  right: number;
 }) {
   const source = channel?.streamUrl ? { uri: channel.streamUrl } : null;
   const player = useVideoPlayer(source, (videoPlayer) => {
@@ -386,7 +396,7 @@ function TvChannelPreview({
   const epg = channel.currentEpg;
   const hasSchedule = Boolean(epg.start || epg.end) && epg.title !== "Sem programação";
   return (
-    <GlassCard style={[styles.tvPreview, { width, top }]} intensity={28}>
+    <GlassCard style={[styles.tvPreview, { width, top, right }]} intensity={28}>
       <View style={styles.tvPreviewStage}>
         <VideoView player={player} contentFit="cover" nativeControls={false} style={StyleSheet.absoluteFill} />
         {channel.logo ? <Image source={{ uri: channel.logo }} contentFit="contain" style={styles.tvPreviewWatermark} /> : null}
@@ -543,11 +553,16 @@ export default function LiveScreen() {
 
   const isEmpty = !isSyncing && channels.length === 0;
 
-  const horizontalPadding = tvMode ? Math.max(22, Math.min(34, Math.round(width * 0.024))) : 20;
-  const tvPreviewWidth = Math.round(Math.min(620, Math.max(390, width * 0.43)));
-  const tvPreviewGap = Math.max(18, Math.round(width * 0.018));
-  const tvPreviewTop = Math.max(148, Math.min(188, Math.round(height * 0.19)));
+  // The guide shares a single responsive canvas: the channel column remains
+  // comfortable for D-pad navigation while preview/EPG receive enough width
+  // on 720p and 1080p televisions.  Previous fixed dimensions made the two
+  // panes compete on smaller TV panels.
+  const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : 20;
   const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
+  const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
+  const tvPreviewWidth = Math.round(Math.min(670, Math.max(430, tvGuideWidth * 0.445)));
+  const tvPreviewGap = Math.max(20, Math.min(30, Math.round(tvGuideWidth * 0.02)));
+  const tvPreviewTop = Math.max(132, Math.min(172, Math.round(height * 0.155)));
   const columnGap = 10;
   const numGridColumns = tvMode
     ? (width >= 1500 ? 6 : width >= 1100 ? 5 : 4)
@@ -701,7 +716,7 @@ export default function LiveScreen() {
         onEndReachedThreshold={0.5}
         ListFooterComponent={pager.loading && visibleChannels.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
       />
-      {tvMode ? <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} top={tvPreviewTop} /> : null}
+      {tvMode ? <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} top={tvPreviewTop} right={horizontalPadding} /> : null}
     </View>
   );
 }
@@ -801,13 +816,13 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     backgroundColor: "rgba(16, 185, 129, 0.07)",
   },
-  searchBar: { paddingTop: 14, paddingBottom: 4 },
+  searchBar: { paddingTop: 12, paddingBottom: 3 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 35 },
-  tvContent: { paddingBottom: 50 },
+  tvContent: { paddingBottom: 42 },
   // A dedicated right pane gives the guide the same stable two-column rhythm
   // as a TV interface: channel navigation left, selected programme right.
   tvContentWithPreview: {},
-  headerBlock: { gap: 13, paddingTop: 12, marginBottom: 6 },
+  headerBlock: { gap: 10, paddingTop: 8, marginBottom: 4 },
   syncBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -845,11 +860,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 14,
   },
-  tvHeader: { minHeight: 34, justifyContent: "flex-end" },
+  tvHeader: { minHeight: 28, justifyContent: "flex-end" },
   headerCopy: { flex: 1, gap: 4 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
   tvGuideStatus: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
-  tvGuideCount: { color: "rgba(226,239,255,0.72)", fontFamily: "Inter_500Medium", fontSize: 11 },
+  tvGuideCount: { color: "rgba(226,239,255,0.72)", fontFamily: "Inter_500Medium", fontSize: 10 },
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.green },
   headerSubtitle: { fontSize: 13, color: Colors.muted },
   tvKicker: { fontSize: 9, letterSpacing: 1.6 },
@@ -870,11 +885,14 @@ const styles = StyleSheet.create({
   categoryScroller: { flexGrow: 0, marginHorizontal: -20 },
   categoryContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
   tvCategoryScroller: { marginTop: -2 },
-  tvCategoryContent: { gap: 7, paddingVertical: 0 },
-  rowSeparator: { height: 10 },
+  tvCategoryContent: { gap: 6, paddingVertical: 0 },
+  tvListHeading: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 2, marginBottom: 2 },
+  tvListTitle: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 17, letterSpacing: -0.2 },
+  tvListCount: { color: Colors.subtle, fontFamily: "Inter_500Medium", fontSize: 10 },
+  rowSeparator: { height: 8 },
   pageLoader: { paddingVertical: 20 },
   channelCard: { minHeight: 116, borderRadius: Radii.medium },
-  tvChannelCard: { minHeight: 68, borderRadius: 11, backgroundColor: "rgba(9,18,33,0.72)", borderColor: "rgba(152,196,240,0.13)" },
+  tvChannelCard: { minHeight: 60, borderRadius: 10, backgroundColor: "rgba(9,18,33,0.72)", borderColor: "rgba(152,196,240,0.13)" },
   channelRow: { flex: 1, flexDirection: "row", alignItems: "center" },
   channelPressable: {
     flex: 1,
@@ -883,7 +901,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 11,
   },
-  tvChannelPressable: { gap: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  tvChannelPressable: { gap: 9, paddingHorizontal: 9, paddingVertical: 5 },
   tvChannelFocused: { borderWidth: 1, borderColor: "rgba(255,255,255,0.95)", backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1 }], opacity: 1 },
   channelImage: {
     width: 80,
@@ -894,14 +912,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: Colors.backgroundRaised,
   },
-  tvChannelImage: { width: 52, height: 54, borderRadius: 9 },
+  tvChannelImage: { width: 46, height: 48, borderRadius: 8 },
   imageVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8, 12, 22, 0.45)" },
   channelInitials: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.white },
-  channelDetails: { flex: 1, gap: 6 },
+  channelDetails: { flex: 1, gap: 4 },
   channelTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   channelNumber: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.subtle },
-  tvChannelNumber: { minWidth: 30, fontSize: 11, color: "rgba(226,239,255,0.78)", fontVariant: ["tabular-nums"] },
-  channelTitle: { flexShrink: 1, fontFamily: "Inter_700Bold", fontSize: 15, color: Colors.text },
+  tvChannelNumber: { minWidth: 29, fontSize: 10, color: "rgba(226,239,255,0.78)", fontVariant: ["tabular-nums"] },
+  channelTitle: { flexShrink: 1, fontFamily: "Inter_700Bold", fontSize: 14, color: Colors.text },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -913,7 +931,7 @@ const styles = StyleSheet.create({
   },
   liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.red },
   liveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.4, color: "#FF6870" },
-  programTitle: { fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.text },
+  programTitle: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
   programTimes: { flexDirection: "row", alignItems: "center", gap: 6 },
   programTime: { fontVariant: ["tabular-nums"], fontSize: 9, color: Colors.subtle },
   programTrack: {
@@ -924,7 +942,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
   },
   programFill: { height: "100%", borderRadius: 2, backgroundColor: Colors.green },
-  nextProgram: { fontSize: 10, color: Colors.subtle },
+  nextProgram: { fontSize: 9, color: Colors.subtle },
   favoriteButton: {
     width: 38,
     height: 38,
@@ -970,18 +988,18 @@ const styles = StyleSheet.create({
   tvPreviewWatermark: { position: "absolute", right: 14, bottom: 13, width: 66, height: 42, opacity: 0.78 },
   tvPreviewLiveBadge: { position: "absolute", top: 11, right: 11, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(116,16,36,0.88)" },
   tvPreviewLiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: "#FFD8DD" },
-  tvPreviewCopy: { gap: 8, padding: 15 },
-  tvPreviewChannel: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 22, color: Colors.text },
-  tvPreviewProgram: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, color: Colors.text },
+  tvPreviewCopy: { gap: 7, padding: 13 },
+  tvPreviewChannel: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, color: Colors.text },
+  tvPreviewProgram: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, color: Colors.text },
   tvPreviewTimeline: { flexDirection: "row", alignItems: "center", gap: 7 },
   tvPreviewTime: { fontSize: 10, color: Colors.subtle, fontVariant: ["tabular-nums"] },
   tvPreviewTrack: { flex: 1, height: 4, borderRadius: 3, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.16)" },
   tvPreviewFill: { height: "100%", borderRadius: 3, backgroundColor: Colors.blueBright },
   tvPreviewLoading: { minHeight: 22, flexDirection: "row", alignItems: "center", gap: 8 },
   tvPreviewLoadingText: { fontSize: 11, color: Colors.muted },
-  tvPreviewDescription: { fontSize: 11, lineHeight: 15, color: "rgba(215,229,245,0.72)" },
+  tvPreviewDescription: { fontSize: 10, lineHeight: 14, color: "rgba(215,229,245,0.72)" },
   tvPreviewGuide: { flexDirection: "row", gap: 8, marginTop: 2 },
-  tvPreviewGuideItem: { flex: 1, gap: 4, minHeight: 55, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: "rgba(174,208,241,0.13)", backgroundColor: "rgba(11,24,42,0.68)" },
+  tvPreviewGuideItem: { flex: 1, gap: 3, minHeight: 48, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: "rgba(174,208,241,0.13)", backgroundColor: "rgba(11,24,42,0.68)" },
   tvPreviewGuideItemActive: { borderLeftWidth: 3, borderLeftColor: Colors.blueBright, backgroundColor: "rgba(26,93,153,0.20)" },
   tvPreviewGuideLabel: { color: Colors.blueBright, fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.7 },
   tvPreviewGuideTitle: { color: Colors.text, fontFamily: "Inter_600SemiBold", fontSize: 11 },

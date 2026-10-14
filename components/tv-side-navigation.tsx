@@ -15,8 +15,8 @@ import { BrandLogo } from "@/components/brand-logo";
  * this value prevents the expanded navigation from covering search, filters or
  * the first content card.
  */
-export const TV_NAV_COLLAPSED_WIDTH = 72;
-const TV_NAV_EXPANDED_WIDTH = 224;
+export const TV_NAV_COLLAPSED_WIDTH = 64;
+const TV_NAV_EXPANDED_WIDTH = 216;
 
 export function TvSideNavigation() {
   const pathname = usePathname();
@@ -47,10 +47,10 @@ export function TvSideNavigation() {
     setExpanded(true);
   }, [cancelCollapse]);
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
-    // Android TV emits blur before the next item receives focus. Keep a short
-    // guard window and only fold if this exact item was not replaced by a
-    // neighbouring rail destination. This is the YouTube-style expand-on-focus
-    // behaviour without the former icon/label flicker.
+    // Android TV can emit blur before the next item in the rail receives focus,
+    // especially when directional input is repeated. Keep the rail open for a
+    // full transition window and collapse only when that same item has not been
+    // replaced. This prevents labels and icons from disappearing mid-navigation.
     const epochAtBlur = focusEpoch.current;
     cancelCollapse();
     collapseTimer.current = setTimeout(() => {
@@ -59,7 +59,7 @@ export function TvSideNavigation() {
       focusedRouteRef.current = null;
       setFocusedRouteKey(null);
       setExpanded(false);
-    }, 420);
+    }, 950);
   }, [cancelCollapse]);
 
   useEffect(() => () => cancelCollapse(), [cancelCollapse]);
@@ -124,7 +124,7 @@ export function TvSideNavigation() {
               <View style={[styles.activeBar, selected && styles.activeBarVisible]} />
               <Ionicons
                 name={selected ? route.icon.replace("-outline", "") as TvRoute["icon"] : route.icon}
-                size={24}
+                size={20}
                 // Every available destination remains visible while the rail
                 // is open; focus only changes the selected surface.
                 color={focused ? Colors.background : selected ? Colors.blueBright : expanded ? "rgba(238,244,252,0.88)" : "rgba(216,226,239,0.80)"}
@@ -155,46 +155,46 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     flexShrink: 0,
-    paddingTop: 22,
-    paddingBottom: 16,
-    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 10,
     // A dark translucent wash preserves contrast without hiding the native
     // BlurView placed directly beneath this surface.
     backgroundColor: "rgba(9,17,31,0.54)",
     borderRightWidth: 1,
     borderRightColor: "rgba(186,221,255,0.12)",
   },
-  shellExpanded: { width: TV_NAV_EXPANDED_WIDTH, shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 26, shadowOffset: { width: 12, height: 0 }, elevation: 22 },
+  shellExpanded: { width: TV_NAV_EXPANDED_WIDTH, shadowColor: "#000", shadowOpacity: 0.36, shadowRadius: 20, shadowOffset: { width: 10, height: 0 }, elevation: 22 },
   glassWash: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8,15,26,0.30)" },
-  brand: { height: 54, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 6, marginBottom: 16 },
-  logo: { width: 28, height: 28, borderRadius: 8, flexShrink: 0 },
+  brand: { height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 5, marginBottom: 10 },
+  logo: { width: 23, height: 23, borderRadius: 7, flexShrink: 0 },
   brandCopy: { width: 0, opacity: 0, overflow: "hidden", gap: 2 },
-  brandCopyExpanded: { width: 132, opacity: 1 },
-  brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 15, letterSpacing: -0.25 },
-  brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 1.2 },
-  navList: { flex: 1, justifyContent: "center", gap: 5 },
+  brandCopyExpanded: { width: 128, opacity: 1 },
+  brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
+  brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
+  navList: { flex: 1, justifyContent: "flex-start", paddingTop: 8, gap: 4 },
   navItem: {
-    height: 48,
+    height: 40,
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 0,
     paddingHorizontal: 0,
-    borderRadius: 8,
+    borderRadius: 7,
     overflow: "hidden",
   },
-  navItemExpanded: { justifyContent: "flex-start", gap: 13, paddingHorizontal: 12 },
+  navItemExpanded: { justifyContent: "flex-start", gap: 11, paddingHorizontal: 10 },
   navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
   navItemFocused: { borderWidth: 2, backgroundColor: Colors.white, borderColor: "rgba(255,255,255,0.96)", transform: [{ scale: 1 }], opacity: 1 },
   navItemPressed: { opacity: 0.9 },
-  activeBar: { position: "absolute", left: 2, width: 3, height: 18, borderRadius: 2, opacity: 0 },
+  activeBar: { position: "absolute", left: 2, width: 2, height: 15, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
-  navLabel: { width: 0, opacity: 0, overflow: "hidden", color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 14 },
-  navLabelExpanded: { width: 126, opacity: 1 },
+  navLabel: { width: 0, opacity: 0, overflow: "hidden", color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
+  navLabelExpanded: { width: 128, opacity: 1 },
   navLabelSelected: { color: Colors.text },
   navLabelFocused: { color: Colors.background },
-  footer: { gap: 11, paddingHorizontal: 7, overflow: "hidden" },
+  footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
   version: { width: 0, opacity: 0, color: "rgba(181,201,225,0.46)", fontSize: 9 },
   versionExpanded: { width: 155, opacity: 1 },

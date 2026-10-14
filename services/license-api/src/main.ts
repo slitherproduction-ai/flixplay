@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { Controller, Get, Module, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { FailClosedThrottlerGuard } from './security/fail-closed-throttler.guard';
 import { ApiThrottlingModule } from './security/api-throttling.module';
 import { z } from 'zod';
 import { AuthModule } from './auth/auth.module';
@@ -35,7 +35,7 @@ class HealthController {
     LicensesModule,
   ],
   controllers: [HealthController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: FailClosedThrottlerGuard }],
 })
 class AppModule {}
 

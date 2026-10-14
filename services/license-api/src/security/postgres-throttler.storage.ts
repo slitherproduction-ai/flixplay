@@ -7,6 +7,23 @@ import { PrismaService } from '../database/prisma.service';
 export class PostgresThrottlerStorage implements ThrottlerStorage {
   constructor(private readonly db: PrismaService) {}
 
+  async purgeExpired(maxRows = 500): Promise<number> {
+    const now = new Date();
+    const take = Math.max(1, Math.min(1000, Math.floor(maxRows)));
+    return this.db.$transaction(async tx => {
+      const expired = await tx.apiThrottleBucket.findMany({
+        where: { windowEndsAt: { lt: now }, OR: [{ blockedUntil: null }, { blockedUntil: { lt: now } }] },
+        select: { key: true }, orderBy: { windowEndsAt: 'asc' }, take,
+      });
+      if (!expired.length) return 0;
+      const result = await tx.apiThrottleBucket.deleteMany({
+        where: { key: { in: expired.map(row => row.key) }, windowEndsAt: { lt: now },
+          OR: [{ blockedUntil: null }, { blockedUntil: { lt: now } }] },
+      });
+      return result.count;
+    });
+  }
+
   async increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottleRecord> {
     const bucketKey = throttlerName + ':' + key;
     const duration = Math.max(1, ttl);

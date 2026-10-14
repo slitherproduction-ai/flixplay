@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { LicenseStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { AuthService } from '../auth/auth.service';
@@ -32,7 +33,7 @@ export class AdminLicensesService {
     throw new ConflictException('Transaction conflict');
   }
 
-  async issue(header: string | undefined, deviceId: string) {
+  async issue(header: string | undefined, deviceId: string, key = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const device = await tx.device.findUnique({ where: { id: deviceId }, select: { userId: true } });
@@ -58,7 +59,7 @@ export class AdminLicensesService {
     });
   }
 
-  async renew(header: string | undefined, licenseId: string, expectedExpiresAt?: string) {
+  async renew(header: string | undefined, licenseId: string, expectedExpiresAt?: string, key = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId }, include: { plan: true } });
@@ -87,7 +88,7 @@ export class AdminLicensesService {
     });
   }
 
-  async revoke(header: string | undefined, licenseId: string) {
+  async revoke(header: string | undefined, licenseId: string, key = randomUUID()) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId } });

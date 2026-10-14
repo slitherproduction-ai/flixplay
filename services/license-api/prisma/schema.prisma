@@ -158,3 +158,14 @@ model AuditLog {
   createdAt   DateTime @default(now())
   @@index([createdAt])
 }
+
+model AdminMutationReceipt {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String   @db.Uuid
+  requestKey  String   @unique
+  operation   String
+  targetId    String   @db.Uuid
+  result      Json
+  createdAt   DateTime @default(now())
+  @@index([actorId, createdAt])
+}

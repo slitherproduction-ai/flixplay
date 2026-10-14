@@ -15,6 +15,18 @@ export class AdminMfaController {
   enroll(@Headers('authorization') authorization: string | undefined) {
     return this.service.enroll(authorization);
   }
+  @Post('sessions/revoke-others')
+  @HttpCode(HttpStatus.OK)
+  revokeOtherSessions(@Headers('authorization') authorization: string | undefined) {
+    return this.service.revokeOtherSessions(authorization);
+  }
+
+  @Post('credential/revoke')
+  @HttpCode(HttpStatus.OK)
+  revokeCredential(@Headers('authorization') authorization: string | undefined) {
+    return this.service.revokeOwnCredential(authorization);
+  }
+
   @Post('verify')
   @HttpCode(HttpStatus.OK)
   verify(@Headers('authorization') authorization: string | undefined, @Body() body: MfaCodeDto) {

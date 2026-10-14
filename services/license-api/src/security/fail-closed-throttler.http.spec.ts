@@ -1,9 +1,9 @@
 import 'reflect-metadata';
-import { afterAll, beforeAll, Controller, Get, Module } from '@nestjs/common';
+import { Controller, Get, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplication } from '@nestjs/common';
 import { FailClosedThrottlerGuard } from './fail-closed-throttler.guard';
 

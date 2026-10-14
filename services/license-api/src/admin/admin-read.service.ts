@@ -56,4 +56,33 @@ export class AdminReadService {
     ]);
     return { items, total, page: safePage, pageSize: 25 };
   }
+
+  /** Read-only eligibility estimate. No state change and no promise of approval. */
+  async licensePreflight(authorization: string | undefined, licenseId: string) {
+    await this.requireAdmin(authorization);
+    const license = await this.db.license.findUnique({
+      where: { id: licenseId },
+      select: {
+        id: true, status: true, expiresAt: true, revokedAt: true, deviceId: true,
+        plan: { select: { code: true, durationDays: true, isActive: true } },
+      },
+    });
+    if (!license) return { found: false, renewable: false, revocable: false, reasons: ['NOT_FOUND'] };
+    const reasons: string[] = [];
+    if (license.revokedAt || license.status === 'REVOKED') reasons.push('REVOKED');
+    if (license.status === 'SUSPENDED') reasons.push('SUSPENDED');
+    if (license.plan.code !== 'ELVANOQ_ANNUAL_2490' || license.plan.durationDays !== 365 || !license.plan.isActive) reasons.push('UNSUPPORTED_PLAN');
+    const overlap = await this.db.license.count({
+      where: {
+        id: { not: license.id }, deviceId: license.deviceId, revokedAt: null,
+        expiresAt: { gt: new Date() }, status: { in: ['TRIAL', 'ACTIVE', 'GRACE_PERIOD', 'SUSPENDED'] },
+      },
+    });
+    if (overlap > 0) reasons.push('OVERLAPPING_LICENSE');
+    return {
+      found: true, licenseId: license.id, status: license.status, expiresAt: license.expiresAt,
+      renewable: reasons.length === 0, revocable: !license.revokedAt && license.status !== 'REVOKED',
+      reasons, writesEnabled: false,
+    };
+  }
 }

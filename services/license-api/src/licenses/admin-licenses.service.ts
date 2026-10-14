@@ -83,6 +83,8 @@ export class AdminLicensesService {
       const existing = await tx.license.findUnique({ where: { id: licenseId }, include: { plan: true } });
       if (!existing) throw new NotFoundException('License not found');
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
+      const prior = await this.receipt(tx, key, actorId, 'renew', licenseId);
+      if (prior) return prior;
       const current = await tx.license.findUnique({ where: { id: licenseId }, select: { expiresAt: true, status: true, revokedAt: true } });
       if (!expectedExpiresAt || !current || current.expiresAt.toISOString() !== expectedExpiresAt || current.status !== existing.status || current.revokedAt?.getTime() !== existing.revokedAt?.getTime()) {
         throw new ConflictException('License changed since confirmation');
@@ -102,6 +104,7 @@ export class AdminLicensesService {
       const expiresAt = new Date(base.getTime() + 365 * 86_400_000);
       const license = await tx.license.update({ where: { id: licenseId }, data: { status: LicenseStatus.ACTIVE, expiresAt }, select: { id: true, status: true, expiresAt: true } });
       await tx.auditLog.create({ data: { actorId, action: 'license.test_renewed', subjectType: 'license', subjectId: license.id } });
+      await this.remember(tx, key, actorId, 'renew', licenseId, license);
       return license;
     });
   }

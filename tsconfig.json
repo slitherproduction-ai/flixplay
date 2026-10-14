@@ -21,6 +21,7 @@
     "examples",
     "services/license-api",
     "android",
-    "packages/elvanoq-license-client"
+    "packages/elvanoq-license-client",
+    "apps/cloud-portal"
   ]
 }

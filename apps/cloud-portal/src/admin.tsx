@@ -115,7 +115,7 @@ function Admin() {
       <button className="secondary" type="button" onClick={()=>void logout()}>Cancelar</button>
     </section> : <>
       <div className="admin-tools"><button className="secondary" onClick={() => setConfirmAction(true)}>Encerrar outras sessões</button><button className="secondary" onClick={() => void logout()}>Encerrar sessão</button></div>
-      {confirmAction && <div className="notice" role="alert"><p>Encerrar todas as outras sessões administrativas?</p><div className="admin-tools"><button disabled={busy} onClick={() => void closeOtherSessions()}>Confirmar</button><button className="secondary" onClick={() => setConfirmAction(false)}>Cancelar</button></div></div>
+      {confirmAction && <div className="notice" role="alert"><p>Encerrar todas as outras sessões administrativas?</p><div className="admin-tools"><button disabled={busy} onClick={() => void closeOtherSessions()}>Confirmar</button><button className="secondary" onClick={() => setConfirmAction(false)}>Cancelar</button></div></div>}
       {overview && <div className="admin-metrics">
         <div><strong>{overview.customers}</strong><span>Clientes</span></div>
         <div><strong>{overview.devices}</strong><span>Dispositivos</span></div>

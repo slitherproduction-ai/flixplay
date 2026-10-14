@@ -66,7 +66,7 @@ describe('License lifecycle on PostgreSQL', () => {
     const renewed = await service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString(), renewalKey);
     const replay = await service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString(), renewalKey);
     expect(replay.id).toBe(renewed.id);
-    expect(replay.expiresAt).toBe(renewed.expiresAt.toISOString());
+    expect(replay.expiresAt.toISOString()).toBe(renewed.expiresAt.toISOString());
     expect(renewed.expiresAt.getTime()).toBeGreaterThan(beforeRenew);
 
     await expect(service.renew('Bearer fake', issued.id, issued.expiresAt.toISOString())).rejects.toThrow();

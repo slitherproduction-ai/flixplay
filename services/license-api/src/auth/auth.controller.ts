@@ -14,24 +14,26 @@ class CredentialsDto {
   password!: string;
 }
 
-@Header('Cache-Control', 'no-store')
 @Controller('v1/auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Header('Cache-Control', 'no-store')
   @Post('register')
   register(@Body() dto: CredentialsDto) {
     return this.auth.register(dto.email, dto.password);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Header('Cache-Control', 'no-store')
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: CredentialsDto) {
     return this.auth.login(dto.email, dto.password);
   }
 
+  @Header('Cache-Control', 'no-store')
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Headers('authorization') authorization: string | undefined) {

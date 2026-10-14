@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
-import { AuthController } from './auth.controller';
+import { AuthController, CredentialsDto } from './auth.controller';
 import { AuthService } from './auth.service';
-import { AdminMfaController } from './admin-mfa.controller';
+import { AdminMfaController, MfaCodeDto } from './admin-mfa.controller';
 import { AdminMfaService } from './admin-mfa.service';
 import { AdminMfaRecoveryController } from './admin-mfa-recovery.controller';
 import { AdminMfaRecoveryService } from './admin-mfa-recovery.service';
@@ -25,7 +25,9 @@ describe('HTTP security boundary', () => {
   let url: string;
   beforeAll(async () => {
     Reflect.defineMetadata('design:paramtypes', [AuthService], AuthController);
+    Reflect.defineMetadata('design:paramtypes', [CredentialsDto], AuthController.prototype, 'login');
     Reflect.defineMetadata('design:paramtypes', [AdminMfaService], AdminMfaController);
+    Reflect.defineMetadata('design:paramtypes', [String, MfaCodeDto], AdminMfaController.prototype, 'verify');
     Reflect.defineMetadata('design:paramtypes', [AdminMfaRecoveryService], AdminMfaRecoveryController);
     app = await NestFactory.create(SecurityRoutesTestModule, { logger: ['error'] });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));

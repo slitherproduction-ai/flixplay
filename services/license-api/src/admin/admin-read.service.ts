@@ -7,7 +7,7 @@ export class AdminReadService {
   constructor(private readonly db: PrismaService, private readonly auth: AuthService) {}
 
   async requireAdmin(authorization: string | undefined): Promise<string> {
-    const actorId = await this.auth.authenticate(authorization);
+    const actorId = await this.auth.authenticateAdmin(authorization);
     const actor = await this.db.user.findUnique({ where: { id: actorId }, select: { role: true } });
     if (!actor) throw new UnauthorizedException('Session owner missing');
     if (actor.role !== 'ADMIN') throw new ForbiddenException('Administrator access required');

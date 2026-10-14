@@ -70,4 +70,16 @@ describe('PostgreSQL distributed rate limiting', () => {
     const active = await firstDb.apiThrottleBucket.findUnique({ where: { key: 'default:' + key } });
     expect(active?.blockedUntil?.getTime()).toBeGreaterThan(Date.now());
   });
+  it('reports aggregate counts without exposing bucket identifiers', async () => {
+    const key = 'metrics:' + randomUUID();
+    keys.push(key);
+    await firstDb.apiThrottleBucket.create({
+      data: { key, hits: 1, windowEndsAt: new Date(Date.now() + 60_000) },
+    });
+    const stats = await second.getStats();
+    expect(stats.total).toBeGreaterThanOrEqual(1);
+    expect(stats.expired).toBeGreaterThanOrEqual(0);
+    expect(stats.activelyBlocked).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(stats)).not.toContain(key);
+  });
 });

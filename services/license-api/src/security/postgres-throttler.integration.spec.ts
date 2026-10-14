@@ -82,4 +82,12 @@ describe('PostgreSQL distributed rate limiting', () => {
     expect(stats.activelyBlocked).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(stats)).not.toContain(key);
   });
+  it('handles bounded concurrent increments on a shared bucket', async () => {
+    const key = randomUUID();
+    keys.push('default:' + key);
+    const attempts = await Promise.all(Array.from({ length: 8 }, (_, index) =>
+      (index % 2 ? second : first).increment(key, 60_000, 5, 60_000, 'default')));
+    expect(attempts.map(x => x.totalHits).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6, 6, 6]);
+    expect(attempts.filter(x => x.isBlocked).length).toBe(3);
+  });
 });

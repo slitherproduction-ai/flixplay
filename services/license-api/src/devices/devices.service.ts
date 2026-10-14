@@ -38,7 +38,7 @@ export class DevicesService {
     return { pairingCode: code, expiresAt: expiresAt.toISOString() };
   }
   async claimPairing(userId: string, code: string) {
-    if (!/^\\d{8}$/.test(code)) throw new UnauthorizedException('Invalid or expired pairing code');
+    if (!/^[0-9]{8}$/.test(code)) throw new UnauthorizedException('Invalid or expired pairing code');
     const codeHash = sha256(code);
     const now = new Date();
     // Atomic claim: competing claims cannot consume the same code twice.

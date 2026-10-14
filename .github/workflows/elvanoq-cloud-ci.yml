@@ -23,10 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: services/license-api/package-lock.json
       - name: Install
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Validate schema
         run: npx prisma validate
       - name: Generate Prisma client

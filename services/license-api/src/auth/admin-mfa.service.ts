@@ -97,10 +97,10 @@ export class AdminMfaService {
     const actor = await this.adminIdentity(authorization);
     const credential = await this.db.adminMfaCredential.findUnique({ where: { userId: actor.id } });
     if (!credential || credential.revokedAt) throw new UnauthorizedException('MFA enrollment required');
-    if (!/^[0-9]{6}$/.test(code)) return this.rejected(actor.id, 'INVALID_FORMAT');
     if (credential.lockedUntil && credential.lockedUntil > new Date()) {
       throw new UnauthorizedException('MFA temporarily locked');
     }
+    if (!/^[0-9]{6}$/.test(code)) return this.rejected(actor.id, 'INVALID_FORMAT');
     const secret = decryptMfaSecret(credential.secretCipher, actor.id);
     const step = verifyTotp(secret, code);
     if (step === null) return this.rejected(actor.id, 'INVALID_CODE');
@@ -108,7 +108,8 @@ export class AdminMfaService {
     if (!token) throw new UnauthorizedException('Session missing');
     const result = await this.db.$transaction(async tx => {
       const consumed = await tx.adminMfaCredential.updateMany({
-        where: { userId: actor.id, lastUsedStep: { lt: BigInt(step) } },
+        where: { userId: actor.id, revokedAt: null, lastUsedStep: { lt: BigInt(step) },
+          OR: [{ lockedUntil: null }, { lockedUntil: { lte: new Date() } }] },
         data: { lastUsedStep: BigInt(step), failedAttempts: 0, lockedUntil: null },
       });
       if (consumed.count !== 1) return false;
@@ -116,7 +117,8 @@ export class AdminMfaService {
         where: { userId: actor.id, tokenHash: sha256(token), revokedAt: null, expiresAt: { gt: new Date() } },
         data: { mfaVerifiedAt: new Date() },
       });
-      return updated.count === 1;
+      if (updated.count !== 1) throw new UnauthorizedException('Session no longer valid');
+      return true;
     });
     if (!result) return this.rejected(actor.id, 'REUSED_CODE_OR_SESSION');
     return { verified: true };

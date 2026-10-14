@@ -7,10 +7,11 @@ import { issueEntitlement } from './entitlement-crypto';
 export class DeviceEntitlementService {
   constructor(private readonly db: PrismaService) {}
 
-  async getEntitlement(deviceId: string, authorization: string | undefined) {
-    const device = await this.db.device.findUnique({ where: { id: deviceId }, select: { id: true, userId: true, deviceKeyHash: true } });
+  async getEntitlement(deviceId: string, authorization: string | undefined, proofVerified = false) {
+    const device = await this.db.device.findUnique({ where: { id: deviceId }, select: { id: true, userId: true, deviceKeyHash: true, proofPublicKey: true } });
     if (!device) throw new NotFoundException('Device not found');
     verifyDeviceSecret(authorization, device.deviceKeyHash);
+    if (device.proofPublicKey && !proofVerified) throw new UnauthorizedException('Asymmetric device proof required');
     if (!device.userId) throw new UnauthorizedException('Device not linked');
     const now = new Date();
     const license = await this.db.license.findFirst({

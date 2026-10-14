@@ -12,3 +12,5 @@ button.refresh{min-height:40px;padding:0 16px;border:1px solid #476d8f;backgroun
 .licenses{padding:0;margin:12px 0 0;list-style:none;display:grid;gap:8px}
 .licenses li{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid #254055;padding-top:10px;font-size:13px}
 .licenses small{color:#a8c4dc;font-size:12px}
+
+.admin-panel{width:min(100%,920px)}.admin-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:24px 0}.admin-metrics>div{background:#0b1b2b;border:1px solid #294055;border-radius:14px;padding:17px;display:grid;gap:9px}.admin-metrics strong{font-size:28px;color:#e9f8ff}.admin-metrics span{font-size:13px;color:#95adbf}.admin-tools{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:18px 0}.admin-tools button{min-width:125px;padding:0 14px}.admin-tools span{color:#9fb4c8;font-size:13px}.admin-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin-top:14px}.admin-rows .device{margin-top:0;overflow-wrap:anywhere}

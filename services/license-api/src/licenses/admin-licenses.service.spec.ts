@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { UnauthorizedException } from '@nestjs/common';
 import { AdminLicensesService } from './admin-licenses.service';
 
 describe('AdminLicensesService safety gates', () => {
@@ -18,8 +19,8 @@ describe('AdminLicensesService safety gates', () => {
     process.env.LICENSE_ADMIN_WRITES_ENABLED = 'true';
     try {
       const db = { user: { findUnique: vi.fn().mockResolvedValue({ role: 'CUSTOMER' }) } };
-      const service = new AdminLicensesService(db as any, { authenticate: vi.fn().mockResolvedValue('user-id') } as any);
-      await expect(service.issue('Bearer token', 'device-id')).rejects.toThrow('Administrator required');
+      const service = new AdminLicensesService(db as any, { authenticateAdmin: vi.fn().mockRejectedValue(new UnauthorizedException('Administrator MFA verification required')) } as any);
+      await expect(service.issue('Bearer token', 'device-id')).rejects.toThrow('Administrator MFA verification required');
     } finally {
       if (oldEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldEnv;
       if (oldFlag === undefined) delete process.env.LICENSE_ADMIN_WRITES_ENABLED; else process.env.LICENSE_ADMIN_WRITES_ENABLED = oldFlag;

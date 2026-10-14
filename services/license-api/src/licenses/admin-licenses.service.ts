@@ -58,12 +58,16 @@ export class AdminLicensesService {
     });
   }
 
-  async renew(header: string | undefined, licenseId: string) {
+  async renew(header: string | undefined, licenseId: string, expectedExpiresAt?: string) {
     const actorId = await this.authorizedAdmin(header);
     return this.transactionWithRetry(async tx => {
       const existing = await tx.license.findUnique({ where: { id: licenseId }, include: { plan: true } });
       if (!existing) throw new NotFoundException('License not found');
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
+      const current = await tx.license.findUnique({ where: { id: licenseId }, select: { expiresAt: true, status: true, revokedAt: true } });
+      if (!expectedExpiresAt || !current || current.expiresAt.toISOString() !== expectedExpiresAt || current.status !== existing.status || current.revokedAt?.getTime() !== existing.revokedAt?.getTime()) {
+        throw new ConflictException('License changed since confirmation');
+      }
       if (existing.revokedAt || existing.status === LicenseStatus.REVOKED || existing.status === LicenseStatus.SUSPENDED) {
         throw new ConflictException('Revoked or suspended licenses cannot be renewed');
       }

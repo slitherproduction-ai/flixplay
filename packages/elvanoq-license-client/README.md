@@ -10,3 +10,7 @@ Standalone TypeScript adapter preparing future Expo Android/Android TV integrati
 - Remaining: implement native keystore signer compatible with Android API 24 / TV hardware, pinned verification keys, secure credential persistence, authenticated enrollment/recovery, feature flags and device testing.
 
 The interface is isolated to avoid changing the current 2.17.11 APK.
+
+## Checkpoint 20: verification boundary
+
+`src/verify-entitlement.ts` validates claim policy and rejects unsigned/malformed/expired/wrong-device tokens, but **only returns verified claims when an injected trusted Ed25519 verifier confirms the signature** using a pinned key. No Android API 24 Ed25519 implementation is present yet; do not enable enforcement or treat a returned API status as cryptographic proof.

@@ -115,9 +115,12 @@ export class AdminLicensesService {
       const existing = await tx.license.findUnique({ where: { id: licenseId } });
       if (!existing) throw new NotFoundException('License not found');
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${existing.deviceId}))`;
+      const prior = await this.receipt(tx, key, actorId, 'revoke', licenseId);
+      if (prior) return prior;
       if (existing.revokedAt || existing.status === LicenseStatus.REVOKED) return { id: existing.id, status: LicenseStatus.REVOKED };
       const license = await tx.license.update({ where: { id: licenseId }, data: { status: LicenseStatus.REVOKED, revokedAt: new Date() }, select: { id: true, status: true } });
       await tx.auditLog.create({ data: { actorId, action: 'license.test_revoked', subjectType: 'license', subjectId: license.id } });
+      await this.remember(tx, key, actorId, 'revoke', licenseId, license);
       return license;
     });
   }

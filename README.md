@@ -1,4 +1,4 @@
-# FlixPlay
+# ELVANOQ Play
 
 Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Native. O projeto inclui navegação por controle remoto, reprodução de conteúdo, listas Xtream e uma versão Android para Fire TV.
 

@@ -11,7 +11,8 @@
     "db:deploy": "prisma migrate deploy",
     "test": "vitest run",
     "security:purge-throttle": "tsx src/security/purge-throttle-buckets.ts",
-    "security:bench-throttle": "tsx src/security/benchmark-throttle.ts"
+    "security:bench-throttle": "tsx src/security/benchmark-throttle.ts",
+    "security:preflight-throttle": "tsx src/security/throttle-preflight.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.0",

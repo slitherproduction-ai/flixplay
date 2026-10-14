@@ -71,20 +71,21 @@ export class AuthService {
 
 
   async authenticateAdmin(header: string | undefined): Promise<string> {
-    const userId = await this.authenticate(header);
-    const token = /^Bearer ([A-Za-z0-9_-]{40,80})$/.exec(header ?? '')?.[1];
-    if (!token) throw new UnauthorizedException('Authentication required');
-    const [user, session] = await Promise.all([
-      this.db.user.findUnique({ where: { id: userId }, select: { role: true } }),
-      this.db.customerSession.findUnique({
-        where: { tokenHash: sha256(token) }, select: { mfaVerifiedAt: true },
-      }),
-    ]);
-    if (user?.role !== 'ADMIN' || !session?.mfaVerifiedAt ||
-        session.mfaVerifiedAt.getTime() <= Date.now() - 15 * 60_000) {
-      throw new UnauthorizedException('Administrator MFA verification required');
-    }
-    return userId;
+    const match = /^Bearer ([A-Za-z0-9_-]{40,80})$/.exec(header ?? '');
+    if (!match) throw new UnauthorizedException('Authentication required');
+    const now = new Date();
+    const session = await this.db.customerSession.findFirst({
+      where: {
+        tokenHash: sha256(match[1]),
+        revokedAt: null,
+        expiresAt: { gt: now },
+        mfaVerifiedAt: { gt: new Date(now.getTime() - 15 * 60_000), lte: now },
+        user: { role: 'ADMIN', adminMfa: { is: { revokedAt: null } } },
+      },
+      select: { userId: true },
+    });
+    if (!session) throw new UnauthorizedException('Administrator MFA verification required');
+    return session.userId;
   }
 
   async logout(header: string | undefined) {

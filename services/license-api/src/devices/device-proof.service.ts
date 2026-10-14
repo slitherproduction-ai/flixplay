@@ -24,11 +24,12 @@ export class DeviceProofService {
     if (device.proofPublicKey) throw new ConflictException('Key already registered; key replacement requires recovery flow');
     try {
       const key = createPublicKey(publicKeyPem);
-      if (key.asymmetricKeyType !== 'ed25519') throw new Error('wrong key algorithm');
-    } catch { throw new BadRequestException('Valid Ed25519 public key required'); }
+      if (key.asymmetricKeyType !== 'ed25519' && !(key.asymmetricKeyType === 'ec' && key.asymmetricKeyDetails?.namedCurve === 'prime256v1')) throw new Error('wrong key algorithm');
+    } catch { throw new BadRequestException('Ed25519 or P-256 public key required'); }
+    const algorithm = createPublicKey(publicKeyPem).asymmetricKeyType === 'ed25519' ? 'Ed25519' : 'ES256';
     const result = await this.db.device.updateMany({
       where: { id: deviceId, proofPublicKey: null },
-      data: { proofPublicKey: publicKeyPem },
+      data: { proofPublicKey: publicKeyPem, proofAlgorithm: algorithm },
     });
     if (result.count !== 1) throw new ConflictException('Device key already registered');
     return { registered: true };
@@ -48,12 +49,18 @@ export class DeviceProofService {
   async consume(deviceId: string, authorization: string | undefined, nonce: string, signature: string): Promise<void> {
     const device = await this.authorized(deviceId, authorization);
     if (!device.proofPublicKey) throw new UnauthorizedException('Proof key not registered');
-    if (!/^[A-Za-z0-9_-]{43}$/.test(nonce) || !/^[A-Za-z0-9_-]{86}$/.test(signature)) {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(nonce) || !/^[A-Za-z0-9_-]{86,128}$/.test(signature)) {
       throw new UnauthorizedException('Invalid proof');
     }
     let valid = false;
     try {
-      valid = verify(null, proofPayload(deviceId, nonce), createPublicKey(device.proofPublicKey), Buffer.from(signature, 'base64url'));
+      const key = createPublicKey(device.proofPublicKey);
+      const algorithm = device.proofAlgorithm || (key.asymmetricKeyType === 'ed25519' ? 'Ed25519' : '');
+      if (algorithm === 'Ed25519' && key.asymmetricKeyType === 'ed25519') {
+        valid = verify(null, proofPayload(deviceId, nonce), key, Buffer.from(signature, 'base64url'));
+      } else if (algorithm === 'ES256' && key.asymmetricKeyType === 'ec' && key.asymmetricKeyDetails?.namedCurve === 'prime256v1') {
+        valid = verify('sha256', proofPayload(deviceId, nonce), key, Buffer.from(signature, 'base64url'));
+      }
     } catch { /* fail closed */ }
     if (!valid) throw new UnauthorizedException('Invalid proof');
     const updated = await this.db.deviceProofChallenge.updateMany({

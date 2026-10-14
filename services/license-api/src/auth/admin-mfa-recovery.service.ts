@@ -14,7 +14,7 @@ export class AdminMfaRecoveryService {
     if (target?.role !== 'ADMIN') throw new ForbiddenException('Target administrator required');
     return this.db.$transaction(async tx => {
       // Serialize requests for the same target to avoid duplicate pending recovery approvals.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${targetUserId}))`;
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${targetUserId}))`;
       const existing = await tx.adminMfaRecoveryRequest.findFirst({
         where: { targetUserId, status: 'PENDING', expiresAt: { gt: new Date() } },
       });

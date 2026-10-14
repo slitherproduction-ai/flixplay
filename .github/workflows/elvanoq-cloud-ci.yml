@@ -10,6 +10,9 @@ on:
       - "services/license-api/**"
       - ".github/workflows/elvanoq-cloud-ci.yml"
 
+permissions:
+  contents: write
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -34,31 +37,40 @@ jobs:
       CORS_ORIGINS: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Generate lockfile artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: license-api-package-lock
-          path: services/license-api/package-lock.json
-          if-no-files-found: error
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
       - name: Validate Prisma
         run: npx prisma validate
       - name: Generate Prisma client
         run: npm run db:generate
-      - name: Validate schema on disposable PostgreSQL
-        run: npx prisma db push --skip-generate
-      - name: Generate initial migration SQL artifact for review
-        run: mkdir -p migration-output && npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > migration-output/initial.sql
-      - name: Upload migration SQL
-        uses: actions/upload-artifact@v4
-        with:
-          name: license-api-initial-migration-review
-          path: services/license-api/migration-output/initial.sql
+      - name: Generate versioned initial migration when missing
+        run: |
+          if [ ! -f prisma/migrations/20261014_initial/migration.sql ]; then
+            mkdir -p prisma/migrations/20261014_initial
+            npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/20261014_initial/migration.sql
+          fi
+      - name: Apply migrations to isolated PostgreSQL
+        run: npx prisma migrate deploy
+      - name: Verify migration matches schema
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
       - name: Compile TypeScript
         run: npm run build
       - name: Run unit tests
         run: npm test
+      - name: Commit verified lockfile and migration to feature branch
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feature/elvanoq-cloud-foundation' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/license-api/package-lock.json services/license-api/prisma/migrations/
+          if ! git diff --cached --quiet; then
+            git commit -m "build(cloud): lock validated dependencies and initial SQL migration"
+            git push origin HEAD:feature/elvanoq-cloud-foundation
+          fi
+        working-directory: .

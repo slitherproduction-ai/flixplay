@@ -73,7 +73,20 @@ model Device {
   lastSeenAt  DateTime?
   licenses    License[]
   pairingSessions PairingSession[]
+  proofChallenges DeviceProofChallenge[]
+  proofPublicKey String?
   @@index([userId])
+}
+
+model DeviceProofChallenge {
+  id        String   @id @default(uuid()) @db.Uuid
+  deviceId  String   @db.Uuid
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  nonceHash String   @unique
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([deviceId, expiresAt])
 }
 
 model Plan {

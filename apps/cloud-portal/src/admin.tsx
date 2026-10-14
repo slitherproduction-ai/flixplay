@@ -23,6 +23,7 @@ function Admin() {
   const [mfaPending, setMfaPending] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [setupUri, setSetupUri] = useState('');
+  const [confirmAction, setConfirmAction] = useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [customers, setCustomers] = useState<Page<Customer> | null>(null);
   const [licenses, setLicenses] = useState<Page<License> | null>(null);
@@ -78,6 +79,15 @@ function Admin() {
     } catch { setMessage('Não foi possível configurar MFA. Se já houver cadastro, use o aplicativo ou solicite recuperação.'); }
     finally { setBusy(false); }
   }
+  async function closeOtherSessions() {
+    if (!token || busy || !confirmAction) return;
+    setBusy(true); setConfirmAction(false);
+    try {
+      const result = await api<{sessionsRevoked:number}>('/v1/auth/admin-mfa/sessions/revoke-others', token, {});
+      setMessage('Outras sessões encerradas: ' + result.sessionsRevoked);
+    } catch { setMessage('Ação negada. Verifique novamente o MFA de sua sessão.'); }
+    finally { setBusy(false); }
+  }
   async function logout() {
     const old = token; setToken(null); setMfaPending(false); setMfaCode(''); setSetupUri(''); setOverview(null); setCustomers(null); setLicenses(null); setPreflight(null); setMessage('');
     if (old) try { await api('/v1/auth/logout',old,{}); } catch { /* session discarded */ }
@@ -104,7 +114,8 @@ function Admin() {
       {setupUri && <p className="notice">Configuração confidencial. Copie para o autenticador e não compartilhe: <code className="mfa-uri">{setupUri}</code></p>}
       <button className="secondary" type="button" onClick={()=>void logout()}>Cancelar</button>
     </section> : <>
-      <div className="admin-tools"><button className="secondary" onClick={() => void logout()}>Encerrar sessão</button></div>
+      <div className="admin-tools"><button className="secondary" onClick={() => setConfirmAction(true)}>Encerrar outras sessões</button><button className="secondary" onClick={() => void logout()}>Encerrar sessão</button></div>
+      {confirmAction && <div className="notice" role="alert"><p>Encerrar todas as outras sessões administrativas?</p><div className="admin-tools"><button disabled={busy} onClick={() => void closeOtherSessions()}>Confirmar</button><button className="secondary" onClick={() => setConfirmAction(false)}>Cancelar</button></div></div>
       {overview && <div className="admin-metrics">
         <div><strong>{overview.customers}</strong><span>Clientes</span></div>
         <div><strong>{overview.devices}</strong><span>Dispositivos</span></div>

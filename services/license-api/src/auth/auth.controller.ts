@@ -1,5 +1,6 @@
 import { Body, Controller, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 
 class CredentialsDto {
@@ -17,11 +18,13 @@ class CredentialsDto {
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('register')
   register(@Body() dto: CredentialsDto) {
     return this.auth.register(dto.email, dto.password);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: CredentialsDto) {

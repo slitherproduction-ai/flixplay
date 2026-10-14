@@ -20,6 +20,9 @@ async function api<T>(path: string, token: string | null, body?: unknown): Promi
 function Admin() {
   const [email, setEmail] = useState(''), [password, setPassword] = useState('');
   const [token, setToken] = useState<string | null>(null);
+  const [mfaPending, setMfaPending] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [setupUri, setSetupUri] = useState('');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [customers, setCustomers] = useState<Page<Customer> | null>(null);
   const [licenses, setLicenses] = useState<Page<License> | null>(null);
@@ -50,14 +53,33 @@ function Admin() {
     setBusy(true); setMessage('');
     try {
       const session = await api<{accessToken:string}>('/v1/auth/login',null,{email,password});
-      await api<Overview>('/v1/admin/overview',session.accessToken);
-      setToken(session.accessToken); setPassword('');
-      void load(session.accessToken,'customers',1);
+      setToken(session.accessToken); setPassword(''); setMfaPending(true);
+      setMessage('Informe o código de seu autenticador para entrar no painel.');
     } catch { setMessage('Acesso negado: somente administradores autorizados.'); }
     finally { setBusy(false); }
   }
+  async function verifyMfa(event: React.FormEvent) {
+    event.preventDefault();
+    if (!token || busy || !/^[0-9]{6}$/.test(mfaCode)) return;
+    setBusy(true); setMessage('');
+    try {
+      await api<{verified: true}>('/v1/auth/admin-mfa/verify', token, { code: mfaCode });
+      setMfaPending(false); setSetupUri(''); setMfaCode('');
+      void load(token,'customers',1);
+    } catch { setMessage('Código inválido, reutilizado ou sessão expirada.'); }
+    finally { setBusy(false); }
+  }
+  async function enrollMfa() {
+    if (!token || busy) return;
+    setBusy(true);
+    try {
+      const result = await api<{setupUri:string}>('/v1/auth/admin-mfa/enroll', token, {});
+      setSetupUri(result.setupUri);
+    } catch { setMessage('Não foi possível configurar MFA. Se já houver cadastro, use o aplicativo ou solicite recuperação.'); }
+    finally { setBusy(false); }
+  }
   async function logout() {
-    const old = token; setToken(null); setOverview(null); setCustomers(null); setLicenses(null); setPreflight(null); setMessage('');
+    const old = token; setToken(null); setMfaPending(false); setMfaCode(''); setSetupUri(''); setOverview(null); setCustomers(null); setLicenses(null); setPreflight(null); setMessage('');
     if (old) try { await api('/v1/auth/logout',old,{}); } catch { /* session discarded */ }
   }
   const table = tab === 'customers' ? customers : licenses;

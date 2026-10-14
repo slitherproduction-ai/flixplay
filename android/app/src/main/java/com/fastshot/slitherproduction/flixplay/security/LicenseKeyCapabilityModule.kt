@@ -35,9 +35,9 @@ class LicenseKeyCapabilityModule(context: ReactApplicationContext) : ReactContex
       result.putInt("apiLevel", Build.VERSION.SDK_INT)
       result.putString("platform", "android")
       result.putString("algorithm", "ES256")
-      result.putBoolean("supported", Build.VERSION.SDK_INT >= 24)
+      result.putBoolean("supported", hasKey && Build.VERSION.SDK_INT >= 24)
       result.putBoolean("enrolled", hasKey)
-      result.putString("reason", if (Build.VERSION.SDK_INT >= 24) "P-256 AndroidKeyStore available for enrollment attempt" else "Android API 24 required")
+      result.putString("reason", if (hasKey) "Stored P-256 key present; full signing needs device validation" else "No enrolled device key")
       promise.resolve(result)
     } catch (error: Exception) {
       promise.reject("LICENSE_KEY_CAPABILITY_FAILED", error)

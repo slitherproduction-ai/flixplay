@@ -28,7 +28,7 @@ describe('admin session MFA and code replay', () => {
     await db.customerSession.create({ data: { userId: adminId, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 600_000) } });
   });
   afterAll(async () => {
-    if (adminId) await db.auditLog.deleteMany({ where: { actorId: adminId, action: 'admin.mfa.denied' } });
+    if (adminId) await db.auditLog.deleteMany({ where: { actorId: adminId, action: { startsWith: 'admin.' } } });
     if (adminId) await db.user.delete({ where: { id: adminId } });
     if (customerId) await db.user.delete({ where: { id: customerId } });
     await db.$disconnect();
@@ -58,6 +58,21 @@ describe('admin session MFA and code replay', () => {
     expect(logs.length).toBeGreaterThanOrEqual(5);
     expect(JSON.stringify(logs)).not.toContain(credential.secretCipher);
     await expect(mfa.verify(header, '123456')).rejects.toThrow('temporarily locked');
+  });
+  it('revokes other administrator sessions while preserving the current session', async () => {
+    const other = randomBytes(32).toString('base64url');
+    await db.customerSession.create({ data: { userId: adminId, tokenHash: sha256(other), expiresAt: new Date(Date.now() + 600_000) } });
+    await expect(mfa.revokeOtherSessions('Bearer ' + token)).resolves.toMatchObject({ sessionsRevoked: 1 });
+    await expect(auth.authenticate('Bearer ' + other)).rejects.toThrow();
+    await expect(auth.authenticateAdmin('Bearer ' + token)).resolves.toBe(adminId);
+  });
+  it('revokes the MFA credential and all sessions without allowing password-only re-enrollment', async () => {
+    await expect(mfa.revokeOwnCredential('Bearer ' + token)).resolves.toEqual({ revoked: true, sessionsRevoked: true });
+    await expect(auth.authenticate('Bearer ' + token)).rejects.toThrow();
+    const fresh = randomBytes(32).toString('base64url');
+    await db.customerSession.create({ data: { userId: adminId, tokenHash: sha256(fresh), expiresAt: new Date(Date.now() + 600_000) } });
+    await expect(mfa.enroll('Bearer ' + fresh)).rejects.toThrow('already enrolled');
+    await expect(mfa.verify('Bearer ' + fresh, '123456')).rejects.toThrow();
   });
   it('rejects customer enrollment', async () => {
     const customerToken = randomBytes(32).toString('base64url');

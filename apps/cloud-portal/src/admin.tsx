@@ -7,6 +7,7 @@ const ready = Boolean(base && /^https:\/\//.test(base));
 type Overview = { customers: number; devices: number; licenses: number; activeLicenses: number };
 type Customer = { id: string; email: string; createdAt: string; _count: { devices: number; licenses: number } };
 type License = { id: string; status: string; expiresAt: string; user: { email: string }; device: { publicCode: string; platform: string; displayName: string | null }; plan: { name: string } };
+type LicensePreflight = { found: boolean; licenseId?: string; renewable: boolean; revocable: boolean; reasons: string[]; writesEnabled?: boolean };
 type Page<T> = { items: T[]; page: number; total: number; pageSize: number };
 async function api<T>(path: string, token: string | null, body?: unknown): Promise<T> {
   if (!base || !ready) throw new Error('Configure API HTTPS');
@@ -23,13 +24,23 @@ function Admin() {
   const [customers, setCustomers] = useState<Page<Customer> | null>(null);
   const [licenses, setLicenses] = useState<Page<License> | null>(null);
   const [page, setPage] = useState(1);
+  const [preflight, setPreflight] = useState<{ id: string; result: LicensePreflight } | null>(null);
+  async function inspectLicense(id: string) {
+    if (!token || busy) return;
+    setBusy(true); setPreflight(null);
+    try {
+      const result = await api<LicensePreflight>('/v1/admin/licenses/' + encodeURIComponent(id) + '/preflight', token);
+      setPreflight({ id, result });
+    } catch { setMessage('Falha ao consultar elegibilidade da licença.'); }
+    finally { setBusy(false); }
+  }
   const [tab, setTab] = useState<'customers'|'licenses'>('customers');
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   async function load(credential: string, kind: 'customers'|'licenses', nextPage: number) {
     setBusy(true);
     try {
       const [summary, table] = await Promise.all([api<Overview>('/v1/admin/overview',credential), api<Page<Customer> | Page<License>>('/v1/admin/' + kind + '?page=' + nextPage,credential)]);
-      setOverview(summary); setTab(kind); setPage(nextPage);
+      setOverview(summary); setTab(kind); setPage(nextPage); setPreflight(null);
       if (kind === 'customers') setCustomers(table as Page<Customer>); else setLicenses(table as Page<License>);
     } catch { setMessage('Não foi possível consultar os dados administrativos.'); }
     finally { setBusy(false); }
@@ -46,7 +57,7 @@ function Admin() {
     finally { setBusy(false); }
   }
   async function logout() {
-    const old = token; setToken(null); setOverview(null); setCustomers(null); setLicenses(null); setMessage('');
+    const old = token; setToken(null); setOverview(null); setCustomers(null); setLicenses(null); setPreflight(null); setMessage('');
     if (old) try { await api('/v1/auth/logout',old,{}); } catch { /* session discarded */ }
   }
   const table = tab === 'customers' ? customers : licenses;
@@ -74,7 +85,7 @@ function Admin() {
       </div>
       <div className="admin-rows">
         {tab === 'customers' && customers?.items.map(item => <article className="device" key={item.id}><strong>{item.email}</strong><p className="device-meta">Cadastro: {fmt(item.createdAt)} · {item._count.devices} dispositivo(s) · {item._count.licenses} licença(s)</p></article>)}
-        {tab === 'licenses' && licenses?.items.map(item => <article className="device" key={item.id}><strong>{item.user.email}</strong><p className="device-meta">{item.plan.name} · {item.status} · {item.device.displayName || item.device.platform}</p><p className="device-meta">Vencimento: {fmt(item.expiresAt)}</p></article>)}
+        {tab === 'licenses' && licenses?.items.map(item => <article className="device" key={item.id}><strong>{item.user.email}</strong><p className="device-meta">{item.plan.name} · {item.status} · {item.device.displayName || item.device.platform}</p><p className="device-meta">Vencimento: {fmt(item.expiresAt)}</p><button type="button" className="secondary" disabled={busy} onClick={() => void inspectLicense(item.id)}>Verificar elegibilidade</button>{preflight?.id === item.id && <p className="notice" role="status">Renovação: {preflight.result.renewable ? "Elegível em análise" : "Indisponível"} · Revogação: {preflight.result.revocable ? "Possível em análise" : "Indisponível"} · Somente consulta, sem executar alterações.</p>}</article>)}
         {table?.items.length === 0 && <p className="muted">Nenhum registro encontrado.</p>}
       </div>
       {table && <div className="admin-tools"><button className="secondary" disabled={busy || page <= 1} onClick={() => void load(token,tab,page-1)}>Anterior</button><span>Página {page} · {table.total} registros</span><button className="secondary" disabled={busy || page * table.pageSize >= table.total} onClick={() => void load(token,tab,page+1)}>Próxima</button></div>}

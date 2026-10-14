@@ -57,6 +57,15 @@ export class LicenseClient {
     return { deviceId: payload.id, deviceSecret: payload.deviceSecret, publicCode: payload.publicCode, platform: payload.platform };
   }
 
+  async startPairing(credentials: DeviceCredentials): Promise<{ pairingCode: string; expiresAt: string }> {
+    const result = await this.request<{ pairingCode: string; expiresAt: string }>(
+      '/v1/devices/' + encodeURIComponent(credentials.deviceId) + '/pairing', 'POST', credentials.deviceSecret);
+    if (!/^[0-9]{8}$/.test(result.pairingCode) || !Number.isFinite(Date.parse(result.expiresAt))) {
+      throw new Error('Invalid pairing response');
+    }
+    return result;
+  }
+
   async enrollKey(credentials: DeviceCredentials, signer: ProofSigner): Promise<void> {
     await this.request('/v1/devices/' + encodeURIComponent(credentials.deviceId) + '/proof-key',
       'POST', credentials.deviceSecret, { publicKeyPem: await signer.publicKeyPem() });

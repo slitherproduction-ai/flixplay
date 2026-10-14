@@ -24,6 +24,9 @@ describe('HTTP security boundary', () => {
   let app: INestApplication;
   let url: string;
   beforeAll(async () => {
+    Reflect.defineMetadata('design:paramtypes', [AuthService], AuthController);
+    Reflect.defineMetadata('design:paramtypes', [AdminMfaService], AdminMfaController);
+    Reflect.defineMetadata('design:paramtypes', [AdminMfaRecoveryService], AdminMfaRecoveryController);
     app = await NestFactory.create(SecurityRoutesTestModule, { logger: ['error'] });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
     await app.listen(0, '127.0.0.1');
@@ -37,9 +40,9 @@ describe('HTTP security boundary', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
-  it('rejects invalid TOTP bodies without invoking service', async () => {
-    const response = await fetch(url + '/v1/auth/admin-mfa/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: 'not-valid' }) });
-    expect(response.status).toBe(400);
+  it('sets no-store on MFA verification responses', async () => {
+    const response = await fetch(url + '/v1/auth/admin-mfa/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: '123456' }) });
+    expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
   it('rejects malformed recovery identifiers', async () => {

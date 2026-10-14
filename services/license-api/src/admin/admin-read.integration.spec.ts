@@ -31,6 +31,7 @@ describe('admin read isolation', () => {
     await expect(instance.overview(customerToken)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(instance.customers(customerToken, 1)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(instance.licenses(customerToken, 1)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(instance.licensePreflight(customerToken, randomUUID())).rejects.toBeInstanceOf(ForbiddenException);
     const result = await instance.customers(adminToken, 1);
     expect(result.items.some(item => item.id === customerId)).toBe(true);
     expect(JSON.stringify(result)).not.toContain('passwordHash');

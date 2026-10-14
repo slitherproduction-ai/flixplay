@@ -1,0 +1,1 @@
+CREATE TABLE "ApiThrottleBucket" ("key" TEXT NOT NULL, "hits" INTEGER NOT NULL DEFAULT 0, "windowEndsAt" TIMESTAMP(3) NOT NULL, "blockedUntil" TIMESTAMP(3), CONSTRAINT "ApiThrottleBucket_pkey" PRIMARY KEY ("key"));

@@ -12,9 +12,13 @@ export class AdminMfaRecoveryService {
     if (!/^[A-Za-z0-9_-]{12,100}$/.test(evidenceReference)) throw new ConflictException('Invalid evidence reference');
     const target = await this.db.user.findUnique({ where: { id: targetUserId }, select: { role: true } });
     if (target?.role !== 'ADMIN') throw new ForbiddenException('Target administrator required');
-    const existing = await this.db.adminMfaRecoveryRequest.findFirst({ where: { targetUserId, status: 'PENDING', expiresAt: { gt: new Date() } } });
-    if (existing) throw new ConflictException('A recovery request is already pending');
     return this.db.$transaction(async tx => {
+      // Serialize requests for the same target to avoid duplicate pending recovery approvals.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${targetUserId}))`;
+      const existing = await tx.adminMfaRecoveryRequest.findFirst({
+        where: { targetUserId, status: 'PENDING', expiresAt: { gt: new Date() } },
+      });
+      if (existing) throw new ConflictException('A recovery request is already pending');
       const recovery = await tx.adminMfaRecoveryRequest.create({
         data: { targetUserId, initiatedById: initiator, evidenceReference, expiresAt: new Date(Date.now() + 3600_000) },
         select: { id: true, status: true, expiresAt: true },
@@ -30,7 +34,7 @@ export class AdminMfaRecoveryService {
       const recovery = await tx.adminMfaRecoveryRequest.findUnique({ where: { id: recoveryId } });
       if (!recovery || recovery.status !== 'PENDING' || recovery.expiresAt <= new Date()) throw new ConflictException('Recovery request is not pending');
       if (approver === recovery.initiatedById || approver === recovery.targetUserId) throw new ForbiddenException('Independent approver required');
-      const updated = await tx.adminMfaRecoveryRequest.updateMany({ where: { id: recoveryId, status: 'PENDING', approvedById: null }, data: { status: 'APPROVED', approvedById: approver, approvedAt: new Date() } });
+      const updated = await tx.adminMfaRecoveryRequest.updateMany({ where: { id: recoveryId, status: 'PENDING', approvedById: null, expiresAt: { gt: new Date() } }, data: { status: 'APPROVED', approvedById: approver, approvedAt: new Date() } });
       if (updated.count !== 1) throw new ConflictException('Recovery already processed');
       await tx.auditLog.create({ data: { actorId: approver, action: 'admin.mfa.recovery_approved', subjectType: 'admin_mfa_recovery', subjectId: recoveryId } });
       return { id: recoveryId, status: 'APPROVED', resetEnabled: false };

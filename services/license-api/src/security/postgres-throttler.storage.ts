@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { ThrottlerStorage, ThrottlerStorageRecord } from '@nestjs/throttler';
+import { ThrottlerStorage } from '@nestjs/throttler';
+type ThrottleRecord = { totalHits: number; timeToExpire: number; isBlocked: boolean; timeToBlockExpire: number };
 import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class PostgresThrottlerStorage implements ThrottlerStorage {
   constructor(private readonly db: PrismaService) {}
 
-  async increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottlerStorageRecord> {
+  async increment(key: string, ttl: number, limit: number, blockDuration: number, throttlerName: string): Promise<ThrottleRecord> {
     const bucketKey = throttlerName + ':' + key;
     const duration = Math.max(1, ttl);
     return this.db.$transaction(async tx => {

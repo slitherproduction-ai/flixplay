@@ -7,7 +7,7 @@ export type EntitlementResult =
   | { authorized: false; status: 'INACTIVE' | 'EXPIRED' }
   | { authorized: true; status: string; expiresAt: string; entitlement: string; tokenExpiresAt: string };
 export type ProofSigner = {
-  /** Sign the exact UTF-8 bytes with a non-exportable, installation-specific Ed25519 private key. */
+  /** Sign proof bytes with a non-exportable device key. Ed25519 raw 64-byte or ECDSA P-256 DER signature. */
   sign(message: Uint8Array): Promise<Uint8Array>;
   /** Return only an SPKI PEM public key; never return the private key. */
   publicKeyPem(): Promise<string>;
@@ -69,7 +69,7 @@ export class LicenseClient {
       throw new Error('Invalid or expired license challenge');
     }
     const signature = await signer.sign(proofMessage(credentials.deviceId, challenge.nonce));
-    if (signature.length !== 64) throw new Error('Invalid Ed25519 signature length');
+    if (signature.length !== 64 && (signature.length < 68 || signature.length > 80)) throw new Error('Invalid device proof signature length');
     return this.request<EntitlementResult>(path + '/entitlement/proof', 'POST',
       credentials.deviceSecret, { nonce: challenge.nonce, signature: base64url(signature) });
   }

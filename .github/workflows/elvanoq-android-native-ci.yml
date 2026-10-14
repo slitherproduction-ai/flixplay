@@ -1,0 +1,43 @@
+name: ELVANOQ Android Native Validation
+on:
+  push:
+    branches: [feature/elvanoq-cloud-foundation]
+    paths:
+      - "android/**"
+      - "services/android-license-signer.ts"
+      - "services/android-license-capability.ts"
+      - "services/license-observer.ts"
+      - "app/_layout.tsx"
+      - ".github/workflows/elvanoq-android-native-ci.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - "services/android-license-signer.ts"
+      - "services/android-license-capability.ts"
+      - "services/license-observer.ts"
+      - "app/_layout.tsx"
+      - ".github/workflows/elvanoq-android-native-ci.yml"
+jobs:
+  validate-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install JavaScript dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check project TypeScript
+        run: npx tsc --noEmit --project tsconfig.json
+      - name: Compile Android debug Kotlin
+        working-directory: android
+        run: bash ./gradlew :app:compileDebugKotlin --no-daemon --stacktrace

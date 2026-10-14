@@ -62,9 +62,9 @@ export class AdminMfaService {
 
   async verify(authorization: string | undefined, code: string) {
     const actor = await this.adminIdentity(authorization);
-    if (!/^[0-9]{6}$/.test(code)) return this.rejected(actor.id, 'INVALID_FORMAT');
     const credential = await this.db.adminMfaCredential.findUnique({ where: { userId: actor.id } });
     if (!credential) throw new UnauthorizedException('MFA enrollment required');
+    if (!/^[0-9]{6}$/.test(code)) return this.rejected(actor.id, 'INVALID_FORMAT');
     if (credential.lockedUntil && credential.lockedUntil > new Date()) {
       throw new UnauthorizedException('MFA temporarily locked');
     }

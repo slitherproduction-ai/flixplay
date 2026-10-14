@@ -20,4 +20,4 @@ jobs:
       - name: Typecheck isolated licensing client
         run: npx --yes --package typescript@6.0.3 tsc --project packages/elvanoq-license-client/tsconfig.json
       - name: Test entitlement policy (mock crypto callback)
-        run: npx --yes --package tsx@4.20.6 tsx --test packages/elvanoq-license-client/tests/verify-entitlement.test.ts
+        run: npx --yes --package tsx@4.20.6 tsx --test packages/elvanoq-license-client/tests/*.test.ts

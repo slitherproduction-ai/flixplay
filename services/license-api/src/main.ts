@@ -2,7 +2,8 @@ import 'reflect-metadata';
 import { Controller, Get, Module, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { ApiThrottlingModule } from './security/api-throttling.module';
 import { z } from 'zod';
 import { AuthModule } from './auth/auth.module';
 import { AdminReadModule } from './admin/admin-read.module';
@@ -27,7 +28,7 @@ class HealthController {
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    ApiThrottlingModule,
     DevicesModule,
     AuthModule,
     AdminReadModule,

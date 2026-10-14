@@ -7,6 +7,23 @@ import { createDeviceSecret, pairingCode, publicDeviceCode, sha256, verifyDevice
 export class DevicesService {
   constructor(private readonly db: PrismaService) {}
 
+  async listForCustomer(userId: string) {
+    const devices = await this.db.device.findMany({
+      where: { userId },
+      select: {
+        id: true, publicCode: true, platform: true, displayName: true, createdAt: true, lastSeenAt: true,
+        licenses: {
+          select: { id: true, status: true, startsAt: true, expiresAt: true, revokedAt: true,
+            plan: { select: { name: true, code: true, durationDays: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return { devices };
+  }
+
   async register(platform: DevicePlatform, displayName?: string) {
     // Server-issued device credential is returned once. The app must store it in SecureStore.
     for (let attempt = 0; attempt < 3; attempt++) {

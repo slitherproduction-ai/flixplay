@@ -18,6 +18,7 @@ describe('independent administrator MFA recovery approval', () => {
     for (let i = 0; i < 3; i++) {
       const user = await db.user.create({ data: { email: randomUUID() + '@example.test', passwordHash: 'test', role: 'ADMIN' } });
       users.push(user.id);
+      await db.adminMfaCredential.create({ data: { userId: user.id, secretCipher: 'fixture-data' } });
       const token = randomBytes(32).toString('base64url');
       await db.customerSession.create({ data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 600_000), mfaVerifiedAt: new Date() } });
       headers.push('Bearer ' + token);

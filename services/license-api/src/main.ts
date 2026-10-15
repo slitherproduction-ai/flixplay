@@ -11,7 +11,7 @@ import { LicensesModule } from './licenses/licenses.module';
 import { DevicesModule } from './devices/devices.module';
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   DATABASE_URL: z.string().min(1),
   CORS_ORIGINS: z.string().min(1),

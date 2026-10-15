@@ -1,0 +1,32 @@
+// Inicializador exclusivo do ambiente de build offline.
+// Ele não é empacotado no APK e não altera a configuração do aplicativo.
+def localMaven = System.getenv('ELVANOQ_LOCAL_MAVEN_REPOSITORY')
+
+if (localMaven != null && !localMaven.trim().isEmpty()) {
+    beforeSettings { settings ->
+        settings.pluginManagement.repositories {
+            // Mantém os repositórios de origem: em modo offline o Gradle usa
+            // somente os artefatos já presentes no cache associado a eles.
+            // O espelho local vem antes para o plugin Foojay empacotado.
+            maven { url = settings.uri(localMaven) }
+            google()
+            mavenCentral()
+            gradlePluginPortal()
+        }
+    }
+
+    gradle.beforeProject { project ->
+        def localRepository = { maven { url = project.uri(localMaven) } }
+        project.buildscript.repositories(localRepository)
+        project.repositories(localRepository)
+    }
+
+    gradle.projectsEvaluated {
+        gradle.rootProject.allprojects { project ->
+            project.repositories {
+                clear()
+                maven { url = project.uri(localMaven) }
+            }
+        }
+    }
+}

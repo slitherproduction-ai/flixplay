@@ -41,7 +41,7 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.13",
+    version: "v2.17.14",
     date: "2026.10",
     changes: [
       { tag: "Correção", text: "O preview de TV ao vivo é pausado ao sair da guia, impedindo que o áudio continue ao navegar para Início, Filmes, Séries ou player." },

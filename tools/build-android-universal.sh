@@ -7,8 +7,8 @@ set -Eeuo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cache_root="${ELVANOQ_BUILD_CACHE:-$project_root/.build-cache}"
 java_home="${JAVA_HOME:-$cache_root/jdk-17}"
-android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${ELVANOQ_ANDROID_SDK:-$project_root/android-sdk}}}"
-apk_name="ELVANOQ-v2.17.13-universal.apk"
+android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${ELVANOQ_ANDROID_SDK:-$project_root/.build-cache/android-sdk}}}"
+apk_name="ELVANOQ-v2.17.14-universal.apk"
 
 # Expo reads .env during bundling, but validating it here avoids publishing an
 # APK where the TMDB section silently has no credentials.
@@ -39,7 +39,8 @@ export ANDROID_SDK_ROOT="$android_sdk_root"
 export NODE_ENV="${NODE_ENV:-production}"
 export CI="${CI:-1}"
 export EXPO_NO_TELEMETRY="${EXPO_NO_TELEMETRY:-1}"
-export GRADLE_USER_HOME="$cache_root/gradle"
+export GRADLE_USER_HOME="$cache_root/gradle-offline"
+export ELVANOQ_LOCAL_MAVEN_REPOSITORY="$cache_root/local-maven"
 export npm_config_cache="$cache_root/npm"
 
 mkdir -p "$GRADLE_USER_HOME" "$npm_config_cache"
@@ -74,7 +75,8 @@ cd android
 # The ELVANOQ build kit persists every Android/Gradle artifact required for a
 # release.  Offline mode makes the build deterministic and avoids repository
 # checks when the local cache already contains the resolved dependencies.
-./gradlew --offline --no-daemon --max-workers=2 -Dorg.gradle.parallel=false assembleRelease
+./gradlew --offline --no-daemon --max-workers=2 -Dorg.gradle.parallel=false \
+  --init-script "$project_root/tools/gradle-offline-init.gradle" assembleRelease
 
 mkdir -p "$project_root/release"
 cp app/build/outputs/apk/release/app-release.apk "$project_root/release/$apk_name"

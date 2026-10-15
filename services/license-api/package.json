@@ -1,0 +1,37 @@
+{
+  "name": "@elvanoq/license-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "test": "vitest run",
+    "security:purge-throttle": "tsx src/security/purge-throttle-buckets.ts",
+    "security:bench-throttle": "tsx src/security/benchmark-throttle.ts",
+    "security:preflight-throttle": "tsx src/security/throttle-preflight.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.0",
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/config": "^4.0.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.11",
+    "class-validator": "^0.14.2",
+    "class-transformer": "^0.5.1",
+    "@nestjs/throttler": "^6.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "prisma": "^6.16.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

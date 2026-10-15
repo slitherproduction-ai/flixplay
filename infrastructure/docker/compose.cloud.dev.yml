@@ -1,0 +1,23 @@
+# Development only. Set POSTGRES_PASSWORD in the shell; never deploy publicly.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: elvanoq
+      POSTGRES_DB: elvanoq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - cloud_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elvanoq -d elvanoq"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+volumes:
+  cloud_pgdata:

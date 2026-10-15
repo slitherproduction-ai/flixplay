@@ -1,0 +1,49 @@
+# Isolated staging candidate only. Never run against production data.
+# Launch from repository root:
+# docker compose -f infrastructure/hostinger/compose.staging.yml --env-file <private-staging-env> up -d --build
+# No public ports: API binds to localhost and PostgreSQL is internal.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: elvanoq_staging
+      POSTGRES_DB: elvanoq_staging
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?Set a unique staging database password}
+    volumes:
+      - staging_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elvanoq_staging -d elvanoq_staging"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [private]
+  api:
+    build:
+      context: ../../services/license-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+      PORT: "3001"
+      DATABASE_URL: ${STAGING_DATABASE_URL:?Set staging connection URL using postgres hostname}
+      CORS_ORIGINS: ${STAGING_CORS_ORIGINS:?Set HTTPS staging portal origin}
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [private]
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  staging_pgdata:
+networks:
+  private:
+    internal: false

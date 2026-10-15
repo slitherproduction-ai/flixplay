@@ -13,6 +13,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
+import com.fastshot.slitherproduction.flixplay.security.LicenseKeyCapabilityPackage
 import com.fastshot.slitherproduction.flixplay.security.SecureStoragePackage
 import com.fastshot.slitherproduction.flixplay.data.CatalogDatabasePackage
 
@@ -24,6 +25,7 @@ class MainApplication : Application(), ReactApplication {
       packageList =
         PackageList(this).packages.apply {
           add(SecureStoragePackage())
+          add(LicenseKeyCapabilityPackage())
           add(CatalogDatabasePackage())
         }
     )

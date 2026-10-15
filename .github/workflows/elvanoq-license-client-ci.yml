@@ -1,0 +1,23 @@
+name: ELVANOQ License Client CI
+on:
+  push:
+    branches: [feature/elvanoq-cloud-foundation]
+    paths:
+      - "packages/elvanoq-license-client/**"
+      - ".github/workflows/elvanoq-license-client-ci.yml"
+  pull_request:
+    paths:
+      - "packages/elvanoq-license-client/**"
+      - ".github/workflows/elvanoq-license-client-ci.yml"
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Typecheck isolated licensing client
+        run: npx --yes --package typescript@6.0.3 tsc --project packages/elvanoq-license-client/tsconfig.json
+      - name: Test entitlement policy (mock crypto callback)
+        run: npx --yes --package tsx@4.20.6 tsx --test packages/elvanoq-license-client/tests/*.test.ts

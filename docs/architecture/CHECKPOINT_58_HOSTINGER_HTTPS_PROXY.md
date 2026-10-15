@@ -8,4 +8,4 @@ Created example Nginx configurations for dedicated staging API and portal hostna
 - Validate Nginx syntax with nginx -t and verify certificates and DNS before enabling these examples.
 - DNS setup, TLS certificate issuance, VPS access, secrets, backups, system hardening, restart tests and actual deployment remain pending. Do not enable these files on production without separate review.
 
-Nothing was deployed to Hostinger; ELVANOQ Android v2.17.11 was not modified.
+Nothing was deployed to Hostinger; ELVANOQ Android was not modified. The current app reference is v2.17.13 (reported separately and not validated in this infrastructure checkpoint).

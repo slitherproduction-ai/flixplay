@@ -61,8 +61,9 @@ describe('PostgreSQL distributed rate limiting', () => {
   it('does not purge an active block after its counting window has elapsed', async () => {
     const key = randomUUID();
     keys.push('default:' + key);
-    await first.increment(key, 10, 1, 60_000, 'default');
-    await second.increment(key, 10, 1, 60_000, 'default');
+    await first.increment(key, 60_000, 1, 60_000, 'default');
+    const blocked = await second.increment(key, 60_000, 1, 60_000, 'default');
+    expect(blocked.isBlocked).toBe(true);
     await firstDb.apiThrottleBucket.update({
       where: { key: 'default:' + key }, data: { windowEndsAt: new Date(Date.now() - 5_000) },
     });

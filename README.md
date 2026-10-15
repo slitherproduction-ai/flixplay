@@ -1,106 +1,156 @@
-# ELVANOQ Play
+# ELVANOQ
 
-Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Native. O projeto inclui navegação por controle remoto, reprodução de conteúdo, listas Xtream e uma versão Android para Fire TV.
+Aplicativo Android de streaming para listas próprias e autorizadas, com suporte a **TV ao vivo, filmes e séries**. O projeto é construído com Expo, React Native e Expo Router, com uma experiência adaptativa para smartphone, Android TV, Google TV, Fire TV e Fire Stick.
+
+> O ELVANOQ não fornece conteúdo, listas ou credenciais. Use somente fontes para as quais você tenha autorização de acesso e reprodução.
 
 ## Versão atual
 
-- **2.17.13** — guia TV ao vivo responsivo e navegação por controle remoto refinada.
-- Pacote Android: `com.fastshot.slitherproduction.flixplay`.
-- APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
-- A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
+| Item | Valor |
+| --- | --- |
+| Versão | `2.17.13` |
+| Build / versionCode | `20261028` |
+| Pacote Android | `com.fastshot.slitherproduction.flixplay` |
+| Android mínimo | API 24 |
+| Arquiteturas do APK universal | `armeabi-v7a`, `arm64-v8a` |
+| Último APK validado | `ELVANOQ-v2.17.13-universal.apk` |
 
-## Estado da versão
+O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e o rodapé de login exibem a versão e o build instalados.
 
-A versão 2.17.13 consolida os refinamentos mais recentes de interface, navegação por controle remoto, TV ao Vivo e player. Consulte o [CHANGELOG](CHANGELOG.md) para o histórico de versões.
+## Principais recursos
 
-## Novidades da 2.17.13
+- Conexão por **Xtream Codes** ou importação de **M3U/M3U Plus**, com XMLTV opcional.
+- Catálogo de TV ao vivo, filmes e séries, incluindo busca, favoritos, bloqueios, assistir mais tarde e continuar assistindo.
+- Guia de TV ao vivo responsivo: lista de canais à esquerda e preview/EPG à direita no modo TV.
+- Preview com áudio apenas enquanto a guia TV ao vivo está ativa; ao sair da tela, a reprodução é pausada.
+- Player com HLS/TS, áudio e legendas, OSD, troca rápida de canais, escolha de proporção, PiP no Android e preferência de formato de stream.
+- Metadados complementares do TMDB quando configurado para o build.
+- Controle parental, diagnóstico de conexão, cache local por servidor e relatório técnico sanitizado.
+- Interface responsiva: navegação inferior para toque e menu lateral retrátil com D-pad para TV.
+- Tratamento visual premium com imagens full-bleed, degradês cinematográficos e Glass Blur apenas nas superfícies de vidro.
 
-- Guia TV ao Vivo estruturado em dois painéis: lista de canais à esquerda e preview/EPG à direita.
-- Preview do canal é pausado ao sair da guia, evitando áudio residual em outras telas.
-- Títulos e EPG receberam escala e espaçamento refinados para TVs 720p e 1080p.
-- Menu lateral permanece aberto durante transições rápidas de foco no D-Pad.
-- Versão Android `2.17.13`, build `20261028`.
+## Estrutura do projeto
 
-## Mantido da 2.14.0
+| Caminho | Responsabilidade |
+| --- | --- |
+| `app/` | Rotas, telas e fluxos da aplicação (Expo Router) |
+| `components/` | Componentes reutilizáveis, foco de TV e menu lateral |
+| `services/` | Xtream, M3U, XMLTV, TMDB, player externo e atualizador |
+| `hooks/` | Sincronização de catálogo, EPG, paginação e controle remoto |
+| `store/` | Estado persistente da aplicação com Zustand |
+| `plugins/` | Configuração nativa Android, TV e arquiteturas ARM |
+| `tools/` | Preparação/verificação do ambiente e build universal |
+| `__tests__/` | Testes automatizados Jest |
+| `android/` | Projeto Android nativo gerado/configurado para release |
 
-- Digitação direta do número do canal com confirmação automática após 1,5 segundo.
-- Mapeamento de CH+/CH- e botões coloridos para favoritos, proporção, faixas e EPG.
-- OSD configurável em 3, 5 ou 7 segundos.
-- Salto de VOD configurável em 10, 30 ou 60 segundos.
-- Preferência real de stream HLS/TS e User-Agent personalizado aplicado às requisições.
-- Zapping agrupado para evitar corridas ao pressionar o controle rapidamente.
-- Histórico da tela **Sobre** limitado às duas versões mais recentes.
+## Requisitos de desenvolvimento
 
-### Mantido da 2.13.0
+- Node.js compatível com Expo 57 e npm.
+- JDK 17 completo (com `javac`) para builds Android.
+- Para builds nativos: Android SDK API 36, Build Tools 36.0.0, NDK 27.1.12297006 e CMake 3.22.1.
+- Uma credencial de leitura do TMDB somente quando desejar incluir metadados TMDB no APK de produção.
 
-- Cofre de credenciais baseado em Android Keystore, com migração automática do armazenamento legado.
-- Cache SQLite separado por servidor, sincronização progressiva e restauração offline.
-- Player sem funções simuladas: faixas reais de áudio/legendas e remoção de Cast/buffer fictícios.
-- Quick Switcher virtualizado com catálogo completo e zapping direto por cima/baixo.
-- Busca global de canais, filmes e séries.
-- Diagnóstico técnico com dados reais e relatório sanitizado.
-- Atualizador com SemVer estrito e seleção segura de APK HTTPS.
-
-### Mantido da 2.12.1
-
-- Menu lateral opaco e compacto, sem blocos visuais do conteúdo ao fundo.
-- Sequência D-Pad vertical determinística no menu lateral.
-- Textos não interativos removidos da busca de foco nativa da TV.
-- Switches dos Ajustes convertidos em linhas inteiras selecionáveis.
-- Login em TV inicia diretamente no campo Host / URL.
-
-### Mantido da 2.12.0
-
-- Menu lateral retrátil exclusivo do modo TV, com foco D-Pad claro e atalhos para as cinco áreas principais.
-- Memória de foco por seção para retornar ao último filme, série, canal ou item do menu acessado.
-- Grade de canais ao vivo com quatro a seis cards por linha em TV.
-- Navegação inferior touch preservada em smartphones e tablets.
-
-### Mantido da 2.11.0
-
-- Nova logo horizontal aplicada ao login e ao cabeçalho da Home.
-- Novo ícone aplicado ao launcher, Splash e tela **Sobre**.
-- Grades móveis de filmes e séries com três cards por linha.
-- Função Trakt.tv removida dos ajustes e do armazenamento local.
-
-### Mantido da 2.10.1
-
-- Aviso de saída responsivo em smartphones.
-- EPG carregado nos cards antes de abrir o canal.
-- Informações do servidor removidas da Home.
-- Recursos gráficos e arquivos de desenvolvimento sem uso removidos.
-
-### Mantido da 2.10.0
-
-- Home de TV com 5–7 títulos visíveis por linha, foco 1,05x e navegação D-Pad.
-- OSD com auto-hide configurado em 4 segundos e animação de fade-out.
-- Máquina de estados exclusiva para OSD, Zapping Rápido e EPG.
-- A tecla Voltar fecha primeiro a camada ativa e, depois, solicita confirmação de saída.
-- Mantidos o PiP nativo, EPG real e progresso real de filmes e episódios da versão 2.9.0.
-
-## Desenvolvimento
+Instale as dependências com o lockfile versionado:
 
 ```bash
-bun install
+npm ci
+```
+
+## Executar em desenvolvimento
+
+```bash
 npx expo start
 ```
 
-O arquivo `bun.lock` fixa as dependências. O projeto Android é gerado a partir de `app.json` e dos plugins em `plugins/`.
+Use o cliente/dispositivo compatível indicado pelo Expo. A identificação de Android TV é automática; em outros dispositivos, o modo TV pode ser habilitado nas preferências do player para validar a navegação por controle remoto.
 
-## Compilar Android
+## Configuração local
 
-Instale JDK 17, Android SDK 36, Build Tools, NDK 27.1.12297006 e CMake 3.22.1. Configure `ANDROID_HOME` e `ANDROID_SDK_ROOT` para o SDK local e execute:
+Crie um arquivo `.env` local, que não deve ser versionado:
 
-```bash
-npx expo prebuild --platform android --clean
-cd android
-./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
+```dotenv
+EXPO_PUBLIC_TMDB_ACCESS_TOKEN=seu_token_de_leitura_do_tmdb
 ```
 
-O arquivo gerado fica em `android/app/build/outputs/apk/release/app-release.apk`. O repositório não inclui SDK, dependências instaladas, cache de compilação, chaves privadas ou arquivos locais. O build gerado usa a chave de desenvolvimento do Android; para distribuição contínua, configure uma chave de assinatura própria e mantenha a mesma chave nas próximas versões. Um APK assinado com chave diferente não atualiza uma instalação existente sem reinstalação.
+O token é opcional durante o desenvolvimento da interface, mas o script de release o valida antes de criar o APK para impedir uma distribuição sem os metadados configurados. Nunca registre esse valor no Git, no README ou em relatórios.
 
-## Atualizações pelo aplicativo
+As conexões Xtream, M3U e XMLTV são configuradas pelo próprio aplicativo.
 
-O verificador consulta a [última GitHub Release](https://github.com/slitherproduction-ai/flixplay/releases/latest) e procura um APK anexado à publicação. O código no repositório, por si só, não disponibiliza um instalador ao verificador. Para distribuir uma versão pelo aplicativo, publique uma Release com a tag correspondente à versão e anexe o APK assinado com a mesma chave da instalação anterior.
+## Qualidade
 
-Use somente listas e conteúdos para os quais você tenha autorização de acesso e reprodução.
+Execute antes de abrir uma revisão ou gerar uma release:
+
+```bash
+npx tsc --noEmit
+npm test -- --runInBand
+npm run lint
+```
+
+Na validação da versão `2.17.13`, TypeScript foi aprovado e os testes automatizados concluíram com **27 suítes / 113 testes**. A validação estática não substitui os testes físicos em smartphone, Android TV, Fire TV e Fire Stick.
+
+## Compilar APK universal
+
+O projeto possui um script de build que confere os pré-requisitos, exige a configuração TMDB, utiliza caches locais e gera um APK ARM universal.
+
+1. Prepare o SDK, NDK, JDK e cache local conforme [ANDROID_COMPILER_ENVIRONMENT.md](ANDROID_COMPILER_ENVIRONMENT.md).
+2. Opcionalmente, carregue o ambiente persistente local:
+
+   ```bash
+   source tools/activate-android-build-env.sh
+   ```
+
+3. Verifique o ambiente e execute a montagem:
+
+   ```bash
+   ./tools/verify-android-build-env.sh
+   npm run android:universal
+   ```
+
+O resultado da versão atual é gravado em:
+
+```text
+release/ELVANOQ-v2.17.13-universal.apk
+```
+
+O script executa o Gradle em modo offline e usa, por padrão, `android-sdk/` e `.build-cache/` ao lado do código-fonte. Para reutilizar cache em outro local persistente, defina `ELVANOQ_BUILD_CACHE` antes do build. Detalhes adicionais estão em [BUILD_APK_UNIVERSAL.md](BUILD_APK_UNIVERSAL.md).
+
+### Assinatura e atualização
+
+O build local usa a configuração de assinatura disponível no ambiente Android. Para distribuir atualizações sobre uma instalação existente, mantenha sempre a **mesma chave de assinatura**. Um APK assinado por outra chave não atualiza o aplicativo instalado; será necessário desinstalar a versão anterior.
+
+Antes de distribuir, valide pelo menos:
+
+```bash
+unzip -t release/ELVANOQ-v2.17.13-universal.apk
+apksigner verify --verbose release/ELVANOQ-v2.17.13-universal.apk
+```
+
+## Atualização dentro do aplicativo
+
+O verificador consulta a [última GitHub Release](https://github.com/slitherproduction-ai/flixplay/releases/latest) e procura um APK anexado. Apenas enviar código ao repositório não disponibiliza uma atualização.
+
+Para publicar uma versão:
+
+1. Gere e valide o APK assinado.
+2. Crie uma GitHub Release com tag compatível com a versão publicada.
+3. Anexe o APK da release.
+4. Preserve a chave de assinatura já usada pelos dispositivos instalados.
+
+## Testes físicos recomendados
+
+Em cada release, valide em aparelho real:
+
+- Login via Xtream e importação M3U/XMLTV.
+- Navegação touch em smartphone e D-pad em Android TV/Fire TV/Fire Stick.
+- Foco/expansão do menu lateral sem sumiço de ícones ou rótulos.
+- Guia TV ao vivo, áudio do preview e interrupção do áudio ao sair da tela.
+- Player, OSD, áudio, legendas, PiP e retorno da reprodução.
+- Atualização sobre uma instalação anterior com a mesma assinatura.
+
+## Documentação relacionada
+
+- [Changelog](CHANGELOG.md)
+- [Ambiente de compilação Android](ANDROID_COMPILER_ENVIRONMENT.md)
+- [Build universal](BUILD_APK_UNIVERSAL.md)
+- [Validação da v2.17.13](ELVANOQ-v2.17.13-VALIDACAO.md)
+- [Changelog da v2.17.13](ELVANOQ-v2.17.13-CHANGELOG.md)

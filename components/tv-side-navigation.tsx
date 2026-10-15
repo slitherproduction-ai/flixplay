@@ -48,9 +48,9 @@ export function TvSideNavigation() {
   }, [cancelCollapse]);
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
     // Android TV can emit blur before the next item in the rail receives focus,
-    // especially when directional input is repeated. Keep the rail open for a
-    // full transition window and collapse only when that same item has not been
-    // replaced. This prevents labels and icons from disappearing mid-navigation.
+    // especially when directional input is repeated.  A longer grace period is
+    // deliberate: the rail must not collapse while the user is traversing its
+    // entries, even on slower Fire TV devices where focus events arrive apart.
     const epochAtBlur = focusEpoch.current;
     cancelCollapse();
     collapseTimer.current = setTimeout(() => {
@@ -59,7 +59,7 @@ export function TvSideNavigation() {
       focusedRouteRef.current = null;
       setFocusedRouteKey(null);
       setExpanded(false);
-    }, 950);
+    }, 2_600);
   }, [cancelCollapse]);
 
   useEffect(() => () => cancelCollapse(), [cancelCollapse]);

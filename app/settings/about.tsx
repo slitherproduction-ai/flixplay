@@ -41,6 +41,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: "v2.17.13",
+    date: "2026.10",
+    changes: [
+      { tag: "Correção", text: "O preview de TV ao vivo é pausado ao sair da guia, impedindo que o áudio continue ao navegar para Início, Filmes, Séries ou player." },
+      { tag: "Melhoria", text: "A guia TV ao vivo passou a usar painéis reais lado a lado: lista compacta à esquerda e preview com EPG à direita." },
+      { tag: "Melhoria", text: "No guia de TV, títulos dos canais usam 14 px e a programação EPG 10 px para uma leitura proporcional em telas grandes." },
+      { tag: "Correção", text: "O menu lateral da TV mantém-se aberto durante a transição de foco entre itens do controle remoto." },
+    ],
+  },
+  {
     version: "v2.17.12",
     date: "2026.10",
     changes: [

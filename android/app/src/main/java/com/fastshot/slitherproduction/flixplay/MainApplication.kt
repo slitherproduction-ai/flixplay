@@ -13,8 +13,6 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
-import com.fastshot.slitherproduction.flixplay.security.SecureStoragePackage
-import com.fastshot.slitherproduction.flixplay.data.CatalogDatabasePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -23,8 +21,8 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          add(SecureStoragePackage())
-          add(CatalogDatabasePackage())
+          // Packages that cannot be autolinked yet can be added manually here, for example:
+          // add(MyReactNativePackage())
         }
     )
   }

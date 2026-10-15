@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.13] — 2026-10-14
+
+### Guia TV responsivo e áudio controlado
+
+- Guia TV ao vivo reestruturado em dois painéis reais: lista de canais compacta à esquerda e preview/EPG à direita, sem sobreposição entre as áreas.
+- Tipografia TV ajustada para título de canal em 14 px e EPG em 10 px, preservando uma escala confortável em 720p e 1080p.
+- Preview de canal agora pausa quando a guia TV ao vivo perde foco, eliminando áudio residual ao navegar para Início, Filmes, Séries ou player.
+- Janela de foco do menu lateral TV ampliada para evitar que ícones e rótulos recolham durante a troca rápida pelo controle remoto.
+
 ## [2.17.12] — 2026-10-14
 
 ### Navegação de TV e guia ao vivo

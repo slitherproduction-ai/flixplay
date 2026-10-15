@@ -3,7 +3,9 @@ import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -12,6 +14,42 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
+  /**
+   * Fire TV remotes do not consistently expose DPAD_CENTER/Enter to React
+   * after the player overlay has faded. Forward the physical key to the same
+   * event channel used by the JS TV focus layer, while still allowing the
+   * currently focused native Pressable to receive its normal click.
+   */
+  override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    if (event.action == KeyEvent.ACTION_UP) {
+      val remoteKey = when (event.keyCode) {
+        KeyEvent.KEYCODE_DPAD_CENTER,
+        KeyEvent.KEYCODE_ENTER,
+        KeyEvent.KEYCODE_NUMPAD_ENTER,
+        KeyEvent.KEYCODE_BUTTON_A -> "select"
+        KeyEvent.KEYCODE_DPAD_UP -> "up"
+        KeyEvent.KEYCODE_DPAD_DOWN -> "down"
+        KeyEvent.KEYCODE_DPAD_LEFT -> "left"
+        KeyEvent.KEYCODE_DPAD_RIGHT -> "right"
+        KeyEvent.KEYCODE_CHANNEL_UP -> "channelUp"
+        KeyEvent.KEYCODE_CHANNEL_DOWN -> "channelDown"
+        else -> null
+      }
+      if (remoteKey != null) {
+        (application as MainApplication).reactHost.currentReactContext?.emitDeviceEvent(
+          "ELVANOQ_REMOTE_KEY",
+          Arguments.createMap().apply {
+            putString("key", remoteKey)
+            putString("code", event.keyCode.toString())
+            putString("eventType", "up")
+            putDouble("timestamp", System.currentTimeMillis().toDouble())
+          },
+        )
+      }
+    }
+    return super.dispatchKeyEvent(event)
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.

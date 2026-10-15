@@ -4,21 +4,22 @@ Aplicativo para TV ao vivo, filmes e séries, desenvolvido com Expo e React Nati
 
 ## Versão atual
 
-- **2.17.12** — refinamentos de navegação para Android TV, Fire TV e smartphones.
+- **2.17.13** — guia TV ao vivo responsivo e navegação por controle remoto refinada.
 - Pacote Android: `com.fastshot.slitherproduction.flixplay`.
 - APK universal compilado para `armeabi-v7a` e `arm64-v8a`; SDK mínimo 24.
 - A tela **Sobre** mostra os dados da versão instalada e o histórico recente de versões.
 
 ## Estado da versão
 
-A versão 2.17.12 consolida os refinamentos mais recentes de interface, navegação por controle remoto, TV ao Vivo e player. Consulte o [CHANGELOG](CHANGELOG.md) para o histórico de versões.
+A versão 2.17.13 consolida os refinamentos mais recentes de interface, navegação por controle remoto, TV ao Vivo e player. Consulte o [CHANGELOG](CHANGELOG.md) para o histórico de versões.
 
-## Novidades da 2.17.12
+## Novidades da 2.17.13
 
-- Menu lateral da TV mais compacto, com ícones e rótulos estáveis durante movimentos rápidos no D-Pad.
-- Expansão retrátil do menu aperfeiçoada para Android TV e Fire TV.
-- Guia TV ao Vivo mais denso e equilibrado em telas grandes, preservando preview e EPG.
-- Versão Android `2.17.12`, build `20261027`.
+- Guia TV ao Vivo estruturado em dois painéis: lista de canais à esquerda e preview/EPG à direita.
+- Preview do canal é pausado ao sair da guia, evitando áudio residual em outras telas.
+- Títulos e EPG receberam escala e espaçamento refinados para TVs 720p e 1080p.
+- Menu lateral permanece aberto durante transições rápidas de foco no D-Pad.
+- Versão Android `2.17.13`, build `20261028`.
 
 ## Mantido da 2.14.0
 

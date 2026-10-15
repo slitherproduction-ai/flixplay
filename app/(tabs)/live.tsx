@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -183,13 +183,13 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
           <View style={styles.channelDetails}>
             <View style={styles.channelTitleRow}>
               <AppText style={[styles.channelNumber, tvMode && styles.tvChannelNumber]}>{channel.number}</AppText>
-              <AppText style={styles.channelTitle}>{channel.name}</AppText>
+              <AppText style={[styles.channelTitle, tvMode && styles.tvChannelTitle]}>{channel.name}</AppText>
               <View style={styles.liveBadge}>
                 <View style={styles.liveDot} />
                 <AppText style={styles.liveText}>AO VIVO</AppText>
               </View>
             </View>
-            <AppText style={styles.programTitle}>{channel.currentEpg.title}</AppText>
+            <AppText style={[styles.programTitle, tvMode && styles.tvProgramTitle]}>{channel.currentEpg.title}</AppText>
             <View style={styles.programTimes}>
               <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
               <View style={styles.programTrack}>
@@ -375,28 +375,44 @@ function TvLiveUtility() {
 function TvChannelPreview({
   channel,
   width,
-  top,
-  right,
+  active,
 }: {
   channel: ChannelItem | undefined;
   width: number;
-  top: number;
-  right: number;
+  /** A tab stays mounted after navigation; only the active route may emit audio. */
+  active: boolean;
 }) {
   const source = channel?.streamUrl ? { uri: channel.streamUrl } : null;
   const player = useVideoPlayer(source, (videoPlayer) => {
-    // The guide preview is an actual live preview, not a silent poster.  Use
-    // a dedicated audio session so the selected channel is immediately heard.
+    // Configure the stream once. Playback is controlled below by navigation
+    // focus so a preview from an inactive tab can never keep its audio alive.
     videoPlayer.muted = false;
     videoPlayer.volume = 1;
     videoPlayer.audioMixingMode = "doNotMix";
-    videoPlayer.play();
   });
+
+  useEffect(() => {
+    if (!active || !channel?.streamUrl) {
+      try { player.pause(); } catch { /* native player may already be disposed */ }
+      return;
+    }
+    try {
+      player.muted = false;
+      player.volume = 1;
+      player.play();
+    } catch {
+      // The player retries internally when a live endpoint is temporarily unavailable.
+    }
+    return () => {
+      try { player.pause(); } catch { /* native player may already be disposed */ }
+    };
+  }, [active, channel?.streamUrl, player]);
+
   if (!channel) return null;
   const epg = channel.currentEpg;
   const hasSchedule = Boolean(epg.start || epg.end) && epg.title !== "Sem programação";
   return (
-    <GlassCard style={[styles.tvPreview, { width, top, right }]} intensity={28}>
+    <GlassCard style={[styles.tvPreview, { width }]} intensity={28}>
       <View style={styles.tvPreviewStage}>
         <VideoView player={player} contentFit="cover" nativeControls={false} style={StyleSheet.absoluteFill} />
         {channel.logo ? <Image source={{ uri: channel.logo }} contentFit="contain" style={styles.tvPreviewWatermark} /> : null}
@@ -438,7 +454,14 @@ function TvChannelPreview({
 export default function LiveScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
-  const { width, height } = useWindowDimensions();
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  // Use Expo Router's focus hook rather than importing React Navigation
+  // directly: the router owns the navigation integration in the release bundle.
+  useFocusEffect(useCallback(() => {
+    setIsScreenFocused(true);
+    return () => setIsScreenFocused(false);
+  }, []));
+  const { width } = useWindowDimensions();
   const [category, setCategory] = useState("Todos");
   const [query, setQuery] = useState("");
   const [viewMode, toggleViewMode] = useViewMode();
@@ -560,9 +583,8 @@ export default function LiveScreen() {
   const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : 20;
   const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
-  const tvPreviewWidth = Math.round(Math.min(670, Math.max(430, tvGuideWidth * 0.445)));
+  const tvPreviewWidth = Math.round(Math.min(670, Math.max(360, tvGuideWidth * 0.47)));
   const tvPreviewGap = Math.max(20, Math.min(30, Math.round(tvGuideWidth * 0.02)));
-  const tvPreviewTop = Math.max(132, Math.min(172, Math.round(height * 0.155)));
   const columnGap = 10;
   const numGridColumns = tvMode
     ? (width >= 1500 ? 6 : width >= 1100 ? 5 : 4)
@@ -671,6 +693,59 @@ export default function LiveScreen() {
     [isEmpty, refresh, category, filteredChannels.length],
   );
 
+  const channelList = (
+    <FlatList
+      ref={listRef}
+      key={effectiveViewMode === "grid" ? `grid-${numGridColumns}` : "list"}
+      data={visibleChannels}
+      numColumns={effectiveViewMode === "grid" ? numGridColumns : 1}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+      ListHeaderComponent={listHeaderElement}
+      ListEmptyComponent={listEmptyElement}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="none"
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[
+        styles.content,
+        tvMode && styles.tvContent,
+        { paddingHorizontal: horizontalPadding },
+      ]}
+      columnWrapperStyle={effectiveViewMode === "grid" ? { gap: columnGap } : undefined}
+      ItemSeparatorComponent={
+        effectiveViewMode === "list" ? () => <View style={styles.rowSeparator} /> : null
+      }
+      initialNumToRender={20}
+      maxToRenderPerBatch={25}
+      windowSize={7}
+      removeClippedSubviews={Platform.OS === "android"}
+      onViewableItemsChanged={handleViewableItemsChanged}
+      onScrollToIndexFailed={onScrollToIndexFailed}
+      onEndReached={pager.enabled && category !== FAVORITES_LABEL ? pager.loadMore : undefined}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={pager.loading && visibleChannels.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
+    />
+  );
+
+  if (tvMode) {
+    return (
+      <View style={styles.screen}>
+        <ParentalGate visible={pendingChannelId !== null} onAuthorized={openAuthorizedChannel} onClose={() => setPendingChannelId(null)} />
+        <View style={styles.ambient} />
+        <View style={[styles.searchBar, styles.tvSearchBar, { paddingHorizontal: horizontalPadding }]}>
+          <SearchField value={query} onChangeText={setQuery} placeholder="Buscar canal ou programa" />
+        </View>
+        <View style={[styles.tvGuideLayout, { gap: tvPreviewGap, paddingHorizontal: horizontalPadding }]}>
+          <View style={styles.tvChannelPane}>{channelList}</View>
+          <View style={styles.tvPreviewPane}>
+            <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} active={isScreenFocused} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       <ParentalGate visible={pendingChannelId !== null} onAuthorized={openAuthorizedChannel} onClose={() => setPendingChannelId(null)} />
@@ -683,40 +758,7 @@ export default function LiveScreen() {
           placeholder="Buscar canal ou programa"
         />
       </View>
-      <FlatList
-        ref={listRef}
-        key={effectiveViewMode === "grid" ? `grid-${numGridColumns}` : "list"}
-        data={visibleChannels}
-        numColumns={effectiveViewMode === "grid" ? numGridColumns : 1}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={listHeaderElement}
-        ListEmptyComponent={listEmptyElement}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="none"
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.content,
-          tvMode && styles.tvContent,
-          tvMode && [styles.tvContentWithPreview, { paddingRight: tvPreviewWidth + tvPreviewGap }],
-          { paddingHorizontal: horizontalPadding },
-        ]}
-        columnWrapperStyle={effectiveViewMode === "grid" ? { gap: columnGap } : undefined}
-        ItemSeparatorComponent={
-          effectiveViewMode === "list" ? () => <View style={styles.rowSeparator} /> : null
-        }
-        initialNumToRender={20}
-        maxToRenderPerBatch={25}
-        windowSize={7}
-        removeClippedSubviews={Platform.OS === "android"}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        onScrollToIndexFailed={onScrollToIndexFailed}
-        onEndReached={pager.enabled && category !== FAVORITES_LABEL ? pager.loadMore : undefined}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={pager.loading && visibleChannels.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
-      />
-      {tvMode ? <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} top={tvPreviewTop} right={horizontalPadding} /> : null}
+      {channelList}
     </View>
   );
 }
@@ -817,11 +859,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(16, 185, 129, 0.07)",
   },
   searchBar: { paddingTop: 12, paddingBottom: 3 },
+  tvSearchBar: { paddingTop: 18, paddingBottom: 10 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 35 },
   tvContent: { paddingBottom: 42 },
-  // A dedicated right pane gives the guide the same stable two-column rhythm
-  // as a TV interface: channel navigation left, selected programme right.
-  tvContentWithPreview: {},
+  // A real flex row, rather than an absolutely-positioned overlay, keeps the
+  // channel list and the programme panel proportional at 720p and 1080p.
+  tvGuideLayout: { flex: 1, minHeight: 0, flexDirection: "row", paddingBottom: 18 },
+  tvChannelPane: { flex: 1, minWidth: 0 },
+  tvPreviewPane: { flexShrink: 0, alignSelf: "flex-start", paddingTop: 8 },
   headerBlock: { gap: 10, paddingTop: 8, marginBottom: 4 },
   syncBanner: {
     flexDirection: "row",
@@ -887,7 +932,7 @@ const styles = StyleSheet.create({
   tvCategoryScroller: { marginTop: -2 },
   tvCategoryContent: { gap: 6, paddingVertical: 0 },
   tvListHeading: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 2, marginBottom: 2 },
-  tvListTitle: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 17, letterSpacing: -0.2 },
+  tvListTitle: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 21, letterSpacing: -0.2 },
   tvListCount: { color: Colors.subtle, fontFamily: "Inter_500Medium", fontSize: 10 },
   rowSeparator: { height: 8 },
   pageLoader: { paddingVertical: 20 },
@@ -920,6 +965,9 @@ const styles = StyleSheet.create({
   channelNumber: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.subtle },
   tvChannelNumber: { minWidth: 29, fontSize: 10, color: "rgba(226,239,255,0.78)", fontVariant: ["tabular-nums"] },
   channelTitle: { flexShrink: 1, fontFamily: "Inter_700Bold", fontSize: 14, color: Colors.text },
+  // Exact TV guide scale: compact enough for six-or-more visible channels,
+  // while preserving a calm viewing distance on a 720p or 1080p panel.
+  tvChannelTitle: { fontSize: 14, lineHeight: 17 },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -932,6 +980,7 @@ const styles = StyleSheet.create({
   liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.red },
   liveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.4, color: "#FF6870" },
   programTitle: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
+  tvProgramTitle: { fontSize: 10, lineHeight: 13, color: "rgba(222,235,250,0.84)" },
   programTimes: { flexDirection: "row", alignItems: "center", gap: 6 },
   programTime: { fontVariant: ["tabular-nums"], fontSize: 9, color: Colors.subtle },
   programTrack: {
@@ -977,8 +1026,6 @@ const styles = StyleSheet.create({
   },
   syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.white },
   tvPreview: {
-    position: "absolute",
-    right: 30,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(190,224,255,0.24)",

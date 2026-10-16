@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.17.14] — 2026-10-15
+
+### Mais estabilidade nas atualizações
+
+- Processo de geração do aplicativo Android aprimorado para tornar as atualizações futuras mais confiáveis.
+- Verificações do ambiente de compilação foram reforçadas para identificar pendências antes de gerar o APK.
+- Preparação de dependências locais e do Gradle otimizada, reduzindo riscos de falhas durante a criação de novas versões.
+- Mantida a experiência atual do ELVANOQ em Android, Android TV, Google TV, Fire TV e Fire Stick.
+
+### Versão
+
+- Versão do aplicativo: `2.17.14`.
+- Build Android: `20261029`.
+- APK universal preparado para `arm64-v8a` e `armeabi-v7a`.
+
 ## [2.17.13] — 2026-10-14
 
 ### Guia TV responsivo e áudio controlado

@@ -171,37 +171,45 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
             {channel.logo ? (
               <Image
                 source={{ uri: channel.logo }}
-                contentFit="cover"
+                contentFit={tvMode ? "contain" : "cover"}
                 style={StyleSheet.absoluteFill}
               />
             ) : null}
-            <View style={styles.imageVeil} />
-            <AppText style={styles.channelInitials}>
-              {channel.name.slice(0, 3).toUpperCase()}
-            </AppText>
+            {!tvMode ? <View style={styles.imageVeil} /> : null}
+            {!tvMode ? (
+              <AppText style={styles.channelInitials}>
+                {channel.name.slice(0, 3).toUpperCase()}
+              </AppText>
+            ) : null}
           </View>
           <View style={styles.channelDetails}>
             <View style={styles.channelTitleRow}>
-              <AppText style={[styles.channelNumber, tvMode && styles.tvChannelNumber]}>{channel.number}</AppText>
-              <AppText style={[styles.channelTitle, tvMode && styles.tvChannelTitle]}>{channel.name}</AppText>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <AppText style={styles.liveText}>AO VIVO</AppText>
-              </View>
+              {!tvMode ? <AppText style={styles.channelNumber}>{channel.number}</AppText> : null}
+              <AppText numberOfLines={1} style={[styles.channelTitle, tvMode && styles.tvChannelTitle]}>{channel.name}</AppText>
+              {!tvMode ? (
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveDot} />
+                  <AppText style={styles.liveText}>AO VIVO</AppText>
+                </View>
+              ) : null}
             </View>
-            <AppText style={[styles.programTitle, tvMode && styles.tvProgramTitle]}>{channel.currentEpg.title}</AppText>
-            <View style={styles.programTimes}>
-              <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
-              <View style={styles.programTrack}>
-                <View
-                  style={[styles.programFill, { width: `${channel.currentEpg.progress}%` }]}
-                />
-              </View>
-              <AppText style={styles.programTime}>{channel.currentEpg.end}</AppText>
-            </View>
-            <AppText numberOfLines={1} style={styles.nextProgram}>
-              A seguir · {channel.nextProgram}
-            </AppText>
+            {!tvMode ? (
+              <>
+                <AppText style={styles.programTitle}>{channel.currentEpg.title}</AppText>
+                <View style={styles.programTimes}>
+                  <AppText style={styles.programTime}>{channel.currentEpg.start}</AppText>
+                  <View style={styles.programTrack}>
+                    <View
+                      style={[styles.programFill, { width: `${channel.currentEpg.progress}%` }]}
+                    />
+                  </View>
+                  <AppText style={styles.programTime}>{channel.currentEpg.end}</AppText>
+                </View>
+                <AppText numberOfLines={1} style={styles.nextProgram}>
+                  A seguir · {channel.nextProgram}
+                </AppText>
+              </>
+            ) : null}
           </View>
         </TVFocusable>
         {!tvMode ? <TVFocusable
@@ -446,31 +454,33 @@ function TvChannelPreview({
   /** A tab stays mounted after navigation; only the active route may emit audio. */
   active: boolean;
 }) {
-  const source = channel?.streamUrl ? { uri: channel.streamUrl } : null;
-  const player = useVideoPlayer(source, (videoPlayer) => {
-    // Configure the stream once. Playback is controlled below by navigation
-    // focus so a preview from an inactive tab can never keep its audio alive.
-    videoPlayer.muted = false;
-    videoPlayer.volume = 1;
+  const streamUrl = channel?.streamUrl;
+  // Keep one native player mounted and explicitly replace its source when the
+  // focused channel changes. Passing the source only to useVideoPlayer can
+  // leave a stale/blank preview on Android TV and Fire TV.
+  const player = useVideoPlayer(null, (videoPlayer) => {
+    videoPlayer.muted = true;
+    videoPlayer.volume = 0;
     videoPlayer.audioMixingMode = "doNotMix";
   });
 
   useEffect(() => {
-    if (!active || !channel?.streamUrl) {
+    if (!active || !streamUrl) {
       try { player.pause(); } catch { /* native player may already be disposed */ }
       return;
     }
     try {
-      player.muted = false;
-      player.volume = 1;
+      player.replace({ uri: streamUrl });
+      player.muted = true;
+      player.volume = 0;
       player.play();
     } catch {
-      // The player retries internally when a live endpoint is temporarily unavailable.
+      // The native player retries while a live endpoint is becoming available.
     }
     return () => {
       try { player.pause(); } catch { /* native player may already be disposed */ }
     };
-  }, [active, channel?.streamUrl, player]);
+  }, [active, channel?.id, streamUrl, player]);
 
   if (!channel) return null;
   const epg = channel.currentEpg;
@@ -787,7 +797,7 @@ export default function LiveScreen() {
       ]}
       columnWrapperStyle={effectiveViewMode === "grid" ? { gap: columnGap } : undefined}
       ItemSeparatorComponent={
-        effectiveViewMode === "list" ? () => <View style={styles.rowSeparator} /> : null
+        effectiveViewMode === "list" ? () => <View style={[styles.rowSeparator, tvMode && styles.tvRowSeparator]} /> : null
       }
       initialNumToRender={20}
       maxToRenderPerBatch={25}
@@ -1044,9 +1054,11 @@ const styles = StyleSheet.create({
   tvListTitle: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 17, lineHeight: 21, letterSpacing: -0.2 },
   tvListCount: { color: Colors.subtle, fontFamily: "Inter_500Medium", fontSize: 10 },
   rowSeparator: { height: 8 },
+  tvRowSeparator: { height: 2 },
   pageLoader: { paddingVertical: 20 },
   channelCard: { minHeight: 116, borderRadius: Radii.medium },
-  tvChannelCard: { minHeight: 60, borderRadius: 10, backgroundColor: "rgba(9,18,33,0.72)", borderColor: "rgba(152,196,240,0.13)" },
+  // TV rows deliberately mirror the category rows: logo + channel name only.
+  tvChannelCard: { minHeight: 33, borderRadius: 7, backgroundColor: "transparent", borderColor: "transparent", borderWidth: 0 },
   channelRow: { flex: 1, flexDirection: "row", alignItems: "center" },
   channelPressable: {
     flex: 1,
@@ -1055,7 +1067,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 11,
   },
-  tvChannelPressable: { gap: 9, paddingHorizontal: 9, paddingVertical: 5 },
+  tvChannelPressable: { minHeight: 33, gap: 9, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7 },
   tvChannelFocused: { borderWidth: 1, borderColor: "rgba(255,255,255,0.95)", backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1 }], opacity: 1 },
   channelImage: {
     width: 80,
@@ -1066,7 +1078,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: Colors.backgroundRaised,
   },
-  tvChannelImage: { width: 46, height: 48, borderRadius: 8 },
+  tvChannelImage: { width: 30, height: 25, borderRadius: 4, backgroundColor: "transparent" },
   imageVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8, 12, 22, 0.45)" },
   channelInitials: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.white },
   channelDetails: { flex: 1, gap: 4 },
@@ -1077,7 +1089,7 @@ const styles = StyleSheet.create({
   // Exact TV guide scale: compact enough for six-or-more visible channels,
   // while preserving a calm viewing distance on a 720p or 1080p panel.
   // TV/Fire TV: compact channel rows, matching the requested 12 px hierarchy.
-  tvChannelTitle: { fontSize: 12, lineHeight: 15 },
+  tvChannelTitle: { flex: 1, fontSize: 12, lineHeight: 15 },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",

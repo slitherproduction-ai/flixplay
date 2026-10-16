@@ -44,6 +44,16 @@ const VERSION_HISTORY: VersionEntry[] = [
     version: "v2.17.14",
     date: "2026.10",
     changes: [
+      { tag: "Correção", text: "Ao sair da TV ao Vivo, o preview é encerrado por completo para liberar áudio, decoder e buffer do canal." },
+      { tag: "Melhoria", text: "O guia de TV mantém categorias, lista compacta de canais e preview com programação em painéis responsivos." },
+      { tag: "Melhoria", text: "Catálogo e EPG receberam paginação, atualização em lote e menor concorrência para reduzir o consumo de memória em Fire TV." },
+      { tag: "Correção", text: "O menu lateral mantém todas as opções visíveis durante a navegação pelo controle remoto." },
+    ],
+  },
+  {
+    version: "v2.17.13",
+    date: "2026.10",
+    changes: [
       { tag: "Correção", text: "O preview de TV ao vivo é pausado ao sair da guia, impedindo que o áudio continue ao navegar para Início, Filmes, Séries ou player." },
       { tag: "Melhoria", text: "A guia TV ao vivo passou a usar painéis reais lado a lado: lista compacta à esquerda e preview com EPG à direita." },
       { tag: "Melhoria", text: "No guia de TV, títulos dos canais usam 14 px e a programação EPG 10 px para uma leitura proporcional em telas grandes." },

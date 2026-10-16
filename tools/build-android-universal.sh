@@ -7,8 +7,11 @@ set -Eeuo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cache_root="${ELVANOQ_BUILD_CACHE:-$project_root/.build-cache}"
 java_home="${JAVA_HOME:-$cache_root/jdk-17}"
-android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${ELVANOQ_ANDROID_SDK:-$project_root/.build-cache/android-sdk}}}"
-apk_name="ELVANOQ-v2.17.14-universal.apk"
+android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${ELVANOQ_ANDROID_SDK:-$project_root/android-sdk}}}"
+node_home="${ELVANOQ_NODE_HOME:-$cache_root/node}"
+export PATH="$node_home/bin:$PATH"
+app_version="$(node -p "require('$project_root/package.json').version")"
+apk_name="ELVANOQ-v${app_version}-universal.apk"
 
 # Expo reads .env during bundling, but validating it here avoids publishing an
 # APK where the TMDB section silently has no credentials.
@@ -33,14 +36,13 @@ if [[ ! -x "$java_home/bin/javac" ]]; then
 fi
 
 export JAVA_HOME="$java_home"
-export PATH="$JAVA_HOME/bin:$PATH"
+export PATH="$node_home/bin:$JAVA_HOME/bin:$PATH"
 export ANDROID_HOME="$android_sdk_root"
 export ANDROID_SDK_ROOT="$android_sdk_root"
 export NODE_ENV="${NODE_ENV:-production}"
 export CI="${CI:-1}"
 export EXPO_NO_TELEMETRY="${EXPO_NO_TELEMETRY:-1}"
-export GRADLE_USER_HOME="$cache_root/gradle-offline"
-export ELVANOQ_LOCAL_MAVEN_REPOSITORY="$cache_root/local-maven"
+export GRADLE_USER_HOME="$cache_root/gradle"
 export npm_config_cache="$cache_root/npm"
 
 mkdir -p "$GRADLE_USER_HOME" "$npm_config_cache"
@@ -59,9 +61,14 @@ if [[ ! -f "$ndk_properties" ]]; then
 fi
 
 cd "$project_root"
+"$project_root/tools/verify-release-baseline.sh"
+
 if [[ ! -d node_modules ]]; then
   npm ci
 fi
+
+"$project_root/tools/prepare-android-offline-compat.sh"
+export ELVANOQ_OFFLINE_MAVEN="$("$project_root/tools/prepare-offline-maven-repo.sh")"
 
 if [[ ! -d android ]]; then
   npx expo prebuild --platform android --no-install
@@ -75,7 +82,24 @@ cd android
 # The ELVANOQ build kit persists every Android/Gradle artifact required for a
 # release.  Offline mode makes the build deterministic and avoids repository
 # checks when the local cache already contains the resolved dependencies.
-./gradlew --offline --no-daemon --max-workers=2 -Dorg.gradle.parallel=false \
+gradle_network_mode=(--offline)
+if [[ "${ELVANOQ_BUILD_ONLINE:-0}" == "1" ]]; then
+  # Explicit one-time recovery path. It is only used to restore missing
+  # runtime artifacts to the persistent kit; normal release builds stay offline.
+  gradle_network_mode=()
+  # Some hosted shells inject a browser-only proxy into GRADLE_OPTS. Rebuild
+  # Java's proxy settings from HTTPS_PROXY only for the explicit cache-recovery
+  # pass, keeping normal release builds isolated and offline.
+  unset GRADLE_OPTS
+  if [[ "${HTTPS_PROXY:-}" =~ ^http://([^:/]+):([0-9]+)$ ]]; then
+    proxy_host="${BASH_REMATCH[1]}"
+    proxy_port="${BASH_REMATCH[2]}"
+    export GRADLE_OPTS="-Dhttp.proxyHost=$proxy_host -Dhttp.proxyPort=$proxy_port -Dhttps.proxyHost=$proxy_host -Dhttps.proxyPort=$proxy_port"
+  fi
+  echo "Sincronizando artefatos Android ausentes para o kit persistente..."
+fi
+
+./gradlew "${gradle_network_mode[@]}" --no-daemon --max-workers=2 -Dorg.gradle.parallel=false \
   --init-script "$project_root/tools/gradle-offline-init.gradle" assembleRelease
 
 mkdir -p "$project_root/release"

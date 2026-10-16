@@ -1,32 +1,32 @@
-// Inicializador exclusivo do ambiente de build offline.
-// Ele não é empacotado no APK e não altera a configuração do aplicativo.
-def localMaven = System.getenv('ELVANOQ_LOCAL_MAVEN_REPOSITORY')
-
-if (localMaven != null && !localMaven.trim().isEmpty()) {
-    beforeSettings { settings ->
-        settings.pluginManagement.repositories {
-            // Mantém os repositórios de origem: em modo offline o Gradle usa
-            // somente os artefatos já presentes no cache associado a eles.
-            // O espelho local vem antes para o plugin Foojay empacotado.
-            maven { url = settings.uri(localMaven) }
-            google()
-            mavenCentral()
-            gradlePluginPortal()
+// Offline bootstrap for the React Native settings plugin.
+// The persistent cache contains org.gradle.toolchains:foojay-resolver:1.0.0,
+// but Gradle's marker lookup is incomplete. Resolve that one plugin directly
+// to the cached implementation module; all other dependencies remain offline.
+beforeSettings { settings ->
+  def localMaven = System.getenv("ELVANOQ_OFFLINE_MAVEN")
+  settings.pluginManagement {
+    repositories {
+      if (localMaven) {
+        maven { url = uri(localMaven) }
+      }
+      google()
+      mavenCentral()
+    }
+    resolutionStrategy {
+      eachPlugin {
+        if (requested.id.id == "org.gradle.toolchains.foojay-resolver-convention") {
+          useModule("org.gradle.toolchains:foojay-resolver:1.0.0")
         }
-    }
-
-    gradle.beforeProject { project ->
-        def localRepository = { maven { url = project.uri(localMaven) } }
-        project.buildscript.repositories(localRepository)
-        project.repositories(localRepository)
-    }
-
-    gradle.projectsEvaluated {
-        gradle.rootProject.allprojects { project ->
-            project.repositories {
-                clear()
-                maven { url = project.uri(localMaven) }
-            }
+        if (requested.id.id == "com.diffplug.spotless") {
+            useModule("com.diffplug.spotless:spotless-plugin-gradle:8.1.0")
         }
+        if (requested.id.id == "com.ncorti.ktfmt.gradle") {
+            useModule("com.ncorti.ktfmt.gradle:plugin:0.22.0")
+        }
+        if (requested.id.id == "org.jetbrains.kotlin.jvm") {
+            useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20")
+        }
+      }
     }
+  }
 }

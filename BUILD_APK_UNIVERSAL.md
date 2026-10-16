@@ -23,6 +23,10 @@ o Gradle reutilizam esse cache. Para mantê-lo entre restaurações, defina
 `ELVANOQ_BUILD_CACHE` para um volume persistente. O script recria a pasta
 Android automaticamente quando ela não estiver presente no checkpoint.
 
-O APK resultante fica em `release/ELVANOQ-v2.17.0-universal.apk` e contém
+O APK resultante fica em `release/ELVANOQ-v<versão>-universal.apk` e contém
 apenas `armeabi-v7a` e `arm64-v8a`. As arquiteturas de emulador `x86` e
 `x86_64` ficam fora do pacote para reduzir o tamanho.
+
+O script de release também aplica a compatibilidade offline dos módulos nativos
+e gera um repositório Maven local somente com artefatos já presentes no cache.
+Nenhuma dependência é baixada durante a compilação em modo offline.

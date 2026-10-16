@@ -1,0 +1,48 @@
+--- a/node_modules/react-native-safe-area-context/android/build.gradle
++++ b/node_modules/react-native-safe-area-context/android/build.gradle
+@@ -1,3 +1,5 @@
++// ELVANOQ_OFFLINE_HOST_CLASSPATH: libraries use the host app toolchain.
++if (project == rootProject) {
+ buildscript {
+     def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : project.properties['RNSAC_kotlinVersion']
+ 
+@@ -12,8 +14,6 @@
+         classpath("com.diffplug.spotless:spotless-plugin-gradle:6.11.0")
+     }
+ }
+-
+-if (project == rootProject) {
+     apply from: "spotless.gradle"
+     return
+ }
+--- a/node_modules/react-native-gesture-handler/android/build.gradle
++++ b/node_modules/react-native-gesture-handler/android/build.gradle
+@@ -9,11 +9,13 @@
+         google()
+     }
+ 
++    if (project == rootProject) {
+     dependencies {
+         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+         classpath("com.android.tools.build:gradle:8.10.1")
+         classpath("com.diffplug.spotless:spotless-plugin-gradle:7.0.4")
+     }
++    }
+ }
+ 
+ def isNewArchitectureEnabled() {
+--- a/node_modules/react-native-webview/android/build.gradle
++++ b/node_modules/react-native-webview/android/build.gradle
+@@ -8,10 +8,12 @@
+         google()
+         gradlePluginPortal()
+     }
++    if (project == rootProject) {
+     dependencies {
+         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion')}")
+         classpath("com.android.tools.build:gradle:7.0.4")
+     }
++    }
+ }
+ 
+ def getExtOrIntegerDefault(prop) {

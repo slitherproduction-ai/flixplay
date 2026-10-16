@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { fetchChannelEpg, hasFreshEpg } from "@/hooks/useChannelEpg";
 import { useAppStore } from "@/store/useAppStore";
-import type { ChannelItem, ServerProfile } from "@/store/types";
+import type { ChannelItem, EpgProgram, ServerProfile } from "@/store/types";
 
 /**
  * Enough parallelism to make the guide visible while the first rows render,
  * without flooding low-end TV devices or providers with a burst of requests.
  */
-const EPG_PRELOAD_CONCURRENCY = 4;
-export const EPG_HOME_PRELOAD_LIMIT = 60;
-export const EPG_LIVE_PRELOAD_LIMIT = 80;
+// Fire TV devices have limited decoder/network headroom while preview video is
+// active. Two requests retain responsive Now/Next information without the
+// burst of state updates that caused navigation stalls on large playlists.
+const EPG_PRELOAD_CONCURRENCY = 2;
+export const EPG_HOME_PRELOAD_LIMIT = 24;
+export const EPG_LIVE_PRELOAD_LIMIT = 24;
 type UpdateChannelEpg = ReturnType<typeof useAppStore.getState>["updateChannelEpg"];
+type UpdateChannelEpgBatch = ReturnType<typeof useAppStore.getState>["updateChannelEpgBatch"];
 type EpgJob = { key: string; profile: ServerProfile; channel: ChannelItem; update: UpdateChannelEpg };
 
 const queuedKeys = new Set<string>();
@@ -40,11 +44,19 @@ function drainEpgQueue() {
 export function useEpgPreloader() {
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
-  const updateChannelEpg = useAppStore((state) => state.updateChannelEpg);
+  const updateChannelEpgBatch = useAppStore((state) => state.updateChannelEpgBatch);
+  const pendingBatch = useRef<Array<{ channelId: string; programs: EpgProgram[] }>>([]);
+  const batchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (batchTimer.current) clearTimeout(batchTimer.current);
+    const batch = pendingBatch.current.splice(0);
+    if (batch.length) updateChannelEpgBatch(batch);
+  }, [updateChannelEpgBatch]);
   const profile = servers.find((server) => server.id === activeServerId) ?? servers[0];
 
   return useCallback(
-    (channels: ChannelItem[], limit = 30) => {
+    (channels: ChannelItem[], limit = 20) => {
       if (!profile) return;
       const pending = channels
         .slice(0, limit)
@@ -57,11 +69,19 @@ export function useEpgPreloader() {
       for (const channel of pending) {
         const key = `${profile.id}:${channel.streamId}`;
         queuedKeys.add(key);
-        epgQueue.push({ key, profile, channel, update: updateChannelEpg });
+        epgQueue.push({ key, profile, channel, update: (channelId, programs) => {
+          pendingBatch.current.push({ channelId, programs });
+          if (batchTimer.current) return;
+          batchTimer.current = setTimeout(() => {
+            const batch = pendingBatch.current.splice(0);
+            batchTimer.current = null;
+            updateChannelEpgBatch(batch);
+          }, 120);
+        } });
       }
       drainEpgQueue();
     },
-    [profile, updateChannelEpg],
+    [profile, updateChannelEpgBatch],
   );
 }
 

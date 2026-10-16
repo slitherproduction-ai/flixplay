@@ -74,6 +74,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Keeps inactive TV surfaces out of the render pipeline while their
+        // route state is retained for fast D-pad navigation.
+        freezeOnBlur: tvMode,
         tabBarButton: tvMode ? undefined : tabBarButton,
         sceneStyle: {
           backgroundColor: Colors.background,

@@ -127,7 +127,7 @@ export function TvSideNavigation() {
                 size={20}
                 // Every available destination remains visible while the rail
                 // is open; focus only changes the selected surface.
-                color={focused ? Colors.background : selected ? Colors.blueBright : expanded ? "rgba(238,244,252,0.88)" : "rgba(216,226,239,0.80)"}
+                color={focused ? Colors.text : selected ? Colors.blueBright : expanded ? "rgba(238,244,252,0.88)" : "rgba(216,226,239,0.80)"}
               />
               <AppText numberOfLines={1} style={[styles.navLabel, expanded && styles.navLabelExpanded, selected && styles.navLabelSelected, focused && styles.navLabelFocused]}>
                 {route.label}
@@ -186,14 +186,14 @@ const styles = StyleSheet.create({
   },
   navItemExpanded: { justifyContent: "flex-start", gap: 11, paddingHorizontal: 10 },
   navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
-  navItemFocused: { borderWidth: 2, backgroundColor: Colors.white, borderColor: "rgba(255,255,255,0.96)", transform: [{ scale: 1 }], opacity: 1 },
+  navItemFocused: { borderWidth: 1, backgroundColor: "rgba(69, 165, 238, 0.28)", borderColor: "rgba(156, 221, 255, 0.92)", transform: [{ scale: 1 }], opacity: 1 },
   navItemPressed: { opacity: 0.9 },
   activeBar: { position: "absolute", left: 2, width: 2, height: 15, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
   navLabel: { width: 0, opacity: 0, overflow: "hidden", color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelExpanded: { width: 128, opacity: 1 },
   navLabelSelected: { color: Colors.text },
-  navLabelFocused: { color: Colors.background },
+  navLabelFocused: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
   version: { width: 0, opacity: 0, color: "rgba(181,201,225,0.46)", fontSize: 9 },

@@ -84,6 +84,7 @@ interface AppStore {
   isContentBlocked: (id: string) => boolean;
   setContentCache: (cache: Partial<ContentCache>) => void;
   updateChannelEpg: (channelId: string, programs: EpgProgram[]) => void;
+  updateChannelEpgBatch: (updates: Array<{ channelId: string; programs: EpgProgram[] }>) => void;
   setSyncState: (state: Partial<SyncState>) => void;
   clearContentCache: () => void;
   /** Reset lastSyncedServerId so the layout's useXtreamSync effect re-fires. */
@@ -334,6 +335,35 @@ export const useAppStore = create<AppStore>()(
                     }
                   : channel,
               ),
+            },
+          };
+        }),
+
+      // EPG responses are delivered in small bursts. Updating them together
+      // avoids recreating the full channel collection once for every request,
+      // which is especially expensive on Fire TV devices with large lists.
+      updateChannelEpgBatch: (updates) =>
+        set((state) => {
+          if (updates.length === 0) return state;
+          const byId = new Map(updates.map((update) => [update.channelId, update.programs]));
+          const updatedAt = new Date().toISOString();
+          return {
+            contentCache: {
+              ...state.contentCache,
+              liveChannels: state.contentCache.liveChannels.map((channel) => {
+                const programs = byId.get(channel.id);
+                if (!programs) return channel;
+                const current = programs.find((program) => program.isCurrent) ?? programs[0];
+                const currentIndex = current ? programs.indexOf(current) : -1;
+                const next = currentIndex >= 0 ? programs[currentIndex + 1] : undefined;
+                return {
+                  ...channel,
+                  currentEpg: current ?? channel.currentEpg,
+                  nextProgram: next?.title ?? "Programação não informada",
+                  epgPrograms: programs,
+                  epgUpdatedAt: updatedAt,
+                };
+              }),
             },
           };
         }),

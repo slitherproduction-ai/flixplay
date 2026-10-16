@@ -243,6 +243,7 @@ interface LiveHeaderProps {
   toggleViewMode: () => void;
   setCategory: (c: string) => void;
   tvMode: boolean;
+  listOnly?: boolean;
 }
 
 const FAVORITES_LABEL = "Favoritos";
@@ -260,7 +261,16 @@ function LiveHeader({
   toggleViewMode,
   setCategory,
   tvMode,
+  listOnly = false,
 }: LiveHeaderProps) {
+  if (tvMode && listOnly) {
+    return (
+      <View style={styles.tvListHeading}>
+        <AppText style={styles.tvListTitle}>{category === FAVORITES_LABEL ? "Canais favoritos" : "Canais disponíveis"}</AppText>
+        <AppText style={styles.tvListCount}>{isSyncing ? "Carregando…" : `${filteredCount} canais`}</AppText>
+      </View>
+    );
+  }
   return (
     <View style={styles.headerBlock}>
       {isSyncing ? (
@@ -372,6 +382,60 @@ function TvLiveUtility() {
   );
 }
 
+function TvCategoryPanel({
+  categories,
+  activeCategory,
+  filter,
+  channels,
+  onFilterChange,
+  onSelect,
+}: {
+  categories: string[];
+  activeCategory: string;
+  filter: string;
+  channels: ChannelItem[];
+  onFilterChange: (value: string) => void;
+  onSelect: (category: string) => void;
+}) {
+  const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
+  const filteredCategories = useMemo(() => {
+    const needle = filter.trim().toLocaleLowerCase();
+    return categories.filter((item) => !needle || item.toLocaleLowerCase().includes(needle));
+  }, [categories, filter]);
+  const countFor = useCallback((item: string) => {
+    if (item === "Todos") return channels.length;
+    if (item === FAVORITES_LABEL) return favoriteChannelIds.length;
+    return channels.filter((channel) => channel.categoryName === item).length;
+  }, [channels, favoriteChannelIds.length]);
+
+  return (
+    <View style={styles.tvCategoryPane}>
+      <SearchField value={filter} onChangeText={onFilterChange} placeholder="Pesquisar categoria" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tvCategoryList}>
+        {filteredCategories.map((item, index) => {
+          const selected = item === activeCategory;
+          return (
+            <TVFocusable
+              key={item}
+              focusId={`live-category-${item}`}
+              focusScope="live-categories"
+              focusIndex={index}
+              accessibilityRole="button"
+              accessibilityLabel={`${item}, ${countFor(item)} canais`}
+              onPress={() => onSelect(item)}
+              style={[styles.tvCategoryRow, selected && styles.tvCategoryRowSelected]}
+              focusStyle={styles.tvCategoryRowFocused}
+            >
+              <AppText numberOfLines={1} style={[styles.tvCategoryLabel, selected && styles.tvCategoryLabelSelected]}>{item}</AppText>
+              <AppText style={styles.tvCategoryCount}>{countFor(item)}</AppText>
+            </TVFocusable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 function TvChannelPreview({
   channel,
   width,
@@ -455,18 +519,26 @@ export default function LiveScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
+  const [previewChannelId, setPreviewChannelId] = useState<string | null>(null);
   // Use Expo Router's focus hook rather than importing React Navigation
   // directly: the router owns the navigation integration in the release bundle.
   useFocusEffect(useCallback(() => {
     setIsScreenFocused(true);
-    return () => setIsScreenFocused(false);
+    return () => {
+      // The preview component is unmounted below when this route loses focus.
+      // useVideoPlayer releases its native decoder, stream buffers and audio
+      // session on unmount; clearing the selection prevents a stale source
+      // from surviving in the screen state on low-memory Fire TV devices.
+      setPreviewChannelId(null);
+      setIsScreenFocused(false);
+    };
   }, []));
   const { width } = useWindowDimensions();
   const [category, setCategory] = useState("Todos");
+  const [categoryQuery, setCategoryQuery] = useState("");
   const [query, setQuery] = useState("");
   const [viewMode, toggleViewMode] = useViewMode();
   const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
-  const [previewChannelId, setPreviewChannelId] = useState<string | null>(null);
 
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
@@ -649,6 +721,7 @@ export default function LiveScreen() {
         toggleViewMode={toggleViewMode}
         setCategory={handleCategoryChange}
         tvMode={tvMode}
+        listOnly={tvMode}
       />
     ),
     [
@@ -710,7 +783,7 @@ export default function LiveScreen() {
       contentContainerStyle={[
         styles.content,
         tvMode && styles.tvContent,
-        { paddingHorizontal: horizontalPadding },
+        { paddingHorizontal: tvMode ? 0 : horizontalPadding },
       ]}
       columnWrapperStyle={effectiveViewMode === "grid" ? { gap: columnGap } : undefined}
       ItemSeparatorComponent={
@@ -733,13 +806,21 @@ export default function LiveScreen() {
       <View style={styles.screen}>
         <ParentalGate visible={pendingChannelId !== null} onAuthorized={openAuthorizedChannel} onClose={() => setPendingChannelId(null)} />
         <View style={styles.ambient} />
-        <View style={[styles.searchBar, styles.tvSearchBar, { paddingHorizontal: horizontalPadding }]}>
-          <SearchField value={query} onChangeText={setQuery} placeholder="Buscar canal ou programa" />
-        </View>
-        <View style={[styles.tvGuideLayout, { gap: tvPreviewGap, paddingHorizontal: horizontalPadding }]}>
-          <View style={styles.tvChannelPane}>{channelList}</View>
+        <View style={[styles.tvGuideLayout, styles.tvThreePaneLayout, { gap: tvPreviewGap, paddingHorizontal: horizontalPadding }]}>
+          <TvCategoryPanel
+            categories={categories}
+            activeCategory={category}
+            filter={categoryQuery}
+            channels={channels}
+            onFilterChange={setCategoryQuery}
+            onSelect={handleCategoryChange}
+          />
+          <View style={styles.tvChannelPane}>
+            <View style={styles.tvChannelSearch}><SearchField value={query} onChangeText={setQuery} placeholder="Pesquisar canais" /></View>
+            {channelList}
+          </View>
           <View style={styles.tvPreviewPane}>
-            <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} active={isScreenFocused} />
+            {isScreenFocused ? <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} active /> : null}
           </View>
         </View>
       </View>
@@ -865,7 +946,35 @@ const styles = StyleSheet.create({
   // A real flex row, rather than an absolutely-positioned overlay, keeps the
   // channel list and the programme panel proportional at 720p and 1080p.
   tvGuideLayout: { flex: 1, minHeight: 0, flexDirection: "row", paddingBottom: 18 },
+  tvThreePaneLayout: { paddingTop: 18 },
+  tvCategoryPane: {
+    width: 236,
+    flexShrink: 0,
+    minHeight: 0,
+    gap: 10,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(9,18,33,0.70)",
+    borderWidth: 1,
+    borderColor: "rgba(152,196,240,0.14)",
+  },
+  tvCategoryList: { gap: 2, paddingBottom: 10 },
+  tvCategoryRow: {
+    minHeight: 33,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    paddingHorizontal: 9,
+    borderRadius: 7,
+  },
+  tvCategoryRowSelected: { backgroundColor: "rgba(61,155,235,0.20)" },
+  tvCategoryRowFocused: { backgroundColor: "rgba(69,165,238,0.30)", borderWidth: 1, borderColor: "rgba(156,221,255,0.92)", transform: [{ scale: 1 }] },
+  tvCategoryLabel: { flex: 1, color: "rgba(231,240,251,0.82)", fontFamily: "Inter_500Medium", fontSize: 12 },
+  tvCategoryLabelSelected: { color: Colors.text, fontFamily: "Inter_700Bold" },
+  tvCategoryCount: { color: Colors.subtle, fontFamily: "Inter_600SemiBold", fontSize: 10, fontVariant: ["tabular-nums"] },
   tvChannelPane: { flex: 1, minWidth: 0 },
+  tvChannelSearch: { paddingBottom: 10 },
   tvPreviewPane: { flexShrink: 0, alignSelf: "flex-start", paddingTop: 8 },
   headerBlock: { gap: 10, paddingTop: 8, marginBottom: 4 },
   syncBanner: {
@@ -967,7 +1076,8 @@ const styles = StyleSheet.create({
   channelTitle: { flexShrink: 1, fontFamily: "Inter_700Bold", fontSize: 14, color: Colors.text },
   // Exact TV guide scale: compact enough for six-or-more visible channels,
   // while preserving a calm viewing distance on a 720p or 1080p panel.
-  tvChannelTitle: { fontSize: 14, lineHeight: 17 },
+  // TV/Fire TV: compact channel rows, matching the requested 12 px hierarchy.
+  tvChannelTitle: { fontSize: 12, lineHeight: 15 },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",

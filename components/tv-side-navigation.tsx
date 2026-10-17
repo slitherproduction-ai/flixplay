@@ -47,10 +47,10 @@ export function TvSideNavigation() {
     setExpanded(true);
   }, [cancelCollapse]);
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
-    // Android TV can emit blur before the next item in the rail receives focus,
-    // especially when directional input is repeated.  A longer grace period is
-    // deliberate: the rail must not collapse while the user is traversing its
-    // entries, even on slower Fire TV devices where focus events arrive apart.
+    // Android TV can emit blur before the next item in the rail receives
+    // focus. Keep a tiny grace period for that hand-off, but collapse as soon
+    // as focus moves into the scene so an expanded rail never hides category
+    // or channel information behind it.
     const epochAtBlur = focusEpoch.current;
     cancelCollapse();
     collapseTimer.current = setTimeout(() => {
@@ -59,7 +59,7 @@ export function TvSideNavigation() {
       focusedRouteRef.current = null;
       setFocusedRouteKey(null);
       setExpanded(false);
-    }, 2_600);
+    }, 180);
   }, [cancelCollapse]);
 
   useEffect(() => () => cancelCollapse(), [cancelCollapse]);

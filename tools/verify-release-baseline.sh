@@ -32,7 +32,7 @@ require_marker() {
 require_marker 'app/(tabs)/live.tsx' 'function TvCategoryPanel' 'painel de categorias no modo TV'
 require_marker 'app/(tabs)/live.tsx' 'function TvChannelPreview' 'preview de canal no modo TV'
 require_marker 'app/(tabs)/live.tsx' 'setPreviewChannelId(null);' 'descarregamento do preview ao sair da aba'
-require_marker 'app/(tabs)/live.tsx' 'tvChannelTitle: { fontSize: 12' 'fonte de 12 px na lista de canais TV'
+require_marker 'app/(tabs)/live.tsx' 'tvChannelTitle: { flex: 1, fontSize: 12' 'fonte de 12 px na lista de canais TV'
 require_marker 'app/(tabs)/live.tsx' 'tvProgramTitle: { fontSize: 10' 'fonte de 10 px no EPG TV'
 require_marker 'hooks/useEpgPreload.ts' 'const EPG_PRELOAD_CONCURRENCY = 2;' 'limite de concorrência do EPG para Fire TV'
 require_marker 'store/useAppStore.ts' 'updateChannelEpgBatch:' 'atualização de EPG em lote'

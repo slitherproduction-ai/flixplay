@@ -147,13 +147,16 @@ export function TvSideNavigation() {
 }
 
 const styles = StyleSheet.create({
-  slot: { width: TV_NAV_COLLAPSED_WIDTH, flexShrink: 0, overflow: "visible", zIndex: 20, elevation: 20 },
+  // Dedicated overlay, above every tab scene on Android TV.
+  slot: { width: TV_NAV_EXPANDED_WIDTH, flexShrink: 0, overflow: "visible", zIndex: 1000, elevation: 1000 },
   shell: {
     width: TV_NAV_COLLAPSED_WIDTH,
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
+    zIndex: 1000,
+    elevation: 1000,
     flexShrink: 0,
     paddingTop: 14,
     paddingBottom: 12,

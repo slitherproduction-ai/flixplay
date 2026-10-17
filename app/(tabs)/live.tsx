@@ -153,9 +153,8 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
   const handleLong = useCallback(() => onLongPress(channel.id), [channel.id, onLongPress]);
   const handleFav = useCallback(() => onFavorite(channel.id), [channel.id, onFavorite]);
 
-  return (
-    <GlassCard style={[styles.channelCard, tvMode && styles.tvChannelCard]} intensity={18}>
-      <View style={styles.channelRow}>
+  const row = (
+    <View style={styles.channelRow}>
         <TVFocusable
           accessibilityRole="button"
           accessibilityLabel={`Abrir ${channel.name}`}
@@ -231,9 +230,14 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
             color={isFavorite ? Colors.amber : Colors.muted}
           />
         </TVFocusable> : null}
-      </View>
-    </GlassCard>
+    </View>
   );
+
+  // A BlurView per 33 px guide row overwhelms Fire TV's compositor while the
+  // D-pad scrolls. TV rows are deliberately lightweight opaque views; mobile
+  // keeps the existing glass treatment.
+  if (tvMode) return <View style={[styles.channelCard, styles.tvChannelCard]}>{row}</View>;
+  return <GlassCard style={styles.channelCard} intensity={18}>{row}</GlassCard>;
 }
 
 // ---------------------------------------------------------------------------
@@ -396,28 +400,21 @@ function TvCategoryPanel({
   categories,
   activeCategory,
   filter,
-  channels,
+  categoryCounts,
   onFilterChange,
   onSelect,
 }: {
   categories: string[];
   activeCategory: string;
   filter: string;
-  channels: ChannelItem[];
+  categoryCounts: ReadonlyMap<string, number>;
   onFilterChange: (value: string) => void;
   onSelect: (category: string) => void;
 }) {
-  const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const filteredCategories = useMemo(() => {
     const needle = filter.trim().toLocaleLowerCase();
     return categories.filter((item) => !needle || item.toLocaleLowerCase().includes(needle));
   }, [categories, filter]);
-  const countFor = useCallback((item: string) => {
-    if (item === "Todos") return channels.length;
-    if (item === FAVORITES_LABEL) return favoriteChannelIds.length;
-    return channels.filter((channel) => channel.categoryName === item).length;
-  }, [channels, favoriteChannelIds.length]);
-
   return (
     <View style={styles.tvCategoryPane}>
       <SearchField value={filter} onChangeText={onFilterChange} placeholder="Pesquisar categoria" />
@@ -431,13 +428,13 @@ function TvCategoryPanel({
               focusScope="live-categories"
               focusIndex={index}
               accessibilityRole="button"
-              accessibilityLabel={`${item}, ${countFor(item)} canais`}
+              accessibilityLabel={`${item}, ${categoryCounts.get(item) ?? 0} canais`}
               onPress={() => onSelect(item)}
               style={[styles.tvCategoryRow, selected && styles.tvCategoryRowSelected]}
               focusStyle={styles.tvCategoryRowFocused}
             >
               <AppText numberOfLines={1} style={[styles.tvCategoryLabel, selected && styles.tvCategoryLabelSelected]}>{item}</AppText>
-              <AppText style={styles.tvCategoryCount}>{countFor(item)}</AppText>
+              <AppText style={styles.tvCategoryCount}>{categoryCounts.get(item) ?? 0}</AppText>
             </TVFocusable>
           );
         })}
@@ -499,7 +496,7 @@ function TvChannelPreview({
   // preview even though the first channel is about to arrive.
   if (!channel) {
     return (
-      <GlassCard style={[styles.tvPreview, { width }]} intensity={28}>
+      <View style={[styles.tvPreview, { width }]}>
         <View style={[styles.tvPreviewStage, styles.tvPreviewPlaceholder]}>
           <ActivityIndicator size="large" color={Colors.blueBright} />
           <AppText style={styles.tvPreviewPlaceholderText}>Preparando preview</AppText>
@@ -508,13 +505,13 @@ function TvChannelPreview({
           <AppText style={styles.tvPreviewProgram}>Selecione um canal para assistir</AppText>
           <AppText style={styles.tvPreviewDescription}>As informações do guia serão exibidas aqui.</AppText>
         </View>
-      </GlassCard>
+      </View>
     );
   }
   const epg = channel.currentEpg;
   const hasSchedule = Boolean(epg.start || epg.end) && epg.title !== "Sem programação";
   return (
-    <GlassCard style={[styles.tvPreview, { width }]} intensity={28}>
+    <View style={[styles.tvPreview, { width }]}>
       <View style={styles.tvPreviewStage}>
         <VideoView
           player={player}
@@ -554,7 +551,7 @@ function TvChannelPreview({
           </View>
         </View>
       </View>
-    </GlassCard>
+    </View>
   );
 }
 
@@ -605,6 +602,15 @@ export default function LiveScreen() {
     () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
     [cachedCategories],
   );
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    counts.set(FAVORITES_LABEL, favoriteChannelIds.length);
+    counts.set("Todos", channels.length);
+    for (const channel of channels) {
+      counts.set(channel.categoryName, (counts.get(channel.categoryName) ?? 0) + 1);
+    }
+    return counts;
+  }, [channels, favoriteChannelIds.length]);
 
   const filteredChannels = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -873,7 +879,7 @@ export default function LiveScreen() {
             categories={categories}
             activeCategory={category}
             filter={categoryQuery}
-            channels={channels}
+            categoryCounts={categoryCounts}
             onFilterChange={setCategoryQuery}
             onSelect={handleCategoryChange}
           />
@@ -881,8 +887,8 @@ export default function LiveScreen() {
             <View style={styles.tvChannelSearch}><SearchField value={query} onChangeText={setQuery} placeholder="Pesquisar canais" /></View>
             {channelList}
           </View>
-          <View style={styles.tvPreviewPane}>
-            {isScreenFocused ? <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} active /> : null}
+          <View style={[styles.tvPreviewPane, { width: tvPreviewWidth }]}>
+            <TvChannelPreview channel={previewChannel} width={tvPreviewWidth} active={isScreenFocused} />
           </View>
         </View>
       </View>
@@ -1203,6 +1209,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(190,224,255,0.24)",
+    backgroundColor: "rgba(7,16,29,0.96)",
     overflow: "hidden",
   },
   tvPreviewStage: { aspectRatio: 16 / 9, backgroundColor: "#07101d", overflow: "hidden" },

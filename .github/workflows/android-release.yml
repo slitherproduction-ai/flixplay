@@ -1,0 +1,155 @@
+name: ELVANOQ Android Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Approved branch, tag, or commit SHA (use a full SHA for releases)'
+        required: true
+        default: 'main'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elvanoq-android-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      NODE_ENV: production
+      EXPO_PUBLIC_TMDB_ACCESS_TOKEN: ${{ secrets.EXPO_PUBLIC_TMDB_ACCESS_TOKEN }}
+    steps:
+      - name: Check required signing secrets before expensive build
+        env:
+          KEYSTORE_B64: ${{ secrets.ELVANOQ_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ELVANOQ_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ELVANOQ_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ELVANOQ_KEY_PASSWORD }}
+          CERT_SHA256: ${{ vars.ELVANOQ_CERT_SHA256 }}
+        run: |
+          for value in "$KEYSTORE_B64" "$STORE_PASS" "$KEY_ALIAS" "$KEY_PASS" "$CERT_SHA256" "$EXPO_PUBLIC_TMDB_ACCESS_TOKEN"; do
+            if [ -z "$value" ]; then echo "::error::Missing original signing credentials, certificate fingerprint, or TMDB configuration"; exit 1; fi
+          done
+      - name: Checkout exact approved source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+      - name: Set up Node and npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Set up Java and Gradle cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Restore approved ELVANOQ signing keystore and verify fingerprint
+        env:
+          KEYSTORE_B64: ${{ secrets.ELVANOQ_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ELVANOQ_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ELVANOQ_KEY_ALIAS }}
+          CERT_SHA256: ${{ vars.ELVANOQ_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/elvanoq-sign"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/elvanoq-sign/original.jks"
+          keytool -list -v -keystore "$RUNNER_TEMP/elvanoq-sign/original.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" > "$RUNNER_TEMP/elvanoq-sign/cert-info.txt"
+          actual="$(sed -n 's/^[[:space:]]*SHA256: //p' "$RUNNER_TEMP/elvanoq-sign/cert-info.txt" | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          expected="$(printf '%s' "$CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test -n "$actual" && test "$actual" = "$expected" || { echo "::error::Original signing fingerprint mismatch"; exit 1; }
+          rm -f "$RUNNER_TEMP/elvanoq-sign/cert-info.txt"
+      - name: Verify branch workflow has not compiled a substituted project
+        run: |
+          test -f android/app/build.gradle
+          test -f android/gradlew
+          test -f package-lock.json
+          grep -Fq "com.fastshot.slitherproduction.flixplay" android/app/build.gradle
+          grep -Fq "reactNativeArchitectures=armeabi-v7a,arm64-v8a" android/gradle.properties
+          if ! command -v rg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y ripgrep; fi
+          bash tools/verify-release-baseline.sh
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install pinned Android SDK and NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
+      - name: Install pinned JS dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Apply existing Android dependency compatibility patch
+        run: bash tools/prepare-android-offline-compat.sh
+      - name: Build unsigned release with repository Gradle
+        run: |
+          set -euo pipefail
+          # Temporarily remove only the release debug-signing line in the runner checkout.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/build.gradle")
+          s = p.read_text()
+          at = s.index("    buildTypes {")
+          pos = s.index("        release {", at)
+          marker = "            signingConfig signingConfigs.debug"
+          hit = s.find(marker, pos)
+          if hit < 0 or s.find(marker, hit + 1) >= 0:
+              raise SystemExit("Could not safely isolate release signing; abort")
+          s = s[:hit] + s[hit:].replace(marker, "            // CI: unsigned, signed externally with original keystore", 1)
+          p.write_text(s)
+          PY
+          chmod +x android/gradlew
+          mkdir -p build-logs
+          set +e
+          ( cd android && ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.parallel=false :app:assembleRelease ) > build-logs/gradle-release.log 2>&1
+          result=$?
+          set -e
+          tail -n 80 build-logs/gradle-release.log
+          exit "$result"
+      - name: Sign, inspect and fingerprint APK
+        env:
+          STORE_PASS: ${{ secrets.ELVANOQ_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ELVANOQ_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ELVANOQ_KEY_PASSWORD }}
+          CERT_SHA256: ${{ vars.ELVANOQ_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          tool="$ANDROID_HOME/build-tools/36.0.0"
+          unsigned="$(find android/app/build/outputs/apk/release -maxdepth 1 -name '*unsigned.apk' -type f -print -quit)"
+          test -n "$unsigned" || { echo "::error::Unsigned APK missing"; exit 1; }
+          version="$(node -p 'require("./package.json").version')"
+          mkdir -p release
+          aligned="$RUNNER_TEMP/elvanoq-aligned.apk"
+          "$tool/zipalign" -f -p 4 "$unsigned" "$aligned"
+          apk="release/ELVANOQ-v${version}-universal.apk"
+          "$tool/apksigner" sign --ks "$RUNNER_TEMP/elvanoq-sign/original.jks" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASS --key-pass env:KEY_PASS --out "$apk" "$aligned"
+          "$tool/apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/apk-verify.txt"
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apk-verify.txt" | head -1 | tr '[:lower:]' '[:upper:]')"
+          expected="$(printf '%s' "$CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$actual" = "$expected" || { echo "::error::APK signer differs from original"; exit 1; }
+          "$tool/aapt" dump badging "$apk" | grep '^package:' | grep -F "name='com.fastshot.slitherproduction.flixplay'"
+          "$tool/aapt" dump badging "$apk" | grep '^native-code:' | tee build-logs/native-code.txt
+          sha256sum "$apk" | tee build-logs/apk-sha256.txt
+          echo "Verified APK: $apk"
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ELVANOQ-signed-release
+          path: release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ELVANOQ-build-logs
+          path: build-logs/
+          if-no-files-found: ignore
+          retention-days: 14

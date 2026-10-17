@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,8 @@ import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels";
 
 const LIVE_FOCUS_SCOPE = "live-channels";
+const EMPTY_CHANNELS: ChannelItem[] = [];
+const TV_PREVIEW_FOCUS_DELAY_MS = 180;
 
 // ---------------------------------------------------------------------------
 // View-mode persistence
@@ -455,6 +457,7 @@ function TvChannelPreview({
   active: boolean;
 }) {
   const streamUrl = channel?.streamUrl;
+  const loadedStreamUrl = useRef<string | undefined>(undefined);
   // Keep one native player mounted and explicitly replace its source when the
   // focused channel changes. Passing the source only to useVideoPlayer can
   // leave a stale/blank preview on Android TV and Fire TV.
@@ -469,26 +472,60 @@ function TvChannelPreview({
       try { player.pause(); } catch { /* native player may already be disposed */ }
       return;
     }
-    try {
-      player.replace({ uri: streamUrl });
-      player.muted = true;
-      player.volume = 0;
-      player.play();
-    } catch {
-      // The native player retries while a live endpoint is becoming available.
-    }
+    // Do not recreate a decoder for every D-pad event.  The selected row can
+    // change several times per second on Android TV; wait for focus to settle
+    // and then replace the small preview source once.
+    const timer = setTimeout(() => {
+      try {
+        if (loadedStreamUrl.current !== streamUrl) {
+          player.replace({ uri: streamUrl });
+          loadedStreamUrl.current = streamUrl;
+        }
+        player.muted = true;
+        player.volume = 0;
+        player.play();
+      } catch {
+        // The native player retries while a live endpoint is becoming available.
+      }
+    }, TV_PREVIEW_FOCUS_DELAY_MS);
     return () => {
+      clearTimeout(timer);
       try { player.pause(); } catch { /* native player may already be disposed */ }
     };
   }, [active, channel?.id, streamUrl, player]);
 
-  if (!channel) return null;
+  // Keep a concrete panel in the layout during pagination and sync. Without
+  // it, a temporary empty page leaves the right side looking like a broken
+  // preview even though the first channel is about to arrive.
+  if (!channel) {
+    return (
+      <GlassCard style={[styles.tvPreview, { width }]} intensity={28}>
+        <View style={[styles.tvPreviewStage, styles.tvPreviewPlaceholder]}>
+          <ActivityIndicator size="large" color={Colors.blueBright} />
+          <AppText style={styles.tvPreviewPlaceholderText}>Preparando preview</AppText>
+        </View>
+        <View style={styles.tvPreviewCopy}>
+          <AppText style={styles.tvPreviewProgram}>Selecione um canal para assistir</AppText>
+          <AppText style={styles.tvPreviewDescription}>As informações do guia serão exibidas aqui.</AppText>
+        </View>
+      </GlassCard>
+    );
+  }
   const epg = channel.currentEpg;
   const hasSchedule = Boolean(epg.start || epg.end) && epg.title !== "Sem programação";
   return (
     <GlassCard style={[styles.tvPreview, { width }]} intensity={28}>
       <View style={styles.tvPreviewStage}>
-        <VideoView player={player} contentFit="cover" nativeControls={false} style={StyleSheet.absoluteFill} />
+        <VideoView
+          player={player}
+          contentFit="cover"
+          nativeControls={false}
+          // TextureView participates in the React Native compositing tree.
+          // It is essential for a clipped, translucent TV preview on Android
+          // and Fire TV; SurfaceView can render as an empty rectangle here.
+          surfaceType="textureView"
+          style={StyleSheet.absoluteFill}
+        />
         {channel.logo ? <Image source={{ uri: channel.logo }} contentFit="contain" style={styles.tvPreviewWatermark} /> : null}
         <LinearGradient colors={["rgba(3,8,16,0.06)", "rgba(3,8,16,0.66)"]} style={StyleSheet.absoluteFill} />
         <View style={styles.tvPreviewLiveBadge}><View style={styles.liveDot} /><AppText style={styles.tvPreviewLiveText}>AO VIVO</AppText></View>
@@ -530,6 +567,7 @@ export default function LiveScreen() {
   const tvMode = useTVMode();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [previewChannelId, setPreviewChannelId] = useState<string | null>(null);
+  const previewFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Use Expo Router's focus hook rather than importing React Navigation
   // directly: the router owns the navigation integration in the release bundle.
   useFocusEffect(useCallback(() => {
@@ -540,6 +578,7 @@ export default function LiveScreen() {
       // session on unmount; clearing the selection prevents a stale source
       // from surviving in the screen state on low-memory Fire TV devices.
       setPreviewChannelId(null);
+      if (previewFocusTimer.current) clearTimeout(previewFocusTimer.current);
       setIsScreenFocused(false);
     };
   }, []));
@@ -589,7 +628,11 @@ export default function LiveScreen() {
   );
   // Preload beyond the rendered window so cards already have Now/Next as the
   // user changes category or scrolls. The queue keeps the provider protected.
-  useEpgPreload(visibleChannels, EPG_LIVE_PRELOAD_LIMIT);
+  // TV rows intentionally show logo + name only. Preloading EPG for an
+  // 8,000-channel list continually mutates the catalog while the user moves
+  // focus, which is the source of the navigation hitching. On TV, load EPG
+  // only for the settled preview channel below.
+  useEpgPreload(tvMode ? EMPTY_CHANNELS : visibleChannels, EPG_LIVE_PRELOAD_LIMIT);
   const preloadVisibleEpg = useEpgPreloader();
 
   useEffect(() => {
@@ -602,17 +645,26 @@ export default function LiveScreen() {
   );
 
   const handlePreviewChannel = useCallback((channel: ChannelItem) => {
-    setPreviewChannelId(channel.id);
-    // The focused row receives priority, so the now/next panel updates before
-    // the user presses OK to start playback.
-    preloadVisibleEpg([channel], 1);
-  }, [preloadVisibleEpg]);
+    if (previewFocusTimer.current) clearTimeout(previewFocusTimer.current);
+    const applyPreview = () => {
+      setPreviewChannelId(channel.id);
+      // The focused row receives priority, so the now/next panel updates
+      // without scheduling work for every channel crossed by the D-pad.
+      preloadVisibleEpg([channel], 1);
+    };
+    if (!tvMode) {
+      applyPreview();
+      return;
+    }
+    previewFocusTimer.current = setTimeout(applyPreview, TV_PREVIEW_FOCUS_DELAY_MS);
+  }, [preloadVisibleEpg, tvMode]);
 
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: { item: ChannelItem }[] }) => {
+      if (tvMode) return;
       preloadVisibleEpg(viewableItems.map(({ item }) => item), viewableItems.length);
     },
-    [preloadVisibleEpg],
+    [preloadVisibleEpg, tvMode],
   );
 
   const handleChannel = useCallback(
@@ -1154,6 +1206,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   tvPreviewStage: { aspectRatio: 16 / 9, backgroundColor: "#07101d", overflow: "hidden" },
+  tvPreviewPlaceholder: { alignItems: "center", justifyContent: "center", gap: 12 },
+  tvPreviewPlaceholderText: { color: Colors.muted, fontFamily: "Inter_600SemiBold", fontSize: 12 },
   tvPreviewWatermark: { position: "absolute", right: 14, bottom: 13, width: 66, height: 42, opacity: 0.78 },
   tvPreviewLiveBadge: { position: "absolute", top: 11, right: 11, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(116,16,36,0.88)" },
   tvPreviewLiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: "#FFD8DD" },

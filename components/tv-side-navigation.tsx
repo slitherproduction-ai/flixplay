@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { usePathname, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { APP_INFO } from "@/constants/app";
 import { Colors } from "@/constants/theme";
@@ -32,37 +32,21 @@ export function TvSideNavigation() {
   const [expanded, setExpanded] = useState(false);
   const [focusedRouteKey, setFocusedRouteKey] = useState<TvRoute["key"] | null>(null);
   const focusedRouteRef = useRef<TvRoute["key"] | null>(null);
-  const focusEpoch = useRef(0);
-  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancelCollapse = useCallback(() => {
-    if (collapseTimer.current) clearTimeout(collapseTimer.current);
-    collapseTimer.current = null;
-  }, []);
   const handleNavigationFocus = useCallback((routeKey: TvRoute["key"]) => {
-    cancelCollapse();
-    focusEpoch.current += 1;
     focusedRouteRef.current = routeKey;
     setFocusedRouteKey(routeKey);
     setExpanded(true);
-  }, [cancelCollapse]);
+  }, []);
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
-    // Android TV can emit blur before the next item in the rail receives
-    // focus. Keep a tiny grace period for that hand-off, but collapse as soon
-    // as focus moves into the scene so an expanded rail never hides category
-    // or channel information behind it.
-    const epochAtBlur = focusEpoch.current;
-    cancelCollapse();
-    collapseTimer.current = setTimeout(() => {
-      collapseTimer.current = null;
-      if (focusEpoch.current !== epochAtBlur || focusedRouteRef.current !== routeKey) return;
-      focusedRouteRef.current = null;
-      setFocusedRouteKey(null);
-      setExpanded(false);
-    }, 180);
-  }, [cancelCollapse]);
-
-  useEffect(() => () => cancelCollapse(), [cancelCollapse]);
+    // Fire TV can keep the former nav item visually focused for hundreds of
+    // milliseconds after right is pressed. Collapse in the same frame so the
+    // expanded rail never covers the guide. A next rail item immediately
+    // expands itself again through its own onFocus event.
+    if (focusedRouteRef.current !== routeKey) return;
+    focusedRouteRef.current = null;
+    setFocusedRouteKey(null);
+    setExpanded(false);
+  }, []);
 
   const resolveFocusHandles = useCallback(() => {
     requestAnimationFrame(() => {
@@ -148,7 +132,10 @@ export function TvSideNavigation() {
 
 const styles = StyleSheet.create({
   // Dedicated overlay, above every tab scene on Android TV.
-  slot: { width: TV_NAV_EXPANDED_WIDTH, flexShrink: 0, overflow: "visible", zIndex: 1000, elevation: 1000 },
+  // The parent reserves only the collapsed rail. The expanded shell paints
+  // above it while focused, rather than leaving an invisible 216 px layer
+  // over the scene after it collapses.
+  slot: { width: TV_NAV_COLLAPSED_WIDTH, flexShrink: 0, overflow: "visible", zIndex: 1000, elevation: 1000 },
   shell: {
     width: TV_NAV_COLLAPSED_WIDTH,
     position: "absolute",

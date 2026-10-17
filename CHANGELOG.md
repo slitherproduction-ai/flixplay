@@ -1,5 +1,11 @@
 # Changelog
 
+## Correções em preparação — base 2.17.14
+
+- Preview da TV ao Vivo mantido visível durante paginação/sincronização e renderizado em `TextureView` para composição estável em Android TV, Google TV e Fire TV.
+- Navegação por canais otimizada: a troca do preview aguarda a estabilização do foco e o EPG na TV é carregado apenas para o canal selecionado.
+- Menu lateral da TV recolhe logo após o foco sair do rail, sem permanecer sobre categorias e canais.
+
 ## [2.17.14] — 2026-10-15
 
 ### Mais estabilidade nas atualizações

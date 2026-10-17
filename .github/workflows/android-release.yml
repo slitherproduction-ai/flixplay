@@ -61,12 +61,32 @@ jobs:
           set -euo pipefail
           umask 077
           mkdir -p "$RUNNER_TEMP/elvanoq-sign"
-          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/elvanoq-sign/original.jks"
-          keytool -list -v -keystore "$RUNNER_TEMP/elvanoq-sign/original.jks" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" > "$RUNNER_TEMP/elvanoq-sign/cert-info.txt"
-          actual="$(sed -n 's/^[[:space:]]*SHA256: //p' "$RUNNER_TEMP/elvanoq-sign/cert-info.txt" | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          keystore="$RUNNER_TEMP/elvanoq-sign/original.p12"
+          info="$RUNNER_TEMP/elvanoq-sign/cert-info.txt"
+          trap 'rm -f "$info"' EXIT
+          if ! printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keystore"; then
+            echo "::error::KEYSTORE_BASE64_INVALID: secret ELVANOQ_KEYSTORE_BASE64 is not valid Base64"
+            exit 1
+          fi
+          if [ ! -s "$keystore" ]; then
+            echo "::error::KEYSTORE_EMPTY: decoded keystore is empty"
+            exit 1
+          fi
+          if ! keytool -list -v -keystore "$keystore" -storepass "$STORE_PASS" -alias "$KEY_ALIAS" > "$info" 2>/dev/null; then
+            echo "::error::KEYSTORE_OPEN_FAILED: check keystore file, ELVANOQ_KEYSTORE_PASSWORD and ELVANOQ_KEY_ALIAS"
+            exit 1
+          fi
+          actual="$(sed -n 's/^[[:space:]]*SHA256: //p' "$info" | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           expected="$(printf '%s' "$CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
-          test -n "$actual" && test "$actual" = "$expected" || { echo "::error::Original signing fingerprint mismatch"; exit 1; }
-          rm -f "$RUNNER_TEMP/elvanoq-sign/cert-info.txt"
+          if [ -z "$actual" ]; then
+            echo "::error::CERT_FINGERPRINT_NOT_FOUND: keytool did not provide a SHA256 certificate fingerprint"
+            exit 1
+          fi
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::CERT_FINGERPRINT_MISMATCH: decoded keystore does not match ELVANOQ_CERT_SHA256"
+            exit 1
+          fi
+          echo "ELVANOQ signing keystore fingerprint verified (no secrets printed)"
       - name: Verify branch workflow has not compiled a substituted project
         run: |
           test -f android/app/build.gradle

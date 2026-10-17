@@ -75,7 +75,7 @@ export function TvSideNavigation() {
   }, [pathname, router]);
 
   return (
-    <View style={styles.slot}>
+    <View pointerEvents="box-none" style={styles.slot}>
       <View style={[styles.shell, expanded && styles.shellExpanded]}>
       <BlurView
         intensity={52}

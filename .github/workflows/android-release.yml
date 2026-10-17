@@ -41,15 +41,6 @@ jobs:
         with:
           ref: ${{ inputs.source_ref }}
           persist-credentials: false
-      - name: Verify branch workflow has not compiled a substituted project
-        run: |
-          test -f android/app/build.gradle
-          test -f android/gradlew
-          test -f package-lock.json
-          grep -Fq "com.fastshot.slitherproduction.flixplay" android/app/build.gradle
-          grep -Fq "reactNativeArchitectures=armeabi-v7a,arm64-v8a" android/gradle.properties
-          if ! command -v rg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y ripgrep; fi
-          bash tools/verify-release-baseline.sh
       - name: Set up Node and npm cache
         uses: actions/setup-node@v4
         with:
@@ -60,19 +51,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install pinned Android SDK and NDK
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
-      - name: Install pinned JS dependencies
-        run: npm ci --no-audit --no-fund
-      - name: Apply existing Android dependency compatibility patch
-        run: bash tools/prepare-android-offline-compat.sh
-      - name: Restore the ORIGINAL signing keystore and verify fingerprint
+      - name: Restore approved ELVANOQ signing keystore and verify fingerprint
         env:
           KEYSTORE_B64: ${{ secrets.ELVANOQ_KEYSTORE_BASE64 }}
           STORE_PASS: ${{ secrets.ELVANOQ_KEYSTORE_PASSWORD }}
@@ -88,6 +67,27 @@ jobs:
           expected="$(printf '%s' "$CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           test -n "$actual" && test "$actual" = "$expected" || { echo "::error::Original signing fingerprint mismatch"; exit 1; }
           rm -f "$RUNNER_TEMP/elvanoq-sign/cert-info.txt"
+      - name: Verify branch workflow has not compiled a substituted project
+        run: |
+          test -f android/app/build.gradle
+          test -f android/gradlew
+          test -f package-lock.json
+          grep -Fq "com.fastshot.slitherproduction.flixplay" android/app/build.gradle
+          grep -Fq "reactNativeArchitectures=armeabi-v7a,arm64-v8a" android/gradle.properties
+          if ! command -v rg >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y ripgrep; fi
+          bash tools/verify-release-baseline.sh
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install pinned Android SDK and NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
+      - name: Install pinned JS dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Apply existing Android dependency compatibility patch
+        run: bash tools/prepare-android-offline-compat.sh
       - name: Build unsigned release with repository Gradle
         run: |
           set -euo pipefail

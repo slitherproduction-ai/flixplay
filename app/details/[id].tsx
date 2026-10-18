@@ -693,8 +693,8 @@ function ContentSummary({
             <View style={styles.synopsisLoading}><ActivityIndicator size="small" color={Colors.subtle} /><AppText style={styles.synopsisLoadingText}>Atualizando dados do TMDB...</AppText></View>
           ) : null}
           {tmdbMetadata?.trailerUrl ? (
-            <TVFocusable onPress={openTrailer} style={[styles.trailerButton, tvMode && styles.tvTrailerButton]} accessibilityLabel="Abrir trailer">
-              <Ionicons name="play-circle-outline" size={17} color={Colors.blueBright} />
+            <TVFocusable onPress={openTrailer} focusStyle={styles.whiteActionFocused} style={[styles.trailerButton, tvMode && styles.tvTrailerButton]} accessibilityLabel="Abrir trailer">
+              <Ionicons name="play-circle-outline" size={17} color={Colors.background} />
               <AppText style={[styles.trailerButtonText, tvMode && styles.tvTrailerButtonText]}>Trailer</AppText>
             </TVFocusable>
           ) : null}
@@ -757,12 +757,13 @@ function ContentActions({
         accessibilityLabel={isBlocked ? "Remover bloqueio parental" : "Bloquear conteúdo"}
         accessibilityState={{ selected: isBlocked }}
         onPress={onToggleBlocked}
+        focusStyle={styles.whiteActionFocused}
         style={[styles.actionButton, isBlocked && styles.actionButtonCritical, tvMode && styles.tvActionButton]}
       >
         <Ionicons
           name={isBlocked ? "lock-closed" : "lock-open-outline"}
           size={17}
-          color={isBlocked ? "#FF9BA2" : Colors.text}
+          color={isBlocked ? "#B4232B" : Colors.background}
         />
         <AppText style={[styles.actionText, isBlocked && styles.actionTextCritical]}>{isBlocked ? "Bloqueado" : "Bloquear"}</AppText>
       </TVFocusable>
@@ -771,12 +772,13 @@ function ContentActions({
         accessibilityLabel={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
         accessibilityState={{ selected: isFavorite }}
         onPress={onFavorite}
+        focusStyle={styles.whiteActionFocused}
         style={[styles.actionButton, isFavorite && styles.actionButtonActive, tvMode && styles.tvActionButton]}
       >
         <Ionicons
           name={isFavorite ? "bookmark" : "bookmark-outline"}
           size={17}
-          color={isFavorite ? Colors.amber : Colors.text}
+          color={isFavorite ? "#9A6700" : Colors.background}
         />
         <AppText style={[styles.actionText, isFavorite && styles.actionTextActive]}>
           {isFavorite ? "Salvo" : "Mais tarde"}
@@ -865,9 +867,9 @@ function EpisodesSection({
             onPress={() => setSeasonPickerOpen(true)}
             style={styles.mobileSeasonSelector}
           >
-            <Ionicons name="albums-outline" size={17} color={Colors.text} />
+            <Ionicons name="albums-outline" size={17} color={Colors.background} />
             <AppText style={styles.mobileSeasonSelectorText}>Temporada {season}</AppText>
-            <Ionicons name="chevron-down" size={18} color={Colors.muted} />
+            <Ionicons name="chevron-down" size={18} color={Colors.background} />
           </TVFocusable>
           <Modal
             transparent
@@ -1162,9 +1164,9 @@ const styles = StyleSheet.create({
   plotMissing: { fontSize: 12, color: Colors.subtle, fontStyle: "italic" },
   synopsisLoading: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   synopsisLoadingText: { fontSize: 11, color: Colors.subtle },
-  trailerButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, minHeight: 36, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", backgroundColor: "rgba(13,20,31,0.66)" },
-  trailerButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.text },
-  tvTrailerButton: { minHeight: 36, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(13,20,31,0.68)" },
+  trailerButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, minHeight: 43, paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(255,255,255,0.78)", backgroundColor: Colors.white },
+  trailerButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.background },
+  tvTrailerButton: { minHeight: 38, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderColor: "rgba(255,255,255,0.86)", backgroundColor: Colors.white },
   tvTrailerButtonText: { fontSize: 11 },
   castSection: { gap: 3, marginTop: 2 },
   tvCastSection: { maxWidth: 900, marginTop: 5 },
@@ -1203,26 +1205,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: Radii.pill,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    backgroundColor: "rgba(13,20,31,0.66)",
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: Colors.white,
   },
-  tvActionButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 9, backgroundColor: "rgba(12,16,25,0.56)" },
-  actionButtonActive: { borderColor: "rgba(250,204,21,0.48)", backgroundColor: "rgba(250,204,21,0.12)" },
-  actionButtonCritical: { borderColor: "rgba(255,107,116,0.48)", backgroundColor: "rgba(140,30,42,0.32)" },
-  actionText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
-  actionTextActive: { color: "#FFE18D" },
-  actionTextCritical: { color: "#FFC1C6" },
+  tvActionButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 9, borderColor: "rgba(255,255,255,0.86)", backgroundColor: Colors.white },
+  actionButtonActive: { borderColor: "rgba(154,103,0,0.68)", backgroundColor: Colors.white },
+  actionButtonCritical: { borderColor: "rgba(180,35,43,0.70)", backgroundColor: Colors.white },
+  actionText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.background },
+  actionTextActive: { color: "#725000" },
+  actionTextCritical: { color: "#9A2027" },
   episodesSection: { gap: 12, paddingHorizontal: 20 },
   tvEpisodesSection: { gap: 10, paddingHorizontal: 62, paddingTop: 4 },
   tvSeasonSelectorArea: { alignSelf: "flex-start", minWidth: 230, zIndex: 3 },
   tvSeasonSelector: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(238,244,252,0.94)" },
   tvSeasonSelectorFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: Colors.white, transform: [{ scale: 1 }] },
   tvSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.background },
-  tvSeasonMenu: { gap: 2, marginTop: 5, padding: 5, borderRadius: 8, borderWidth: 1, borderColor: "rgba(176,211,244,0.24)", backgroundColor: "rgba(7,16,29,0.98)" },
-  tvSeasonOption: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, borderRadius: 6 },
-  tvSeasonOptionSelected: { backgroundColor: "rgba(42,124,200,0.24)" },
-  tvSeasonOptionFocused: { borderWidth: 1, borderColor: "rgba(156,221,255,0.92)", backgroundColor: "rgba(69,165,238,0.30)", transform: [{ scale: 1 }] },
-  tvSeasonOptionText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
+  tvSeasonMenu: { gap: 2, marginTop: 5, padding: 5, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.80)", backgroundColor: Colors.white },
+  tvSeasonOption: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, borderRadius: 6, backgroundColor: Colors.white },
+  tvSeasonOptionSelected: { backgroundColor: "rgba(47,132,205,0.13)" },
+  tvSeasonOptionFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: Colors.white, transform: [{ scale: 1 }] },
+  tvSeasonOptionText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.background },
   tvSeasonOptionTextSelected: { fontFamily: "Inter_700Bold" },
   // Mobile uses one compact selector that opens a sheet. It avoids a long,
   // visually noisy row of season pills while keeping every season reachable.
@@ -1236,10 +1238,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    backgroundColor: "rgba(17,27,42,0.88)",
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: Colors.white,
   },
-  mobileSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  mobileSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.background },
   seasonSheetRoot: { flex: 1, justifyContent: "flex-end" },
   seasonSheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.62)" },
   seasonSheet: {

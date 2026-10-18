@@ -4,6 +4,8 @@
 
 ### Interface TV proporcional
 
+- Botões de ação em Filmes e Séries foram unificados no acabamento claro de “Assistir agora”; Trailer, Bloquear e Mais tarde mantêm texto e ícones escuros, inclusive quando recebem foco na TV.
+- O seletor expansível de temporada na TV e suas opções passam a usar superfície branca, sem sobreposição escura sobre as ações.
 - Smartphone: a seleção de temporada das séries passa a abrir em painel inferior, substituindo a faixa extensa de botões por uma lista clara, selecionável e fechada após a escolha.
 - Smartphone: episódios receberam cards mais refinados, com thumbnail 16:9 compacta, título, sinopse, duração, estado de novo e progresso de reprodução.
 - Smartphone: escala da área de episódios foi ajustada para leitura confortável e densidade equivalente a aplicativos de streaming premium.

@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Menu lateral TV passa a recolher para ícones quando o foco sai dele e expande com marca, rótulos e versão ao receber foco, no padrão de Netflix, YouTube e Prime Video.
 - Menu lateral da TV removido da camada sobreposta: ele passa a ocupar uma coluna fixa do layout, impedindo que cenas nativas do Fire TV ocultem ícones e textos.
 - Ícone do aplicativo e marca da abertura redimensionados e centralizados com área segura para launchers Android, Android TV, Google TV e Fire TV.
 - A tela de login passa a usar os valores centralizados de versão e build como reserva, evitando a exibição de dados antigos quando as informações nativas não estiverem disponíveis.

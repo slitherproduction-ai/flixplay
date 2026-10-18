@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurTargetView, BlurView } from "expo-blur";
 import Constants from "expo-constants";
+import { APP_INFO } from "@/constants/app";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,8 +30,8 @@ import type { ServerProfile } from "@/store/types";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { logTechnicalError } from "@/services/security/sanitize";
 
-const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? "2.17.8";
-const APP_BUILD = Constants.nativeBuildVersion ?? "20261023";
+const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
+const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
 
 interface DiagInfo {
   testedUrl: string;

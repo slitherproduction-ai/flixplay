@@ -8,6 +8,7 @@ import { TV_ROUTES, isTvRouteActive, type TvRoute } from "@/core/navigation/tv-r
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { BrandLogo } from "@/components/brand-logo";
+import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 
 /**
  * Fire TV renders animated/overflowing side rails unreliably: labels may be
@@ -45,7 +46,7 @@ export function TvSideNavigation() {
     setFocusedRouteKey((current) => current === routeKey ? null : current);
   }, []);
 
-  const handleNavigationRemote = useCallback((event: "right" | string) => {
+  const handleNavigationRemote = useCallback((event: TVRemoteEvent) => {
     // The right key is the intentional exit from the rail to page content.
     // This is the only navigation path that collapses the menu, eliminating
     // label loss caused by transient blur events between menu entries.
@@ -53,6 +54,11 @@ export function TvSideNavigation() {
     setFocusedRouteKey(null);
     setExpanded(false);
   }, []);
+
+  // Some Fire TV remotes deliver D-pad presses through the native emitter
+  // instead of the focused Pressable. Keep the same explicit exit behavior
+  // in both paths; this never runs while the rail is already collapsed.
+  useTVRemote(handleNavigationRemote, expanded);
 
   const resolveFocusHandles = useCallback(() => {
     requestAnimationFrame(() => {
@@ -69,12 +75,10 @@ export function TvSideNavigation() {
       <View style={styles.shell}>
       <View style={styles.brand}>
         <BrandLogo variant="symbol" style={styles.logo} accessibilityLabel="Símbolo ELVANOQ" />
-        {expanded ? (
-          <View style={styles.brandCopy}>
-              <AppText style={styles.brandName}>ELVANOQ</AppText>
-              <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
-          </View>
-        ) : null}
+        <View pointerEvents="none" style={[styles.brandCopy, !expanded && styles.copyHidden]}>
+          <AppText style={styles.brandName}>ELVANOQ</AppText>
+          <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
+        </View>
       </View>
 
       <View style={styles.navList} onLayout={resolveFocusHandles}>
@@ -115,22 +119,20 @@ export function TvSideNavigation() {
                 // is open; focus only changes the selected surface.
                 color={focused ? Colors.text : selected ? Colors.blueBright : "rgba(238,244,252,0.88)"}
               />
-              {expanded ? (
+              <View pointerEvents="none" style={[styles.labelSlot, !expanded && styles.labelSlotHidden]}>
                 <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected, focused && styles.navLabelFocused]}>
                   {route.label}
                 </AppText>
-              ) : null}
+              </View>
             </TVFocusable>
           );
         })}
       </View>
 
-      {expanded ? (
-        <View style={styles.footer}>
-          <View style={styles.footerDivider} />
-          <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
-        </View>
-      ) : null}
+      <View pointerEvents="none" style={[styles.footer, !expanded && styles.footerHidden]}>
+        <View style={styles.footerDivider} />
+        <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
+      </View>
       </View>
     </View>
   );
@@ -153,7 +155,8 @@ const styles = StyleSheet.create({
   },
   brand: { height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 5, marginBottom: 10 },
   logo: { width: 23, height: 23, borderRadius: 7, flexShrink: 0 },
-  brandCopy: { flex: 1, gap: 2 },
+  brandCopy: { flex: 1, gap: 2, overflow: "hidden" },
+  copyHidden: { flex: 0, width: 0, opacity: 0 },
   brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
   brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
   navList: { flex: 1, justifyContent: "flex-start", paddingTop: 8, gap: 4 },
@@ -174,10 +177,13 @@ const styles = StyleSheet.create({
   navItemPressed: { opacity: 0.9 },
   activeBar: { position: "absolute", left: 2, width: 2, height: 15, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
-  navLabel: { flex: 1, color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
+  labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
+  labelSlotHidden: { flex: 0, width: 0, opacity: 0 },
+  navLabel: { color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelSelected: { color: Colors.text },
   navLabelFocused: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
+  footerHidden: { height: 0, opacity: 0 },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
   version: { color: "rgba(181,201,225,0.65)", fontSize: 9 },
 });

@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Rail lateral da TV passa a manter marca, rótulos e versão permanentemente montados; o D-pad vertical não pode mais ocultar informações entre itens. A saída explícita pela seta direita continua recolhendo o menu.
 - Menu lateral TV deixa de recolher por eventos transitórios de blur entre itens: todos os rótulos permanecem visíveis durante a navegação vertical e o rail recolhe somente ao sair para o conteúdo com a seta direita.
 - Corrigida a passagem de tvMode para a faixa de recomendações na tela de detalhes, evitando erro de propriedade inexistente em filmes e séries.
 - Corrigida duplicidade de parâmetro na tela de detalhes que impedia o bundle de filmes e séries no GitHub Actions.

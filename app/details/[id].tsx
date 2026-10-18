@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,80 +14,11 @@ import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
 import { verifyParentalPin } from "@/services/security/parentalControl";
 import { fetchTmdbMetadata, isTmdbConfigured, type TmdbMetadata } from "@/services/tmdb";
 import type { EpisodeItem, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
+import { loadOrFetchSynopsis } from "@/features/details/synopsis";
 
 // ---------------------------------------------------------------------------
 // Synopsis auto-fetch from Wikipedia
 // ---------------------------------------------------------------------------
-
-const SYNOPSIS_CACHE_PREFIX = "flixplay_synopsis_v1_";
-
-/** Remove noise tags from IPTV titles: [FHD], (2024), 4K, DUBLADO, etc. */
-function cleanTitleForSearch(raw: string): string {
-  return raw
-    .replace(/\[.*?\]/g, "")
-    .replace(/\((?:19|20)\d{2}\)/g, "")
-    .replace(/\b(FHD|4K|UHD|HD|HQ|SDR|HDR10?|HEVC|H\.?265|H\.?264|DUBLAD[OA]?|DUB|LEGENDAD[OA]?|LEG|DUAL|NACIONAL|MULTI|COMPLETO?|TEMPORADA|SEASON)\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function fetchSynopsisFromWikipedia(title: string): Promise<string | null> {
-  const encoded = encodeURIComponent(title);
-  // Try Portuguese Wikipedia first
-  const ptUrl = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
-  try {
-    const res = await fetch(ptUrl, { signal: AbortSignal.timeout(6000) });
-    if (res.ok) {
-      const data = await res.json() as { extract?: string; type?: string };
-      if (data.type !== "disambiguation" && data.extract && data.extract.length > 40) {
-        return data.extract;
-      }
-    }
-  } catch {
-    // fall through to English
-  }
-  // Fallback to English Wikipedia
-  const enUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
-  try {
-    const res = await fetch(enUrl, { signal: AbortSignal.timeout(6000) });
-    if (res.ok) {
-      const data = await res.json() as { extract?: string; type?: string };
-      if (data.type !== "disambiguation" && data.extract && data.extract.length > 40) {
-        return data.extract;
-      }
-    }
-  } catch {
-    // nothing
-  }
-  return null;
-}
-
-async function loadOrFetchSynopsis(contentId: string, rawTitle: string, existingPlot: string): Promise<string | null> {
-  // Don't fetch if the server already returned a valid synopsis
-  const trimmed = existingPlot?.trim() ?? "";
-  if (trimmed.length > 30 && trimmed.toLowerCase() !== "n/a") return null;
-
-  const cacheKey = `${SYNOPSIS_CACHE_PREFIX}${contentId}`;
-  try {
-    const cached = await AsyncStorage.getItem(cacheKey);
-    if (cached) return cached;
-  } catch {
-    // cache miss
-  }
-
-  const clean = cleanTitleForSearch(rawTitle);
-  if (!clean) return null;
-
-  const synopsis = await fetchSynopsisFromWikipedia(clean);
-  if (synopsis) {
-    try {
-      await AsyncStorage.setItem(cacheKey, synopsis);
-    } catch {
-      // ignore storage errors
-    }
-  }
-  return synopsis;
-}
 
 function getHistoryProgress(entry?: PlayHistory): number {
   if (!entry || entry.durationMs <= 0) return 0;

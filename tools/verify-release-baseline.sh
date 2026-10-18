@@ -29,8 +29,8 @@ require_marker() {
   rg -Fq "$marker" "$project_root/$file" || fail "ajuste crítico ausente: $label ($file)."
 }
 
-require_marker 'app/(tabs)/live.tsx' 'function TvCategoryPanel' 'painel de categorias no modo TV'
-require_marker 'app/(tabs)/live.tsx' 'function TvChannelPreview' 'preview de canal no modo TV'
+require_marker 'features/live/tv-guide-panels.tsx' 'function TvCategoryPanel' 'painel de categorias no modo TV'
+require_marker 'features/live/tv-guide-panels.tsx' 'function TvChannelPreview' 'preview de canal no modo TV'
 require_marker 'app/(tabs)/live.tsx' 'setPreviewChannelId(null);' 'descarregamento do preview ao sair da aba'
 require_marker 'app/(tabs)/live.tsx' 'tvChannelTitle: { flex: 1, fontSize: 12' 'fonte de 12 px na lista de canais TV'
 require_marker 'app/(tabs)/live.tsx' 'tvProgramTitle: { fontSize: 10' 'fonte de 10 px no EPG TV'

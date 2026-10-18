@@ -1,7 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useVideoPlayer, VideoView } from "expo-video";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -28,6 +26,7 @@ import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { ParentalGate } from "@/components/parental-gate";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels";
+import { TvCategoryPanel, TvChannelPreview } from "@/features/live/tv-guide-panels";
 
 const LIVE_FOCUS_SCOPE = "live-channels";
 const EMPTY_CHANNELS: ChannelItem[] = [];
@@ -392,165 +391,6 @@ function TvLiveUtility() {
       <Ionicons name="radio-outline" size={18} color={Colors.text} />
       <AppText style={styles.tvUtilityTime}>{clock.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</AppText>
       <Ionicons name="settings-outline" size={19} color={Colors.muted} />
-    </View>
-  );
-}
-
-function TvCategoryPanel({
-  categories,
-  activeCategory,
-  filter,
-  categoryCounts,
-  onFilterChange,
-  onSelect,
-}: {
-  categories: string[];
-  activeCategory: string;
-  filter: string;
-  categoryCounts: ReadonlyMap<string, number>;
-  onFilterChange: (value: string) => void;
-  onSelect: (category: string) => void;
-}) {
-  const filteredCategories = useMemo(() => {
-    const needle = filter.trim().toLocaleLowerCase();
-    return categories.filter((item) => !needle || item.toLocaleLowerCase().includes(needle));
-  }, [categories, filter]);
-  return (
-    <View style={styles.tvCategoryPane}>
-      <SearchField value={filter} onChangeText={onFilterChange} placeholder="Pesquisar categoria" />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tvCategoryList}>
-        {filteredCategories.map((item, index) => {
-          const selected = item === activeCategory;
-          return (
-            <TVFocusable
-              key={item}
-              focusId={`live-category-${item}`}
-              focusScope="live-categories"
-              focusIndex={index}
-              accessibilityRole="button"
-              accessibilityLabel={`${item}, ${categoryCounts.get(item) ?? 0} canais`}
-              onPress={() => onSelect(item)}
-              style={[styles.tvCategoryRow, selected && styles.tvCategoryRowSelected]}
-              focusStyle={styles.tvCategoryRowFocused}
-            >
-              <AppText numberOfLines={1} style={[styles.tvCategoryLabel, selected && styles.tvCategoryLabelSelected]}>{item}</AppText>
-              <AppText style={styles.tvCategoryCount}>{categoryCounts.get(item) ?? 0}</AppText>
-            </TVFocusable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
-
-function TvChannelPreview({
-  channel,
-  width,
-  active,
-}: {
-  channel: ChannelItem | undefined;
-  width: number;
-  /** A tab stays mounted after navigation; only the active route may emit audio. */
-  active: boolean;
-}) {
-  const streamUrl = channel?.streamUrl;
-  const loadedStreamUrl = useRef<string | undefined>(undefined);
-  // Keep one native player mounted and explicitly replace its source when the
-  // focused channel changes. Passing the source only to useVideoPlayer can
-  // leave a stale/blank preview on Android TV and Fire TV.
-  const player = useVideoPlayer(null, (videoPlayer) => {
-    videoPlayer.muted = true;
-    videoPlayer.volume = 0;
-    videoPlayer.audioMixingMode = "doNotMix";
-  });
-
-  useEffect(() => {
-    if (!active || !streamUrl) {
-      try { player.pause(); } catch { /* native player may already be disposed */ }
-      return;
-    }
-    // Do not recreate a decoder for every D-pad event.  The selected row can
-    // change several times per second on Android TV; wait for focus to settle
-    // and then replace the small preview source once.
-    const timer = setTimeout(() => {
-      try {
-        if (loadedStreamUrl.current !== streamUrl) {
-          player.replace({ uri: streamUrl });
-          loadedStreamUrl.current = streamUrl;
-        }
-        player.muted = true;
-        player.volume = 0;
-        player.play();
-      } catch {
-        // The native player retries while a live endpoint is becoming available.
-      }
-    }, TV_PREVIEW_FOCUS_DELAY_MS);
-    return () => {
-      clearTimeout(timer);
-      try { player.pause(); } catch { /* native player may already be disposed */ }
-    };
-  }, [active, channel?.id, streamUrl, player]);
-
-  // Keep a concrete panel in the layout during pagination and sync. Without
-  // it, a temporary empty page leaves the right side looking like a broken
-  // preview even though the first channel is about to arrive.
-  if (!channel) {
-    return (
-      <View style={[styles.tvPreview, { width }]}>
-        <View style={[styles.tvPreviewStage, styles.tvPreviewPlaceholder]}>
-          <ActivityIndicator size="large" color={Colors.blueBright} />
-          <AppText style={styles.tvPreviewPlaceholderText}>Preparando preview</AppText>
-        </View>
-        <View style={styles.tvPreviewCopy}>
-          <AppText style={styles.tvPreviewProgram}>Selecione um canal para assistir</AppText>
-          <AppText style={styles.tvPreviewDescription}>As informações do guia serão exibidas aqui.</AppText>
-        </View>
-      </View>
-    );
-  }
-  const epg = channel.currentEpg;
-  const hasSchedule = Boolean(epg.start || epg.end) && epg.title !== "Sem programação";
-  return (
-    <View style={[styles.tvPreview, { width }]}>
-      <View style={styles.tvPreviewStage}>
-        <VideoView
-          player={player}
-          contentFit="cover"
-          nativeControls={false}
-          // TextureView participates in the React Native compositing tree.
-          // It is essential for a clipped, translucent TV preview on Android
-          // and Fire TV; SurfaceView can render as an empty rectangle here.
-          surfaceType="textureView"
-          style={StyleSheet.absoluteFill}
-        />
-        {channel.logo ? <Image source={{ uri: channel.logo }} contentFit="contain" style={styles.tvPreviewWatermark} /> : null}
-        <LinearGradient colors={["rgba(3,8,16,0.06)", "rgba(3,8,16,0.66)"]} style={StyleSheet.absoluteFill} />
-        <View style={styles.tvPreviewLiveBadge}><View style={styles.liveDot} /><AppText style={styles.tvPreviewLiveText}>AO VIVO</AppText></View>
-      </View>
-      <View style={styles.tvPreviewCopy}>
-        <AppText numberOfLines={2} style={styles.tvPreviewChannel}>{channel.name}</AppText>
-        <AppText numberOfLines={2} style={styles.tvPreviewProgram}>{epg.title || "Carregando programação…"}</AppText>
-        {hasSchedule ? (
-          <View style={styles.tvPreviewTimeline}>
-            <AppText style={styles.tvPreviewTime}>{epg.start}</AppText>
-            <View style={styles.tvPreviewTrack}><View style={[styles.tvPreviewFill, { width: `${epg.progress}%` }]} /></View>
-            <AppText style={styles.tvPreviewTime}>{epg.end}</AppText>
-          </View>
-        ) : (
-          <View style={styles.tvPreviewLoading}><ActivityIndicator size="small" color={Colors.blueBright} /><AppText style={styles.tvPreviewLoadingText}>Buscando programação</AppText></View>
-        )}
-        <AppText numberOfLines={2} style={styles.tvPreviewDescription}>{epg.description || "Programação ao vivo do canal selecionado."}</AppText>
-        <View style={styles.tvPreviewGuide}>
-          <View style={[styles.tvPreviewGuideItem, styles.tvPreviewGuideItemActive]}>
-            <AppText style={styles.tvPreviewGuideLabel}>AGORA</AppText>
-            <AppText numberOfLines={1} style={styles.tvPreviewGuideTitle}>{epg.title || "Ao vivo"}</AppText>
-          </View>
-          <View style={styles.tvPreviewGuideItem}>
-            <AppText style={styles.tvPreviewGuideLabel}>PRÓXIMO</AppText>
-            <AppText numberOfLines={1} style={styles.tvPreviewGuideTitle}>{channel.nextProgram || "Programação não informada"}</AppText>
-          </View>
-        </View>
-      </View>
     </View>
   );
 }
@@ -1015,32 +855,6 @@ const styles = StyleSheet.create({
   // channel list and the programme panel proportional at 720p and 1080p.
   tvGuideLayout: { flex: 1, minHeight: 0, flexDirection: "row", paddingBottom: 18 },
   tvThreePaneLayout: { paddingTop: 18 },
-  tvCategoryPane: {
-    width: 220,
-    flexShrink: 0,
-    minHeight: 0,
-    gap: 10,
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(9,18,33,0.70)",
-    borderWidth: 1,
-    borderColor: "rgba(152,196,240,0.14)",
-  },
-  tvCategoryList: { gap: 2, paddingBottom: 10 },
-  tvCategoryRow: {
-    minHeight: 33,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    paddingHorizontal: 9,
-    borderRadius: 7,
-  },
-  tvCategoryRowSelected: { backgroundColor: "rgba(61,155,235,0.20)" },
-  tvCategoryRowFocused: { backgroundColor: "rgba(69,165,238,0.30)", borderWidth: 1, borderColor: "rgba(156,221,255,0.92)", transform: [{ scale: 1 }] },
-  tvCategoryLabel: { flex: 1, color: "rgba(231,240,251,0.82)", fontFamily: "Inter_500Medium", fontSize: 12 },
-  tvCategoryLabelSelected: { color: Colors.text, fontFamily: "Inter_700Bold" },
-  tvCategoryCount: { color: Colors.subtle, fontFamily: "Inter_600SemiBold", fontSize: 10, fontVariant: ["tabular-nums"] },
   tvChannelPane: {
     flex: 1,
     minWidth: 0,
@@ -1216,34 +1030,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.background },
-  tvPreview: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(190,224,255,0.24)",
-    backgroundColor: "rgba(7,16,29,0.96)",
-    overflow: "hidden",
-  },
-  tvPreviewStage: { aspectRatio: 16 / 9, backgroundColor: "#07101d", overflow: "hidden" },
-  tvPreviewPlaceholder: { alignItems: "center", justifyContent: "center", gap: 12 },
-  tvPreviewPlaceholderText: { color: Colors.muted, fontFamily: "Inter_600SemiBold", fontSize: 12 },
-  tvPreviewWatermark: { position: "absolute", right: 14, bottom: 13, width: 66, height: 42, opacity: 0.78 },
-  tvPreviewLiveBadge: { position: "absolute", top: 11, right: 11, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: "rgba(116,16,36,0.88)" },
-  tvPreviewLiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: "#FFD8DD" },
-  tvPreviewCopy: { gap: 7, padding: 13 },
-  tvPreviewChannel: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, color: Colors.text },
-  tvPreviewProgram: { fontFamily: "Inter_600SemiBold", fontSize: 12, lineHeight: 16, color: Colors.text },
-  tvPreviewTimeline: { flexDirection: "row", alignItems: "center", gap: 7 },
-  tvPreviewTime: { fontSize: 10, color: Colors.subtle, fontVariant: ["tabular-nums"] },
-  tvPreviewTrack: { flex: 1, height: 4, borderRadius: 3, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.16)" },
-  tvPreviewFill: { height: "100%", borderRadius: 3, backgroundColor: Colors.blueBright },
-  tvPreviewLoading: { minHeight: 22, flexDirection: "row", alignItems: "center", gap: 8 },
-  tvPreviewLoadingText: { fontSize: 11, color: Colors.muted },
-  tvPreviewDescription: { fontSize: 10, lineHeight: 14, color: "rgba(215,229,245,0.72)" },
-  tvPreviewGuide: { flexDirection: "row", gap: 8, marginTop: 2 },
-  tvPreviewGuideItem: { flex: 1, gap: 3, minHeight: 48, paddingHorizontal: 9, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: "rgba(174,208,241,0.13)", backgroundColor: "rgba(11,24,42,0.68)" },
-  tvPreviewGuideItemActive: { borderLeftWidth: 3, borderLeftColor: Colors.blueBright, backgroundColor: "rgba(26,93,153,0.20)" },
-  tvPreviewGuideLabel: { color: Colors.blueBright, fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.7 },
-  tvPreviewGuideTitle: { color: Colors.text, fontFamily: "Inter_600SemiBold", fontSize: 11 },
   tvUtility: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 10, borderRadius: 10, backgroundColor: "rgba(12,23,40,0.54)" },
   tvUtilityTime: { color: Colors.text, fontFamily: "Inter_600SemiBold", fontSize: 15, fontVariant: ["tabular-nums"] },
 });

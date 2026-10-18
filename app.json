@@ -4,7 +4,7 @@
     "slug": "flixplay",
     "version": "2.17.14",
     "orientation": "default",
-    "icon": "./assets/images/brand/ELVANOQ_app_icon_v2.png",
+    "icon": "./assets/images/brand/ELVANOQ_app_icon_v3.png",
     "scheme": "fastshot",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -19,7 +19,7 @@
     "android": {
       "package": "com.fastshot.slitherproduction.flixplay",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/brand/ELVANOQ_adaptive_foreground_v2.png",
+        "foregroundImage": "./assets/images/brand/ELVANOQ_adaptive_foreground_v3.png",
         "backgroundImage": "./assets/images/brand/ELVANOQ_adaptive_background_v2.png",
         "backgroundColor": "#070B14"
       },
@@ -52,8 +52,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/brand/ELVANOQ_splash_native_mark_v3.png",
-          "resizeMode": "cover",
+          "image": "./assets/images/brand/ELVANOQ_splash_native_mark_v4.png",
+          "resizeMode": "contain",
           "backgroundColor": "#020714"
         }
       ],

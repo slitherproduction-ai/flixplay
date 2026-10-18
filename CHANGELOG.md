@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Ícone do aplicativo e marca da abertura redimensionados e centralizados com área segura para launchers Android, Android TV, Google TV e Fire TV.
 - A tela de login passa a usar os valores centralizados de versão e build como reserva, evitando a exibição de dados antigos quando as informações nativas não estiverem disponíveis.
 
 - Preview da TV ao Vivo mantido visível durante paginação/sincronização e renderizado em `TextureView` para composição estável em Android TV, Google TV e Fire TV.

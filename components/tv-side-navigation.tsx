@@ -17,8 +17,6 @@ import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
  * Only a decorative background and opacity change when entering/leaving rail.
  */
 export const TV_NAV_WIDTH = 216;
-// The permanent rail width while the user is navigating content. Screens use
-// this inset for their TV density calculations.
 export const TV_NAV_COLLAPSED_WIDTH = 68;
 
 
@@ -108,7 +106,7 @@ export function TvSideNavigation() {
               <View style={[styles.activeBar, selected && styles.activeBarVisible]} />
               <Ionicons
                 name={selected ? route.icon.replace("-outline", "") as TvRoute["icon"] : route.icon}
-                size={20}
+                size={22}
                 // The item's own native focus ring is the focus indicator.
                 // Keeping this color independent of parent state prevents a
                 // vertical D-pad move from repainting the whole menu.
@@ -134,15 +132,17 @@ export function TvSideNavigation() {
 }
 
 const styles = StyleSheet.create({
-  // The in-flow focus area never changes size. This avoids FocusFinder
-  // rebuilding the vertical navigation graph between adjacent items.
+  // The in-flow focus area never changes size.  This avoids FocusFinder
+  // rebuilding the vertical navigation graph between two adjacent items.
   slot: { width: TV_NAV_WIDTH, flexShrink: 0, backgroundColor: Colors.background },
   surface: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: "transparent",
+    backgroundColor: "#09111F",
+    borderRightWidth: 1,
+    borderRightColor: "rgba(186,221,255,0.12)",
   },
   surfaceCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
   surfaceExpanded: { width: TV_NAV_WIDTH },
@@ -151,19 +151,20 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 12,
     paddingHorizontal: 10,
-    backgroundColor: "#09111F",
-    borderRightWidth: 1,
-    borderRightColor: "rgba(186,221,255,0.12)",
+    backgroundColor: "transparent",
   },
   brand: { height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 5, marginBottom: 10 },
   logo: { width: 23, height: 23, borderRadius: 7, flexShrink: 0 },
   brandCopy: { flex: 1, gap: 2, overflow: "hidden" },
+  // Keep the labels measured at their final width even when hidden. Setting
+  // width to zero here was enough to make Fire TV drop text during vertical
+  // focus handoffs.
   copyHidden: { opacity: 0 },
   brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
   brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
   navList: { flex: 1, justifyContent: "flex-start", paddingTop: 8, gap: 4 },
   navItem: {
-    height: 40,
+    height: 44,
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
   navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
   navItemFocused: { borderWidth: 1, backgroundColor: "rgba(69, 165, 238, 0.28)", borderColor: "rgba(156, 221, 255, 0.92)", transform: [{ scale: 1 }], opacity: 1 },
   navItemPressed: { opacity: 0.9 },
-  activeBar: { position: "absolute", left: 2, width: 2, height: 15, borderRadius: 2, opacity: 0 },
+  activeBar: { position: "absolute", left: 2, width: 2, height: 18, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
   labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
   labelSlotHidden: { opacity: 0 },

@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { Colors, Radii, Shadows } from "@/constants/theme";
+import { Colors, Radii } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, HorizontalScroller, IconButton, PosterCard, SectionHeader } from "@/components/ui";
 import { BrandLogo } from "@/components/brand-logo";
@@ -40,6 +41,10 @@ function yearMeta(year: number): string {
   return year > 0 ? String(year) : "Ano não informado";
 }
 
+const FEATURED_HOME_STORAGE_KEY = "elvanoq_home_weekly_feature_v1";
+const FEATURED_HOME_ROTATION_MS = 7 * 24 * 60 * 60 * 1000;
+const FEATURED_RECENT_WINDOW_MS = 45 * 24 * 60 * 60 * 1000;
+
 type HeroContent = {
   id: string;
   type: "movie" | "series";
@@ -52,35 +57,31 @@ type HeroContent = {
   genre: string;
   plot: string;
   streamUrl?: string;
-  featureKind: "most-watched" | "top-rated";
-  playCount?: number;
 };
 
-function toHeroMovie(movie: VodMovie): Omit<HeroContent, "featureKind" | "playCount"> {
+function toHeroMovie(movie: VodMovie): HeroContent {
   return { ...movie, type: "movie" };
 }
 
-function toHeroSeries(series: SeriesItem): Omit<HeroContent, "featureKind" | "playCount"> {
-  return {
-    ...series,
-    type: "series",
-    duration: seasonsMeta(series.seasonsCount),
-  };
+function parseAddedAt(value?: string): number {
+  if (!value) return 0;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function selectFeaturedContent(movies: VodMovie[], seriesList: SeriesItem[], playCounts: Record<string, number>): HeroContent | null {
-  const candidates = [...movies.map(toHeroMovie), ...seriesList.map(toHeroSeries)];
-  if (candidates.length === 0) return null;
-
-  const watched = candidates
-    .filter((item) => (playCounts[item.id] ?? 0) > 0)
-    .sort((a, b) => (playCounts[b.id] ?? 0) - (playCounts[a.id] ?? 0) || b.rating - a.rating)[0];
-  if (watched) {
-    return { ...watched, featureKind: "most-watched", playCount: playCounts[watched.id] };
-  }
-
-  const topRated = [...candidates].sort((a, b) => b.rating - a.rating || b.year - a.year)[0];
-  return { ...topRated, featureKind: "top-rated" };
+function weeklyFeaturedMovie(movies: VodMovie[], previousId?: string): VodMovie | null {
+  if (movies.length === 0) return null;
+  const now = Date.now();
+  const recent = movies.filter((movie) => {
+    const addedAt = parseAddedAt(movie.addedAt);
+    return addedAt > 0 && now - addedAt <= FEATURED_RECENT_WINDOW_MS;
+  });
+  const ranked = (recent.length ? recent : movies)
+    .slice()
+    .sort((a, b) => b.rating - a.rating || parseAddedAt(b.addedAt) - parseAddedAt(a.addedAt) || b.year - a.year);
+  return ranked.find((movie) => movie.id !== previousId) ?? ranked[0] ?? null;
 }
 
 interface HeroBannerProps {
@@ -92,8 +93,8 @@ interface HeroBannerProps {
 }
 
 function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps) {
-  const featureLabel = hero.featureKind === "most-watched" ? "MAIS ASSISTIDO POR VOCÊ" : "MELHOR AVALIADO";
-  const featureIcon = hero.featureKind === "most-watched" ? "flame" : "star";
+  const featureLabel = "DESTAQUE DA SEMANA";
+  const featureIcon = "sparkles";
   const playLabel = hero.type === "series" ? "Ver episódios" : "Assistir agora";
   return (
     <View style={[styles.heroWrap, tvMode && styles.tvHeroWrap, { height }]}>
@@ -109,7 +110,7 @@ function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps
         end={{ x: 1, y: 0.5 }}
         style={[StyleSheet.absoluteFill, !tvMode && styles.heroSideGradient]}
       />
-      <View style={styles.heroEdge} />
+      <View style={[styles.heroEdge, tvMode && styles.tvHeroEdge]} />
       <View style={[styles.heroContent, tvMode && styles.tvHeroContent]}>
         <View style={[styles.heroTag, tvMode && styles.tvHeroTag]}>
           <Ionicons name={featureIcon} size={12} color={Colors.blueBright} />
@@ -131,8 +132,8 @@ function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps
             <Ionicons name="play" size={16} color={Colors.background} />
             <AppText style={[styles.primaryButtonText, tvMode && styles.tvPrimaryButtonText]}>{playLabel}</AppText>
           </TVFocusable>
-          <TVFocusable accessibilityRole="button" onPress={onDetails} style={[styles.secondaryButton, tvMode && styles.tvSecondaryButton]}>
-            <Ionicons name="information-circle-outline" size={17} color={Colors.text} />
+          <TVFocusable accessibilityRole="button" onPress={onDetails} focusStyle={styles.whiteActionFocused} style={[styles.secondaryButton, tvMode && styles.tvSecondaryButton]}>
+            <Ionicons name="information-circle-outline" size={17} color={Colors.background} />
             <AppText style={[styles.secondaryButtonText, tvMode && styles.tvSecondaryButtonText]}>Detalhes</AppText>
           </TVFocusable>
         </View>
@@ -165,9 +166,9 @@ export default function HomeScreen() {
   const { width, height } = useWindowDimensions();
   const tvMode = useTVMode();
   const history = useAppStore((state) => state.history);
-  const playCounts = useAppStore((state) => state.playCounts);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const [pendingHistoryItem, setPendingHistoryItem] = useState<PlayHistory | null>(null);
+  const [weeklyFeatureId, setWeeklyFeatureId] = useState<string | null>(null);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
   const movies = useAppStore((state) => state.contentCache.vodMovies);
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
@@ -175,16 +176,47 @@ export default function HomeScreen() {
 
   const posterWidth = computePosterWidth(tvMode, width);
   const heroHeight = tvMode
-    ? Math.round(Math.min(420, Math.max(300, height * 0.40)))
+    ? Math.round(Math.min(610, Math.max(410, height * 0.60)))
     : Math.round(Math.min(310, Math.max(238, height * 0.31)));
   const syncLabel = syncProgress ?? "Sincronizando conteúdo...";
 
-  // The hero is data-driven: user playback wins, then the best TMDB rating
-  // keeps first access useful without pretending an arbitrary catalogue item is
-  // a weekly highlight.
+  const rankedWeeklyMovie = useMemo(() => weeklyFeaturedMovie(movies), [movies]);
+
+  // The home spotlight is a weekly editorial choice: the highest-rated movie
+  // added recently remains stable for seven days, then rotates to the next
+  // eligible title. This avoids the hero changing every render or replay.
+  useEffect(() => {
+    let active = true;
+    const selectWeeklyFeature = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(FEATURED_HOME_STORAGE_KEY);
+        const stored = raw ? JSON.parse(raw) as { id?: string; selectedAt?: number } : null;
+        const isCurrent = Boolean(stored?.id && stored.selectedAt && Date.now() - stored.selectedAt < FEATURED_HOME_ROTATION_MS && movies.some((movie) => movie.id === stored.id));
+        if (isCurrent) {
+          if (active) setWeeklyFeatureId(stored?.id ?? null);
+          return;
+        }
+        const next = weeklyFeaturedMovie(movies, stored?.id);
+        if (!next) {
+          if (active) setWeeklyFeatureId(null);
+          return;
+        }
+        await AsyncStorage.setItem(FEATURED_HOME_STORAGE_KEY, JSON.stringify({ id: next.id, selectedAt: Date.now() }));
+        if (active) setWeeklyFeatureId(next.id);
+      } catch {
+        if (active) setWeeklyFeatureId(rankedWeeklyMovie?.id ?? null);
+      }
+    };
+    void selectWeeklyFeature();
+    return () => { active = false; };
+  }, [movies, rankedWeeklyMovie?.id]);
+
   const hero = useMemo(
-    () => selectFeaturedContent(movies, seriesList, playCounts),
-    [movies, playCounts, seriesList],
+    () => {
+      const selected = movies.find((movie) => movie.id === weeklyFeatureId) ?? rankedWeeklyMovie;
+      return selected ? toHeroMovie(selected) : null;
+    },
+    [movies, rankedWeeklyMovie, weeklyFeatureId],
   );
 
   const handleSearch = useCallback(() => { router.push("/search"); }, [router]);
@@ -460,22 +492,20 @@ const styles = StyleSheet.create({
   eyebrow: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.5, color: Colors.blueBright },
   brandLogo: { width: 128, height: 48 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 9 },
-  // The phone version keeps the same cinematic hierarchy as TV, while using a
-  // shorter card so the catalogue remains immediately reachable by touch.
-  heroWrap: { height: 340, overflow: "hidden", borderRadius: 22, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: Colors.backgroundRaised, ...Shadows.card },
-  // TV hero follows the editorial Apple TV pattern: poster artwork leads,
-  // copy is confined to a quiet left safe area, and the focus ring belongs to
-  // the actionable controls rather than a decorative blue frame.
+  // The hero is a full cinematic stage, not a card. Artwork continues to the
+  // screen edge and the gradients create the readable content safe area.
+  heroWrap: { height: 340, overflow: "hidden", backgroundColor: Colors.backgroundRaised },
   tvHeroWrap: { marginHorizontal: -32, borderWidth: 0, borderRadius: 0, backgroundColor: "#111722" },
   heroSideGradient: { opacity: 0.18 },
-  heroEdge: { ...StyleSheet.absoluteFill, borderRadius: 22, borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
+  heroEdge: { ...StyleSheet.absoluteFill },
+  tvHeroEdge: { borderWidth: 0 },
   heroContent: { position: "absolute", right: 19, bottom: 18, left: 19, gap: 8 },
-  tvHeroContent: { right: undefined, bottom: 46, left: 64, width: "38%", gap: 9 },
+  tvHeroContent: { right: undefined, bottom: 72, left: 64, width: "42%", gap: 10 },
   heroTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: "rgba(34,211,238,0.30)", backgroundColor: "rgba(7,18,35,0.56)" },
-  tvHeroTag: { paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(7,18,35,0.62)" },
+  tvHeroTag: { paddingHorizontal: 0, paddingVertical: 0, borderWidth: 0, backgroundColor: "transparent" },
   heroTagText: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.8, color: Colors.blueBright },
   heroTitle: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 29, letterSpacing: -0.65, color: Colors.text },
-  tvHeroTitle: { fontSize: 30, lineHeight: 35, letterSpacing: -0.8 },
+  tvHeroTitle: { fontSize: 28, lineHeight: 34, letterSpacing: -0.8 },
   heroDescription: { maxWidth: 470, fontSize: 12, lineHeight: 17, color: "rgba(248, 250, 252, 0.82)" },
   tvHeroDescription: { maxWidth: 460, fontSize: 12, lineHeight: 18, color: "rgba(248,250,252,0.86)" },
   heroMeta: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -493,12 +523,12 @@ const styles = StyleSheet.create({
   tvPrimaryButtonText: { fontSize: 12, color: Colors.background },
   // Secondary actions keep the same rounded geometry as the primary CTA,
   // but use a restrained glass treatment so the play action remains dominant.
-  secondaryButton: { minHeight: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13, borderRadius: 9, borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", backgroundColor: "rgba(13,20,31,0.66)" },
-  tvSecondaryButton: { minHeight: 40, paddingHorizontal: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.16)", borderRadius: 7, backgroundColor: "rgba(13,20,31,0.68)" },
-  secondaryButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  secondaryButton: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
+  tvSecondaryButton: { minHeight: 40, paddingHorizontal: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.86)", borderRadius: 7, backgroundColor: Colors.white },
+  secondaryButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.background },
   tvSecondaryButtonText: { fontSize: 12 },
   sectionBlock: { gap: 0 },
-  tvSectionBlock: { marginTop: 18 },
+  tvSectionBlock: { marginTop: 12 },
   continueCard: { width: 204, padding: 9, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(173,216,255,0.22)", backgroundColor: "rgba(20,31,50,0.68)", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   continueImage: { height: 92, overflow: "hidden", borderRadius: 11, backgroundColor: Colors.backgroundRaised },
   continueShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(7,9,14,0.24)" },

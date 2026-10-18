@@ -4,6 +4,9 @@
 
 ### Interface TV proporcional
 
+- Home TV foi reorganizada no padrão editorial de streaming: hero sem card, imagem de ponta a ponta, informações sobre o backdrop e fileiras mais próximas ao conteúdo principal.
+- O Destaque da Semana passa a selecionar o filme recentemente adicionado com melhor avaliação e mantém a escolha por sete dias; após o período, alterna para o próximo candidato elegível.
+- Menu lateral TV recebeu ícones de 22 px, linhas proporcionais e barra ativa compatível com a nova densidade visual.
 - Botões azuis de ação em login/recuperação, conexão de servidor, controle parental, atualização, sincronização de catálogo e saída do player foram unificados à superfície branca; o azul permanece reservado para foco, seleção, progresso e indicadores.
 - O foco padrão de D-pad passa a preservar a cor original da superfície do controle, evitando que botões brancos fiquem azuis ou escuros ao receber foco.
 - Botões de ação em Filmes e Séries foram unificados no acabamento claro de “Assistir agora”; Trailer, Bloquear e Mais tarde mantêm texto e ícones escuros, inclusive quando recebem foco na TV.

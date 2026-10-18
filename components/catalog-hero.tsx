@@ -62,12 +62,12 @@ export function CatalogHero({
 
 const styles = StyleSheet.create({
   wrap: { height: 238, overflow: "hidden", marginBottom: 22, borderRadius: 22, backgroundColor: Colors.backgroundRaised },
-  tvWrap: { height: 404, marginHorizontal: -46, marginBottom: 28, borderRadius: 0 },
+  tvWrap: { height: 360, marginHorizontal: -46, marginBottom: 22, borderRadius: 0 },
   copy: { position: "absolute", left: 22, bottom: 22, width: "65%", gap: 8 },
-  tvCopy: { left: 86, bottom: 54, width: "38%", gap: 11 },
+  tvCopy: { left: 72, bottom: 42, width: "40%", gap: 9 },
   kicker: { color: Colors.blueBright, fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.5 },
   title: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 35, letterSpacing: -0.8 },
-  tvTitle: { fontSize: 44, lineHeight: 50, letterSpacing: -1.1 },
+  tvTitle: { fontSize: 32, lineHeight: 38, letterSpacing: -0.8 },
   meta: { color: "rgba(238,245,255,0.86)", fontFamily: "Inter_500Medium", fontSize: 12 },
   plot: { color: "rgba(238,245,255,0.82)", fontSize: 13, lineHeight: 19 },
   action: { alignSelf: "flex-start", minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 3, paddingHorizontal: 17, borderRadius: 10, backgroundColor: Colors.white },

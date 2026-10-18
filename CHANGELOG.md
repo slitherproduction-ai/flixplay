@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.17.15] — 2026-10-18
+
+### Interface TV proporcional
+
+- Tela Inicial TV com hero mais compacto e fileiras de conteúdo mais próximas da primeira área útil.
+- Grades de Filmes e Séries com 6/7/9 pôsteres conforme a largura da TV, reduzindo cards excessivamente grandes.
+- Títulos de hero e detalhes alinhados a uma escala de leitura mais equilibrada para TV.
+- TV ao Vivo com três painéis proporcionais: categorias, lista de canais e preview/EPG; a coluna de canais segue a mesma superfície visual das categorias.
+- Menu lateral mantém rótulos estáveis durante a navegação vertical pelo D-pad.
+
+### Versão
+
+- Versão do aplicativo: `2.17.15`.
+- Build Android: `20261030`.
+
 ## Correções em preparação — base 2.17.14
 
 - TV: Tela Inicial recebeu hero mais compacto e fileiras mais densas; grades de Filmes e Séries exibem mais pôsteres por linha, reduzindo o tamanho excessivo dos cards. TV ao Vivo equilibra as três colunas e padroniza a superfície da lista de canais com a de categorias.

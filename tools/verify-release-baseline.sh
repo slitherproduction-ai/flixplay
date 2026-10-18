@@ -37,7 +37,7 @@ require_marker 'app/(tabs)/live.tsx' 'tvProgramTitle: { fontSize: 10' 'fonte de 
 require_marker 'hooks/useEpgPreload.ts' 'const EPG_PRELOAD_CONCURRENCY = 2;' 'limite de concorrência do EPG para Fire TV'
 require_marker 'store/useAppStore.ts' 'updateChannelEpgBatch:' 'atualização de EPG em lote'
 require_marker 'app/(tabs)/_layout.tsx' 'freezeOnBlur: tvMode' 'congelamento de abas inativas no modo TV'
-require_marker 'components/tv-side-navigation.tsx' 'Every available destination remains visible' 'visibilidade do menu lateral com foco'
+require_marker 'components/tv-side-navigation.tsx' 'if (expandedRef.current) return;' 'estabilidade do menu lateral durante navegação vertical'
 require_marker 'hooks/use-catalog-pagination.ts' 'const PAGE_SIZE = 80;' 'paginação do catálogo'
 
 echo "Baseline aprovada: ELVANOQ $package_version (build $app_code)"

@@ -41,6 +41,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: "v2.17.15",
+    date: "2026.10",
+    changes: [
+      { tag: "Melhoria", text: "Tela Inicial, Filmes e Séries na TV receberam escala visual mais compacta, com hero e pôsteres proporcionais." },
+      { tag: "Melhoria", text: "TV ao Vivo equilibra categorias, canais, preview e EPG em três painéis consistentes." },
+      { tag: "Correção", text: "Menu lateral mantém os rótulos estáveis durante a navegação vertical pelo controle remoto." },
+    ],
+  },
+  {
     version: "v2.17.14",
     date: "2026.10",
     changes: [

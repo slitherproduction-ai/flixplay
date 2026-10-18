@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { useXtreamSync } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
-import { TvSideNavigation, TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { TvSideNavigation } from "@/components/tv-side-navigation";
 import { View } from "react-native";
 
 // ---------------------------------------------------------------------------
@@ -155,27 +155,20 @@ export default function TabsLayout() {
 
   return (
     <View style={styles.tvRoot}>
+      {/*
+       * Keep the rail in the normal flex layout. Fire OS can re-compose the
+       * React Navigation scene above an absolutely positioned sibling and
+       * intermittently hide its labels/icons, regardless of zIndex/elevation.
+       * An in-flow sibling has its own reserved surface and cannot be painted
+       * over by the active tab scene.
+       */}
+      <TvSideNavigation />
       <View style={styles.tvNavigator}>{navigator}</View>
-      {/* Rendered after the navigator in its own elevated layer. Android TV may
-          otherwise draw the tab scene above an expanded side rail. */}
-      <View pointerEvents="box-none" style={styles.tvNavigationLayer}>
-        <TvSideNavigation />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  tvRoot: { flex: 1, backgroundColor: Colors.background, position: "relative" },
-  // Preserve the collapsed-rail space while the navigation layer itself stays
-  // above the React Navigation scene when it expands.
-  tvNavigator: { flex: 1, minWidth: 0, marginLeft: TV_NAV_COLLAPSED_WIDTH },
-  tvNavigationLayer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 1000,
-    elevation: 1000,
-  },
+  tvRoot: { flex: 1, flexDirection: "row", backgroundColor: Colors.background },
+  tvNavigator: { flex: 1, minWidth: 0 },
 });

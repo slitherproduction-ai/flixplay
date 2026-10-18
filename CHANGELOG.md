@@ -4,6 +4,8 @@
 
 ### Interface TV proporcional
 
+- Detalhes de séries na TV passam a usar seletor de temporada expansível, com opções fechadas após a escolha e episódios atualizados na mesma tela.
+- Hero, título, metadados, ações, cards de episódios e recomendações foram compactados para uma hierarquia de streaming proporcional.
 - Menu lateral TV passou a manter uma área de foco com largura fixa. A navegação vertical não redimensiona mais itens, rótulos ou o contêiner; somente a camada visual do rail abre e recolhe ao entrar/sair do menu.
 - Tela Inicial TV com hero mais compacto e fileiras de conteúdo mais próximas da primeira área útil.
 - Grades de Filmes e Séries com 6/7/9 pôsteres conforme a largura da TV, reduzindo cards excessivamente grandes.

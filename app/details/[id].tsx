@@ -807,27 +807,70 @@ function EpisodesSection({
   onSeasonChange: (season: number) => void;
   tvMode: boolean;
 }) {
+  const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
+  const selectSeason = useCallback((nextSeason: number) => {
+    onSeasonChange(nextSeason);
+    setSeasonMenuOpen(false);
+  }, [onSeasonChange]);
+
   return (
     <View style={[styles.episodesSection, tvMode && styles.tvEpisodesSection]}>
       <SectionHeader
         title="Episódios"
         subtitle={`${show.seasonsCount} temporada${show.seasonsCount !== 1 ? "s" : ""}`}
       />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.seasonScroller}
-        contentContainerStyle={styles.seasonContent}
-      >
-        {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
-          <Chip
-            key={num}
-            label={`Temporada ${num}`}
-            selected={season === num}
-            onPress={() => onSeasonChange(num)}
-          />
-        ))}
-      </ScrollView>
+      {tvMode ? (
+        <View style={styles.tvSeasonSelectorArea}>
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel={`Selecionar temporada. Atual: temporada ${season}`}
+            accessibilityState={{ expanded: seasonMenuOpen }}
+            onPress={() => setSeasonMenuOpen((open) => !open)}
+            style={styles.tvSeasonSelector}
+            focusStyle={styles.tvSeasonSelectorFocused}
+          >
+            <Ionicons name="albums-outline" size={16} color={Colors.background} />
+            <AppText style={styles.tvSeasonSelectorText}>Temporada {season}</AppText>
+            <Ionicons name={seasonMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.background} />
+          </TVFocusable>
+          {seasonMenuOpen ? (
+            <View style={styles.tvSeasonMenu}>
+              {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
+                <TVFocusable
+                  key={num}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Temporada ${num}`}
+                  accessibilityState={{ selected: season === num }}
+                  onPress={() => selectSeason(num)}
+                  style={[styles.tvSeasonOption, season === num && styles.tvSeasonOptionSelected]}
+                  focusStyle={styles.tvSeasonOptionFocused}
+                >
+                  <AppText style={[styles.tvSeasonOptionText, season === num && styles.tvSeasonOptionTextSelected]}>
+                    Temporada {num}
+                  </AppText>
+                  {season === num ? <Ionicons name="checkmark" size={15} color={Colors.blueBright} /> : null}
+                </TVFocusable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.seasonScroller}
+          contentContainerStyle={styles.seasonContent}
+        >
+          {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
+            <Chip
+              key={num}
+              label={`Temporada ${num}`}
+              selected={season === num}
+              onPress={() => onSeasonChange(num)}
+            />
+          ))}
+        </ScrollView>
+      )}
 
       {isLoading ? (
         <View style={styles.episodesLoading}>
@@ -993,7 +1036,7 @@ const styles = StyleSheet.create({
   // Keep the artwork cinematic without consuming the whole first TV viewport.
   // Actions and the season selector should begin within the initial scroll
   // position on 720p and 1080p televisions.
-  tvBackdrop: { height: 492 },
+  tvBackdrop: { height: 448 },
   topControls: {
     position: "absolute",
     top: 18,
@@ -1026,9 +1069,9 @@ const styles = StyleSheet.create({
   // stage, while metadata and actions are compact and anchored in the
   // lower-left safe area rather than spanning the entire display.
   tvTitleBlock: {
-    width: "60%",
-    minHeight: 205,
-    marginTop: -258,
+    width: "54%",
+    minHeight: 176,
+    marginTop: -224,
     paddingHorizontal: 0,
     marginLeft: 62,
   },
@@ -1056,21 +1099,21 @@ const styles = StyleSheet.create({
   },
   posterRating: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.text },
   titleCopy: { flex: 1, justifyContent: "flex-end", gap: 8, paddingBottom: 4 },
-  tvTitleCopy: { justifyContent: "flex-start", gap: 8, paddingBottom: 0 },
-  tvTitle: { fontFamily: "Inter_700Bold", fontSize: 30, lineHeight: 36, color: Colors.white, letterSpacing: -0.6 },
+  tvTitleCopy: { justifyContent: "flex-start", gap: 6, paddingBottom: 0 },
+  tvTitle: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 29, color: Colors.white, letterSpacing: -0.45 },
   metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7 },
   meta: { fontSize: 11, color: Colors.muted },
-  tvMeta: { fontFamily: "Inter_500Medium", fontSize: 12, color: "rgba(255,255,255,0.84)" },
+  tvMeta: { fontFamily: "Inter_500Medium", fontSize: 10, color: "rgba(255,255,255,0.84)" },
   metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: Colors.subtle },
   plot: { fontSize: 12, lineHeight: 18, color: Colors.muted },
-  tvPlot: { maxWidth: 700, fontSize: 12, lineHeight: 18, color: "rgba(255,255,255,0.9)" },
+  tvPlot: { maxWidth: 620, fontSize: 11, lineHeight: 16, color: "rgba(255,255,255,0.9)" },
   plotMissing: { fontSize: 12, color: Colors.subtle, fontStyle: "italic" },
   synopsisLoading: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   synopsisLoadingText: { fontSize: 11, color: Colors.subtle },
   trailerButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, minHeight: 36, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", backgroundColor: "rgba(13,20,31,0.66)" },
   trailerButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.text },
   tvTrailerButton: { minHeight: 36, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(13,20,31,0.68)" },
-  tvTrailerButtonText: { fontSize: 12 },
+  tvTrailerButtonText: { fontSize: 11 },
   castSection: { gap: 3, marginTop: 2 },
   tvCastSection: { maxWidth: 900, marginTop: 5 },
   castTitle: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.8, color: Colors.subtle },
@@ -1094,10 +1137,10 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: Colors.white,
   },
-  tvPrimaryButton: { flex: 0, width: 184, minHeight: 42, borderRadius: 11, backgroundColor: Colors.white },
+  tvPrimaryButton: { flex: 0, width: 166, minHeight: 38, borderRadius: 9, backgroundColor: Colors.white },
   whiteActionFocused: { backgroundColor: Colors.white, borderWidth: 2, borderColor: Colors.blueBright, opacity: 1, transform: [{ scale: 1.025 }] },
   primaryText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.background },
-  tvPrimaryText: { fontSize: 12, color: Colors.background },
+  tvPrimaryText: { fontSize: 11, color: Colors.background },
   actionButton: {
     minHeight: 43,
     minWidth: 104,
@@ -1111,18 +1154,28 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.16)",
     backgroundColor: "rgba(13,20,31,0.66)",
   },
-  tvActionButton: { minHeight: 42, paddingHorizontal: 14, borderRadius: 11, backgroundColor: "rgba(12,16,25,0.56)" },
+  tvActionButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 9, backgroundColor: "rgba(12,16,25,0.56)" },
   actionButtonActive: { borderColor: "rgba(250,204,21,0.48)", backgroundColor: "rgba(250,204,21,0.12)" },
   actionButtonCritical: { borderColor: "rgba(255,107,116,0.48)", backgroundColor: "rgba(140,30,42,0.32)" },
   actionText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
   actionTextActive: { color: "#FFE18D" },
   actionTextCritical: { color: "#FFC1C6" },
   episodesSection: { gap: 12, paddingHorizontal: 20 },
-  tvEpisodesSection: { gap: 14, paddingHorizontal: 62, paddingTop: 10 },
+  tvEpisodesSection: { gap: 10, paddingHorizontal: 62, paddingTop: 4 },
+  tvSeasonSelectorArea: { alignSelf: "flex-start", minWidth: 230, zIndex: 3 },
+  tvSeasonSelector: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(238,244,252,0.94)" },
+  tvSeasonSelectorFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: Colors.white, transform: [{ scale: 1 }] },
+  tvSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.background },
+  tvSeasonMenu: { gap: 2, marginTop: 5, padding: 5, borderRadius: 8, borderWidth: 1, borderColor: "rgba(176,211,244,0.24)", backgroundColor: "rgba(7,16,29,0.98)" },
+  tvSeasonOption: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, borderRadius: 6 },
+  tvSeasonOptionSelected: { backgroundColor: "rgba(42,124,200,0.24)" },
+  tvSeasonOptionFocused: { borderWidth: 1, borderColor: "rgba(156,221,255,0.92)", backgroundColor: "rgba(69,165,238,0.30)", transform: [{ scale: 1 }] },
+  tvSeasonOptionText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
+  tvSeasonOptionTextSelected: { fontFamily: "Inter_700Bold" },
   seasonScroller: { flexGrow: 0, marginHorizontal: -20 },
   seasonContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
   episodeList: { gap: 9 },
-  tvEpisodeList: { flexDirection: "row", gap: 16, paddingRight: 40 },
+  tvEpisodeList: { flexDirection: "row", gap: 12, paddingRight: 40 },
   episodesLoading: {
     flexDirection: "row",
     alignItems: "center",
@@ -1154,7 +1207,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassSoft,
   },
   tvEpisodeCard: {
-    width: 246,
+    width: 210,
     minHeight: 0,
     flexDirection: "column",
     gap: 8,
@@ -1173,7 +1226,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     backgroundColor: Colors.backgroundRaised,
   },
-  tvEpisodeThumb: { width: 246, height: 138, borderRadius: 8 },
+  tvEpisodeThumb: { width: 210, height: 118, borderRadius: 8 },
   thumbFallback: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
@@ -1202,7 +1255,7 @@ const styles = StyleSheet.create({
   episodeCopy: { flex: 1, gap: 5 },
   tvEpisodeCopy: { minHeight: 42, gap: 2, paddingHorizontal: 2 },
   episodeTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
-  tvEpisodeTitle: { fontSize: 12, color: Colors.white },
+  tvEpisodeTitle: { fontSize: 11, color: Colors.white },
   episodePlot: { fontSize: 10, lineHeight: 15, color: Colors.muted },
   episodeBottom: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: "auto" },
   episodeDuration: { fontSize: 10, color: Colors.subtle, marginRight: "auto" },
@@ -1221,7 +1274,7 @@ const styles = StyleSheet.create({
   similarContent: { gap: 12, paddingHorizontal: 20 },
   tvSimilarContent: { gap: 16, paddingHorizontal: 62, paddingRight: 40 },
   similarCard: { width: 122, gap: 6 },
-  tvSimilarCard: { width: 184, gap: 7 },
+  tvSimilarCard: { width: 164, gap: 6 },
   similarImage: {
     width: 122,
     height: 160,
@@ -1230,7 +1283,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.backgroundRaised,
   },
-  tvSimilarImage: { width: 184, height: 104, borderRadius: 8 },
+  tvSimilarImage: { width: 164, height: 92, borderRadius: 8 },
   similarTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   similarMeta: { flexDirection: "row", alignItems: "center", gap: 3 },
   similarMetaText: { fontSize: 10, color: Colors.subtle },

@@ -934,9 +934,11 @@ function EpisodeCard({
 function SimilarSection({
   similar,
   onSimilar,
+  tvMode,
 }: {
   similar: (VodMovie | SeriesItem)[];
   onSimilar: (id: string) => void;
+  tvMode: boolean;
 }) {
   return (
     <View style={[styles.similarSection, tvMode && styles.tvSimilarSection]}>

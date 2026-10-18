@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Corrigida a passagem de tvMode para a faixa de recomendações na tela de detalhes, evitando erro de propriedade inexistente em filmes e séries.
 - Corrigida duplicidade de parâmetro na tela de detalhes que impedia o bundle de filmes e séries no GitHub Actions.
 - Detalhes de filmes e séries na TV receberam composição editorial inspirada em serviços premium: hero ampliado, informações e ações proporcionais, episódios em faixa horizontal e recomendações em cards de paisagem. A experiência de smartphone foi preservada.
 - Menu lateral da TV mantém o rail expandido durante a transferência de foco entre itens no Fire TV; rótulos, marca e versão não somem mais durante a navegação por D-pad e o menu continua recolhendo ao sair dele.

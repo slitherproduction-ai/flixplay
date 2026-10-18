@@ -102,10 +102,29 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: ''
-      - name: Install pinned Android SDK and NDK
+      - name: Install pinned Android SDK, NDK and native CMake
         run: |
+          set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
+          # Worklets requires CMake 3.22.1. Installing it before Gradle avoids
+          # expensive failed native builds when the SDK download is corrupt.
+          cmake_dir="$ANDROID_HOME/cmake/3.22.1"
+          for attempt in 1 2 3; do
+            if [ -x "$cmake_dir/bin/cmake" ] && "$cmake_dir/bin/cmake" --version >/dev/null 2>&1; then
+              break
+            fi
+            echo "Installing Android CMake 3.22.1 (attempt $attempt/3)"
+            rm -rf "$cmake_dir"
+            if sdkmanager --install "cmake;3.22.1" && [ -x "$cmake_dir/bin/cmake" ] && "$cmake_dir/bin/cmake" --version >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::CMAKE_INSTALL_FAILED: Android CMake 3.22.1 could not be installed or validated"
+              exit 1
+            fi
+          done
+          "$cmake_dir/bin/cmake" --version
       - name: Install pinned JS dependencies
         run: npm ci --no-audit --no-fund
       - name: Apply existing Android dependency compatibility patch

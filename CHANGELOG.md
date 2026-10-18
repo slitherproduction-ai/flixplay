@@ -4,6 +4,7 @@
 
 ### Interface TV proporcional
 
+- Menu lateral TV: o rail recolhido agora ocupa somente a largura dos ícones e expande somente ao receber foco. Rótulos são ocultos por recorte de layout, sem opacidade, para evitar que Fire TV deixe itens intermediários sem renderização.
 - Smartphone: o seletor de temporada passou a expandir a lista diretamente na tela de detalhes, sem abrir modal; episódios passaram a usar cards horizontais com rolagem lateral.
 - Refatoração estrutural: painéis de categorias e preview/EPG da TV ao Vivo foram isolados do controlador da tela; busca e cache de sinopse foram isolados da tela de detalhes. O comportamento visual, de D-Pad e de smartphone foi preservado.
 - Auditoria técnica: removidos componente de hero sem importação, dados de demonstração não utilizados e três fundos de login substituídos, reduzindo código e assets sem função no pacote.

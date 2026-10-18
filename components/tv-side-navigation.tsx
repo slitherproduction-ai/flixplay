@@ -11,10 +11,9 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 
 /**
- * The focus surface is deliberately permanent. Fire TV recalculates its native
- * focus graph when a focused row, its label, or its parent changes width;
- * those relayouts were the source of labels disappearing while moving up/down.
- * Only a decorative background and opacity change when entering/leaving rail.
+ * The focusable rows are permanently mounted. The rail itself has two stable
+ * widths (icon and expanded), changing only when focus enters/leaves it — never
+ * while moving vertically between rows.
  */
 export const TV_NAV_WIDTH = 216;
 export const TV_NAV_COLLAPSED_WIDTH = 68;
@@ -70,12 +69,12 @@ export function TvSideNavigation() {
   }, [pathname, router]);
 
   return (
-    <View style={styles.slot}>
-      <View pointerEvents="none" style={[styles.surface, expanded ? styles.surfaceExpanded : styles.surfaceCollapsed]} />
+    <View style={[styles.slot, expanded ? styles.slotExpanded : styles.slotCollapsed]}>
+      <View pointerEvents="none" style={styles.surface} />
       <View style={styles.shell}>
       <View style={styles.brand}>
         <BrandLogo variant="symbol" style={styles.logo} accessibilityLabel="Símbolo ELVANOQ" />
-        <View pointerEvents="none" style={[styles.brandCopy, !expanded && styles.copyHidden]}>
+        <View pointerEvents="none" style={styles.brandCopy}>
           <AppText style={styles.brandName}>ELVANOQ</AppText>
           <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
         </View>
@@ -112,7 +111,7 @@ export function TvSideNavigation() {
                 // vertical D-pad move from repainting the whole menu.
                 color={selected ? Colors.blueBright : "rgba(238,244,252,0.88)"}
               />
-              <View pointerEvents="none" style={[styles.labelSlot, !expanded && styles.labelSlotHidden]}>
+              <View pointerEvents="none" style={styles.labelSlot}>
                 <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected]}>
                   {route.label}
                 </AppText>
@@ -122,30 +121,31 @@ export function TvSideNavigation() {
         })}
       </View>
 
-      <View pointerEvents="none" style={[styles.footer, !expanded && styles.footerHidden]}>
+      {expanded ? <View pointerEvents="none" style={styles.footer}>
         <View style={styles.footerDivider} />
         <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
-      </View>
+      </View> : null}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // The in-flow focus area never changes size.  This avoids FocusFinder
-  // rebuilding the vertical navigation graph between two adjacent items.
-  slot: { width: TV_NAV_WIDTH, flexShrink: 0, backgroundColor: Colors.background },
+  // Width changes only on entering/leaving the rail. Vertical D-pad movement
+  // never updates this state, so FocusFinder keeps the same row graph.
+  slot: { flexShrink: 0, overflow: "hidden", backgroundColor: Colors.background },
+  slotCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
+  slotExpanded: { width: TV_NAV_WIDTH },
   surface: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
+    right: 0,
     backgroundColor: "#09111F",
     borderRightWidth: 1,
     borderRightColor: "rgba(186,221,255,0.12)",
   },
-  surfaceCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
-  surfaceExpanded: { width: TV_NAV_WIDTH },
   shell: {
     flex: 1,
     paddingTop: 14,
@@ -156,10 +156,6 @@ const styles = StyleSheet.create({
   brand: { height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 5, marginBottom: 10 },
   logo: { width: 23, height: 23, borderRadius: 7, flexShrink: 0 },
   brandCopy: { flex: 1, gap: 2, overflow: "hidden" },
-  // Keep the labels measured at their final width even when hidden. Setting
-  // width to zero here was enough to make Fire TV drop text during vertical
-  // focus handoffs.
-  copyHidden: { opacity: 0 },
   brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
   brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
   navList: { flex: 1, justifyContent: "flex-start", paddingTop: 8, gap: 4 },
@@ -179,12 +175,12 @@ const styles = StyleSheet.create({
   navItemPressed: { opacity: 0.9 },
   activeBar: { position: "absolute", left: 2, width: 2, height: 18, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
+  // The parent rail clips this slot in icon mode. Opacity is intentionally not
+  // used: Fire TV may fail to repaint sibling labels after an opacity handoff.
   labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
-  labelSlotHidden: { opacity: 0 },
   navLabel: { color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelSelected: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
-  footerHidden: { opacity: 0 },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
   version: { color: "rgba(181,201,225,0.65)", fontSize: 9 },
 });

@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Detalhes de filmes e séries na TV receberam composição editorial inspirada em serviços premium: hero ampliado, informações e ações proporcionais, episódios em faixa horizontal e recomendações em cards de paisagem. A experiência de smartphone foi preservada.
 - Menu lateral da TV mantém o rail expandido durante a transferência de foco entre itens no Fire TV; rótulos, marca e versão não somem mais durante a navegação por D-pad e o menu continua recolhendo ao sair dele.
 - Splash nativo Android passa a usar somente o símbolo transparente em alta definição; removido o quadrado escuro incorporado que deixava a abertura borrada e desproporcional.
 - Ajustes recebeu apresentação específica para TV com grade compacta de duas colunas; no smartphone, a navegação em lista foi preservada com espaçamento e cartões mais proporcionais.

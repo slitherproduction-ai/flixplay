@@ -4,6 +4,9 @@
 
 ### Interface TV proporcional
 
+- Smartphone: a seleção de temporada das séries passa a abrir em painel inferior, substituindo a faixa extensa de botões por uma lista clara, selecionável e fechada após a escolha.
+- Smartphone: episódios receberam cards mais refinados, com thumbnail 16:9 compacta, título, sinopse, duração, estado de novo e progresso de reprodução.
+- Smartphone: escala da área de episódios foi ajustada para leitura confortável e densidade equivalente a aplicativos de streaming premium.
 - Detalhes de séries na TV passam a usar seletor de temporada expansível, com opções fechadas após a escolha e episódios atualizados na mesma tela.
 - Hero, título, metadados, ações, cards de episódios e recomendações foram compactados para uma hierarquia de streaming proporcional.
 - Menu lateral TV passou a manter uma área de foco com largura fixa. A navegação vertical não redimensiona mais itens, rótulos ou o contêiner; somente a camada visual do rail abre e recolhe ao entrar/sair do menu.

@@ -5,10 +5,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, Chip, EmptyState, ErrorState, IconButton, SectionHeader } from "@/components/ui";
+import { AppText, EmptyState, ErrorState, IconButton, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
@@ -808,9 +808,11 @@ function EpisodesSection({
   tvMode: boolean;
 }) {
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
+  const [seasonPickerOpen, setSeasonPickerOpen] = useState(false);
   const selectSeason = useCallback((nextSeason: number) => {
     onSeasonChange(nextSeason);
     setSeasonMenuOpen(false);
+    setSeasonPickerOpen(false);
   }, [onSeasonChange]);
 
   return (
@@ -855,21 +857,71 @@ function EpisodesSection({
           ) : null}
         </View>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.seasonScroller}
-          contentContainerStyle={styles.seasonContent}
-        >
-          {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
-            <Chip
-              key={num}
-              label={`Temporada ${num}`}
-              selected={season === num}
-              onPress={() => onSeasonChange(num)}
-            />
-          ))}
-        </ScrollView>
+        <>
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel={`Selecionar temporada. Atual: temporada ${season}`}
+            accessibilityState={{ expanded: seasonPickerOpen }}
+            onPress={() => setSeasonPickerOpen(true)}
+            style={styles.mobileSeasonSelector}
+          >
+            <Ionicons name="albums-outline" size={17} color={Colors.text} />
+            <AppText style={styles.mobileSeasonSelectorText}>Temporada {season}</AppText>
+            <Ionicons name="chevron-down" size={18} color={Colors.muted} />
+          </TVFocusable>
+          <Modal
+            transparent
+            animationType="slide"
+            visible={seasonPickerOpen}
+            onRequestClose={() => setSeasonPickerOpen(false)}
+          >
+            <View style={styles.seasonSheetRoot}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fechar seleção de temporada"
+                style={styles.seasonSheetBackdrop}
+                onPress={() => setSeasonPickerOpen(false)}
+              />
+              <View accessibilityViewIsModal style={styles.seasonSheet}>
+                <View style={styles.seasonSheetHandle} />
+                <View style={styles.seasonSheetHeader}>
+                  <View>
+                    <AppText style={styles.seasonSheetEyebrow}>EPISÓDIOS</AppText>
+                    <AppText style={styles.seasonSheetTitle}>Selecionar temporada</AppText>
+                  </View>
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel="Fechar"
+                    onPress={() => setSeasonPickerOpen(false)}
+                    style={styles.seasonSheetClose}
+                  >
+                    <Ionicons name="close" size={20} color={Colors.text} />
+                  </TVFocusable>
+                </View>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.seasonSheetOptions}
+                >
+                  {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
+                    <TVFocusable
+                      key={num}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Temporada ${num}`}
+                      accessibilityState={{ selected: season === num }}
+                      onPress={() => selectSeason(num)}
+                      style={[styles.seasonSheetOption, season === num && styles.seasonSheetOptionSelected]}
+                    >
+                      <AppText style={[styles.seasonSheetOptionText, season === num && styles.seasonSheetOptionTextSelected]}>
+                        Temporada {num}
+                      </AppText>
+                      {season === num ? <Ionicons name="checkmark-circle" size={19} color={Colors.blueBright} /> : null}
+                    </TVFocusable>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        </>
       )}
 
       {isLoading ? (
@@ -1172,9 +1224,49 @@ const styles = StyleSheet.create({
   tvSeasonOptionFocused: { borderWidth: 1, borderColor: "rgba(156,221,255,0.92)", backgroundColor: "rgba(69,165,238,0.30)", transform: [{ scale: 1 }] },
   tvSeasonOptionText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },
   tvSeasonOptionTextSelected: { fontFamily: "Inter_700Bold" },
-  seasonScroller: { flexGrow: 0, marginHorizontal: -20 },
-  seasonContent: { gap: 8, paddingHorizontal: 20, paddingVertical: 2 },
-  episodeList: { gap: 9 },
+  // Mobile uses one compact selector that opens a sheet. It avoids a long,
+  // visually noisy row of season pills while keeping every season reachable.
+  mobileSeasonSelector: {
+    minHeight: 44,
+    alignSelf: "flex-start",
+    minWidth: 188,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    paddingHorizontal: 13,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(17,27,42,0.88)",
+  },
+  mobileSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  seasonSheetRoot: { flex: 1, justifyContent: "flex-end" },
+  seasonSheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.62)" },
+  seasonSheet: {
+    maxHeight: "72%",
+    minHeight: 252,
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: "rgba(255,255,255,0.13)",
+    backgroundColor: "#0D1624",
+  },
+  seasonSheetHandle: { alignSelf: "center", width: 38, height: 4, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.30)" },
+  seasonSheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  seasonSheetEyebrow: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.1, color: Colors.blueBright },
+  seasonSheetTitle: { marginTop: 2, fontFamily: "Inter_700Bold", fontSize: 18, color: Colors.text },
+  seasonSheetClose: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, backgroundColor: "rgba(255,255,255,0.08)" },
+  seasonSheetOptions: { gap: 7, paddingBottom: 4 },
+  seasonSheetOption: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.055)" },
+  seasonSheetOptionSelected: { borderWidth: 1, borderColor: "rgba(67,170,255,0.72)", backgroundColor: "rgba(41,128,207,0.19)" },
+  seasonSheetOptionText: { fontFamily: "Inter_500Medium", fontSize: 14, color: Colors.muted },
+  seasonSheetOptionTextSelected: { fontFamily: "Inter_700Bold", color: Colors.text },
+  episodeList: { gap: 10, paddingBottom: 2 },
   tvEpisodeList: { flexDirection: "row", gap: 12, paddingRight: 40 },
   episodesLoading: {
     flexDirection: "row",
@@ -1197,14 +1289,14 @@ const styles = StyleSheet.create({
   },
   episodesErrorText: { flex: 1, fontSize: 12, color: Colors.amber, lineHeight: 18 },
   episodeCard: {
-    minHeight: 118,
+    minHeight: 108,
     flexDirection: "row",
-    gap: 11,
-    padding: 9,
-    borderRadius: Radii.medium,
+    gap: 12,
+    padding: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.glassSoft,
+    backgroundColor: "rgba(19,29,45,0.82)",
   },
   tvEpisodeCard: {
     width: 210,
@@ -1218,12 +1310,12 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.74 },
   episodeThumb: {
-    width: 124,
-    height: 98,
+    width: 132,
+    height: 92,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 11,
+    borderRadius: 10,
     backgroundColor: Colors.backgroundRaised,
   },
   tvEpisodeThumb: { width: 210, height: 118, borderRadius: 8 },
@@ -1252,11 +1344,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(7,9,14,0.78)",
   },
   epNumText: { fontFamily: "Inter_600SemiBold", fontSize: 8, color: Colors.muted },
-  episodeCopy: { flex: 1, gap: 5 },
+  episodeCopy: { flex: 1, gap: 4, paddingVertical: 2 },
   tvEpisodeCopy: { minHeight: 42, gap: 2, paddingHorizontal: 2 },
-  episodeTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  episodeTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, color: Colors.text },
   tvEpisodeTitle: { fontSize: 11, color: Colors.white },
-  episodePlot: { fontSize: 10, lineHeight: 15, color: Colors.muted },
+  episodePlot: { fontSize: 11, lineHeight: 15, color: Colors.muted },
   episodeBottom: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: "auto" },
   episodeDuration: { fontSize: 10, color: Colors.subtle, marginRight: "auto" },
   episodeProgress: {

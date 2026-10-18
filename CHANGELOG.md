@@ -7,6 +7,7 @@
 - Menu lateral da TV recolhe logo após o foco sair do rail, sem permanecer sobre categorias e canais.
 - Correção adicional após homologação em Fire TV Stick: linhas de canal TV não instanciam mais `BlurView`; contagens de categoria são calculadas uma única vez por catálogo e o painel de preview permanece estruturado na tela.
 - Menu lateral TV estabilizado após nova homologação: a barra passa a ocupar 216 px fixos, com ícones, textos e versão sempre visíveis, sem expansão sobre o conteúdo.
+- Detalhes de filmes e séries na TV receberam escala compacta: hero menor e ações, metadados, temporadas e episódios retornam à primeira área útil da tela.
 
 ## [2.17.14] — 2026-10-15
 

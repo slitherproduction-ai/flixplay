@@ -52,7 +52,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/brand/ELVANOQ_splash_native_mark_v4.png",
+          "image": "./assets/images/brand/ELVANOQ_adaptive_foreground_v3.png",
           "resizeMode": "contain",
           "backgroundColor": "#020714"
         }

@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Splash nativo Android passa a usar somente o símbolo transparente em alta definição; removido o quadrado escuro incorporado que deixava a abertura borrada e desproporcional.
 - Ajustes recebeu apresentação específica para TV com grade compacta de duas colunas; no smartphone, a navegação em lista foi preservada com espaçamento e cartões mais proporcionais.
 - Menu lateral TV passa a recolher para ícones quando o foco sai dele e expande com marca, rótulos e versão ao receber foco, no padrão de Netflix, YouTube e Prime Video.
 - Menu lateral da TV removido da camada sobreposta: ele passa a ocupar uma coluna fixa do layout, impedindo que cenas nativas do Fire TV ocultem ícones e textos.

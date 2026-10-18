@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { APP_INFO } from "@/constants/app";
 import { Colors } from "@/constants/theme";
@@ -15,8 +15,9 @@ import { BrandLogo } from "@/components/brand-logo";
  * stable width for the TV rail instead of expanding it over application UI.
  */
 export const TV_NAV_WIDTH = 216;
-// Compatibility export for screens that already consume the navigation inset.
-export const TV_NAV_COLLAPSED_WIDTH = TV_NAV_WIDTH;
+// The permanent rail width while the user is navigating content. Screens use
+// this inset for their TV density calculations.
+export const TV_NAV_COLLAPSED_WIDTH = 68;
 
 export function TvSideNavigation() {
   const pathname = usePathname();
@@ -30,12 +31,34 @@ export function TvSideNavigation() {
   });
   const [focusHandles, setFocusHandles] = useState<number[]>([]);
   const [focusedRouteKey, setFocusedRouteKey] = useState<TvRoute["key"] | null>(null);
-  const handleNavigationFocus = useCallback((routeKey: TvRoute["key"]) => {
-    setFocusedRouteKey(routeKey);
+  const [expanded, setExpanded] = useState(false);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelCollapse = useCallback(() => {
+    if (collapseTimer.current) {
+      clearTimeout(collapseTimer.current);
+      collapseTimer.current = null;
+    }
   }, []);
+
+  useEffect(() => () => cancelCollapse(), [cancelCollapse]);
+
+  const handleNavigationFocus = useCallback((routeKey: TvRoute["key"]) => {
+    cancelCollapse();
+    setExpanded(true);
+    setFocusedRouteKey(routeKey);
+  }, [cancelCollapse]);
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
     setFocusedRouteKey((current) => current === routeKey ? null : current);
-  }, []);
+    // Native focus emits blur before focus when moving between adjacent menu
+    // entries. Delay collapse briefly so the rail closes only after focus has
+    // genuinely left the navigation region.
+    cancelCollapse();
+    collapseTimer.current = setTimeout(() => {
+      setExpanded(false);
+      collapseTimer.current = null;
+    }, 110);
+  }, [cancelCollapse]);
 
   const resolveFocusHandles = useCallback(() => {
     requestAnimationFrame(() => {
@@ -48,14 +71,16 @@ export function TvSideNavigation() {
   }, [pathname, router]);
 
   return (
-    <View style={styles.slot}>
+    <View style={[styles.slot, expanded ? styles.slotExpanded : styles.slotCollapsed]}>
       <View style={styles.shell}>
       <View style={styles.brand}>
         <BrandLogo variant="symbol" style={styles.logo} accessibilityLabel="Símbolo ELVANOQ" />
-        <View style={styles.brandCopy}>
-            <AppText style={styles.brandName}>ELVANOQ</AppText>
-            <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
-        </View>
+        {expanded ? (
+          <View style={styles.brandCopy}>
+              <AppText style={styles.brandName}>ELVANOQ</AppText>
+              <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.navList} onLayout={resolveFocusHandles}>
@@ -81,6 +106,7 @@ export function TvSideNavigation() {
               onPress={() => openRoute(route)}
               style={({ pressed }) => [
                 styles.navItem,
+                !expanded && styles.navItemCollapsed,
                 selected && styles.navItemSelected,
                 pressed && styles.navItemPressed,
               ]}
@@ -94,18 +120,22 @@ export function TvSideNavigation() {
                 // is open; focus only changes the selected surface.
                 color={focused ? Colors.text : selected ? Colors.blueBright : "rgba(238,244,252,0.88)"}
               />
-              <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected, focused && styles.navLabelFocused]}>
-                {route.label}
-              </AppText>
+              {expanded ? (
+                <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected, focused && styles.navLabelFocused]}>
+                  {route.label}
+                </AppText>
+              ) : null}
             </TVFocusable>
           );
         })}
       </View>
 
-      <View style={styles.footer}>
-        <View style={styles.footerDivider} />
-        <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
-      </View>
+      {expanded ? (
+        <View style={styles.footer}>
+          <View style={styles.footerDivider} />
+          <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
+        </View>
+      ) : null}
       </View>
     </View>
   );
@@ -114,11 +144,11 @@ export function TvSideNavigation() {
 const styles = StyleSheet.create({
   // A normal in-flow panel, not an overflow overlay. This is intentional for
   // reliable composition on Android TV, Google TV and Fire TV.
-  slot: { width: TV_NAV_WIDTH, flexShrink: 0, zIndex: 1000, elevation: 1000 },
+  slot: { flexShrink: 0, backgroundColor: "#09111F" },
+  slotCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
+  slotExpanded: { width: TV_NAV_WIDTH },
   shell: {
     flex: 1,
-    zIndex: 1000,
-    elevation: 1000,
     paddingTop: 14,
     paddingBottom: 12,
     paddingHorizontal: 10,
@@ -143,6 +173,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     overflow: "hidden",
   },
+  navItemCollapsed: { justifyContent: "center", gap: 0, paddingHorizontal: 0 },
   navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
   navItemFocused: { borderWidth: 1, backgroundColor: "rgba(69, 165, 238, 0.28)", borderColor: "rgba(156, 221, 255, 0.92)", transform: [{ scale: 1 }], opacity: 1 },
   navItemPressed: { opacity: 0.9 },

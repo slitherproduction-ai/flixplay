@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- Menu lateral da TV mantém o rail expandido durante a transferência de foco entre itens no Fire TV; rótulos, marca e versão não somem mais durante a navegação por D-pad e o menu continua recolhendo ao sair dele.
 - Splash nativo Android passa a usar somente o símbolo transparente em alta definição; removido o quadrado escuro incorporado que deixava a abertura borrada e desproporcional.
 - Ajustes recebeu apresentação específica para TV com grade compacta de duas colunas; no smartphone, a navegação em lista foi preservada com espaçamento e cartões mais proporcionais.
 - Menu lateral TV passa a recolher para ícones quando o foco sai dele e expande com marca, rótulos e versão ao receber foco, no padrão de Netflix, YouTube e Prime Video.

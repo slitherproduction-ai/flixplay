@@ -19,6 +19,11 @@ export const TV_NAV_WIDTH = 216;
 // this inset for their TV density calculations.
 export const TV_NAV_COLLAPSED_WIDTH = 68;
 
+// Fire TV can dispatch blur from the current item noticeably before focus is
+// delivered to the adjacent item. Keep the rail open through that hand-off so
+// labels are never unmounted while the user is moving inside the menu.
+const MENU_FOCUS_HANDOFF_GRACE_MS = 420;
+
 export function TvSideNavigation() {
   const pathname = usePathname();
   const router = useRouter();
@@ -51,13 +56,15 @@ export function TvSideNavigation() {
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
     setFocusedRouteKey((current) => current === routeKey ? null : current);
     // Native focus emits blur before focus when moving between adjacent menu
-    // entries. Delay collapse briefly so the rail closes only after focus has
-    // genuinely left the navigation region.
+    // entries. Fire TV's hand-off can take longer than one frame, so closing
+    // the rail too early makes labels disappear during D-pad navigation.
+    // The incoming item's onFocus cancels this timer; it only completes after
+    // focus has actually left the navigation region.
     cancelCollapse();
     collapseTimer.current = setTimeout(() => {
       setExpanded(false);
       collapseTimer.current = null;
-    }, 110);
+    }, MENU_FOCUS_HANDOFF_GRACE_MS);
   }, [cancelCollapse]);
 
   const resolveFocusHandles = useCallback(() => {

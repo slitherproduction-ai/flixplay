@@ -723,7 +723,7 @@ export default function LiveScreen() {
   const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : 20;
   const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
-  const tvPreviewWidth = Math.round(Math.min(670, Math.max(360, tvGuideWidth * 0.47)));
+  const tvPreviewWidth = Math.round(Math.min(620, Math.max(350, tvGuideWidth * 0.43)));
   const tvPreviewGap = Math.max(20, Math.min(30, Math.round(tvGuideWidth * 0.02)));
   const columnGap = 10;
   const numGridColumns = tvMode
@@ -1016,7 +1016,7 @@ const styles = StyleSheet.create({
   tvGuideLayout: { flex: 1, minHeight: 0, flexDirection: "row", paddingBottom: 18 },
   tvThreePaneLayout: { paddingTop: 18 },
   tvCategoryPane: {
-    width: 236,
+    width: 220,
     flexShrink: 0,
     minHeight: 0,
     gap: 10,
@@ -1041,8 +1041,17 @@ const styles = StyleSheet.create({
   tvCategoryLabel: { flex: 1, color: "rgba(231,240,251,0.82)", fontFamily: "Inter_500Medium", fontSize: 12 },
   tvCategoryLabelSelected: { color: Colors.text, fontFamily: "Inter_700Bold" },
   tvCategoryCount: { color: Colors.subtle, fontFamily: "Inter_600SemiBold", fontSize: 10, fontVariant: ["tabular-nums"] },
-  tvChannelPane: { flex: 1, minWidth: 0 },
-  tvChannelSearch: { paddingBottom: 10 },
+  tvChannelPane: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(9,18,33,0.70)",
+    borderWidth: 1,
+    borderColor: "rgba(152,196,240,0.14)",
+  },
+  tvChannelSearch: { paddingBottom: 8 },
   tvPreviewPane: { flexShrink: 0, alignSelf: "flex-start", paddingTop: 8 },
   headerBlock: { gap: 10, paddingTop: 8, marginBottom: 4 },
   syncBanner: {

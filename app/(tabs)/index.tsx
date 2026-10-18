@@ -24,7 +24,7 @@ import type { PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 function computePosterWidth(tvMode: boolean, width: number): number {
   if (!tvMode && width <= 700) return 142;
   const visibleCards = tvMode
-    ? (width >= 1500 ? 8 : width >= 1100 ? 7 : 6)
+    ? (width >= 1500 ? 10 : width >= 1100 ? 8 : 7)
     : (width >= 1500 ? 7 : width >= 1100 ? 6 : 5);
   const horizontalPadding = tvMode ? 64 : 40;
   const gap = 12;
@@ -175,7 +175,7 @@ export default function HomeScreen() {
 
   const posterWidth = computePosterWidth(tvMode, width);
   const heroHeight = tvMode
-    ? Math.round(Math.min(500, Math.max(360, height * 0.49)))
+    ? Math.round(Math.min(420, Math.max(300, height * 0.40)))
     : Math.round(Math.min(310, Math.max(238, height * 0.31)));
   const syncLabel = syncProgress ?? "Sincronizando conteúdo...";
 
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   tvSecondaryButtonText: { fontSize: 12 },
   sectionBlock: { gap: 0 },
-  tvSectionBlock: { marginTop: 22 },
+  tvSectionBlock: { marginTop: 18 },
   continueCard: { width: 204, padding: 9, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(173,216,255,0.22)", backgroundColor: "rgba(20,31,50,0.68)", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   continueImage: { height: 92, overflow: "hidden", borderRadius: 11, backgroundColor: Colors.backgroundRaised },
   continueShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(7,9,14,0.24)" },

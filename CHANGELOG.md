@@ -2,6 +2,7 @@
 
 ## Correções em preparação — base 2.17.14
 
+- TV: Tela Inicial recebeu hero mais compacto e fileiras mais densas; grades de Filmes e Séries exibem mais pôsteres por linha, reduzindo o tamanho excessivo dos cards. TV ao Vivo equilibra as três colunas e padroniza a superfície da lista de canais com a de categorias.
 - Menu lateral TV: a movimentação vertical não atualiza mais o estado do contêiner nem trata o mesmo D-pad duas vezes. O rail só abre ao receber foco e só recolhe na saída explícita pela direita, mantendo todos os itens legíveis durante a navegação no Fire TV.
 - Rail lateral da TV passa a manter marca, rótulos e versão permanentemente montados; o D-pad vertical não pode mais ocultar informações entre itens. A saída explícita pela seta direita continua recolhendo o menu.
 - Menu lateral TV deixa de recolher por eventos transitórios de blur entre itens: todos os rótulos permanecem visíveis durante a navegação vertical e o rail recolhe somente ao sair para o conteúdo com a seta direita.

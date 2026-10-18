@@ -155,7 +155,7 @@ export default function SeriesScreen() {
   const hPad = tvMode ? 46 : 16;
   const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
   const numColumns = tvMode
-    ? (width >= 1500 ? 7 : width >= 1100 ? 6 : 5)
+    ? (width >= 1500 ? 9 : width >= 1100 ? 7 : 6)
     : (width >= 1000 ? 5 : width >= 700 ? 4 : 3);
   const colGap = tvMode ? 12 : 10;
   const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);

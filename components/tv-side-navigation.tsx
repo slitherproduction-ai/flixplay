@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { APP_INFO } from "@/constants/app";
 import { Colors } from "@/constants/theme";
@@ -19,10 +19,6 @@ export const TV_NAV_WIDTH = 216;
 // this inset for their TV density calculations.
 export const TV_NAV_COLLAPSED_WIDTH = 68;
 
-// Fire TV can dispatch blur from the current item noticeably before focus is
-// delivered to the adjacent item. Keep the rail open through that hand-off so
-// labels are never unmounted while the user is moving inside the menu.
-const MENU_FOCUS_HANDOFF_GRACE_MS = 420;
 
 export function TvSideNavigation() {
   const pathname = usePathname();
@@ -37,35 +33,26 @@ export function TvSideNavigation() {
   const [focusHandles, setFocusHandles] = useState<number[]>([]);
   const [focusedRouteKey, setFocusedRouteKey] = useState<TvRoute["key"] | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancelCollapse = useCallback(() => {
-    if (collapseTimer.current) {
-      clearTimeout(collapseTimer.current);
-      collapseTimer.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => cancelCollapse(), [cancelCollapse]);
 
   const handleNavigationFocus = useCallback((routeKey: TvRoute["key"]) => {
-    cancelCollapse();
     setExpanded(true);
     setFocusedRouteKey(routeKey);
-  }, [cancelCollapse]);
+  }, []);
+
   const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
+    // Blur also fires between adjacent entries on Fire TV. It must only clear
+    // the visual focus, never collapse the whole rail during vertical travel.
     setFocusedRouteKey((current) => current === routeKey ? null : current);
-    // Native focus emits blur before focus when moving between adjacent menu
-    // entries. Fire TV's hand-off can take longer than one frame, so closing
-    // the rail too early makes labels disappear during D-pad navigation.
-    // The incoming item's onFocus cancels this timer; it only completes after
-    // focus has actually left the navigation region.
-    cancelCollapse();
-    collapseTimer.current = setTimeout(() => {
-      setExpanded(false);
-      collapseTimer.current = null;
-    }, MENU_FOCUS_HANDOFF_GRACE_MS);
-  }, [cancelCollapse]);
+  }, []);
+
+  const handleNavigationRemote = useCallback((event: "right" | string) => {
+    // The right key is the intentional exit from the rail to page content.
+    // This is the only navigation path that collapses the menu, eliminating
+    // label loss caused by transient blur events between menu entries.
+    if (event !== "right") return;
+    setFocusedRouteKey(null);
+    setExpanded(false);
+  }, []);
 
   const resolveFocusHandles = useCallback(() => {
     requestAnimationFrame(() => {
@@ -110,6 +97,7 @@ export function TvSideNavigation() {
               nextFocusLeft={ownHandle}
               onFocus={() => handleNavigationFocus(route.key)}
               onBlur={() => handleNavigationBlur(route.key)}
+              onTVEvent={handleNavigationRemote}
               onPress={() => openRoute(route)}
               style={({ pressed }) => [
                 styles.navItem,

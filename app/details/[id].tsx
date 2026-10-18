@@ -976,9 +976,12 @@ const styles = StyleSheet.create({
   parentalCancel: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
   screen: { flex: 1, backgroundColor: Colors.background },
   content: { gap: 18, paddingBottom: 38 },
-  tvContent: { gap: 28, paddingBottom: 54 },
+  tvContent: { gap: 18, paddingBottom: 42 },
   backdrop: { height: 286, overflow: "hidden", backgroundColor: Colors.backgroundRaised },
-  tvBackdrop: { height: 576 },
+  // Keep the artwork cinematic without consuming the whole first TV viewport.
+  // Actions and the season selector should begin within the initial scroll
+  // position on 720p and 1080p televisions.
+  tvBackdrop: { height: 414 },
   topControls: {
     position: "absolute",
     top: 18,
@@ -988,7 +991,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  tvTopControls: { top: 38, right: 58, left: 58 },
+  tvTopControls: { top: 26, right: 42, left: 42 },
   topPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -1011,11 +1014,11 @@ const styles = StyleSheet.create({
   // remains the stage, while metadata and actions are compact and anchored in
   // the lower-left safe area rather than spanning the entire display.
   tvTitleBlock: {
-    width: "68%",
-    minHeight: 244,
-    marginTop: -258,
+    width: "58%",
+    minHeight: 178,
+    marginTop: -184,
     paddingHorizontal: 0,
-    marginLeft: 96,
+    marginLeft: 62,
   },
   poster: {
     width: 104,
@@ -1041,21 +1044,21 @@ const styles = StyleSheet.create({
   },
   posterRating: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.text },
   titleCopy: { flex: 1, justifyContent: "flex-end", gap: 8, paddingBottom: 4 },
-  tvTitleCopy: { justifyContent: "flex-start", gap: 13, paddingBottom: 0 },
-  tvTitle: { fontFamily: "Inter_700Bold", fontSize: 31, lineHeight: 38, color: Colors.white },
+  tvTitleCopy: { justifyContent: "flex-start", gap: 8, paddingBottom: 0 },
+  tvTitle: { fontFamily: "Inter_700Bold", fontSize: 25, lineHeight: 31, color: Colors.white },
   metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7 },
   meta: { fontSize: 11, color: Colors.muted },
-  tvMeta: { fontFamily: "Inter_500Medium", fontSize: 15, color: "rgba(255,255,255,0.84)" },
+  tvMeta: { fontFamily: "Inter_500Medium", fontSize: 12, color: "rgba(255,255,255,0.84)" },
   metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: Colors.subtle },
   plot: { fontSize: 12, lineHeight: 18, color: Colors.muted },
-  tvPlot: { maxWidth: 760, fontSize: 15, lineHeight: 22, color: "rgba(255,255,255,0.9)" },
+  tvPlot: { maxWidth: 620, fontSize: 13, lineHeight: 18, color: "rgba(255,255,255,0.9)" },
   plotMissing: { fontSize: 12, color: Colors.subtle, fontStyle: "italic" },
   synopsisLoading: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   synopsisLoadingText: { fontSize: 11, color: Colors.subtle },
   trailerButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3, minHeight: 36, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", backgroundColor: "rgba(13,20,31,0.66)" },
   trailerButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.text },
-  tvTrailerButton: { minHeight: 42, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 11, backgroundColor: "rgba(13,20,31,0.68)" },
-  tvTrailerButtonText: { fontSize: 14 },
+  tvTrailerButton: { minHeight: 36, paddingHorizontal: 13, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(13,20,31,0.68)" },
+  tvTrailerButtonText: { fontSize: 12 },
   castSection: { gap: 3, marginTop: 2 },
   tvCastSection: { maxWidth: 900, marginTop: 5 },
   castTitle: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.8, color: Colors.subtle },
@@ -1066,7 +1069,7 @@ const styles = StyleSheet.create({
   // full-width call-to-action.  On narrow phones the secondary actions wrap
   // naturally instead of squeezing the title action into an oversized rail.
   actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10, paddingHorizontal: 20 },
-  tvActions: { alignSelf: "flex-start", gap: 12, paddingHorizontal: 0, marginLeft: 96, marginTop: -4 },
+  tvActions: { alignSelf: "flex-start", gap: 9, paddingHorizontal: 0, marginLeft: 62, marginTop: -2 },
   primaryButton: {
     minHeight: 43,
     flexGrow: 0,
@@ -1079,10 +1082,10 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: Colors.white,
   },
-  tvPrimaryButton: { flex: 0, width: 238, minHeight: 50, borderRadius: 12, backgroundColor: Colors.white },
+  tvPrimaryButton: { flex: 0, width: 184, minHeight: 42, borderRadius: 11, backgroundColor: Colors.white },
   whiteActionFocused: { backgroundColor: Colors.white, borderWidth: 2, borderColor: Colors.blueBright, opacity: 1, transform: [{ scale: 1.025 }] },
   primaryText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.background },
-  tvPrimaryText: { fontSize: 15, color: Colors.background },
+  tvPrimaryText: { fontSize: 13, color: Colors.background },
   actionButton: {
     minHeight: 43,
     minWidth: 104,
@@ -1096,7 +1099,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.16)",
     backgroundColor: "rgba(13,20,31,0.66)",
   },
-  tvActionButton: { minHeight: 50, paddingHorizontal: 18, borderRadius: 12, backgroundColor: "rgba(12,16,25,0.56)" },
+  tvActionButton: { minHeight: 42, paddingHorizontal: 14, borderRadius: 11, backgroundColor: "rgba(12,16,25,0.56)" },
   actionButtonActive: { borderColor: "rgba(250,204,21,0.48)", backgroundColor: "rgba(250,204,21,0.12)" },
   actionButtonCritical: { borderColor: "rgba(255,107,116,0.48)", backgroundColor: "rgba(140,30,42,0.32)" },
   actionText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.text },

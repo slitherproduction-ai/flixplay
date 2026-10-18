@@ -32,18 +32,17 @@ export function TvSideNavigation() {
     settings: null,
   });
   const [focusHandles, setFocusHandles] = useState<number[]>([]);
-  const [focusedRouteKey, setFocusedRouteKey] = useState<TvRoute["key"] | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
 
-  const handleNavigationFocus = useCallback((routeKey: TvRoute["key"]) => {
+  const handleNavigationFocus = useCallback(() => {
+    // Do not update parent state as focus moves from one item to another.
+    // Fire TV dispatches blur/focus for every D-pad step and re-laying out the
+    // complete rail at that moment is what caused the labels to disappear.
+    // Each TVFocusable still renders its own focus ring independently.
+    if (expandedRef.current) return;
+    expandedRef.current = true;
     setExpanded(true);
-    setFocusedRouteKey(routeKey);
-  }, []);
-
-  const handleNavigationBlur = useCallback((routeKey: TvRoute["key"]) => {
-    // Blur also fires between adjacent entries on Fire TV. It must only clear
-    // the visual focus, never collapse the whole rail during vertical travel.
-    setFocusedRouteKey((current) => current === routeKey ? null : current);
   }, []);
 
   const handleNavigationRemote = useCallback((event: TVRemoteEvent) => {
@@ -51,7 +50,8 @@ export function TvSideNavigation() {
     // This is the only navigation path that collapses the menu, eliminating
     // label loss caused by transient blur events between menu entries.
     if (event !== "right") return;
-    setFocusedRouteKey(null);
+    if (!expandedRef.current) return;
+    expandedRef.current = false;
     setExpanded(false);
   }, []);
 
@@ -84,7 +84,6 @@ export function TvSideNavigation() {
       <View style={styles.navList} onLayout={resolveFocusHandles}>
         {TV_ROUTES.map((route, index) => {
           const selected = isTvRouteActive(pathname, route.href);
-          const focused = focusedRouteKey === route.key;
           const ownHandle = focusHandles[index] || undefined;
           return (
             <TVFocusable
@@ -99,9 +98,7 @@ export function TvSideNavigation() {
               nextFocusUp={focusHandles[index - 1] || ownHandle}
               nextFocusDown={focusHandles[index + 1] || ownHandle}
               nextFocusLeft={ownHandle}
-              onFocus={() => handleNavigationFocus(route.key)}
-              onBlur={() => handleNavigationBlur(route.key)}
-              onTVEvent={handleNavigationRemote}
+              onFocus={handleNavigationFocus}
               onPress={() => openRoute(route)}
               style={({ pressed }) => [
                 styles.navItem,
@@ -115,12 +112,13 @@ export function TvSideNavigation() {
               <Ionicons
                 name={selected ? route.icon.replace("-outline", "") as TvRoute["icon"] : route.icon}
                 size={20}
-                // Every available destination remains visible while the rail
-                // is open; focus only changes the selected surface.
-                color={focused ? Colors.text : selected ? Colors.blueBright : "rgba(238,244,252,0.88)"}
+                // The item's own native focus ring is the focus indicator.
+                // Keeping this color independent of parent state prevents a
+                // vertical D-pad move from repainting the whole menu.
+                color={selected ? Colors.blueBright : "rgba(238,244,252,0.88)"}
               />
               <View pointerEvents="none" style={[styles.labelSlot, !expanded && styles.labelSlotHidden]}>
-                <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected, focused && styles.navLabelFocused]}>
+                <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected]}>
                   {route.label}
                 </AppText>
               </View>
@@ -181,7 +179,6 @@ const styles = StyleSheet.create({
   labelSlotHidden: { flex: 0, width: 0, opacity: 0 },
   navLabel: { color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelSelected: { color: Colors.text },
-  navLabelFocused: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
   footerHidden: { height: 0, opacity: 0 },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },

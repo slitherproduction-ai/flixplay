@@ -503,8 +503,8 @@ export default function LoginScreen() {
       <BlurTargetView ref={backdropRef} collapsable={false} style={styles.loginBackdrop} pointerEvents="none">
         <Image
           source={tvMode
-            ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v3.jpg")
-            : require("@/assets/images/brand/ELVANOQ_login_mobile_backdrop_v3.jpg")}
+            ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v4.jpg")
+            : require("@/assets/images/brand/ELVANOQ_login_mobile_backdrop_v4.jpg")}
           contentFit="cover"
           contentPosition={tvMode ? "center" : "top"}
           style={StyleSheet.absoluteFill}

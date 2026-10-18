@@ -4,6 +4,7 @@
 
 ### Interface TV proporcional
 
+- Tela de login atualizada com os novos backgrounds fornecidos: composição em 16:9 para TV e retrato para smartphone, otimizadas para carregamento sem alterar o fluxo de autenticação.
 - Home TV foi reorganizada no padrão editorial de streaming: hero sem card, imagem de ponta a ponta, informações sobre o backdrop e fileiras mais próximas ao conteúdo principal.
 - O Destaque da Semana passa a selecionar o filme recentemente adicionado com melhor avaliação e mantém a escolha por sete dias; após o período, alterna para o próximo candidato elegível.
 - Menu lateral TV recebeu ícones de 22 px, linhas proporcionais e barra ativa compatível com a nova densidade visual.

@@ -740,11 +740,9 @@ function EpisodesSection({
   tvMode: boolean;
 }) {
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
-  const [seasonPickerOpen, setSeasonPickerOpen] = useState(false);
   const selectSeason = useCallback((nextSeason: number) => {
     onSeasonChange(nextSeason);
     setSeasonMenuOpen(false);
-    setSeasonPickerOpen(false);
   }, [onSeasonChange]);
 
   return (
@@ -789,71 +787,38 @@ function EpisodesSection({
           ) : null}
         </View>
       ) : (
-        <>
+        <View style={styles.mobileSeasonSelectorArea}>
           <TVFocusable
             accessibilityRole="button"
             accessibilityLabel={`Selecionar temporada. Atual: temporada ${season}`}
-            accessibilityState={{ expanded: seasonPickerOpen }}
-            onPress={() => setSeasonPickerOpen(true)}
+            accessibilityState={{ expanded: seasonMenuOpen }}
+            onPress={() => setSeasonMenuOpen((open) => !open)}
             style={styles.mobileSeasonSelector}
           >
             <Ionicons name="albums-outline" size={17} color={Colors.background} />
             <AppText style={styles.mobileSeasonSelectorText}>Temporada {season}</AppText>
-            <Ionicons name="chevron-down" size={18} color={Colors.background} />
+            <Ionicons name={seasonMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.background} />
           </TVFocusable>
-          <Modal
-            transparent
-            animationType="slide"
-            visible={seasonPickerOpen}
-            onRequestClose={() => setSeasonPickerOpen(false)}
-          >
-            <View style={styles.seasonSheetRoot}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Fechar seleção de temporada"
-                style={styles.seasonSheetBackdrop}
-                onPress={() => setSeasonPickerOpen(false)}
-              />
-              <View accessibilityViewIsModal style={styles.seasonSheet}>
-                <View style={styles.seasonSheetHandle} />
-                <View style={styles.seasonSheetHeader}>
-                  <View>
-                    <AppText style={styles.seasonSheetEyebrow}>EPISÓDIOS</AppText>
-                    <AppText style={styles.seasonSheetTitle}>Selecionar temporada</AppText>
-                  </View>
-                  <TVFocusable
-                    accessibilityRole="button"
-                    accessibilityLabel="Fechar"
-                    onPress={() => setSeasonPickerOpen(false)}
-                    style={styles.seasonSheetClose}
-                  >
-                    <Ionicons name="close" size={20} color={Colors.text} />
-                  </TVFocusable>
-                </View>
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.seasonSheetOptions}
+          {seasonMenuOpen ? (
+            <View style={styles.mobileSeasonList}>
+              {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
+                <TVFocusable
+                  key={num}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Temporada ${num}`}
+                  accessibilityState={{ selected: season === num }}
+                  onPress={() => selectSeason(num)}
+                  style={[styles.mobileSeasonOption, season === num && styles.mobileSeasonOptionSelected]}
                 >
-                  {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
-                    <TVFocusable
-                      key={num}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Temporada ${num}`}
-                      accessibilityState={{ selected: season === num }}
-                      onPress={() => selectSeason(num)}
-                      style={[styles.seasonSheetOption, season === num && styles.seasonSheetOptionSelected]}
-                    >
-                      <AppText style={[styles.seasonSheetOptionText, season === num && styles.seasonSheetOptionTextSelected]}>
-                        Temporada {num}
-                      </AppText>
-                      {season === num ? <Ionicons name="checkmark-circle" size={19} color={Colors.blueBright} /> : null}
-                    </TVFocusable>
-                  ))}
-                </ScrollView>
-              </View>
+                  <AppText style={[styles.mobileSeasonOptionText, season === num && styles.mobileSeasonOptionTextSelected]}>
+                    Temporada {num}
+                  </AppText>
+                  {season === num ? <Ionicons name="checkmark" size={17} color={Colors.blueBright} /> : null}
+                </TVFocusable>
+              ))}
             </View>
-          </Modal>
-        </>
+          ) : null}
+        </View>
       )}
 
       {isLoading ? (
@@ -868,9 +833,9 @@ function EpisodesSection({
         </View>
       ) : (
         <ScrollView
-          horizontal={tvMode}
+          horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.episodeList, tvMode && styles.tvEpisodeList]}
+          contentContainerStyle={[styles.episodeList, tvMode ? styles.tvEpisodeList : styles.mobileEpisodeList]}
         >
           {selectedEpisodes.length ? (
             selectedEpisodes.map((episode) => (
@@ -913,9 +878,9 @@ function EpisodeCard({
       accessibilityRole="button"
       accessibilityLabel={`${hasProgress ? "Continuar" : "Reproduzir"} ${episode.title}${hasProgress ? `, ${progress}% assistido` : ""}`}
       onPress={handlePress}
-      style={({ pressed }) => [styles.episodeCard, tvMode && styles.tvEpisodeCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.episodeCard, tvMode ? styles.tvEpisodeCard : styles.mobileEpisodeCard, pressed && styles.pressed]}
     >
-      <View style={[styles.episodeThumb, tvMode && styles.tvEpisodeThumb]}>
+      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : styles.mobileEpisodeThumb]}>
         {episode.thumbnail ? (
           <Image source={{ uri: episode.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : (
@@ -933,7 +898,7 @@ function EpisodeCard({
           </AppText>
         </View>
       </View>
-      <View style={[styles.episodeCopy, tvMode && styles.tvEpisodeCopy]}>
+      <View style={[styles.episodeCopy, tvMode ? styles.tvEpisodeCopy : styles.mobileEpisodeCopy]}>
         <AppText numberOfLines={1} style={[styles.episodeTitle, tvMode && styles.tvEpisodeTitle]}>
           {episode.title}
         </AppText>
@@ -1156,8 +1121,8 @@ const styles = StyleSheet.create({
   tvSeasonOptionFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: Colors.white, transform: [{ scale: 1 }] },
   tvSeasonOptionText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.background },
   tvSeasonOptionTextSelected: { fontFamily: "Inter_700Bold" },
-  // Mobile uses one compact selector that opens a sheet. It avoids a long,
-  // visually noisy row of season pills while keeping every season reachable.
+  // The selector expands in place, keeping the current detail context visible.
+  mobileSeasonSelectorArea: { alignSelf: "stretch", gap: 7 },
   mobileSeasonSelector: {
     minHeight: 44,
     alignSelf: "flex-start",
@@ -1172,33 +1137,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   mobileSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.background },
-  seasonSheetRoot: { flex: 1, justifyContent: "flex-end" },
-  seasonSheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.62)" },
-  seasonSheet: {
-    maxHeight: "72%",
-    minHeight: 252,
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 28,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: "rgba(255,255,255,0.13)",
-    backgroundColor: "#0D1624",
-  },
-  seasonSheetHandle: { alignSelf: "center", width: 38, height: 4, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.30)" },
-  seasonSheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  seasonSheetEyebrow: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.1, color: Colors.blueBright },
-  seasonSheetTitle: { marginTop: 2, fontFamily: "Inter_700Bold", fontSize: 18, color: Colors.text },
-  seasonSheetClose: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, backgroundColor: "rgba(255,255,255,0.08)" },
-  seasonSheetOptions: { gap: 7, paddingBottom: 4 },
-  seasonSheetOption: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.055)" },
-  seasonSheetOptionSelected: { borderWidth: 1, borderColor: "rgba(67,170,255,0.72)", backgroundColor: "rgba(41,128,207,0.19)" },
-  seasonSheetOptionText: { fontFamily: "Inter_500Medium", fontSize: 14, color: Colors.muted },
-  seasonSheetOptionTextSelected: { fontFamily: "Inter_700Bold", color: Colors.text },
+  mobileSeasonList: { gap: 4, padding: 5, borderRadius: 11, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(17,28,45,0.90)" },
+  mobileSeasonOption: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, borderRadius: 8 },
+  mobileSeasonOptionSelected: { backgroundColor: "rgba(44,143,222,0.20)" },
+  mobileSeasonOptionText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.muted },
+  mobileSeasonOptionTextSelected: { fontFamily: "Inter_700Bold", color: Colors.text },
   episodeList: { gap: 10, paddingBottom: 2 },
+  mobileEpisodeList: { flexDirection: "row", paddingRight: 20 },
   tvEpisodeList: { flexDirection: "row", gap: 12, paddingRight: 40 },
   episodesLoading: {
     flexDirection: "row",
@@ -1240,6 +1185,14 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     backgroundColor: "transparent",
   },
+  mobileEpisodeCard: {
+    width: 238,
+    minHeight: 0,
+    flexDirection: "column",
+    gap: 0,
+    padding: 0,
+    overflow: "hidden",
+  },
   pressed: { opacity: 0.74 },
   episodeThumb: {
     width: 132,
@@ -1251,6 +1204,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundRaised,
   },
   tvEpisodeThumb: { width: 210, height: 118, borderRadius: 8 },
+  mobileEpisodeThumb: { width: "100%", height: 134, borderRadius: 0 },
   thumbFallback: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
@@ -1277,6 +1231,7 @@ const styles = StyleSheet.create({
   },
   epNumText: { fontFamily: "Inter_600SemiBold", fontSize: 8, color: Colors.muted },
   episodeCopy: { flex: 1, gap: 4, paddingVertical: 2 },
+  mobileEpisodeCopy: { gap: 5, paddingHorizontal: 10, paddingTop: 9, paddingBottom: 10 },
   tvEpisodeCopy: { minHeight: 42, gap: 2, paddingHorizontal: 2 },
   episodeTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, color: Colors.text },
   tvEpisodeTitle: { fontSize: 11, color: Colors.white },

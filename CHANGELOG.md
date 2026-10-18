@@ -4,6 +4,7 @@
 
 ### Interface TV proporcional
 
+- Smartphone: o seletor de temporada passou a expandir a lista diretamente na tela de detalhes, sem abrir modal; episódios passaram a usar cards horizontais com rolagem lateral.
 - Refatoração estrutural: painéis de categorias e preview/EPG da TV ao Vivo foram isolados do controlador da tela; busca e cache de sinopse foram isolados da tela de detalhes. O comportamento visual, de D-Pad e de smartphone foi preservado.
 - Auditoria técnica: removidos componente de hero sem importação, dados de demonstração não utilizados e três fundos de login substituídos, reduzindo código e assets sem função no pacote.
 - Tela de login atualizada com os novos backgrounds fornecidos: composição em 16:9 para TV e retrato para smartphone, otimizadas para carregamento sem alterar o fluxo de autenticação.

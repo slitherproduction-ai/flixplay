@@ -6,6 +6,7 @@
 - Navegação por canais otimizada: a troca do preview aguarda a estabilização do foco e o EPG na TV é carregado apenas para o canal selecionado.
 - Menu lateral da TV recolhe logo após o foco sair do rail, sem permanecer sobre categorias e canais.
 - Correção adicional após homologação em Fire TV Stick: linhas de canal TV não instanciam mais `BlurView`; contagens de categoria são calculadas uma única vez por catálogo e o painel de preview permanece estruturado na tela.
+- Menu lateral TV estabilizado após nova homologação: a barra passa a ocupar 216 px fixos, com ícones, textos e versão sempre visíveis, sem expansão sobre o conteúdo.
 
 ## [2.17.14] — 2026-10-15
 

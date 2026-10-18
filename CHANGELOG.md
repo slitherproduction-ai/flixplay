@@ -4,6 +4,7 @@
 
 ### Interface TV proporcional
 
+- Menu lateral TV passou a manter uma área de foco com largura fixa. A navegação vertical não redimensiona mais itens, rótulos ou o contêiner; somente a camada visual do rail abre e recolhe ao entrar/sair do menu.
 - Tela Inicial TV com hero mais compacto e fileiras de conteúdo mais próximas da primeira área útil.
 - Grades de Filmes e Séries com 6/7/9 pôsteres conforme a largura da TV, reduzindo cards excessivamente grandes.
 - Títulos de hero e detalhes alinhados a uma escala de leitura mais equilibrada para TV.

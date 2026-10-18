@@ -18,7 +18,7 @@ import { AppText, Chip, EmptyState, GlassCard, PosterCard, SearchField, SectionH
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem } from "@/store/types";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
-import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
@@ -153,7 +153,7 @@ export default function SeriesScreen() {
   const [query, setQuery] = useState("");
 
   const hPad = tvMode ? 46 : 16;
-  const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
+  const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
   const numColumns = tvMode
     ? (width >= 1500 ? 9 : width >= 1100 ? 7 : 6)
     : (width >= 1000 ? 5 : width >= 700 ? 4 : 3);

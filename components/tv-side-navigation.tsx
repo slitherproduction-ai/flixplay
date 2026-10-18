@@ -11,9 +11,10 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 
 /**
- * Fire TV renders animated/overflowing side rails unreliably: labels may be
- * painted behind the scene or disappear while focus moves. Reserve this full,
- * stable width for the TV rail instead of expanding it over application UI.
+ * The focus surface is deliberately permanent. Fire TV recalculates its native
+ * focus graph when a focused row, its label, or its parent changes width;
+ * those relayouts were the source of labels disappearing while moving up/down.
+ * Only a decorative background and opacity change when entering/leaving rail.
  */
 export const TV_NAV_WIDTH = 216;
 // The permanent rail width while the user is navigating content. Screens use
@@ -71,7 +72,8 @@ export function TvSideNavigation() {
   }, [pathname, router]);
 
   return (
-    <View style={[styles.slot, expanded ? styles.slotExpanded : styles.slotCollapsed]}>
+    <View style={styles.slot}>
+      <View pointerEvents="none" style={[styles.surface, expanded ? styles.surfaceExpanded : styles.surfaceCollapsed]} />
       <View style={styles.shell}>
       <View style={styles.brand}>
         <BrandLogo variant="symbol" style={styles.logo} accessibilityLabel="Símbolo ELVANOQ" />
@@ -100,12 +102,7 @@ export function TvSideNavigation() {
               nextFocusLeft={ownHandle}
               onFocus={handleNavigationFocus}
               onPress={() => openRoute(route)}
-              style={({ pressed }) => [
-                styles.navItem,
-                !expanded && styles.navItemCollapsed,
-                selected && styles.navItemSelected,
-                pressed && styles.navItemPressed,
-              ]}
+              style={({ pressed }) => [styles.navItem, selected && styles.navItemSelected, pressed && styles.navItemPressed]}
               focusStyle={styles.navItemFocused}
             >
               <View style={[styles.activeBar, selected && styles.activeBarVisible]} />
@@ -137,11 +134,18 @@ export function TvSideNavigation() {
 }
 
 const styles = StyleSheet.create({
-  // A normal in-flow panel, not an overflow overlay. This is intentional for
-  // reliable composition on Android TV, Google TV and Fire TV.
-  slot: { flexShrink: 0, backgroundColor: "#09111F" },
-  slotCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
-  slotExpanded: { width: TV_NAV_WIDTH },
+  // The in-flow focus area never changes size. This avoids FocusFinder
+  // rebuilding the vertical navigation graph between adjacent items.
+  slot: { width: TV_NAV_WIDTH, flexShrink: 0, backgroundColor: Colors.background },
+  surface: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "transparent",
+  },
+  surfaceCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
+  surfaceExpanded: { width: TV_NAV_WIDTH },
   shell: {
     flex: 1,
     paddingTop: 14,
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
   brand: { height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 5, marginBottom: 10 },
   logo: { width: 23, height: 23, borderRadius: 7, flexShrink: 0 },
   brandCopy: { flex: 1, gap: 2, overflow: "hidden" },
-  copyHidden: { flex: 0, width: 0, opacity: 0 },
+  copyHidden: { opacity: 0 },
   brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
   brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
   navList: { flex: 1, justifyContent: "flex-start", paddingTop: 8, gap: 4 },
@@ -169,18 +173,17 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     overflow: "hidden",
   },
-  navItemCollapsed: { justifyContent: "center", gap: 0, paddingHorizontal: 0 },
   navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
   navItemFocused: { borderWidth: 1, backgroundColor: "rgba(69, 165, 238, 0.28)", borderColor: "rgba(156, 221, 255, 0.92)", transform: [{ scale: 1 }], opacity: 1 },
   navItemPressed: { opacity: 0.9 },
   activeBar: { position: "absolute", left: 2, width: 2, height: 15, borderRadius: 2, opacity: 0 },
   activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
   labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
-  labelSlotHidden: { flex: 0, width: 0, opacity: 0 },
+  labelSlotHidden: { opacity: 0 },
   navLabel: { color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelSelected: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
-  footerHidden: { height: 0, opacity: 0 },
+  footerHidden: { opacity: 0 },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
   version: { color: "rgba(181,201,225,0.65)", fontSize: 9 },
 });

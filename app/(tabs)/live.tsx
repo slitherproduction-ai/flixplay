@@ -23,7 +23,7 @@ import { EPG_LIVE_PRELOAD_LIMIT, useEpgPreload, useEpgPreloader } from "@/hooks/
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem } from "@/store/types";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
-import { TV_NAV_COLLAPSED_WIDTH } from "@/components/tv-side-navigation";
+import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { ParentalGate } from "@/components/parental-gate";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
@@ -721,7 +721,7 @@ export default function LiveScreen() {
   // on 720p and 1080p televisions.  Previous fixed dimensions made the two
   // panes compete on smaller TV panels.
   const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : 20;
-  const availableWidth = width - (tvMode ? TV_NAV_COLLAPSED_WIDTH : 0);
+  const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
   const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
   const tvPreviewWidth = Math.round(Math.min(620, Math.max(350, tvGuideWidth * 0.43)));
   const tvPreviewGap = Math.max(20, Math.min(30, Math.round(tvGuideWidth * 0.02)));

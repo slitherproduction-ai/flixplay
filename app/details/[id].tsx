@@ -517,7 +517,6 @@ function DetailsContent({
   onPlay,
   onSeasonChange,
   onSimilar,
-  tvMode,
 }: {
   movie?: VodMovie;
   show?: SeriesItem;
@@ -542,7 +541,6 @@ function DetailsContent({
   onPlay: (episodeId?: string) => void;
   onSeasonChange: (season: number) => void;
   onSimilar: (id: string) => void;
-  tvMode: boolean;
 }) {
   return (
     <ScrollView

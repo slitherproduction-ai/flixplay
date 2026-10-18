@@ -2363,9 +2363,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
     borderRadius: 23,
-    backgroundColor: Colors.blue,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: Colors.white,
   },
-  exitPrimaryText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.white },
+  exitPrimaryText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.background },
 
   // Buffering
   bufferingOverlay: {

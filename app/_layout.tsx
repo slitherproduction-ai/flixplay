@@ -159,9 +159,9 @@ const exitStyles = StyleSheet.create({
   body: { color: Colors.muted, fontSize: 14, lineHeight: 20 },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
   secondary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
-  primary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: Colors.blue },
+  primary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
   secondaryText: { color: Colors.text, fontSize: 15, fontWeight: "700" },
-  primaryText: { color: Colors.white, fontSize: 15, fontWeight: "700" },
+  primaryText: { color: Colors.background, fontSize: 15, fontWeight: "700" },
 });
 
 // ---------------------------------------------------------------------------

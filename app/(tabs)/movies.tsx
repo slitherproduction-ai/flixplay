@@ -290,7 +290,7 @@ export default function MoviesScreen() {
             style={styles.syncBtn}
             accessibilityLabel="Sincronizar filmes"
           >
-            <Ionicons name="refresh" size={15} color={Colors.white} />
+            <Ionicons name="refresh" size={15} color={Colors.background} />
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
@@ -445,7 +445,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: Colors.blue,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: Colors.white,
   },
-  syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.white },
+  syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.background },
 });

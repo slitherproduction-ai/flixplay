@@ -355,7 +355,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
       <AppText style={styles.errorTitle}>Não foi possível carregar</AppText>
       <AppText style={styles.errorMessage}>{message}</AppText>
       <TVFocusable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
-        <Ionicons name="refresh" size={16} color={Colors.white} />
+        <Ionicons name="refresh" size={16} color={Colors.background} />
         <AppText style={styles.retryText}>Tentar novamente</AppText>
       </TVFocusable>
     </View>
@@ -478,7 +478,7 @@ export const styles = StyleSheet.create({
     // confirmation. A saturated blue state remains legible on TV and avoids
     // the glaring white pill visible from across the room.
     borderColor: "rgba(111,207,255,0.96)",
-    backgroundColor: Colors.blue,
+    backgroundColor: Colors.white,
   },
   chipSelectedLight: {
     borderColor: "rgba(255,255,255,0.96)",
@@ -498,7 +498,7 @@ export const styles = StyleSheet.create({
   },
   chipTextCompact: { fontSize: 11 },
   chipTextSelected: {
-    color: Colors.white,
+    color: Colors.background,
   },
   chipTextSelectedLight: {
     color: Colors.background,
@@ -660,12 +660,14 @@ export const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.blue,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.82)",
+    backgroundColor: Colors.white,
   },
   retryText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
-    color: Colors.white,
+    color: Colors.background,
   },
   horizontalScroller: {
     flexGrow: 0,

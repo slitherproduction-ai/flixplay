@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   cancel: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
   cancelText: { color: Colors.text, fontWeight: "600" },
-  confirm: { minWidth: 114, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: Colors.blue },
-  confirmText: { color: Colors.white, fontWeight: "700" },
+  confirm: { minWidth: 114, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
+  confirmText: { color: Colors.background, fontWeight: "700" },
 });

@@ -324,8 +324,8 @@ function InstallButton({
       accessibilityLabel="Baixar e instalar atualização"
     >
       {installing
-        ? <ActivityIndicator size="small" color={Colors.white} />
-        : <Ionicons name="download-outline" size={18} color={Colors.white} />}
+        ? <ActivityIndicator size="small" color={Colors.background} />
+        : <Ionicons name="download-outline" size={18} color={Colors.background} />}
       <AppText style={modalStyles.installText}>
         {installing ? "Abrindo download..." : "Baixar e Instalar"}
       </AppText>
@@ -655,9 +655,9 @@ export default function AboutScreen() {
               ]}
             >
               {checkState === "checking" ? (
-                <ActivityIndicator color={Colors.white} />
+                <ActivityIndicator color={Colors.background} />
               ) : (
-                <Ionicons name="refresh-outline" size={17} color={Colors.white} />
+                <Ionicons name="refresh-outline" size={17} color={Colors.background} />
               )}
               <AppText style={styles.checkButtonText}>
                 {checkState === "checking" ? "Verificando..." : "Verificar Atualizações Agora"}
@@ -844,8 +844,8 @@ const styles = StyleSheet.create({
   successBody: { fontSize: 11, color: Colors.muted },
   actionError: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderRadius: 12, backgroundColor: "rgba(229,9,20,0.12)" },
   actionErrorText: { flex: 1, fontSize: 12, lineHeight: 17, color: "#FF8B91" },
-  checkButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, backgroundColor: Colors.blue, ...Shadows.card },
-  checkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
+  checkButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white, ...Shadows.card },
+  checkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.background },
   autoUpdateRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
   autoUpdateCopy: { flex: 1, gap: 3 },
   autoUpdateTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
@@ -875,8 +875,8 @@ const modalStyles = StyleSheet.create({
   errorRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginHorizontal: 18, marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: "rgba(229,9,20,0.12)" },
   errorText: { flex: 1, fontSize: 11, color: "#FF8B91" },
   actions: { gap: 8, padding: 16 },
-  installBtn: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, borderRadius: 14, backgroundColor: Colors.blue },
-  installText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
+  installBtn: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
+  installText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.background },
   releaseBtn: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.05)" },
   releaseBtnText: { fontFamily: "Inter_500Medium", fontSize: 13, color: Colors.text },
   cancelBtn: { minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 12 },

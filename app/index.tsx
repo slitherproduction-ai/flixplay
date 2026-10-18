@@ -73,7 +73,7 @@ export default function Index() {
           Seus dados locais foram preservados. Tente novamente ou informe as credenciais no login.
         </AppText>
         <TVFocusable hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Tentar novamente" onPress={retrySecureStorage} style={styles.primaryButton}>
-          <Ionicons name="refresh" size={17} color={Colors.white} />
+          <Ionicons name="refresh" size={17} color={Colors.background} />
           <AppText style={styles.primaryButtonText}>Tentar novamente</AppText>
         </TVFocusable>
         <TVFocusable accessibilityRole="button" accessibilityLabel="Voltar ao login" onPress={() => router.replace("/login")} style={styles.secondaryButton}>
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
   recoveryIcon: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(20,125,255,0.12)" },
   recoveryTitle: { color: Colors.text, fontSize: 20, fontWeight: "700", textAlign: "center" },
   recoveryBody: { color: Colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center", maxWidth: 420 },
-  primaryButton: { minHeight: 50, minWidth: 230, borderRadius: 25, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.blue },
-  primaryButtonText: { color: Colors.white, fontSize: 15, fontWeight: "700" },
+  primaryButton: { minHeight: 50, minWidth: 230, borderRadius: 25, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
+  primaryButtonText: { color: Colors.background, fontSize: 15, fontWeight: "700" },
   secondaryButton: { minHeight: 46, minWidth: 230, borderRadius: 23, paddingHorizontal: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
   secondaryButtonText: { color: Colors.text, fontSize: 14, fontWeight: "600" },
 });

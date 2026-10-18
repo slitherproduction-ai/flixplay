@@ -97,7 +97,7 @@ export default function AddServerScreen() {
           {serverUrl.trim().startsWith("http://") ? <View style={styles.tip}><Ionicons name="shield-outline" size={17} color={Colors.amber} /><AppText style={styles.tipText}>Conexão sem criptografia fornecida pelo servidor.</AppText></View> : null}
         </View>
         {error ? <View style={styles.errorBox}><Ionicons name="alert-circle-outline" size={18} color={Colors.red} /><AppText style={styles.errorText}>{error}</AppText></View> : null}
-        <TVFocusable accessibilityRole="button" disabled={saving} onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed, saving && styles.disabled]}>{saving ? <ActivityIndicator color={Colors.white} /> : <><Ionicons name="link" size={17} color={Colors.white} /><AppText style={styles.submitText}>Conectar servidor</AppText></>}</TVFocusable>
+        <TVFocusable accessibilityRole="button" disabled={saving} onPress={handleSubmit} style={({ pressed }) => [styles.submitButton, pressed && styles.pressed, saving && styles.disabled]}>{saving ? <ActivityIndicator color={Colors.background} /> : <><Ionicons name="link" size={17} color={Colors.background} /><AppText style={styles.submitText}>Conectar servidor</AppText></>}</TVFocusable>
         <AppText style={styles.security}><Ionicons name="lock-closed" size={12} color={Colors.subtle} /> Suas credenciais ficam salvas apenas neste dispositivo.</AppText>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
   tipText: { flex: 1, fontSize: 12, lineHeight: 18, color: Colors.muted },
   errorBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderRadius: 12, backgroundColor: "rgba(229,9,20,0.12)" },
   errorText: { flex: 1, fontSize: 12, lineHeight: 17, color: "#FF8B91" },
-  submitButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, backgroundColor: Colors.blue },
-  submitText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
+  submitButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
+  submitText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.background },
   pressed: { opacity: 0.76 },
   disabled: { opacity: 0.55 },
   security: { alignSelf: "center", fontSize: 11, color: Colors.subtle },

@@ -102,7 +102,7 @@ export function UpdateAvailableNotice() {
               onPress={handleInstall}
               style={[styles.primary, downloading && styles.disabled]}
             >
-              {downloading ? <ActivityIndicator size="small" color={Colors.white} /> : <Ionicons name="download-outline" size={18} color={Colors.white} />}
+              {downloading ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="download-outline" size={18} color={Colors.background} />}
               <AppText style={styles.primaryText}>{downloading ? "Baixando" : "Baixar agora"}</AppText>
             </TVFocusable>
             <TVFocusable
@@ -134,8 +134,8 @@ const styles = StyleSheet.create({
   progressText: { color: Colors.blueBright, fontSize: 12, fontFamily: "Inter_600SemiBold" },
   error: { color: "#FF8B91", fontSize: 12, lineHeight: 18 },
   actions: { flexDirection: "row", gap: 10, marginTop: 4 },
-  primary: { flex: 1, minHeight: 48, borderRadius: 24, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", backgroundColor: Colors.blue },
-  primaryText: { color: Colors.white, fontSize: 14, fontFamily: "Inter_700Bold" },
+  primary: { flex: 1, minHeight: 48, borderRadius: 24, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
+  primaryText: { color: Colors.background, fontSize: 14, fontFamily: "Inter_700Bold" },
   secondary: { minWidth: 116, minHeight: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
   secondaryText: { color: Colors.text, fontSize: 14, fontFamily: "Inter_600SemiBold" },
   disabled: { opacity: 0.55 },

@@ -4,6 +4,8 @@
 
 ### Interface TV proporcional
 
+- Botões azuis de ação em login/recuperação, conexão de servidor, controle parental, atualização, sincronização de catálogo e saída do player foram unificados à superfície branca; o azul permanece reservado para foco, seleção, progresso e indicadores.
+- O foco padrão de D-pad passa a preservar a cor original da superfície do controle, evitando que botões brancos fiquem azuis ou escuros ao receber foco.
 - Botões de ação em Filmes e Séries foram unificados no acabamento claro de “Assistir agora”; Trailer, Bloquear e Mais tarde mantêm texto e ícones escuros, inclusive quando recebem foco na TV.
 - O seletor expansível de temporada na TV e suas opções passam a usar superfície branca, sem sobreposição escura sobre as ações.
 - Smartphone: a seleção de temporada das séries passa a abrir em painel inferior, substituindo a faixa extensa de botões por uma lista clara, selecionável e fechada após a escolha.

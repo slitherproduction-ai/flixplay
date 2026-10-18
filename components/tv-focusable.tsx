@@ -117,7 +117,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.blueBright,
     // A selected TV target must read as active, never dimmed/disabled.
-    backgroundColor: "rgba(67,157,255,0.30)",
+    // Preserve the component surface while focused. Individual controls can
+    // still provide a focusStyle, but a light action must never turn blue or
+    // dark merely because it receives D-pad focus.
+    backgroundColor: "transparent",
     opacity: 1,
     transform: [{ scale: 1.025 }],
     ...Shadows.card,

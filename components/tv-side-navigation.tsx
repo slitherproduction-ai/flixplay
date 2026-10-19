@@ -99,7 +99,7 @@ export function TvSideNavigation() {
                 // Switching to a filled glyph made the selected icon visually
                 // heavier than the TV streaming-app pattern.
                 name={route.icon}
-                size={20}
+                size={18}
                 color={selected ? "#7DDCFF" : "rgba(238,244,252,0.78)"}
               />
               <View pointerEvents="none" style={styles.labelSlot}>

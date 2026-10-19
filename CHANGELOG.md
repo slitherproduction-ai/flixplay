@@ -5,7 +5,8 @@
 ### Interface TV proporcional
 
 - Menu lateral TV: removidos o ícone e a marca ELVANOQ do cabeçalho; os destinos de navegação passam a permanecer centralizados verticalmente no rail.
-- Menu lateral TV refinado: ícones usam desenho `outline` consistente de 20 px, estados mais leves e área de foco confortável, reduzindo o peso visual e aproximando a navegação do padrão de apps de streaming.
+- Menu lateral TV: ícones reduzidos para 18 px, mantendo a área de foco de 42 px para controle remoto confortável e visual mais minimalista.
+- Menu lateral TV refinado: ícones usam desenho `outline` consistente, estados mais leves e área de foco confortável, reduzindo o peso visual e aproximando a navegação do padrão de apps de streaming.
 - Menu lateral TV: o rail recolhido agora ocupa somente a largura dos ícones e expande somente ao receber foco. Rótulos são ocultos por recorte de layout, sem opacidade, para evitar que Fire TV deixe itens intermediários sem renderização.
 - Smartphone: o seletor de temporada passou a expandir a lista diretamente na tela de detalhes, sem abrir modal; episódios passaram a usar cards horizontais com rolagem lateral.
 - Refatoração estrutural: painéis de categorias e preview/EPG da TV ao Vivo foram isolados do controlador da tela; busca e cache de sinopse foram isolados da tela de detalhes. O comportamento visual, de D-Pad e de smartphone foi preservado.

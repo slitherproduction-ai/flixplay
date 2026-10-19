@@ -212,23 +212,41 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
             ) : null}
           </View>
         </TVFocusable>
-        {!tvMode ? <TVFocusable
-          accessibilityRole="button"
-          accessibilityLabel={
-            isFavorite
-              ? `Remover ${channel.name} dos favoritos`
-              : `Favoritar ${channel.name}`
-          }
-          onPress={handleFav}
-          hitSlop={8}
-          style={styles.favoriteButton}
-        >
-          <Ionicons
-            name={isFavorite ? "star" : "star-outline"}
-            size={20}
-            color={isFavorite ? Colors.amber : Colors.muted}
-          />
-        </TVFocusable> : null}
+        {tvMode ? (
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? `Remover ${channel.name} dos favoritos` : `Favoritar ${channel.name}`}
+            onFocus={() => onPreview(channel)}
+            onPress={handleFav}
+            hitSlop={6}
+            style={styles.tvFavoriteButton}
+            focusStyle={styles.tvFavoriteFocused}
+          >
+            <Ionicons
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={16}
+              color={isFavorite ? "#FF6B78" : "#B9C9DA"}
+            />
+          </TVFocusable>
+        ) : (
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel={
+              isFavorite
+                ? `Remover ${channel.name} dos favoritos`
+                : `Favoritar ${channel.name}`
+            }
+            onPress={handleFav}
+            hitSlop={8}
+            style={styles.favoriteButton}
+          >
+            <Ionicons
+              name={isFavorite ? "star" : "star-outline"}
+              size={20}
+              color={isFavorite ? Colors.amber : Colors.muted}
+            />
+          </TVFocusable>
+        )}
     </View>
   );
 
@@ -564,7 +582,9 @@ export default function LiveScreen() {
   const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
   const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
   const tvPreviewWidth = Math.round(Math.min(620, Math.max(350, tvGuideWidth * 0.43)));
-  const tvPreviewGap = Math.max(20, Math.min(30, Math.round(tvGuideWidth * 0.02)));
+  // Compact gaps recover horizontal room for long category and channel names
+  // without shrinking the preview/EPG panel itself.
+  const tvPreviewGap = Math.max(10, Math.min(16, Math.round(tvGuideWidth * 0.011)));
   const columnGap = 10;
   const numGridColumns = tvMode
     ? (width >= 1500 ? 6 : width >= 1100 ? 5 : 4)
@@ -950,6 +970,10 @@ const styles = StyleSheet.create({
   },
   tvChannelPressable: { minHeight: 33, gap: 9, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7 },
   tvChannelFocused: { borderWidth: 1, borderColor: "rgba(255,255,255,0.95)", backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1 }], opacity: 1 },
+  // TV favorite lives beside the channel name and receives its own D-pad
+  // target, without adding program metadata back into the compact guide row.
+  tvFavoriteButton: { width: 30, height: 30, marginRight: 3, alignItems: "center", justifyContent: "center", borderRadius: 15, flexShrink: 0 },
+  tvFavoriteFocused: { borderWidth: 1, borderColor: "#96E1FF", backgroundColor: "#173C55", elevation: 0, shadowOpacity: 0, shadowRadius: 0, transform: [{ scale: 1 }] },
   channelImage: {
     width: 80,
     height: 88,

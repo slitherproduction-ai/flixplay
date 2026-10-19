@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -69,7 +70,14 @@ export function TvSideNavigation() {
 
   return (
     <View style={[styles.slot, expanded ? styles.slotExpanded : styles.slotCollapsed]}>
-      <View pointerEvents="none" style={styles.surface} />
+      <LinearGradient
+        pointerEvents="none"
+        colors={["#02050B", "#07101C", "#101923"]}
+        locations={[0, 0.62, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={styles.surface}
+      />
       <View style={styles.shell}>
       <View style={styles.navList} onLayout={resolveFocusHandles}>
         {TV_ROUTES.map((route, index) => {
@@ -93,14 +101,14 @@ export function TvSideNavigation() {
               style={({ pressed }) => [styles.navItem, selected && styles.navItemSelected, pressed && styles.navItemPressed]}
               focusStyle={styles.navItemFocused}
             >
-              <View style={[styles.activeBar, selected && styles.activeBarVisible]} />
+              {selected ? <View style={styles.activeBar} /> : null}
               <Ionicons
                 // Keep the same lightweight outline glyph in every state.
                 // Switching to a filled glyph made the selected icon visually
                 // heavier than the TV streaming-app pattern.
                 name={route.icon}
                 size={18}
-                color={selected ? "#7DDCFF" : "rgba(238,244,252,0.78)"}
+                color={selected ? "#7DDCFF" : "#C9D4E0"}
               />
               <View pointerEvents="none" style={styles.labelSlot}>
                 <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected]}>
@@ -127,15 +135,17 @@ const styles = StyleSheet.create({
   slot: { flexShrink: 0, overflow: "hidden", backgroundColor: Colors.background },
   slotCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
   slotExpanded: { width: TV_NAV_WIDTH },
+  // O rail é deliberadamente opaco. Não usa BlurView, transparência ou glass:
+  // o degradê é desenhado uma única vez e evita recomposição do conteúdo da
+  // cena por trás do menu em Fire TV.
   surface: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#09111F",
     borderRightWidth: 1,
-    borderRightColor: "rgba(186,221,255,0.12)",
+    borderRightColor: "#192839",
   },
   shell: {
     flex: 1,
@@ -158,17 +168,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
   },
-  navItemSelected: { backgroundColor: "rgba(74, 166, 221, 0.12)" },
-  navItemFocused: { borderWidth: 1, backgroundColor: "rgba(91, 191, 240, 0.20)", borderColor: "rgba(150, 225, 255, 0.86)", transform: [{ scale: 1 }], opacity: 1 },
-  navItemPressed: { opacity: 0.9 },
-  activeBar: { position: "absolute", left: 3, width: 2, height: 16, borderRadius: 2, opacity: 0 },
-  activeBarVisible: { backgroundColor: "#65D5FF", opacity: 1 },
+  navItemSelected: { backgroundColor: "#102536" },
+  navItemFocused: {
+    borderWidth: 1,
+    backgroundColor: "#173C55",
+    borderColor: "#96E1FF",
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    transform: [{ scale: 1 }],
+  },
+  navItemPressed: { backgroundColor: "#1C465F" },
+  activeBar: { position: "absolute", left: 3, width: 2, height: 16, borderRadius: 2, backgroundColor: "#65D5FF" },
   // The parent rail clips this slot in icon mode. Opacity is intentionally not
   // used: Fire TV may fail to repaint sibling labels after an opacity handoff.
   labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
-  navLabel: { color: "rgba(237,244,255,0.88)", fontFamily: "Inter_500Medium", fontSize: 13 },
+  navLabel: { color: "#E8F2FC", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelSelected: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
-  footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },
-  version: { color: "rgba(181,201,225,0.65)", fontSize: 9 },
+  footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "#23354A" },
+  version: { color: "#AEBFD4", fontSize: 9 },
 });

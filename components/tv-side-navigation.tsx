@@ -7,7 +7,6 @@ import { Colors } from "@/constants/theme";
 import { TV_ROUTES, isTvRouteActive, type TvRoute } from "@/core/navigation/tv-routes";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
-import { BrandLogo } from "@/components/brand-logo";
 import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 
 /**
@@ -72,14 +71,6 @@ export function TvSideNavigation() {
     <View style={[styles.slot, expanded ? styles.slotExpanded : styles.slotCollapsed]}>
       <View pointerEvents="none" style={styles.surface} />
       <View style={styles.shell}>
-      <View style={styles.brand}>
-        <BrandLogo variant="symbol" style={styles.logo} accessibilityLabel="Símbolo ELVANOQ" />
-        <View pointerEvents="none" style={styles.brandCopy}>
-          <AppText style={styles.brandName}>ELVANOQ</AppText>
-          <AppText style={styles.brandHint}>SUA MÍDIA</AppText>
-        </View>
-      </View>
-
       <View style={styles.navList} onLayout={resolveFocusHandles}>
         {TV_ROUTES.map((route, index) => {
           const selected = isTvRouteActive(pathname, route.href);
@@ -148,17 +139,14 @@ const styles = StyleSheet.create({
   },
   shell: {
     flex: 1,
-    paddingTop: 14,
+    paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 10,
     backgroundColor: "transparent",
   },
-  brand: { height: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 5, marginBottom: 10 },
-  logo: { width: 23, height: 23, borderRadius: 7, flexShrink: 0 },
-  brandCopy: { flex: 1, gap: 2, overflow: "hidden" },
-  brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
-  brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
-  navList: { flex: 1, justifyContent: "flex-start", paddingTop: 10, gap: 6 },
+  // A navegação ocupa o centro do rail. Sem cabeçalho de marca, os destinos
+  // ficam equilibrados tanto no rail expandido quanto no recolhido.
+  navList: { flex: 1, justifyContent: "center", gap: 6 },
   navItem: {
     height: 42,
     alignSelf: "stretch",

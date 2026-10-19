@@ -104,12 +104,12 @@ export function TvSideNavigation() {
             >
               <View style={[styles.activeBar, selected && styles.activeBarVisible]} />
               <Ionicons
-                name={selected ? route.icon.replace("-outline", "") as TvRoute["icon"] : route.icon}
-                size={22}
-                // The item's own native focus ring is the focus indicator.
-                // Keeping this color independent of parent state prevents a
-                // vertical D-pad move from repainting the whole menu.
-                color={selected ? Colors.blueBright : "rgba(238,244,252,0.88)"}
+                // Keep the same lightweight outline glyph in every state.
+                // Switching to a filled glyph made the selected icon visually
+                // heavier than the TV streaming-app pattern.
+                name={route.icon}
+                size={20}
+                color={selected ? "#7DDCFF" : "rgba(238,244,252,0.78)"}
               />
               <View pointerEvents="none" style={styles.labelSlot}>
                 <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected]}>
@@ -158,27 +158,27 @@ const styles = StyleSheet.create({
   brandCopy: { flex: 1, gap: 2, overflow: "hidden" },
   brandName: { color: Colors.text, fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: -0.2 },
   brandHint: { color: "rgba(107,204,255,0.8)", fontFamily: "Inter_600SemiBold", fontSize: 7, letterSpacing: 1 },
-  navList: { flex: 1, justifyContent: "flex-start", paddingTop: 8, gap: 4 },
+  navList: { flex: 1, justifyContent: "flex-start", paddingTop: 10, gap: 6 },
   navItem: {
-    height: 44,
+    height: 42,
     alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
-    gap: 11,
+    gap: 10,
     paddingHorizontal: 10,
-    borderRadius: 7,
+    borderRadius: 8,
     overflow: "hidden",
   },
-  navItemSelected: { backgroundColor: "rgba(52,112,180,0.16)", borderWidth: 1, borderColor: "rgba(170,220,255,0.20)" },
-  navItemFocused: { borderWidth: 1, backgroundColor: "rgba(69, 165, 238, 0.28)", borderColor: "rgba(156, 221, 255, 0.92)", transform: [{ scale: 1 }], opacity: 1 },
+  navItemSelected: { backgroundColor: "rgba(74, 166, 221, 0.12)" },
+  navItemFocused: { borderWidth: 1, backgroundColor: "rgba(91, 191, 240, 0.20)", borderColor: "rgba(150, 225, 255, 0.86)", transform: [{ scale: 1 }], opacity: 1 },
   navItemPressed: { opacity: 0.9 },
-  activeBar: { position: "absolute", left: 2, width: 2, height: 18, borderRadius: 2, opacity: 0 },
-  activeBarVisible: { backgroundColor: Colors.blueBright, opacity: 1 },
+  activeBar: { position: "absolute", left: 3, width: 2, height: 16, borderRadius: 2, opacity: 0 },
+  activeBarVisible: { backgroundColor: "#65D5FF", opacity: 1 },
   // The parent rail clips this slot in icon mode. Opacity is intentionally not
   // used: Fire TV may fail to repaint sibling labels after an opacity handoff.
   labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
-  navLabel: { color: "rgba(237,244,255,0.92)", fontFamily: "Inter_500Medium", fontSize: 13 },
+  navLabel: { color: "rgba(237,244,255,0.88)", fontFamily: "Inter_500Medium", fontSize: 13 },
   navLabelSelected: { color: Colors.text },
   footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
   footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(201,223,255,0.14)" },

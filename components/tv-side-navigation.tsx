@@ -3,21 +3,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { APP_INFO } from "@/constants/app";
 import { Colors } from "@/constants/theme";
-import { TV_ROUTES, isTvRouteActive, type TvRoute } from "@/core/navigation/tv-routes";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
+import { TV_ROUTES, isTvRouteActive, type TvRoute } from "@/core/navigation/tv-routes";
 import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 
 /**
- * The focusable rows are permanently mounted. The rail itself has two stable
- * widths (icon and expanded), changing only when focus enters/leaves it — never
- * while moving vertically between rows.
+ * The permanent in-flow rail only reserves icon space. The expanded drawer is
+ * an opaque overlay above page content, so opening it never reflows, remounts,
+ * clips, or repaints the active TV screen.
  */
-export const TV_NAV_WIDTH = 216;
-export const TV_NAV_COLLAPSED_WIDTH = 68;
-
+export const TV_NAV_WIDTH = 64;
+export const TV_NAV_COLLAPSED_WIDTH = TV_NAV_WIDTH;
+export const TV_NAV_EXPANDED_WIDTH = 232;
 
 export function TvSideNavigation() {
   const pathname = usePathname();
@@ -29,38 +28,33 @@ export function TvSideNavigation() {
     series: null,
     settings: null,
   });
-  const [focusHandles, setFocusHandles] = useState<number[]>([]);
+  const [routeHandles, setRouteHandles] = useState<number[]>([]);
   const [expanded, setExpanded] = useState(false);
   const expandedRef = useRef(false);
 
-  const handleNavigationFocus = useCallback(() => {
-    // Do not update parent state as focus moves from one item to another.
-    // Fire TV dispatches blur/focus for every D-pad step and re-laying out the
-    // complete rail at that moment is what caused the labels to disappear.
-    // Each TVFocusable still renders its own focus ring independently.
+  const openRail = useCallback(() => {
     if (expandedRef.current) return;
     expandedRef.current = true;
     setExpanded(true);
   }, []);
 
-  const handleNavigationRemote = useCallback((event: TVRemoteEvent) => {
-    // The right key is the intentional exit from the rail to page content.
-    // This is the only navigation path that collapses the menu, eliminating
-    // label loss caused by transient blur events between menu entries.
-    if (event !== "right") return;
+  const closeRail = useCallback(() => {
     if (!expandedRef.current) return;
     expandedRef.current = false;
     setExpanded(false);
   }, []);
 
-  // Some Fire TV remotes deliver D-pad presses through the native emitter
-  // instead of the focused Pressable. Keep the same explicit exit behavior
-  // in both paths; this never runs while the rail is already collapsed.
-  useTVRemote(handleNavigationRemote, expanded);
+  const onRemote = useCallback((event: TVRemoteEvent) => {
+    // Right is the explicit hand-off to page content. No blur handler is used:
+    // Android sends transient blur events while moving vertically in a list.
+    if (event === "right") closeRail();
+  }, [closeRail]);
 
-  const resolveFocusHandles = useCallback(() => {
+  useTVRemote(onRemote, expanded);
+
+  const resolveRouteHandles = useCallback(() => {
     requestAnimationFrame(() => {
-      setFocusHandles(TV_ROUTES.map((route) => routeRefs.current[route.key]?.getNodeHandle() ?? 0));
+      setRouteHandles(TV_ROUTES.map((route) => routeRefs.current[route.key]?.getNodeHandle() ?? 0));
     });
   }, []);
 
@@ -69,123 +63,112 @@ export function TvSideNavigation() {
   }, [pathname, router]);
 
   return (
-    <View style={[styles.slot, expanded ? styles.slotExpanded : styles.slotCollapsed]}>
+    <View style={styles.rail}>
       <LinearGradient
         pointerEvents="none"
-        colors={["#02050B", "#07101C", "#101923"]}
-        locations={[0, 0.62, 1]}
+        colors={["#02050B", "#07101B", "#101924"]}
+        locations={[0, 0.58, 1]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
-        style={styles.surface}
+        style={[styles.drawer, expanded ? styles.drawerExpanded : styles.drawerCollapsed]}
       />
-      <View style={styles.shell}>
-      <View style={styles.navList} onLayout={resolveFocusHandles}>
-        {TV_ROUTES.map((route, index) => {
-          const selected = isTvRouteActive(pathname, route.href);
-          const ownHandle = focusHandles[index] || undefined;
-          return (
-            <TVFocusable
-              ref={(node) => { routeRefs.current[route.key] = node; }}
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityLabel={route.label}
-              accessibilityState={{ selected }}
-              focusId={route.key}
-              focusScope="tv-side-navigation"
-              restoreFocus
-              nextFocusUp={focusHandles[index - 1] || ownHandle}
-              nextFocusDown={focusHandles[index + 1] || ownHandle}
-              nextFocusLeft={ownHandle}
-              onFocus={handleNavigationFocus}
-              onPress={() => openRoute(route)}
-              style={({ pressed }) => [styles.navItem, selected && styles.navItemSelected, pressed && styles.navItemPressed]}
-              focusStyle={styles.navItemFocused}
-            >
-              {selected ? <View style={styles.activeBar} /> : null}
-              <Ionicons
-                // Keep the same lightweight outline glyph in every state.
-                // Switching to a filled glyph made the selected icon visually
-                // heavier than the TV streaming-app pattern.
-                name={route.icon}
-                size={18}
-                color={selected ? "#7DDCFF" : "#C9D4E0"}
-              />
-              <View pointerEvents="none" style={styles.labelSlot}>
-                <AppText numberOfLines={1} style={[styles.navLabel, selected && styles.navLabelSelected]}>
-                  {route.label}
-                </AppText>
-              </View>
-            </TVFocusable>
-          );
-        })}
-      </View>
-
-      {expanded ? <View pointerEvents="none" style={styles.footer}>
-        <View style={styles.footerDivider} />
-        <AppText numberOfLines={1} style={styles.version}>{APP_INFO.versionLabel}</AppText>
-      </View> : null}
+      <View style={[styles.drawerContent, expanded ? styles.drawerExpanded : styles.drawerCollapsed]}>
+        <View style={styles.navList} onLayout={resolveRouteHandles}>
+          {TV_ROUTES.map((route, index) => {
+            const selected = isTvRouteActive(pathname, route.href);
+            const ownHandle = routeHandles[index] || undefined;
+            return (
+              <TVFocusable
+                ref={(node) => { routeRefs.current[route.key] = node; }}
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityLabel={route.label}
+                accessibilityState={{ selected }}
+                focusId={`tv-nav-${route.key}`}
+                focusScope="tv-side-navigation"
+                focusIndex={index}
+                restoreFocus
+                nextFocusUp={routeHandles[index - 1] || ownHandle}
+                nextFocusDown={routeHandles[index + 1] || ownHandle}
+                nextFocusLeft={ownHandle}
+                onFocus={openRail}
+                onPress={() => openRoute(route)}
+                style={styles.item}
+                focusStyle={styles.itemFocused}
+              >
+                {selected ? <View style={styles.activeMark} /> : null}
+                <Ionicons
+                  name={route.icon}
+                  size={12}
+                  color={selected ? "#79DBFF" : "#D8E2EE"}
+                />
+                <View pointerEvents="none" style={styles.labelSlot}>
+                  <AppText numberOfLines={1} style={[styles.label, selected && styles.labelSelected]}>
+                    {route.label}
+                  </AppText>
+                </View>
+              </TVFocusable>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Width changes only on entering/leaving the rail. Vertical D-pad movement
-  // never updates this state, so FocusFinder keeps the same row graph.
-  slot: { flexShrink: 0, overflow: "hidden", backgroundColor: Colors.background },
-  slotCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
-  slotExpanded: { width: TV_NAV_WIDTH },
-  // O rail é deliberadamente opaco. Não usa BlurView, transparência ou glass:
-  // o degradê é desenhado uma única vez e evita recomposição do conteúdo da
-  // cena por trás do menu em Fire TV.
-  surface: {
+  // Only this narrow rail participates in the flex row with page content.
+  rail: { width: TV_NAV_WIDTH, flexShrink: 0, position: "relative", zIndex: 20, elevation: 20 },
+  // Both layers retain the same children/geometry. Width is the only stateful
+  // property and it changes only when focus enters or exits the rail.
+  drawer: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
-    right: 0,
+    overflow: "hidden",
     borderRightWidth: 1,
-    borderRightColor: "#192839",
+    borderRightColor: "#1B2B3D",
   },
-  shell: {
+  drawerContent: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+    zIndex: 1,
+    elevation: 21,
+  },
+  drawerCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
+  drawerExpanded: { width: TV_NAV_EXPANDED_WIDTH },
+  navList: {
     flex: 1,
-    paddingTop: 12,
-    paddingBottom: 12,
+    justifyContent: "center",
+    gap: 7,
     paddingHorizontal: 10,
-    backgroundColor: "transparent",
   },
-  // A navegação ocupa o centro do rail. Sem cabeçalho de marca, os destinos
-  // ficam equilibrados tanto no rail expandido quanto no recolhido.
-  navList: { flex: 1, justifyContent: "center", gap: 6 },
-  navItem: {
+  item: {
     height: 42,
-    alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 10,
     borderRadius: 8,
     overflow: "hidden",
   },
-  navItemSelected: { backgroundColor: "#102536" },
-  navItemFocused: {
+  itemFocused: {
     borderWidth: 1,
+    borderColor: "#B6ECFF",
     backgroundColor: "#173C55",
-    borderColor: "#96E1FF",
     elevation: 0,
     shadowOpacity: 0,
     shadowRadius: 0,
     transform: [{ scale: 1 }],
   },
-  navItemPressed: { backgroundColor: "#1C465F" },
-  activeBar: { position: "absolute", left: 3, width: 2, height: 16, borderRadius: 2, backgroundColor: "#65D5FF" },
-  // The parent rail clips this slot in icon mode. Opacity is intentionally not
-  // used: Fire TV may fail to repaint sibling labels after an opacity handoff.
+  activeMark: { position: "absolute", left: 3, width: 2, height: 14, borderRadius: 2, backgroundColor: "#65D5FF" },
+  // Labels are physically clipped by the drawer in icon mode, never hidden
+  // with opacity. This avoids the Fire TV label-loss issue during D-pad moves.
   labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
-  navLabel: { color: "#E8F2FC", fontFamily: "Inter_500Medium", fontSize: 13 },
-  navLabelSelected: { color: Colors.text },
-  footer: { gap: 9, paddingHorizontal: 5, overflow: "hidden" },
-  footerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "#23354A" },
-  version: { color: "#AEBFD4", fontSize: 9 },
+  label: { color: "#E8F2FC", fontFamily: "Inter_500Medium", fontSize: 13 },
+  labelSelected: { color: Colors.white, fontFamily: "Inter_700Bold" },
 });

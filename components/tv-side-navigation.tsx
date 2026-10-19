@@ -10,9 +10,9 @@ import { TV_ROUTES, isTvRouteActive, type TvRoute } from "@/core/navigation/tv-r
 import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 
 /**
- * The permanent in-flow rail only reserves icon space. The expanded drawer is
- * an opaque overlay above page content, so opening it never reflows, remounts,
- * clips, or repaints the active TV screen.
+ * Only the icon rail belongs to the flex layout. The expanded drawer is a
+ * visual sibling of the focusables, never a parent of them. This keeps the
+ * native Android TV focus graph identical while the user moves up or down.
  */
 export const TV_NAV_WIDTH = 64;
 export const TV_NAV_COLLAPSED_WIDTH = TV_NAV_WIDTH;
@@ -33,6 +33,8 @@ export function TvSideNavigation() {
   const expandedRef = useRef(false);
 
   const openRail = useCallback(() => {
+    // Do not set state while moving between menu items. Fire TV may dispatch
+    // focus synchronously, so only the first entry into the rail opens it.
     if (expandedRef.current) return;
     expandedRef.current = true;
     setExpanded(true);
@@ -45,8 +47,6 @@ export function TvSideNavigation() {
   }, []);
 
   const onRemote = useCallback((event: TVRemoteEvent) => {
-    // Right is the explicit hand-off to page content. No blur handler is used:
-    // Android sends transient blur events while moving vertically in a list.
     if (event === "right") closeRail();
   }, [closeRail]);
 
@@ -64,99 +64,118 @@ export function TvSideNavigation() {
 
   return (
     <View style={styles.rail}>
-      <LinearGradient
-        pointerEvents="none"
-        colors={["#02050B", "#07101B", "#101924"]}
-        locations={[0, 0.58, 1]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={[styles.drawer, expanded ? styles.drawerExpanded : styles.drawerCollapsed]}
-      />
-      <View style={[styles.drawerContent, expanded ? styles.drawerExpanded : styles.drawerCollapsed]}>
-        <View style={styles.navList} onLayout={resolveRouteHandles}>
-          {TV_ROUTES.map((route, index) => {
-            const selected = isTvRouteActive(pathname, route.href);
-            const ownHandle = routeHandles[index] || undefined;
-            return (
-              <TVFocusable
-                ref={(node) => { routeRefs.current[route.key] = node; }}
-                key={route.key}
-                accessibilityRole="button"
-                accessibilityLabel={route.label}
-                accessibilityState={{ selected }}
-                focusId={`tv-nav-${route.key}`}
-                focusScope="tv-side-navigation"
-                focusIndex={index}
-                restoreFocus
-                nextFocusUp={routeHandles[index - 1] || ownHandle}
-                nextFocusDown={routeHandles[index + 1] || ownHandle}
-                nextFocusLeft={ownHandle}
-                onFocus={openRail}
-                onPress={() => openRoute(route)}
-                style={styles.item}
-                focusStyle={styles.itemFocused}
-              >
-                {selected ? <View style={styles.activeMark} /> : null}
-                <Ionicons
-                  name={route.icon}
-                  size={12}
-                  color={selected ? "#79DBFF" : "#D8E2EE"}
-                />
-                <View pointerEvents="none" style={styles.labelSlot}>
+      {expanded ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={["#02050B", "#07101B", "#101924"]}
+          locations={[0, 0.58, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.drawer}
+        >
+          <View style={styles.labelList}>
+            {TV_ROUTES.map((route) => {
+              const selected = isTvRouteActive(pathname, route.href);
+              return (
+                <View key={route.key} style={styles.labelRow}>
                   <AppText numberOfLines={1} style={[styles.label, selected && styles.labelSelected]}>
                     {route.label}
                   </AppText>
                 </View>
-              </TVFocusable>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        </LinearGradient>
+      ) : null}
+
+      <View style={styles.iconList} onLayout={resolveRouteHandles}>
+        {TV_ROUTES.map((route, index) => {
+          const selected = isTvRouteActive(pathname, route.href);
+          const ownHandle = routeHandles[index] || undefined;
+          return (
+            <TVFocusable
+              ref={(node) => { routeRefs.current[route.key] = node; }}
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityLabel={route.label}
+              accessibilityState={{ selected }}
+              focusId={`tv-nav-${route.key}`}
+              focusScope="tv-side-navigation"
+              focusIndex={index}
+              restoreFocus
+              nextFocusUp={routeHandles[index - 1] || ownHandle}
+              nextFocusDown={routeHandles[index + 1] || ownHandle}
+              nextFocusLeft={ownHandle}
+              onFocus={openRail}
+              onPress={() => openRoute(route)}
+              style={styles.iconButton}
+              focusStyle={styles.iconButtonFocused}
+            >
+              {selected ? <View style={styles.activeMark} /> : null}
+              <Ionicons name={route.icon} size={12} color={selected ? "#79DBFF" : "#D8E2EE"} />
+            </TVFocusable>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Only this narrow rail participates in the flex row with page content.
-  rail: { width: TV_NAV_WIDTH, flexShrink: 0, position: "relative", zIndex: 20, elevation: 20 },
-  // Both layers retain the same children/geometry. Width is the only stateful
-  // property and it changes only when focus enters or exits the rail.
+  rail: {
+    width: TV_NAV_WIDTH,
+    flexShrink: 0,
+    position: "relative",
+    zIndex: 20,
+    elevation: 20,
+    backgroundColor: "#02050B",
+  },
+  // This overlay is non-interactive. It contains only static labels and is
+  // mounted once when the rail receives focus; D-pad vertical moves never
+  // resize, hide or rerender the native focusable buttons.
   drawer: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
-    overflow: "hidden",
+    width: TV_NAV_EXPANDED_WIDTH,
     borderRightWidth: 1,
     borderRightColor: "#1B2B3D",
+    zIndex: 1,
+    elevation: 20,
   },
-  drawerContent: {
+  labelList: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 7,
+    paddingLeft: 64,
+    paddingRight: 18,
+  },
+  labelRow: {
+    height: 42,
+    justifyContent: "center",
+    paddingLeft: 12,
+  },
+  iconList: {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: 0,
-    overflow: "hidden",
-    zIndex: 1,
+    width: TV_NAV_WIDTH,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 7,
+    zIndex: 2,
     elevation: 21,
   },
-  drawerCollapsed: { width: TV_NAV_COLLAPSED_WIDTH },
-  drawerExpanded: { width: TV_NAV_EXPANDED_WIDTH },
-  navList: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 7,
-    paddingHorizontal: 10,
-  },
-  item: {
+  iconButton: {
+    width: 42,
     height: 42,
-    flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 10,
+    justifyContent: "center",
     borderRadius: 8,
-    overflow: "hidden",
   },
-  itemFocused: {
+  iconButtonFocused: {
     borderWidth: 1,
     borderColor: "#B6ECFF",
     backgroundColor: "#173C55",
@@ -165,10 +184,14 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     transform: [{ scale: 1 }],
   },
-  activeMark: { position: "absolute", left: 3, width: 2, height: 14, borderRadius: 2, backgroundColor: "#65D5FF" },
-  // Labels are physically clipped by the drawer in icon mode, never hidden
-  // with opacity. This avoids the Fire TV label-loss issue during D-pad moves.
-  labelSlot: { flex: 1, minWidth: 0, overflow: "hidden" },
+  activeMark: {
+    position: "absolute",
+    left: 2,
+    width: 2,
+    height: 14,
+    borderRadius: 2,
+    backgroundColor: "#65D5FF",
+  },
   label: { color: "#E8F2FC", fontFamily: "Inter_500Medium", fontSize: 13 },
   labelSelected: { color: Colors.white, fontFamily: "Inter_700Bold" },
 });

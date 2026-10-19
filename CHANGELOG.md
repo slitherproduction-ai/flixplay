@@ -4,6 +4,7 @@
 
 ### Interface TV proporcional
 
+- Menu lateral TV: segunda reconstrução estrutural para Fire TV. Os botões de ícone passaram a ter árvore fixa e independente; rótulos e fundo expandido são uma camada visual não focável. O D-Pad vertical não executa atualização de estado, redimensionamento, opacidade ou nova montagem.
 - Menu lateral TV reconstruído: rail fixo de 64 px com ícones de 12 px e drawer opaco de 232 px sobreposto ao conteúdo. A abertura não redimensiona a tela, os itens permanecem montados e os rótulos são revelados somente por largura, eliminando a causa anterior de desaparecimento durante a navegação.
 - TV ao Vivo: espaçamento entre as três colunas foi reduzido para ampliar a área útil de nomes e conteúdos; a lista de canais agora oferece coração focável ao lado do nome para adicionar/remover favoritos.
 - Menu lateral TV: removidos o acabamento glass, transparências e sombra de foco. O rail agora usa degradê opaco escuro da esquerda para a direita, reduzindo a recomposição da cena no Fire TV.

@@ -14,6 +14,7 @@ import { ParentalGate } from "@/components/parental-gate";
 import { EPG_HOME_PRELOAD_LIMIT, useEpgPreload } from "@/hooks/useEpgPreload";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { PlayHistory, SeriesItem, VodMovie } from "@/store/types";
@@ -22,12 +23,12 @@ import type { PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 // Module-level helpers
 // ---------------------------------------------------------------------------
 
-function computePosterWidth(tvMode: boolean, width: number): number {
+function computePosterWidth(tvMode: boolean, width: number, isTablet: boolean, isTabletLandscape: boolean): number {
   if (!tvMode && width <= 700) return 142;
   const visibleCards = tvMode
     ? (width >= 1500 ? 10 : width >= 1100 ? 8 : 7)
-    : (width >= 1500 ? 7 : width >= 1100 ? 6 : 5);
-  const horizontalPadding = tvMode ? 64 : 40;
+    : (isTabletLandscape ? 6 : isTablet ? 5 : width >= 1500 ? 7 : width >= 1100 ? 6 : 5);
+  const horizontalPadding = tvMode ? 64 : isTablet ? 56 : 40;
   const gap = 12;
   return Math.floor((width - horizontalPadding - gap * (visibleCards - 1)) / visibleCards);
 }
@@ -165,6 +166,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const tvMode = useTVMode();
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const history = useAppStore((state) => state.history);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const [pendingHistoryItem, setPendingHistoryItem] = useState<PlayHistory | null>(null);
@@ -174,10 +176,14 @@ export default function HomeScreen() {
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
   const { isSyncing, syncProgress, refresh } = useSyncStatus();
 
-  const posterWidth = computePosterWidth(tvMode, width);
+  const posterWidth = computePosterWidth(tvMode, width, isTablet, isTabletLandscape);
   const heroHeight = tvMode
     ? Math.round(Math.min(610, Math.max(410, height * 0.60)))
-    : Math.round(Math.min(310, Math.max(238, height * 0.31)));
+    : isTabletLandscape
+      ? Math.round(Math.min(440, Math.max(340, height * 0.48)))
+      : isTablet
+        ? Math.round(Math.min(400, Math.max(300, height * 0.37)))
+        : Math.round(Math.min(310, Math.max(238, height * 0.31)));
   const syncLabel = syncProgress ?? "Sincronizando conteúdo...";
 
   const rankedWeeklyMovie = useMemo(() => weeklyFeaturedMovie(movies), [movies]);

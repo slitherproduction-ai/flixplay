@@ -16,6 +16,7 @@ import { Colors, Radii, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, GlassCard, IconButton, SearchField, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { EPG_LIVE_PRELOAD_LIMIT, useEpgPreload, useEpgPreloader } from "@/hooks/useEpgPreload";
 import { useAppStore } from "@/store/useAppStore";
@@ -420,6 +421,7 @@ function TvLiveUtility() {
 export default function LiveScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
+  const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [previewChannelId, setPreviewChannelId] = useState<string | null>(null);
   const previewFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -578,7 +580,7 @@ export default function LiveScreen() {
   // comfortable for D-pad navigation while preview/EPG receive enough width
   // on 720p and 1080p televisions.  Previous fixed dimensions made the two
   // panes compete on smaller TV panels.
-  const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : 20;
+  const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : isTablet ? contentPadding : 20;
   const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
   const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
   const tvPreviewWidth = Math.round(Math.min(620, Math.max(350, tvGuideWidth * 0.43)));
@@ -588,7 +590,7 @@ export default function LiveScreen() {
   const columnGap = 10;
   const numGridColumns = tvMode
     ? (width >= 1500 ? 6 : width >= 1100 ? 5 : 4)
-    : (width >= 768 ? 3 : 2);
+    : (isTabletLandscape ? 4 : isTablet ? 3 : width >= 768 ? 3 : 2);
   const gridCardWidth =
     (availableWidth - horizontalPadding * 2 - columnGap * (numGridColumns - 1)) / numGridColumns;
   const activeColumns = effectiveViewMode === "grid" ? numGridColumns : 1;

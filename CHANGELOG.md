@@ -4,6 +4,7 @@
 
 ### Interface TV proporcional
 
+- Tablet: criada classificação responsiva centralizada para retrato e paisagem. Home, Filmes, Séries, TV ao Vivo, Detalhes, Login e Assistir Mais Tarde passam a usar grades, margens, hero, cards de episódios e limites de conteúdo apropriados para telas entre smartphone e TV.
 - Correção de foco: superfícies brancas agora preservam integralmente o fundo branco ao receber foco na TV; removida a transparência e a elevação genéricas que escureciam botões no Android TV e Fire TV.
 - Estabilidade de detalhes: abertura de filmes e séries deixa de alocar uma cópia do catálogo inteiro para recomendações; requisições de episódios são canceladas ao trocar de tela e os enriquecimentos opcionais (sinopse/TMDB) ocorrem após a navegação e de forma sequencial, reduzindo travamentos e risco de encerramento em dispositivos com pouca memória.
 - Menu lateral TV: segunda reconstrução estrutural para Fire TV. Os botões de ícone passaram a ter árvore fixa e independente; rótulos e fundo expandido são uma camada visual não focável. O D-Pad vertical não executa atualização de estado, redimensionamento, opacidade ou nova montagem.

@@ -28,6 +28,7 @@ import type { XtreamUserInfo } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { logTechnicalError } from "@/services/security/sanitize";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
@@ -309,6 +310,7 @@ export default function LoginScreen() {
   const backdropRef = useRef<View>(null);
   const tvMode = useTVMode();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const compactMobile = !tvMode && viewportWidth < 600;
   // Fire TV and many 720p Android TV panels have substantially less vertical
   // space than a 1080p television. Keep the entire entry flow visible there.
@@ -522,12 +524,14 @@ export default function LoginScreen() {
           contentContainerStyle={[
             styles.content,
             tvMode && styles.tvContent,
+            isTablet && styles.tabletContent,
+            isTabletLandscape && styles.tabletLandscapeContent,
             compactTv && styles.tvCompactContent,
             { paddingTop: insets.top + (compactTv ? 14 : 32), paddingBottom: insets.bottom + (compactTv ? 14 : 32) },
           ]}
         >
           {/* Logo section */}
-          <View style={[styles.logoArea, tvMode && styles.tvLogoArea, compactTv && styles.tvCompactLogoArea]}>
+          <View style={[styles.logoArea, tvMode && styles.tvLogoArea, isTablet && styles.tabletLogoArea, compactTv && styles.tvCompactLogoArea]}>
             <View style={styles.logoKicker}>
               <Ionicons name="shield-checkmark-outline" size={12} color={Colors.blueBright} />
               <AppText style={styles.logoKickerText}>ACESSO SEGURO</AppText>
@@ -536,7 +540,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Glass card */}
-          <View style={[styles.card, tvMode && styles.tvCard, compactTv && styles.tvCompactCard]} onLayout={resolveFormFocusHandles}>
+          <View style={[styles.card, tvMode && styles.tvCard, isTablet && styles.tabletCard, isTabletLandscape && styles.tabletLandscapeCard, compactTv && styles.tvCompactCard]} onLayout={resolveFormFocusHandles}>
             <BlurView
               blurTarget={backdropRef}
               intensity={72}
@@ -927,6 +931,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   tvCompactContent: { width: "38%", maxWidth: 470, marginLeft: "7%", gap: 11 },
+  tabletContent: { width: "100%", maxWidth: 620, alignSelf: "center", paddingHorizontal: 0 },
+  tabletLandscapeContent: { maxWidth: 580, alignSelf: "flex-start", marginLeft: "10%" },
   releaseFooter: { alignItems: "center", paddingTop: 2, paddingBottom: 4 },
   tvReleaseFooter: { alignItems: "flex-start", paddingTop: 6 },
   tvCompactReleaseFooter: { paddingTop: 1, paddingBottom: 0 },
@@ -937,6 +943,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   tvLogoArea: { alignItems: "flex-start", paddingBottom: 12 },
+  tabletLogoArea: { alignItems: "center", paddingBottom: 14 },
   tvCompactLogoArea: { gap: 5, paddingBottom: 3 },
   logoKicker: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(34,211,238,0.22)", backgroundColor: "rgba(5,17,35,0.48)" },
   logoKickerText: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.1, color: Colors.blueBright },
@@ -955,6 +962,8 @@ const styles = StyleSheet.create({
     ...Shadows.card,
   },
   tvCard: { borderRadius: 28, borderColor: "rgba(191,219,254,0.24)", backgroundColor: "rgba(8,14,27,0.22)" },
+  tabletCard: { borderRadius: 26 },
+  tabletLandscapeCard: { backgroundColor: "rgba(8,14,27,0.26)" },
   tvCompactCard: { borderRadius: 22 },
   cardHighlight: { position: "absolute", top: 0, right: 0, left: 0, height: 1, backgroundColor: "rgba(255,255,255,0.26)" },
   cardInner: {

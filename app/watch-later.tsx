@@ -8,6 +8,7 @@ import { Colors, Radii } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem, VodMovie } from "@/store/types";
 
@@ -50,6 +51,7 @@ export default function WatchLaterScreen() {
   const insets = useSafeAreaInsets();
   const tvMode = useTVMode();
   const { width } = useWindowDimensions();
+  const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
   const movies = useAppStore((state) => state.contentCache.vodMovies);
   const series = useAppStore((state) => state.contentCache.seriesList);
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
@@ -62,8 +64,8 @@ export default function WatchLaterScreen() {
     ...series.filter((item) => favoriteSeriesIds.includes(item.id)).map(toSavedSeries),
   ], [favoriteMovieIds, favoriteSeriesIds, movies, series]);
 
-  const columns = tvMode ? (width >= 1500 ? 7 : 6) : width >= 700 ? 4 : 3;
-  const horizontalPadding = tvMode ? 52 : 20;
+  const columns = tvMode ? (width >= 1500 ? 7 : 6) : isTabletLandscape ? 6 : isTablet ? 4 : width >= 700 ? 4 : 3;
+  const horizontalPadding = tvMode ? 52 : isTablet ? contentPadding : 20;
   const gap = tvMode ? 18 : 12;
   const cardWidth = Math.floor((width - horizontalPadding * 2 - gap * (columns - 1)) / columns);
 

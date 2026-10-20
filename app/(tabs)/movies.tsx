@@ -13,6 +13,7 @@ import {
 import { Colors, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { AppText, Chip, EmptyState, GlassCard, PosterCard, SearchField, SectionHeader } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
@@ -169,6 +170,7 @@ export default function MoviesScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const tvMode = useTVMode();
+  const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
   const [genre, setGenre] = useState("Todos");
   const [sort, setSort] = useState<SortOption>("Mais recentes");
   const [query, setQuery] = useState("");
@@ -179,11 +181,11 @@ export default function MoviesScreen() {
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
-  const hPad = tvMode ? 46 : 16;
+  const hPad = tvMode ? 46 : isTablet ? contentPadding : 16;
   const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
   const numColumns = tvMode
     ? (width >= 1500 ? 9 : width >= 1100 ? 7 : 6)
-    : (width >= 1000 ? 5 : width >= 700 ? 4 : 3);
+    : (isTabletLandscape ? 6 : isTablet ? 4 : width >= 1000 ? 5 : width >= 700 ? 4 : 3);
   const colGap = tvMode ? 12 : 10;
   const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<VodMovie>(MOVIES_FOCUS_SCOPE, tvMode, numColumns);

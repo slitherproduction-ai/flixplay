@@ -9,6 +9,7 @@ import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, EmptyState, ErrorState, IconButton, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
 import { verifyParentalPin } from "@/services/security/parentalControl";
@@ -486,11 +487,12 @@ function DetailsContent({
   onSeasonChange: (season: number) => void;
   onSimilar: (id: string) => void;
 }) {
+  const { isTablet } = useResponsiveLayout();
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.content, tvMode && styles.tvContent]}
+      contentContainerStyle={[styles.content, tvMode && styles.tvContent, isTablet && styles.tabletContent]}
     >
       <ContentSummary
         movie={movie}
@@ -557,6 +559,7 @@ function ContentSummary({
   onBack: () => void;
   onFavorite: () => void;
 }) {
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const title = movie?.title ?? show?.title ?? "Conteúdo";
   const poster = movie?.poster ?? show?.poster;
   const backdrop = movie?.backdrop ?? show?.backdrop;
@@ -570,7 +573,7 @@ function ContentSummary({
 
   return (
     <>
-      <View style={[styles.backdrop, tvMode && styles.tvBackdrop]}>
+      <View style={[styles.backdrop, tvMode && styles.tvBackdrop, isTablet && styles.tabletBackdrop, isTabletLandscape && styles.tabletLandscapeBackdrop]}>
         <Image source={{ uri: backdrop || poster }} contentFit="cover" style={StyleSheet.absoluteFill} />
         {/* Keep the artwork clear at the top, then transition into a deep
             readable stage instead of placing a hard dark block over it. */}
@@ -599,9 +602,9 @@ function ContentSummary({
           />
         </View>
       </View>
-      <View style={[styles.titleBlock, tvMode && styles.tvTitleBlock]}>
+      <View style={[styles.titleBlock, tvMode && styles.tvTitleBlock, isTablet && styles.tabletTitleBlock]}>
         {!tvMode ? (
-          <View style={styles.poster}>
+          <View style={[styles.poster, isTablet && styles.tabletPoster]}>
             <Image source={{ uri: poster }} contentFit="cover" style={StyleSheet.absoluteFill} />
             <View style={styles.posterBadge}>
               <Ionicons name="star" size={10} color={Colors.amber} />
@@ -681,8 +684,9 @@ function ContentActions({
   onFavorite: () => void;
   onToggleBlocked: () => void;
 }) {
+  const { isTablet } = useResponsiveLayout();
   return (
-    <View style={[styles.actions, tvMode && styles.tvActions]}>
+    <View style={[styles.actions, tvMode && styles.tvActions, isTablet && styles.tabletActions]}>
       <TVFocusable
         accessibilityRole="button"
         accessibilityLabel={canResume ? "Continuar reprodução" : isMovie ? "Assistir agora" : "Reproduzir série"}
@@ -753,6 +757,7 @@ function EpisodesSection({
   onSeasonChange: (season: number) => void;
   tvMode: boolean;
 }) {
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
   const selectSeason = useCallback((nextSeason: number) => {
     onSeasonChange(nextSeason);
@@ -760,7 +765,7 @@ function EpisodesSection({
   }, [onSeasonChange]);
 
   return (
-    <View style={[styles.episodesSection, tvMode && styles.tvEpisodesSection]}>
+    <View style={[styles.episodesSection, tvMode && styles.tvEpisodesSection, isTablet && styles.tabletEpisodesSection]}>
       <SectionHeader
         title="Episódios"
         subtitle={`${show.seasonsCount} temporada${show.seasonsCount !== 1 ? "s" : ""}`}
@@ -859,6 +864,8 @@ function EpisodesSection({
                 historyEntry={history.find((entry) => entry.contentId === episode.id)}
                 onPlay={onPlay}
                 tvMode={tvMode}
+                tabletMode={isTablet}
+                tabletLandscape={isTabletLandscape}
               />
             ))
           ) : (
@@ -878,11 +885,15 @@ function EpisodeCard({
   historyEntry,
   onPlay,
   tvMode,
+  tabletMode,
+  tabletLandscape,
 }: {
   episode: EpisodeItem;
   historyEntry?: PlayHistory;
   onPlay: (episodeId?: string) => void;
   tvMode: boolean;
+  tabletMode: boolean;
+  tabletLandscape: boolean;
 }) {
   const handlePress = useCallback(() => onPlay(episode.id), [episode.id, onPlay]);
   const progress = getHistoryProgress(historyEntry);
@@ -892,9 +903,9 @@ function EpisodeCard({
       accessibilityRole="button"
       accessibilityLabel={`${hasProgress ? "Continuar" : "Reproduzir"} ${episode.title}${hasProgress ? `, ${progress}% assistido` : ""}`}
       onPress={handlePress}
-      style={({ pressed }) => [styles.episodeCard, tvMode ? styles.tvEpisodeCard : styles.mobileEpisodeCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.episodeCard, tvMode ? styles.tvEpisodeCard : tabletLandscape ? styles.tabletLandscapeEpisodeCard : tabletMode ? styles.tabletEpisodeCard : styles.mobileEpisodeCard, pressed && styles.pressed]}
     >
-      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : styles.mobileEpisodeThumb]}>
+      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : tabletMode ? styles.tabletEpisodeThumb : styles.mobileEpisodeThumb]}>
         {episode.thumbnail ? (
           <Image source={{ uri: episode.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : (
@@ -912,7 +923,7 @@ function EpisodeCard({
           </AppText>
         </View>
       </View>
-      <View style={[styles.episodeCopy, tvMode ? styles.tvEpisodeCopy : styles.mobileEpisodeCopy]}>
+      <View style={[styles.episodeCopy, tvMode ? styles.tvEpisodeCopy : tabletMode ? styles.tabletEpisodeCopy : styles.mobileEpisodeCopy]}>
         <AppText numberOfLines={1} style={[styles.episodeTitle, tvMode && styles.tvEpisodeTitle]}>
           {episode.title}
         </AppText>
@@ -946,26 +957,27 @@ function SimilarSection({
   onSimilar: (id: string) => void;
   tvMode: boolean;
 }) {
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
   return (
-    <View style={[styles.similarSection, tvMode && styles.tvSimilarSection]}>
+    <View style={[styles.similarSection, tvMode && styles.tvSimilarSection, isTablet && styles.tabletSimilarSection]}>
       <SectionHeader title="Você também pode gostar" />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.similarScroller}
-        contentContainerStyle={[styles.similarContent, tvMode && styles.tvSimilarContent]}
+        contentContainerStyle={[styles.similarContent, tvMode && styles.tvSimilarContent, isTablet && styles.tabletSimilarContent]}
       >
         {similar.map((item) => (
           <TVFocusable
             key={item.id}
             accessibilityRole="button"
             onPress={() => onSimilar(item.id)}
-            style={[styles.similarCard, tvMode && styles.tvSimilarCard]}
+            style={[styles.similarCard, tvMode && styles.tvSimilarCard, isTablet && styles.tabletSimilarCard]}
           >
             <Image
               source={{ uri: item.poster }}
               contentFit="cover"
-              style={[styles.similarImage, tvMode && styles.tvSimilarImage]}
+              style={[styles.similarImage, tvMode && styles.tvSimilarImage, isTablet && styles.tabletSimilarImage, isTabletLandscape && styles.tabletLandscapeSimilarImage]}
             />
             <AppText numberOfLines={1} style={styles.similarTitle}>
               {item.title}
@@ -995,11 +1007,14 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   content: { gap: 18, paddingBottom: 38 },
   tvContent: { gap: 18, paddingBottom: 42 },
+  tabletContent: { width: "100%", maxWidth: 1180, alignSelf: "center", gap: 22, paddingBottom: 48 },
   backdrop: { height: 286, overflow: "hidden", backgroundColor: Colors.backgroundRaised },
   // Keep the artwork cinematic without consuming the whole first TV viewport.
   // Actions and the season selector should begin within the initial scroll
   // position on 720p and 1080p televisions.
   tvBackdrop: { height: 448 },
+  tabletBackdrop: { height: 338 },
+  tabletLandscapeBackdrop: { height: 390 },
   topControls: {
     position: "absolute",
     top: 18,
@@ -1028,6 +1043,7 @@ const styles = StyleSheet.create({
     color: Colors.muted,
   },
   titleBlock: { flexDirection: "row", gap: 14, paddingHorizontal: 20, marginTop: -62 },
+  tabletTitleBlock: { paddingHorizontal: 32, marginTop: -78 },
   // TV uses an editorial streaming composition: the artwork remains the
   // stage, while metadata and actions are compact and anchored in the
   // lower-left safe area rather than spanning the entire display.
@@ -1048,6 +1064,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundRaised,
     ...Shadows.card,
   },
+  tabletPoster: { width: 124, height: 178 },
   posterBadge: {
     position: "absolute",
     right: 7,
@@ -1087,6 +1104,7 @@ const styles = StyleSheet.create({
   // full-width call-to-action.  On narrow phones the secondary actions wrap
   // naturally instead of squeezing the title action into an oversized rail.
   actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10, paddingHorizontal: 20 },
+  tabletActions: { paddingHorizontal: 32, gap: 12 },
   tvActions: { alignSelf: "flex-start", gap: 9, paddingHorizontal: 0, marginLeft: 62, marginTop: -3 },
   primaryButton: {
     minHeight: 43,
@@ -1124,6 +1142,7 @@ const styles = StyleSheet.create({
   actionTextActive: { color: "#725000" },
   actionTextCritical: { color: "#9A2027" },
   episodesSection: { gap: 12, paddingHorizontal: 20 },
+  tabletEpisodesSection: { paddingHorizontal: 32, gap: 14 },
   tvEpisodesSection: { gap: 10, paddingHorizontal: 62, paddingTop: 4 },
   tvSeasonSelectorArea: { alignSelf: "flex-start", minWidth: 230, zIndex: 3 },
   tvSeasonSelector: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(238,244,252,0.94)" },
@@ -1207,6 +1226,8 @@ const styles = StyleSheet.create({
     padding: 0,
     overflow: "hidden",
   },
+  tabletEpisodeCard: { width: 276, minHeight: 0, flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" },
+  tabletLandscapeEpisodeCard: { width: 300, minHeight: 0, flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" },
   pressed: { opacity: 0.74 },
   episodeThumb: {
     width: 132,
@@ -1219,6 +1240,7 @@ const styles = StyleSheet.create({
   },
   tvEpisodeThumb: { width: 210, height: 118, borderRadius: 8 },
   mobileEpisodeThumb: { width: "100%", height: 134, borderRadius: 0 },
+  tabletEpisodeThumb: { width: "100%", height: 155, borderRadius: 0 },
   thumbFallback: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
@@ -1246,6 +1268,7 @@ const styles = StyleSheet.create({
   epNumText: { fontFamily: "Inter_600SemiBold", fontSize: 8, color: Colors.muted },
   episodeCopy: { flex: 1, gap: 4, paddingVertical: 2 },
   mobileEpisodeCopy: { gap: 5, paddingHorizontal: 10, paddingTop: 9, paddingBottom: 10 },
+  tabletEpisodeCopy: { gap: 6, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 12 },
   tvEpisodeCopy: { minHeight: 42, gap: 2, paddingHorizontal: 2 },
   episodeTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, lineHeight: 17, color: Colors.text },
   tvEpisodeTitle: { fontSize: 11, color: Colors.white },
@@ -1262,12 +1285,15 @@ const styles = StyleSheet.create({
   episodeProgressFill: { height: "100%", backgroundColor: Colors.blueBright },
   newEpisode: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
   similarSection: { gap: 0, paddingLeft: 20 },
+  tabletSimilarSection: { paddingLeft: 32 },
   tvSimilarSection: { gap: 8, paddingLeft: 62 },
   similarScroller: { flexGrow: 0, marginHorizontal: -20 },
   similarContent: { gap: 12, paddingHorizontal: 20 },
+  tabletSimilarContent: { gap: 14, paddingHorizontal: 32 },
   tvSimilarContent: { gap: 16, paddingHorizontal: 62, paddingRight: 40 },
   similarCard: { width: 122, gap: 6 },
   tvSimilarCard: { width: 164, gap: 6 },
+  tabletSimilarCard: { width: 150, gap: 7 },
   similarImage: {
     width: 122,
     height: 160,
@@ -1277,6 +1303,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundRaised,
   },
   tvSimilarImage: { width: 164, height: 92, borderRadius: 8 },
+  tabletSimilarImage: { width: 150, height: 214, borderRadius: 12 },
+  tabletLandscapeSimilarImage: { width: 150, height: 108, borderRadius: 10 },
   similarTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   similarMeta: { flexDirection: "row", alignItems: "center", gap: 3 },
   similarMetaText: { fontSize: 10, color: Colors.subtle },

@@ -1,7 +1,7 @@
 import type React from "react";
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { findNodeHandle, Platform, Pressable, StyleSheet, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
-import { Colors, Shadows } from "@/constants/theme";
+import { Colors } from "@/constants/theme";
 import { getTVRemoteEvent, type TVKeyDownEvent, type TVRemoteEvent } from "@/hooks/use-tv-remote";
 import { getRememberedTvFocus, rememberTvFocus } from "@/core/navigation/tv-focus-memory";
 
@@ -116,14 +116,15 @@ const styles = StyleSheet.create({
   focused: {
     borderWidth: 2,
     borderColor: Colors.blueBright,
-    // A selected TV target must read as active, never dimmed/disabled.
-    // Preserve the component surface while focused. Individual controls can
-    // still provide a focusStyle, but a light action must never turn blue or
-    // dark merely because it receives D-pad focus.
-    backgroundColor: "transparent",
+    // Do not assign a background here. In React Native, "transparent" wins
+    // over the background supplied by the control itself; that made white
+    // actions reveal the dark screen behind them on Android TV. Keeping this
+    // layer surface-neutral preserves each button's original visual state.
     opacity: 1,
     transform: [{ scale: 1.025 }],
-    ...Shadows.card,
+    // Elevation is deliberately omitted. On Fire TV it can cast a dark
+    // native shadow over light controls and looks like the button dimmed.
+    elevation: 0,
   },
 });
 

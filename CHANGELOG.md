@@ -4,6 +4,8 @@
 
 ### Interface TV proporcional
 
+- Correção de foco: superfícies brancas agora preservam integralmente o fundo branco ao receber foco na TV; removida a transparência e a elevação genéricas que escureciam botões no Android TV e Fire TV.
+- Estabilidade de detalhes: abertura de filmes e séries deixa de alocar uma cópia do catálogo inteiro para recomendações; requisições de episódios são canceladas ao trocar de tela e os enriquecimentos opcionais (sinopse/TMDB) ocorrem após a navegação e de forma sequencial, reduzindo travamentos e risco de encerramento em dispositivos com pouca memória.
 - Menu lateral TV: segunda reconstrução estrutural para Fire TV. Os botões de ícone passaram a ter árvore fixa e independente; rótulos e fundo expandido são uma camada visual não focável. O D-Pad vertical não executa atualização de estado, redimensionamento, opacidade ou nova montagem.
 - Menu lateral TV reconstruído: rail fixo de 64 px com ícones de 12 px e drawer opaco de 232 px sobreposto ao conteúdo. A abertura não redimensiona a tela, os itens permanecem montados e os rótulos são revelados somente por largura, eliminando a causa anterior de desaparecimento durante a navegação.
 - TV ao Vivo: espaçamento entre as três colunas foi reduzido para ampliar a área útil de nomes e conteúdos; a lista de canais agora oferece coração focável ao lado do nome para adicionar/remover favoritos.

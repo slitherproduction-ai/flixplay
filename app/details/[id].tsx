@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, InteractionManager, Modal, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, EmptyState, ErrorState, IconButton, SectionHeader } from "@/components/ui";
@@ -183,12 +183,15 @@ export default function DetailsScreen() {
     if (!show || !activeProfile) return;
     if (fetchedSeriesIdRef.current === show.seriesId) return;
     fetchedSeriesIdRef.current = show.seriesId;
+    const controller = new AbortController();
+    let cancelled = false;
 
     setEpisodesLoading(true);
     setEpisodesError(null);
 
-    getSeriesInfo(activeProfile, show.seriesId)
+    getSeriesInfo(activeProfile, show.seriesId, controller.signal)
       .then((raw) => {
+        if (cancelled) return;
         const { episodes: parsed, seasonsCount: sc } = parseSeriesInfo(
           raw,
           show.id,
@@ -199,13 +202,19 @@ export default function DetailsScreen() {
         setSeason(1);
       })
       .catch((err: unknown) => {
+        if (cancelled || (err instanceof Error && err.name === "AbortError")) return;
         console.error("Falha ao carregar episódios", err);
         const msg = err instanceof Error ? err.message : "Não foi possível carregar os episódios.";
         setEpisodesError(msg);
       })
       .finally(() => {
-        setEpisodesLoading(false);
+        if (!cancelled) setEpisodesLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [show, activeProfile]);
 
   const selectedEpisodes = useMemo(
@@ -214,55 +223,60 @@ export default function DetailsScreen() {
   );
 
   const similar = useMemo(
-    () =>
-      (show
-        ? cachedSeries.filter((item) => item.id !== show.id)
-        : cachedMovies.filter((item) => item.id !== movie?.id)
-      ).slice(0, 6),
-    [movie?.id, show, cachedMovies, cachedSeries],
+    () => {
+      // Catalogues can have tens of thousands of entries. `filter().slice()`
+      // allocated a second full catalogue every time a detail screen opened,
+      // which can cause GC pauses or process eviction on Fire TV devices.
+      const source = show ? cachedSeries : cachedMovies;
+      const currentId = show?.id ?? movie?.id;
+      const result: (VodMovie | SeriesItem)[] = [];
+      for (const item of source) {
+        if (item.id === currentId) continue;
+        result.push(item);
+        if (result.length === 6) break;
+      }
+      return result;
+    },
+    [movie?.id, show?.id, cachedMovies, cachedSeries],
   );
 
-  // Auto-fetch synopsis when server didn't provide one
+  // Optional Internet metadata must not compete with episode loading during
+  // the navigation transition. Run it after the first frame and serially.
   useEffect(() => {
     const item = movie ?? show;
     if (!item) return;
     const existingPlot = item.plot?.trim() ?? "";
-    if (existingPlot.length > 30 && existingPlot.toLowerCase() !== "n/a") return;
-
     let cancelled = false;
-    // Defer first setState to satisfy no-synchronous-setState-in-effect rule
-    const tid = setTimeout(() => {
-      if (cancelled) return;
-      setSynopsisLoading(true);
-      loadOrFetchSynopsis(item.id, item.title, existingPlot)
-        .then((synopsis) => {
-          if (!cancelled && synopsis) setFetchedSynopsis(synopsis);
-        })
-        .catch((err: unknown) => {
-          console.error("Falha ao buscar sinopse", err);
-        })
-        .finally(() => {
-          if (!cancelled) setSynopsisLoading(false);
-        });
-    }, 0);
+    const task = InteractionManager.runAfterInteractions(() => {
+      void (async () => {
+        const needsSynopsis = existingPlot.length <= 30 || existingPlot.toLowerCase() === "n/a";
+        if (needsSynopsis) {
+          setSynopsisLoading(true);
+          try {
+            const synopsis = await loadOrFetchSynopsis(item.id, item.title, existingPlot);
+            if (!cancelled && synopsis) setFetchedSynopsis(synopsis);
+          } catch (err) {
+            console.error("Falha ao buscar sinopse", err);
+          } finally {
+            if (!cancelled) setSynopsisLoading(false);
+          }
+        }
+
+        if (cancelled || !isTmdbConfigured()) return;
+        setTmdbLoading(true);
+        try {
+          const metadata = await fetchTmdbMetadata(item.title, movie ? "movie" : "tv");
+          if (!cancelled) setTmdbMetadata(metadata);
+        } finally {
+          if (!cancelled) setTmdbLoading(false);
+        }
+      })();
+    });
 
     return () => {
       cancelled = true;
-      clearTimeout(tid);
+      task.cancel();
     };
-  }, [movie, show]);
-
-  useEffect(() => {
-    const item = movie ?? show;
-    if (!item || !isTmdbConfigured()) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setTmdbLoading(true);
-      void fetchTmdbMetadata(item.title, movie ? "movie" : "tv")
-        .then((metadata) => { if (!cancelled) setTmdbMetadata(metadata); })
-        .finally(() => { if (!cancelled) setTmdbLoading(false); });
-    }, 0);
-    return () => { cancelled = true; clearTimeout(timer); };
   }, [movie, show]);
 
   const missingError = !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;

@@ -537,8 +537,8 @@ export const getSeries = (profile: ServerProfile, categoryId?: string, signal?: 
     signal,
   );
 
-export const getSeriesInfo = (profile: ServerProfile, seriesId: string) =>
-  requestXtream<unknown>(profile, "get_series_info", { series_id: seriesId });
+export const getSeriesInfo = (profile: ServerProfile, seriesId: string, signal?: AbortSignal) =>
+  requestXtream<unknown>(profile, "get_series_info", { series_id: seriesId }, signal);
 
 export const getShortEpg = (
   profile: ServerProfile,

@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Player: restaurado app/player.tsx como fonte TypeScript UTF-8 válida após corrupção do blob no repositório. Foram preservados controles de reprodução, OSD, EPG, troca rápida, retomada, favoritos, PiP e bloqueios parentais por conteúdo e categoria.
+
 - Portal: integrado o vínculo do identificador local do dispositivo. O app consulta em segundo plano o par MAC/Chave cadastrado no Portal e informa o estado do vínculo, sem iniciar teste, cobrança, pagamento ou bloqueio de acesso.
 - Login: incluídos identificadores locais do aparelho — Endereço MAC no formato de ativação e Chave do dispositivo. Na TV ficam no canto inferior direito; em smartphone e tablet, no rodapé. Esta etapa não possui cobrança, ativação remota ou comunicação com serviços de pagamento.
 - Controle parental: após validar o PIN, a tela passa a apresentar Canais, Filmes e Séries em seções expansíveis. Cada categoria possui cadeado individual para bloquear ou liberar, com estado persistido separadamente para cada servidor. A proteção de categoria também é validada pelo player, inclusive durante a troca de canais.

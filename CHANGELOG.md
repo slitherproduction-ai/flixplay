@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.16] — Em desenvolvimento
+
+- Início: a lupa de pesquisa foi substituída por um resumo compacto da conta em TV, smartphone e tablet. O bloco exibe avatar por inicial, nome da lista ou usuário e data de expiração; ao selecioná-lo, abre Ajustes.
+
 ## [2.17.15] — 2026-10-18
 
 ### Interface TV proporcional

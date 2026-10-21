@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Colors, Radii } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, ChannelLogo, HorizontalScroller, IconButton, PosterCard, SectionHeader } from "@/components/ui";
+import { AppText, ChannelLogo, HorizontalScroller, PosterCard, SectionHeader } from "@/components/ui";
 import { BrandLogo } from "@/components/brand-logo";
 import { CatalogBackground } from "@/components/catalog-background";
 import { ParentalGate } from "@/components/parental-gate";
@@ -17,7 +17,7 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
-import type { PlayHistory, SeriesItem, VodMovie } from "@/store/types";
+import type { PlayHistory, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 
 // ---------------------------------------------------------------------------
 // Module-level helpers
@@ -59,6 +59,38 @@ type HeroContent = {
   plot: string;
   streamUrl?: string;
 };
+
+function AccountSummary({ profile, tvMode, isTablet, onPress }: {
+  profile?: ServerProfile;
+  tvMode: boolean;
+  isTablet: boolean;
+  onPress: () => void;
+}) {
+  const displayName = profile?.name.trim() || profile?.username.trim() || "Usuário";
+  const expiry = profile?.expiryDate?.trim() || "Não informada";
+  const initial = displayName.charAt(0).toLocaleUpperCase("pt-BR") || "U";
+
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      accessibilityLabel={`Conta ${displayName}. Expira em ${expiry}. Abrir ajustes`}
+      onPress={onPress}
+      style={[styles.accountSummary, tvMode && styles.tvAccountSummary, isTablet && styles.tabletAccountSummary]}
+    >
+      <View style={[styles.accountAvatar, tvMode && styles.tvAccountAvatar]}>
+        <AppText style={[styles.accountAvatarText, tvMode && styles.tvAccountAvatarText]}>{initial}</AppText>
+      </View>
+      <View style={styles.accountCopy}>
+        <AppText numberOfLines={1} style={[styles.accountName, tvMode && styles.tvAccountName]}>{displayName}</AppText>
+        <View style={styles.accountExpiryRow}>
+          <Ionicons name="calendar-outline" size={10} color={Colors.subtle} />
+          <AppText numberOfLines={1} style={[styles.accountExpiry, tvMode && styles.tvAccountExpiry]}>Expira: {expiry}</AppText>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={14} color={Colors.subtle} />
+    </TVFocusable>
+  );
+}
 
 function toHeroMovie(movie: VodMovie): HeroContent {
   return { ...movie, type: "movie" };
@@ -174,6 +206,7 @@ export default function HomeScreen() {
   const channels = useAppStore((state) => state.contentCache.liveChannels);
   const movies = useAppStore((state) => state.contentCache.vodMovies);
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
+  const activeServer = useAppStore((state) => state.servers.find((server) => server.id === state.activeServerId));
   const { isSyncing, syncProgress, refresh } = useSyncStatus();
 
   const posterWidth = computePosterWidth(tvMode, width, isTablet, isTabletLandscape);
@@ -225,7 +258,7 @@ export default function HomeScreen() {
     [movies, rankedWeeklyMovie, weeklyFeatureId],
   );
 
-  const handleSearch = useCallback(() => { router.push("/search"); }, [router]);
+  const handleOpenAccount = useCallback(() => { router.push("/settings"); }, [router]);
   const handleContinueWatchingAll = useCallback(() => { router.push("/continue-watching"); }, [router]);
   const handleWatchLaterAll = useCallback(() => { router.push("/watch-later"); }, [router]);
   const handleHeroDetails = useCallback(() => {
@@ -373,7 +406,7 @@ export default function HomeScreen() {
             </View>
           ) : <View />}
           <View style={styles.topActions}>
-            <IconButton icon="search" label="Buscar conteúdo" onPress={handleSearch} />
+            <AccountSummary profile={activeServer} tvMode={tvMode} isTablet={isTablet} onPress={handleOpenAccount} />
           </View>
         </View>
 
@@ -498,6 +531,19 @@ const styles = StyleSheet.create({
   eyebrow: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.5, color: Colors.blueBright },
   brandLogo: { width: 128, height: 48 },
   topActions: { flexDirection: "row", alignItems: "center", gap: 9 },
+  accountSummary: { maxWidth: 224, minHeight: 46, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 13, borderWidth: 1, borderColor: "rgba(190,222,255,0.16)", backgroundColor: "rgba(10,19,34,0.58)" },
+  tabletAccountSummary: { maxWidth: 270, minHeight: 50, paddingHorizontal: 9 },
+  tvAccountSummary: { maxWidth: 214, minHeight: 40, borderRadius: 9, paddingHorizontal: 6, paddingVertical: 4, backgroundColor: "rgba(7,14,25,0.58)" },
+  accountAvatar: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: "rgba(34,211,238,0.16)", borderWidth: 1, borderColor: "rgba(111,207,255,0.32)" },
+  tvAccountAvatar: { width: 27, height: 27, borderRadius: 14 },
+  accountAvatarText: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.blueBright },
+  tvAccountAvatarText: { fontSize: 11 },
+  accountCopy: { flex: 1, minWidth: 0, gap: 2 },
+  accountName: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.text },
+  tvAccountName: { fontSize: 10 },
+  accountExpiryRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+  accountExpiry: { flex: 1, fontSize: 9, color: Colors.subtle },
+  tvAccountExpiry: { fontSize: 8 },
   // The hero is a full cinematic stage, not a card. Artwork continues to the
   // screen edge and the gradients create the readable content safe area.
   heroWrap: { height: 340, overflow: "hidden", backgroundColor: Colors.backgroundRaised },

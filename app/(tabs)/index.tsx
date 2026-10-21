@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Animated, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Colors, Radii } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, HorizontalScroller, PosterCard, SectionHeader } from "@/components/ui";
@@ -45,6 +45,7 @@ function yearMeta(year: number): string {
 const FEATURED_HOME_STORAGE_KEY = "elvanoq_home_weekly_feature_v1";
 const FEATURED_HOME_ROTATION_MS = 7 * 24 * 60 * 60 * 1000;
 const FEATURED_RECENT_WINDOW_MS = 45 * 24 * 60 * 60 * 1000;
+const HERO_BANNER_ROTATION_MS = 9_000;
 
 type HeroContent = {
   id: string;
@@ -58,6 +59,13 @@ type HeroContent = {
   genre: string;
   plot: string;
   streamUrl?: string;
+};
+
+type HeroSlide = {
+  id: string;
+  label: "RECÉM-ADICIONADO" | "DESTAQUE DA SEMANA" | "MAIS AVALIADO";
+  icon: "time-outline" | "sparkles" | "star";
+  content: HeroContent;
 };
 
 function AccountSummary({ profile, tvMode, isTablet, onPress }: {
@@ -117,21 +125,46 @@ function weeklyFeaturedMovie(movies: VodMovie[], previousId?: string): VodMovie 
   return ranked.find((movie) => movie.id !== previousId) ?? ranked[0] ?? null;
 }
 
+function recentlyAddedMovie(movies: VodMovie[]): VodMovie | null {
+  return movies
+    .slice()
+    .sort((a, b) => parseAddedAt(b.addedAt) - parseAddedAt(a.addedAt) || b.year - a.year)[0] ?? null;
+}
+
+function highestRatedMovie(movies: VodMovie[]): VodMovie | null {
+  return movies
+    .slice()
+    .sort((a, b) => b.rating - a.rating || parseAddedAt(b.addedAt) - parseAddedAt(a.addedAt) || b.year - a.year)[0] ?? null;
+}
+
 interface HeroBannerProps {
-  hero: HeroContent;
+  slide: HeroSlide;
+  slideIndex: number;
+  slideCount: number;
   height: number;
   tvMode: boolean;
   onPlay: () => void;
   onDetails: () => void;
+  onActionFocusChange: (focused: boolean) => void;
 }
 
-function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps) {
-  const featureLabel = "DESTAQUE DA SEMANA";
-  const featureIcon = "sparkles";
+function HeroBanner({ slide, slideIndex, slideCount, height, tvMode, onPlay, onDetails, onActionFocusChange }: HeroBannerProps) {
+  const { content: hero, label: featureLabel, icon: featureIcon } = slide;
+  const contentOpacity = useRef(new Animated.Value(1)).current;
   const playLabel = hero.type === "series" ? "Ver episódios" : "Assistir agora";
+
+  useEffect(() => {
+    contentOpacity.setValue(0.18);
+    Animated.timing(contentOpacity, {
+      toValue: 1,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [contentOpacity, slide.id, slide.label]);
+
   return (
     <View style={[styles.heroWrap, tvMode && styles.tvHeroWrap, { height }]}>
-      <Image source={{ uri: hero.backdrop || hero.poster }} contentFit="cover" transition={300} style={StyleSheet.absoluteFill} />
+      <Image source={{ uri: hero.backdrop || hero.poster }} contentFit="cover" transition={420} style={StyleSheet.absoluteFill} />
       <LinearGradient
         // The artwork must stay clear at the top on every form factor. The
         // lower part darkens progressively so titles and controls remain
@@ -147,13 +180,13 @@ function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps
         style={[StyleSheet.absoluteFill, !tvMode && styles.heroSideGradient]}
       />
       <View style={[styles.heroEdge, tvMode && styles.tvHeroEdge]} />
-      <View style={[styles.heroContent, tvMode && styles.tvHeroContent]}>
+      <Animated.View style={[styles.heroContent, tvMode && styles.tvHeroContent, { opacity: contentOpacity }]}>
         <View style={[styles.heroTag, tvMode && styles.tvHeroTag]}>
           <Ionicons name={featureIcon} size={12} color={Colors.blueBright} />
           <AppText style={styles.heroTagText}>{featureLabel}</AppText>
         </View>
         <AppText style={[styles.heroTitle, tvMode && styles.tvHeroTitle]}>{hero.title}</AppText>
-        <AppText numberOfLines={2} style={[styles.heroDescription, tvMode && styles.tvHeroDescription]}>{hero.plot}</AppText>
+        <AppText numberOfLines={tvMode ? 3 : 2} style={[styles.heroDescription, tvMode && styles.tvHeroDescription]}>{hero.plot}</AppText>
         <View style={styles.heroMeta}>
           <AppText style={[styles.heroMetaText, tvMode && styles.tvHeroMetaText]}>{yearMeta(hero.year)}</AppText>
           <View style={styles.metaDot} />
@@ -164,15 +197,35 @@ function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps
           </AppText>
         </View>
         <View style={[styles.heroActions, tvMode && styles.tvHeroActions]}>
-          <TVFocusable accessibilityRole="button" hasTVPreferredFocus onPress={onPlay} focusStyle={styles.whiteActionFocused} style={[styles.primaryButton, tvMode && styles.tvPrimaryButton]}>
+          <TVFocusable
+            accessibilityRole="button"
+            hasTVPreferredFocus
+            onPress={onPlay}
+            onFocus={() => onActionFocusChange(true)}
+            onBlur={() => onActionFocusChange(false)}
+            focusStyle={styles.whiteActionFocused}
+            style={[styles.primaryButton, tvMode && styles.tvPrimaryButton]}
+          >
             <Ionicons name="play" size={16} color={Colors.background} />
             <AppText style={[styles.primaryButtonText, tvMode && styles.tvPrimaryButtonText]}>{playLabel}</AppText>
           </TVFocusable>
-          <TVFocusable accessibilityRole="button" onPress={onDetails} focusStyle={styles.whiteActionFocused} style={[styles.secondaryButton, tvMode && styles.tvSecondaryButton]}>
+          <TVFocusable
+            accessibilityRole="button"
+            onPress={onDetails}
+            onFocus={() => onActionFocusChange(true)}
+            onBlur={() => onActionFocusChange(false)}
+            focusStyle={styles.whiteActionFocused}
+            style={[styles.secondaryButton, tvMode && styles.tvSecondaryButton]}
+          >
             <Ionicons name="information-circle-outline" size={17} color={Colors.background} />
             <AppText style={[styles.secondaryButtonText, tvMode && styles.tvSecondaryButtonText]}>Detalhes</AppText>
           </TVFocusable>
         </View>
+      </Animated.View>
+      <View pointerEvents="none" style={[styles.heroPagination, tvMode && styles.tvHeroPagination]}>
+        {Array.from({ length: slideCount }, (_, index) => (
+          <View key={index} style={[styles.heroPaginationDot, index === slideIndex && styles.heroPaginationDotActive]} />
+        ))}
       </View>
     </View>
   );
@@ -206,6 +259,8 @@ export default function HomeScreen() {
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const [pendingHistoryItem, setPendingHistoryItem] = useState<PlayHistory | null>(null);
   const [weeklyFeatureId, setWeeklyFeatureId] = useState<string | null>(null);
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+  const [heroRotationPaused, setHeroRotationPaused] = useState(false);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
   const movies = useAppStore((state) => state.contentCache.vodMovies);
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
@@ -253,13 +308,48 @@ export default function HomeScreen() {
     return () => { active = false; };
   }, [movies, rankedWeeklyMovie?.id]);
 
-  const hero = useMemo(
-    () => {
-      const selected = movies.find((movie) => movie.id === weeklyFeatureId) ?? rankedWeeklyMovie;
-      return selected ? toHeroMovie(selected) : null;
-    },
-    [movies, rankedWeeklyMovie, weeklyFeatureId],
-  );
+  const heroSlides = useMemo(() => {
+    const weekly = movies.find((movie) => movie.id === weeklyFeatureId) ?? rankedWeeklyMovie;
+    const candidates = [
+      { label: "RECÉM-ADICIONADO", icon: "time-outline", content: recentlyAddedMovie(movies) },
+      { label: "DESTAQUE DA SEMANA", icon: "sparkles", content: weekly },
+      { label: "MAIS AVALIADO", icon: "star", content: highestRatedMovie(movies) },
+    ] as const;
+    const validCandidates: HeroSlide[] = candidates.flatMap((candidate) => candidate.content ? [{
+      id: `${candidate.label}-${candidate.content.id}`,
+      label: candidate.label,
+      icon: candidate.icon,
+      content: toHeroMovie(candidate.content),
+    }] : []);
+
+    // Avoid cycling through the same title under different labels when the
+    // catalogue is small, while retaining the intended priority order.
+    const seenContentIds = new Set<string>();
+    return validCandidates.filter((candidate) => {
+      if (seenContentIds.has(candidate.content.id)) return false;
+      seenContentIds.add(candidate.content.id);
+      return true;
+    });
+  }, [movies, rankedWeeklyMovie, weeklyFeatureId]);
+
+  useEffect(() => {
+    setHeroSlideIndex((current) => Math.min(current, Math.max(0, heroSlides.length - 1)));
+  }, [heroSlides.length]);
+
+  useEffect(() => {
+    if (heroSlides.length < 2 || heroRotationPaused) return;
+    const timer = setTimeout(() => {
+      setHeroSlideIndex((current) => (current + 1) % heroSlides.length);
+    }, HERO_BANNER_ROTATION_MS);
+    return () => clearTimeout(timer);
+  }, [heroRotationPaused, heroSlideIndex, heroSlides.length]);
+
+  const activeHeroSlide = heroSlides[heroSlideIndex] ?? heroSlides[0] ?? null;
+  const hero = activeHeroSlide?.content ?? null;
+
+  const handleHeroActionFocusChange = useCallback((focused: boolean) => {
+    if (tvMode) setHeroRotationPaused(focused);
+  }, [tvMode]);
 
   const handleOpenAccount = useCallback(() => { router.push("/settings"); }, [router]);
   const handleContinueWatchingAll = useCallback(() => { router.push("/continue-watching"); }, [router]);
@@ -413,7 +503,18 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {hero ? <HeroBanner hero={hero} height={heroHeight} tvMode={tvMode} onPlay={handleHeroPlay} onDetails={handleHeroDetails} /> : null}
+        {activeHeroSlide ? (
+          <HeroBanner
+            slide={activeHeroSlide}
+            slideIndex={heroSlideIndex}
+            slideCount={heroSlides.length}
+            height={heroHeight}
+            tvMode={tvMode}
+            onPlay={handleHeroPlay}
+            onDetails={handleHeroDetails}
+            onActionFocusChange={handleHeroActionFocusChange}
+          />
+        ) : null}
 
         {dedupedHistory.length > 0 ? (
           <View style={[styles.sectionBlock, tvMode && styles.tvSectionBlock]}>
@@ -556,6 +657,10 @@ const styles = StyleSheet.create({
   tvHeroEdge: { borderWidth: 0 },
   heroContent: { position: "absolute", right: 19, bottom: 18, left: 19, gap: 8 },
   tvHeroContent: { right: undefined, bottom: 72, left: 64, width: "42%", gap: 10 },
+  heroPagination: { position: "absolute", right: 19, bottom: 12, flexDirection: "row", alignItems: "center", gap: 5 },
+  tvHeroPagination: { right: 64, bottom: 28 },
+  heroPaginationDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.36)" },
+  heroPaginationDotActive: { width: 16, backgroundColor: Colors.blueBright },
   heroTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: "rgba(34,211,238,0.30)", backgroundColor: "rgba(7,18,35,0.56)" },
   tvHeroTag: { paddingHorizontal: 0, paddingVertical: 0, borderWidth: 0, backgroundColor: "transparent" },
   heroTagText: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 0.8, color: Colors.blueBright },

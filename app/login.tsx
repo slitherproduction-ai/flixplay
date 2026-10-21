@@ -30,6 +30,7 @@ import type { ServerProfile } from "@/store/types";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { logTechnicalError } from "@/services/security/sanitize";
+import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/deviceIdentity";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -333,6 +334,7 @@ export default function LoginScreen() {
   const [showSavedLists, setShowSavedLists] = useState(false);
   const [focusedField, setFocusedField] = useState<"host" | "username" | "password" | "listName" | null>(null);
   const [accessMethod, setAccessMethod] = useState<"chooser" | "xtream">("chooser");
+  const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(null);
 
   const hostRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
@@ -365,6 +367,16 @@ export default function LoginScreen() {
     const timer = setTimeout(() => hostRef.current?.focus(), 350);
     return () => clearTimeout(timer);
   }, [accessMethod, tvMode]);
+
+  useEffect(() => {
+    let active = true;
+    void getDeviceIdentity().then((identity) => {
+      if (active) setDeviceIdentity(identity);
+    }).catch(() => {
+      // Identity display must never interfere with entering an IPTV account.
+    });
+    return () => { active = false; };
+  }, []);
 
   /**
    * Core connect logic. Accepts an explicit `effectiveHost` so both the main
@@ -860,12 +872,15 @@ export default function LoginScreen() {
           </View>
 
           <View style={[styles.releaseFooter, tvMode && styles.tvReleaseFooter, compactTv && styles.tvCompactReleaseFooter]}>
+            {!tvMode ? <DeviceIdentityPanel identity={deviceIdentity} /> : null}
             <AppText style={styles.releaseFooterText}>
               ELVANOQ · Versão {APP_VERSION} · Build {APP_BUILD}
             </AppText>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {tvMode ? <View pointerEvents="none" style={[styles.tvDeviceIdentity, { right: Math.max(28, insets.right + 22), bottom: Math.max(22, insets.bottom + 16) }]}><DeviceIdentityPanel identity={deviceIdentity} compact /></View> : null}
 
       {/* Saved Lists Modal */}
       <Modal
@@ -904,6 +919,17 @@ export default function LoginScreen() {
   );
 }
 
+function DeviceIdentityPanel({ identity, compact = false }: { identity: DeviceIdentity | null; compact?: boolean }) {
+  if (!identity) return null;
+  return <View style={[styles.deviceIdentity, compact && styles.tvDeviceIdentityPanel]}>
+    <Ionicons name="hardware-chip-outline" size={compact ? 13 : 12} color={Colors.blueBright} />
+    <View style={styles.deviceIdentityCopy}>
+      <AppText style={styles.deviceIdentityText}>MAC: {identity.macAddress}</AppText>
+      <AppText style={styles.deviceIdentityText}>Chave: {identity.deviceKey}</AppText>
+    </View>
+  </View>;
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -937,6 +963,11 @@ const styles = StyleSheet.create({
   tvReleaseFooter: { alignItems: "flex-start", paddingTop: 6 },
   tvCompactReleaseFooter: { paddingTop: 1, paddingBottom: 0 },
   releaseFooterText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.25, color: "rgba(219, 234, 254, 0.54)" },
+  deviceIdentity: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(2, 8, 20, 0.46)", borderWidth: 1, borderColor: "rgba(147,197,253,0.16)" },
+  tvDeviceIdentity: { position: "absolute", alignItems: "flex-end" },
+  tvDeviceIdentityPanel: { alignSelf: "auto", marginBottom: 0, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: "rgba(2, 8, 20, 0.60)" },
+  deviceIdentityCopy: { gap: 1 },
+  deviceIdentityText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.3, color: "rgba(219, 234, 254, 0.72)" },
   logoArea: {
     alignItems: "center",
     gap: 8,

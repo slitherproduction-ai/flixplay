@@ -566,15 +566,11 @@ export default function AboutScreen() {
                     <AppText style={styles.githubActiveText}>VERIFICAÇÃO MANUAL</AppText>
                   </View>
                 </View>
-                <AppText style={styles.githubRepo}>{APP_INFO.githubRepo}</AppText>
-                <AppText style={styles.githubEndpoint} numberOfLines={1}>
-                  api.github.com/repos/{APP_INFO.githubRepo}/releases/latest
-                </AppText>
               </View>
               <TVFocusable
                 onPress={handleGitHub}
                 style={styles.githubOpenBtn}
-                accessibilityLabel="Abrir repositório no GitHub"
+                accessibilityLabel="Abrir página de atualizações"
               >
                 <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
               </TVFocusable>
@@ -593,7 +589,7 @@ export default function AboutScreen() {
             <View style={styles.cardDivider} />
             <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e progresso local para acompanhar seu conteúdo." />
             <View style={styles.cardDivider} />
-            <TechnologyRow icon="logo-github" title="Verificação de atualizações" body={`GitHub Releases · ${APP_INFO.githubRepo}`} />
+            <TechnologyRow icon="logo-github" title="Verificação de atualizações" body="GitHub Releases" />
           </GlassCard>
 
           {/* Changelog */}
@@ -797,13 +793,11 @@ const styles = StyleSheet.create({
   githubCard: { paddingHorizontal: 14, paddingVertical: 12 },
   githubRow: { flexDirection: "row", alignItems: "center", gap: 11 },
   githubIconWrap: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: Colors.border },
-  githubCopy: { flex: 1, gap: 3 },
+  githubCopy: { flex: 1 },
   githubTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   githubTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   githubActiveBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.15)" },
   githubActiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
-  githubRepo: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
-  githubEndpoint: { fontSize: 9, color: Colors.subtle },
   githubOpenBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "rgba(59,130,246,0.1)" },
   sectionHeading: { gap: 3 },
   sectionSubtitle: { fontSize: 12, color: Colors.subtle },

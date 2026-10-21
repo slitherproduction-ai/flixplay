@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Sobre: removida da interface a identificação e o endpoint do repositório de atualizações; o cartão agora mostra somente “Atualizações via GitHub Releases”, sem alterar a verificação interna.
 - Início: hero passou a alternar de forma fluida entre Recém-adicionado, Destaque da semana e Mais avaliado. A rotação usa somente o catálogo já carregado, é pausada quando os botões recebem foco na TV e exibe sinopse de até três linhas nesse modo.
 - Início: hero unificado em TV, smartphone e tablet com imagem limpa no topo e degradê escuro progressivo de baixo para cima, preservando leitura dos títulos e botões.
 - Início: a lupa de pesquisa foi substituída por um resumo compacto da conta em TV, smartphone e tablet. O bloco exibe avatar por inicial, nome da lista ou usuário e data de expiração; ao selecioná-lo, abre Ajustes.

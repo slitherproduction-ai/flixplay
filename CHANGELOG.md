@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Portal: integrado o vínculo do identificador local do dispositivo. O app consulta em segundo plano o par MAC/Chave cadastrado no Portal e informa o estado do vínculo, sem iniciar teste, cobrança, pagamento ou bloqueio de acesso.
 - Login: incluídos identificadores locais do aparelho — Endereço MAC no formato de ativação e Chave do dispositivo. Na TV ficam no canto inferior direito; em smartphone e tablet, no rodapé. Esta etapa não possui cobrança, ativação remota ou comunicação com serviços de pagamento.
 - Controle parental: após validar o PIN, a tela passa a apresentar Canais, Filmes e Séries em seções expansíveis. Cada categoria possui cadeado individual para bloquear ou liberar, com estado persistido separadamente para cada servidor. A proteção de categoria também é validada pelo player, inclusive durante a troca de canais.
 - Menu lateral TV: largura do drawer expandido reduzida de 232 px para 176 px, removendo o espaço vazio à direita sem alterar o rail recolhido ou a navegação por D-Pad.

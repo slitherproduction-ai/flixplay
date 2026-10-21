@@ -16,7 +16,10 @@ import { useTVRemote, type TVRemoteEvent } from "@/hooks/use-tv-remote";
  */
 export const TV_NAV_WIDTH = 64;
 export const TV_NAV_COLLAPSED_WIDTH = TV_NAV_WIDTH;
-export const TV_NAV_EXPANDED_WIDTH = 232;
+// The labels currently fit in 176 px including the fixed 64 px icon rail.
+// Keeping this narrow prevents the expanded overlay from obscuring too much
+// of the catalogue while preserving a comfortable text gutter.
+export const TV_NAV_EXPANDED_WIDTH = 176;
 
 export function TvSideNavigation() {
   const pathname = usePathname();
@@ -149,12 +152,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 7,
     paddingLeft: 64,
-    paddingRight: 18,
+    paddingRight: 10,
   },
   labelRow: {
     height: 42,
     justifyContent: "center",
-    paddingLeft: 12,
+    paddingLeft: 8,
   },
   iconList: {
     position: "absolute",

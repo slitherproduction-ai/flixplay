@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Início: hero unificado em TV, smartphone e tablet com imagem limpa no topo e degradê escuro progressivo de baixo para cima, preservando leitura dos títulos e botões.
 - Início: a lupa de pesquisa foi substituída por um resumo compacto da conta em TV, smartphone e tablet. O bloco exibe avatar por inicial, nome da lista ou usuário e data de expiração; ao selecioná-lo, abre Ajustes.
 
 ## [2.17.15] — 2026-10-18

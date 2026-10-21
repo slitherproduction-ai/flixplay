@@ -133,8 +133,11 @@ function HeroBanner({ hero, height, tvMode, onPlay, onDetails }: HeroBannerProps
     <View style={[styles.heroWrap, tvMode && styles.tvHeroWrap, { height }]}>
       <Image source={{ uri: hero.backdrop || hero.poster }} contentFit="cover" transition={300} style={StyleSheet.absoluteFill} />
       <LinearGradient
-        colors={tvMode ? ["rgba(4,7,12,0.52)", "rgba(4,7,12,0.05)", "rgba(4,7,12,0.25)"] : ["rgba(4,7,12,0.08)", "rgba(4,7,12,0.14)", "rgba(4,7,12,0.94)"]}
-        locations={[0, 0.44, 1]}
+        // The artwork must stay clear at the top on every form factor. The
+        // lower part darkens progressively so titles and controls remain
+        // legible without turning the hero into a card.
+        colors={["rgba(4,7,12,0)", "rgba(4,7,12,0.14)", "rgba(4,7,12,0.94)"]}
+        locations={[0, 0.48, 1]}
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient

@@ -13,7 +13,9 @@ import {
 import type {
   ContentCache,
   ContentType,
+  BlockedCategoryIds,
   EpgProgram,
+  ParentalCategoryKind,
   PlayHistory,
   Preferences,
   ServerProfile,
@@ -53,6 +55,7 @@ interface AppStore {
   favoriteSeriesIds: string[];
   history: PlayHistory[];
   blockedContentIds: string[];
+  blockedCategoryIds: BlockedCategoryIds;
   /** Active-server projection of the persistent playback ranking. */
   playCounts: Record<string, number>;
   /** Persisted per-server data. The flat fields above are active-server projections for UI compatibility. */
@@ -82,6 +85,8 @@ interface AppStore {
   recordContentPlay: (contentId: string) => void;
   toggleContentBlocked: (id: string) => void;
   isContentBlocked: (id: string) => boolean;
+  toggleCategoryBlocked: (kind: ParentalCategoryKind, categoryId: string) => void;
+  isCategoryBlocked: (kind: ParentalCategoryKind, categoryId: string) => boolean;
   setContentCache: (cache: Partial<ContentCache>) => void;
   updateChannelEpg: (channelId: string, programs: EpgProgram[]) => void;
   updateChannelEpgBatch: (updates: Array<{ channelId: string; programs: EpgProgram[] }>) => void;
@@ -136,6 +141,7 @@ export const useAppStore = create<AppStore>()(
       favoriteSeriesIds: [],
       history: [],
       blockedContentIds: [],
+      blockedCategoryIds: { live: [], movies: [], series: [] },
       playCounts: {},
       userDataByServer: {},
       contentCache: EMPTY_CACHE,
@@ -158,6 +164,7 @@ export const useAppStore = create<AppStore>()(
           favoriteSeriesIds: [],
           history: [],
           blockedContentIds: [],
+          blockedCategoryIds: { live: [], movies: [], series: [] },
           playCounts: {},
           userDataByServer: state.userDataByServer[server.id]
             ? state.userDataByServer
@@ -180,6 +187,7 @@ export const useAppStore = create<AppStore>()(
           favoriteSeriesIds: userData.favoriteSeriesIds,
           history: userData.history,
           blockedContentIds: userData.blockedContentIds,
+          blockedCategoryIds: userData.blockedCategoryIds,
           playCounts: userData.playCounts,
         };
         }),
@@ -212,6 +220,7 @@ export const useAppStore = create<AppStore>()(
           favoriteSeriesIds: [],
           history: [],
           blockedContentIds: [],
+          blockedCategoryIds: { live: [], movies: [], series: [] },
           playCounts: {},
           userDataByServer: {},
         }));
@@ -229,6 +238,7 @@ export const useAppStore = create<AppStore>()(
           favoriteSeriesIds: [],
           history: [],
           blockedContentIds: [],
+          blockedCategoryIds: { live: [], movies: [], series: [] },
           playCounts: {},
         })),
 
@@ -312,6 +322,24 @@ export const useAppStore = create<AppStore>()(
         return { blockedContentIds, userDataByServer: updateServerUserData(state.userDataByServer, state.activeServerId, (data) => ({ ...data, blockedContentIds })) };
       }),
       isContentBlocked: (id) => get().blockedContentIds.includes(id),
+
+      toggleCategoryBlocked: (kind, categoryId) => set((state) => {
+        if (!categoryId) return state;
+        const current = state.blockedCategoryIds[kind] ?? [];
+        const next = current.includes(categoryId)
+          ? current.filter((id) => id !== categoryId)
+          : [...current, categoryId];
+        const blockedCategoryIds = { ...state.blockedCategoryIds, [kind]: next };
+        return {
+          blockedCategoryIds,
+          userDataByServer: updateServerUserData(
+            state.userDataByServer,
+            state.activeServerId,
+            (data) => ({ ...data, blockedCategoryIds }),
+          ),
+        };
+      }),
+      isCategoryBlocked: (kind, categoryId) => Boolean(categoryId) && get().blockedCategoryIds[kind].includes(categoryId),
 
       setContentCache: (cache) =>
         set((state) => ({ contentCache: { ...state.contentCache, ...cache } })),
@@ -397,6 +425,7 @@ export const useAppStore = create<AppStore>()(
         favoriteSeriesIds: state.favoriteSeriesIds,
         history: state.history,
         blockedContentIds: state.blockedContentIds,
+        blockedCategoryIds: state.blockedCategoryIds,
         playCounts: state.playCounts,
         userDataByServer: state.userDataByServer,
         // Do NOT persist contentCache — it can be > 6 MB and crash AsyncStorage.
@@ -420,6 +449,7 @@ export const useAppStore = create<AppStore>()(
           state.favoriteSeriesIds = activeData.favoriteSeriesIds;
           state.history = activeData.history;
           state.blockedContentIds = activeData.blockedContentIds;
+          state.blockedCategoryIds = activeData.blockedCategoryIds;
           state.playCounts = activeData.playCounts;
           state.setHydrated();
           return;

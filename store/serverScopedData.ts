@@ -1,4 +1,4 @@
-import type { PlayHistory } from "./types";
+import type { BlockedCategoryIds, PlayHistory } from "./types";
 
 export interface ServerScopedUserData {
   favoriteIds: string[];
@@ -7,6 +7,8 @@ export interface ServerScopedUserData {
   favoriteSeriesIds: string[];
   history: PlayHistory[];
   blockedContentIds: string[];
+  /** Category locks are deliberately scoped to the active provider. */
+  blockedCategoryIds: BlockedCategoryIds;
   /** Number of playback sessions per catalogue item for this server. */
   playCounts: Record<string, number>;
 }
@@ -20,6 +22,7 @@ export const EMPTY_SERVER_USER_DATA: ServerScopedUserData = {
   favoriteSeriesIds: [],
   history: [],
   blockedContentIds: [],
+  blockedCategoryIds: { live: [], movies: [], series: [] },
   playCounts: {},
 };
 
@@ -35,6 +38,11 @@ export function copyServerUserData(data: ServerScopedUserData): ServerScopedUser
     favoriteSeriesIds: [...data.favoriteSeriesIds],
     history: [...data.history],
     blockedContentIds: [...data.blockedContentIds],
+    blockedCategoryIds: {
+      live: [...(data.blockedCategoryIds?.live ?? [])],
+      movies: [...(data.blockedCategoryIds?.movies ?? [])],
+      series: [...(data.blockedCategoryIds?.series ?? [])],
+    },
     playCounts: { ...(data.playCounts ?? {}) },
   };
 }
@@ -65,7 +73,16 @@ export function migrateLegacyServerUserData(
     return Object.fromEntries(
       Object.entries(current).map(([serverId, userData]) => [
         serverId,
-        { ...EMPTY_SERVER_USER_DATA, ...userData, playCounts: userData.playCounts ?? {} },
+        {
+          ...EMPTY_SERVER_USER_DATA,
+          ...userData,
+          blockedCategoryIds: {
+            live: userData.blockedCategoryIds?.live ?? [],
+            movies: userData.blockedCategoryIds?.movies ?? [],
+            series: userData.blockedCategoryIds?.series ?? [],
+          },
+          playCounts: userData.playCounts ?? {},
+        },
       ]),
     );
   }
@@ -79,6 +96,7 @@ export function migrateLegacyServerUserData(
       favoriteSeriesIds: legacy.favoriteSeriesIds ?? [],
       history: (legacy.history ?? []).map((item) => ({ ...item, serverId: activeServerId })),
       blockedContentIds: [],
+      blockedCategoryIds: { live: [], movies: [], series: [] },
       playCounts: legacy.playCounts ?? {},
     },
   };

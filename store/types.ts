@@ -4,6 +4,10 @@ export interface Preferences {
 
 export type ContentType = "live" | "movie" | "series" | "episode";
 
+/** Catalogue sections supported by parental category protection. */
+export type ParentalCategoryKind = "live" | "movies" | "series";
+export type BlockedCategoryIds = Record<ParentalCategoryKind, string[]>;
+
 export interface ServerProfile {
   id: string;
   name: string;
@@ -64,6 +68,7 @@ export interface VodMovie {
   year: number;
   duration: string;
   genre: string;
+  categoryId: string;
   plot: string;
   streamUrl: string;
   /** Non-sensitive hint used to rebuild authenticated URLs only in memory. */
@@ -84,6 +89,7 @@ export interface SeriesItem {
   year: number;
   seasonsCount: number;
   genre: string;
+  categoryId: string;
   plot: string;
 }
 

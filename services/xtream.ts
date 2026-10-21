@@ -622,6 +622,7 @@ export function mapVodStreamToMovie(
     year,
     duration: "N/A",
     genre: category?.category_name ?? "Geral",
+    categoryId: String(stream.category_id ?? category?.category_id ?? ""),
     plot: stream.plot ?? "",
     streamUrl: createVodUrl(profile, String(stream.stream_id), stream.container_extension || "mp4"),
     containerExtension: stream.container_extension || "mp4",
@@ -648,6 +649,7 @@ export function mapSeriesStreamToItem(
     year,
     seasonsCount: 0,
     genre: category?.category_name ?? "Geral",
+    categoryId: String(stream.category_id ?? category?.category_id ?? ""),
     plot: stream.plot ?? "",
   };
 }

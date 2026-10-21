@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Controle parental: após validar o PIN, a tela passa a apresentar Canais, Filmes e Séries em seções expansíveis. Cada categoria possui cadeado individual para bloquear ou liberar, com estado persistido separadamente para cada servidor. A proteção de categoria também é validada pelo player, inclusive durante a troca de canais.
 - Menu lateral TV: largura do drawer expandido reduzida de 232 px para 176 px, removendo o espaço vazio à direita sem alterar o rail recolhido ou a navegação por D-Pad.
 - Sobre: removida da interface a identificação e o endpoint do repositório de atualizações; o cartão agora mostra somente “Atualizações via GitHub Releases”, sem alterar a verificação interna.
 - Início: hero passou a alternar de forma fluida entre Recém-adicionado, Destaque da semana e Mais avaliado. A rotação usa somente o catálogo já carregado, é pausada quando os botões recebem foco na TV e exibe sinopse de até três linhas nesse modo.

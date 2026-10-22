@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Metadados de release alinhados para 2.17.16 / Android versionCode 20261031.
+
 - Player: restaurado app/player.tsx como fonte TypeScript UTF-8 válida após corrupção do blob no repositório. Foram preservados controles de reprodução, OSD, EPG, troca rápida, retomada, favoritos, PiP e bloqueios parentais por conteúdo e categoria.
 
 - Portal: integrado o vínculo do identificador local do dispositivo. O app consulta em segundo plano o par MAC/Chave cadastrado no Portal e informa o estado do vínculo, sem iniciar teste, cobrança, pagamento ou bloqueio de acesso.

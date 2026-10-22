@@ -8,12 +8,12 @@ Aplicativo Android de streaming para listas próprias e autorizadas, com suporte
 
 | Item | Valor |
 | --- | --- |
-| Versão | `2.17.15` |
-| Build / versionCode | `20261030` |
+| Versão | `2.17.16` |
+| Build / versionCode | `20261031` |
 | Pacote Android | `com.fastshot.slitherproduction.flixplay` |
 | Android mínimo | API 24 |
 | Arquiteturas do APK universal | `armeabi-v7a`, `arm64-v8a` |
-| Último APK validado | `ELVANOQ-v2.17.14-universal.apk` — nova compilação 2.17.15 pendente |
+| Último APK validado | `ELVANOQ-v2.17.14-universal.apk` — compilação 2.17.16 pendente |
 
 O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e o rodapé de login exibem a versão e o build instalados.
 

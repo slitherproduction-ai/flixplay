@@ -41,12 +41,12 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.15",
+    version: "v2.17.16",
     date: "2026.10",
     changes: [
-      { tag: "Melhoria", text: "Tela Inicial, Filmes e Séries na TV receberam escala visual mais compacta, com hero e pôsteres proporcionais." },
-      { tag: "Melhoria", text: "TV ao Vivo equilibra categorias, canais, preview e EPG em três painéis consistentes." },
-      { tag: "Correção", text: "Menu lateral mantém os rótulos estáveis durante a navegação vertical pelo controle remoto." },
+      { tag: "Correção", text: "O player foi restaurado como fonte TypeScript UTF-8 válida, preservando OSD, EPG, retomada e controles de reprodução." },
+      { tag: "Novidade", text: "A tela de login mostra o identificador local do dispositivo e informa o estado do vínculo com o Portal, sem bloquear o acesso." },
+      { tag: "Melhoria", text: "Controle parental inclui bloqueio persistente por categoria em Canais, Filmes e Séries." },
     ],
   },
   {

@@ -936,11 +936,10 @@ function DeviceIdentityPanel({ identity, status, compact = false }: { identity: 
         ? "Portal: aguardando vínculo"
         : null;
   return <View style={[styles.deviceIdentity, compact && styles.tvDeviceIdentityPanel]}>
-    <Ionicons name="hardware-chip-outline" size={compact ? 13 : 12} color={Colors.blueBright} />
     <View style={styles.deviceIdentityCopy}>
       <AppText style={styles.deviceIdentityText}>MAC: {identity.macAddress}</AppText>
       <AppText style={styles.deviceIdentityText}>Chave: {identity.deviceKey}</AppText>
-      {portalLabel ? <AppText style={[styles.deviceIdentityText, status?.state === "linked" && styles.deviceIdentityLinked]}>{portalLabel}</AppText> : null}
+      {portalLabel ? <AppText style={styles.deviceIdentityText}>{portalLabel}</AppText> : null}
     </View>
   </View>;
 }
@@ -978,12 +977,11 @@ const styles = StyleSheet.create({
   tvReleaseFooter: { alignItems: "flex-start", paddingTop: 6 },
   tvCompactReleaseFooter: { paddingTop: 1, paddingBottom: 0 },
   releaseFooterText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.25, color: "rgba(219, 234, 254, 0.54)" },
-  deviceIdentity: { alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(2, 8, 20, 0.46)", borderWidth: 1, borderColor: "rgba(147,197,253,0.16)" },
+  deviceIdentity: { alignSelf: "center", alignItems: "center", marginBottom: 7 },
   tvDeviceIdentity: { position: "absolute", alignItems: "flex-end" },
-  tvDeviceIdentityPanel: { alignSelf: "auto", marginBottom: 0, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: "rgba(2, 8, 20, 0.60)" },
-  deviceIdentityCopy: { gap: 1 },
-  deviceIdentityText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.3, color: "rgba(219, 234, 254, 0.72)" },
-  deviceIdentityLinked: { color: "rgba(134, 239, 172, 0.92)" },
+  tvDeviceIdentityPanel: { alignSelf: "flex-end", marginBottom: 0 },
+  deviceIdentityCopy: { gap: 1, alignItems: "center" },
+  deviceIdentityText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.3, color: Colors.white },
   logoArea: {
     alignItems: "center",
     gap: 8,

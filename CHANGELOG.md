@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login: MAC, Chave do dispositivo e estado do Portal agora são exibidos como texto branco simples, sem card, borda, fundo ou ícone em TV, smartphone e tablet.
+
 - Metadados de release alinhados para 2.17.16 / Android versionCode 20261031.
 
 - Player: restaurado app/player.tsx como fonte TypeScript UTF-8 válida após corrupção do blob no repositório. Foram preservados controles de reprodução, OSD, EPG, troca rápida, retomada, favoritos, PiP e bloqueios parentais por conteúdo e categoria.

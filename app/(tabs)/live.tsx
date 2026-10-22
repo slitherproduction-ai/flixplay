@@ -448,6 +448,7 @@ export default function LiveScreen() {
 
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
+  const isCategoryBlocked = useAppStore((state) => state.isCategoryBlocked);
   const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
   const activeServerId = useAppStore((state) => state.activeServerId);
@@ -537,7 +538,7 @@ export default function LiveScreen() {
     (channelId: string) => {
       const channel = channels.find((item) => item.id === channelId);
       if (!channel) return;
-      if (isContentBlocked(channel.id)) {
+      if (isContentBlocked(channel.id) || isCategoryBlocked("live", channel.categoryId)) {
         setPendingChannelId(channel.id);
         return;
       }
@@ -548,10 +549,12 @@ export default function LiveScreen() {
           title: channel.name,
           type: "live",
           streamUrl: channel.streamUrl,
+          parentalCategoryKind: "live",
+          parentalCategoryId: channel.categoryId,
         },
       });
     },
-    [channels, isContentBlocked, router],
+    [channels, isCategoryBlocked, isContentBlocked, router],
   );
 
   const openAuthorizedChannel = useCallback(() => {
@@ -559,7 +562,7 @@ export default function LiveScreen() {
     const channel = channels.find((item) => item.id === pendingChannelId);
     setPendingChannelId(null);
     if (!channel) return;
-    router.push({ pathname: "/player", params: { id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl } });
+    router.push({ pathname: "/player", params: { id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl, parentalCategoryKind: "live", parentalCategoryId: channel.categoryId } });
   }, [channels, pendingChannelId, router]);
 
   const handleGuide = useCallback(

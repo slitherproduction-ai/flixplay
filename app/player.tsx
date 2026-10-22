@@ -311,6 +311,8 @@ export default function PlayerScreen() {
     subtitle?: string | string[];
     thumbnail?: string | string[];
     seriesId?: string | string[];
+    parentalCategoryKind?: string | string[];
+    parentalCategoryId?: string | string[];
   }>();
   const id = readParam(params.id) ?? "";
   const title = readParam(params.title) ?? "Conteúdo";
@@ -319,6 +321,8 @@ export default function PlayerScreen() {
   const sourceSubtitle = readParam(params.subtitle) ?? "";
   const sourceThumbnail = readParam(params.thumbnail) ?? "";
   const sourceSeriesId = readParam(params.seriesId);
+  const sourceParentalCategoryKind = readParam(params.parentalCategoryKind);
+  const sourceParentalCategoryId = readParam(params.parentalCategoryId);
   const tvMode = useTVMode();
   const insets = useSafeAreaInsets();
   const saveHistory = useAppStore((state) => state.saveHistory);
@@ -344,6 +348,9 @@ export default function PlayerScreen() {
   const contentType: ContentType = resolveContentType(type);
   const directPlaybackBlocked = useMemo(() => {
     if (isPlaybackBlocked(id, sourceSeriesId, isContentBlocked)) return true;
+    if (sourceParentalCategoryId && sourceParentalCategoryKind === "live") return isCategoryBlocked("live", sourceParentalCategoryId);
+    if (sourceParentalCategoryId && sourceParentalCategoryKind === "movies") return isCategoryBlocked("movies", sourceParentalCategoryId);
+    if (sourceParentalCategoryId && sourceParentalCategoryKind === "series") return isCategoryBlocked("series", sourceParentalCategoryId);
     if (contentType === "live") {
       const channel = allChannels.find((item) => item.id === id);
       return Boolean(channel && isCategoryBlocked("live", channel.categoryId));
@@ -354,7 +361,7 @@ export default function PlayerScreen() {
     }
     const series = cachedSeries.find((item) => item.id === (sourceSeriesId ?? id));
     return Boolean(series && isCategoryBlocked("series", series.categoryId));
-  }, [allChannels, cachedMovies, cachedSeries, contentType, id, isCategoryBlocked, isContentBlocked, sourceSeriesId]);
+  }, [allChannels, cachedMovies, cachedSeries, contentType, id, isCategoryBlocked, isContentBlocked, sourceParentalCategoryId, sourceParentalCategoryKind, sourceSeriesId]);
 
   // ─── Player state ────────────────────────────────────────────────────────────
   const [uiLayer, dispatchUi] = useReducer(reducePlayerUi, "osd");

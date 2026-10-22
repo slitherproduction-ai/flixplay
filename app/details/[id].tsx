@@ -14,7 +14,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
 import { verifyParentalPin } from "@/services/security/parentalControl";
 import { fetchTmdbMetadata, isTmdbConfigured, type TmdbMetadata } from "@/services/tmdb";
-import type { EpisodeItem, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
+import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 import { loadOrFetchSynopsis } from "@/features/details/synopsis";
 
 // ---------------------------------------------------------------------------
@@ -139,6 +139,7 @@ export default function DetailsScreen() {
   const toggleContentBlocked = useAppStore((state) => state.toggleContentBlocked);
   const history = useAppStore((state) => state.history);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
+  const isCategoryBlocked = useAppStore((state) => state.isCategoryBlocked);
 
   const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
   const cachedSeries = useAppStore((state) => state.contentCache.seriesList);
@@ -168,7 +169,9 @@ export default function DetailsScreen() {
   const isFavorite = movie
     ? favoriteMovieIds.includes(id)
     : favoriteSeriesIds.includes(id);
-  const isBlocked = isContentBlocked(id);
+  const parentalCategoryKind: ParentalCategoryKind = movie ? "movies" : "series";
+  const parentalCategoryId = movie?.categoryId ?? show?.categoryId ?? "";
+  const isBlocked = isContentBlocked(id) || isCategoryBlocked(parentalCategoryKind, parentalCategoryId);
 
   const seasonsCount = realSeasonsCount ?? show?.seasonsCount ?? 1;
   const resumeEntry = useMemo(() => {
@@ -294,6 +297,8 @@ export default function DetailsScreen() {
             streamUrl: movie.streamUrl,
             subtitle: "Filme",
             thumbnail: movie.backdrop || movie.poster,
+            parentalCategoryKind: "movies",
+            parentalCategoryId: movie.categoryId,
           },
         });
         return;
@@ -314,6 +319,8 @@ export default function DetailsScreen() {
           subtitle: `${show.title} · T${episode.seasonNumber}:E${episode.episodeNumber}`,
           thumbnail: episode.thumbnail || show.poster,
           seriesId: show.id,
+          parentalCategoryKind: "series",
+          parentalCategoryId: show.categoryId,
         },
       });
     },

@@ -810,13 +810,18 @@ export default function LoginScreen() {
                   </TVFocusable>
 
                   <TVFocusable
+                    ref={savedListsButtonRef}
                     accessibilityRole="button"
-                    accessibilityLabel="Importar lista M3U"
-                    onPress={() => router.push("/server/add?source=m3u")}
+                    accessibilityLabel="Ver listas salvas"
+                    onPress={openSavedLists}
                     style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
                   >
-                    <View style={styles.m3uAccessIcon}><Ionicons name="document-text-outline" size={18} color={Colors.blueBright} /></View>
-                    <View style={styles.m3uAccessCopy}><AppText style={styles.m3uAccessTitle}>Lista M3U</AppText><AppText style={styles.m3uAccessMeta}>Importar M3U/M3U Plus com XMLTV opcional</AppText></View>
+                    <View style={styles.m3uAccessIcon}><Ionicons name="list-outline" size={18} color={Colors.blueBright} /></View>
+                    <View style={styles.m3uAccessCopy}>
+                      <AppText style={styles.m3uAccessTitle}>Listas Salvas</AppText>
+                      <AppText style={styles.m3uAccessMeta}>{servers.length > 0 ? `${servers.length} lista${servers.length === 1 ? "" : "s"} disponível${servers.length === 1 ? "" : "is"}` : "Acesse uma lista já cadastrada"}</AppText>
+                    </View>
+                    {servers.length > 0 ? <View style={styles.secondaryBadge}><AppText style={styles.secondaryBadgeText}>{servers.length}</AppText></View> : null}
                     <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
                   </TVFocusable>
                 </>
@@ -1095,25 +1100,6 @@ export default function LoginScreen() {
                 </>
               )}
             </View>
-          </View>
-
-          {/* Secondary actions */}
-          <View style={[styles.secondaryRow, compactTv && styles.tvCompactSecondaryRow]}>
-            <TVFocusable
-              ref={savedListsButtonRef}
-              accessibilityRole="button"
-              accessibilityLabel="Ver listas salvas"
-              onPress={openSavedLists}
-              style={({ pressed }) => [styles.secondaryBtn, compactTv && styles.tvCompactSecondaryBtn, pressed && styles.pressed]}
-            >
-              <Ionicons name="list" size={16} color={Colors.blueBright} />
-              <AppText style={styles.secondaryBtnText}>Listas Salvas</AppText>
-              {servers.length > 0 ? (
-                <View style={styles.secondaryBadge}>
-                  <AppText style={styles.secondaryBadgeText}>{servers.length}</AppText>
-                </View>
-              ) : null}
-            </TVFocusable>
           </View>
 
           <View style={[styles.releaseFooter, tvMode && styles.tvReleaseFooter, compactTv && styles.tvCompactReleaseFooter]}>

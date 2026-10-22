@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login: removido o atalho de conexão M3U da tela inicial para simplificar o acesso. “Listas Salvas” agora fica dentro do mesmo card dos métodos de conexão, com contador e acesso à sincronização do Portal. O suporte e as listas M3U já salvas foram preservados.
+
 - Login Xtream por código: nova modalidade com Código, Usuário e Senha. O código é normalizado e resolvido no Portal antes da autenticação Xtream, sem enviar credenciais IPTV à Edge Function. Conexões por código atualizam o DNS a cada reconexão e preservam uma única Lista Salva por código; Xtream por Host e M3U permanecem disponíveis.
 
 - Controle parental: bloqueios por categoria agora seguem Canais, Filmes e Séries até o player. O PIN é solicitado antes da reprodução mesmo quando o catálogo foi carregado por paginação e o item não está no cache em memória.

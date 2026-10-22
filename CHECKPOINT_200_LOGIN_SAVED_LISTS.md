@@ -13,5 +13,6 @@
 ## Validação
 
 - Inspeção estática do fluxo de foco e do modal de listas em smartphone, tablet e TV.
-- `git diff --check` e baseline de release executados no checkout disponível.
+- Verificação estrutural remota confirmou a remoção do atalho M3U e a presença de “Listas Salvas” dentro do card de conexão.
+- `git diff --check` e baseline de release aguardam um ambiente de execução disponível.
 - Nenhum APK ou compilação foi gerado.

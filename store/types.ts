@@ -22,7 +22,11 @@ export interface ServerProfile {
   status?: string | null;
   lastSyncedAt?: string | null;
   addedAt?: string;
-  sourceType?: "xtream" | "m3u";
+  sourceType?: "xtream" | "xtream-code" | "m3u";
+  /** Administrator-issued code used to resolve the current Xtream host. */
+  serverCode?: string;
+  /** Informational timestamp returned with the last code resolution. */
+  serverCodeUpdatedAt?: string | null;
   m3uUrl?: string;
   xmltvUrl?: string;
   /** Stable identifier used only for the Portal-managed playlist of this device. */

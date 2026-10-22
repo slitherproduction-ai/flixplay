@@ -67,6 +67,8 @@ interface AppStore {
   setHydrating: () => void;
   setPreference: (key: string, value: string | number | boolean | null) => void;
   addServer: (server: ServerProfile) => void;
+  /** Saves or refreshes a code-based Xtream list without duplicate entries. */
+  upsertCodeServer: (server: ServerProfile) => void;
   /** Saves or refreshes the one Portal-bound list without changing the active list. */
   upsertPortalServer: (server: ServerProfile) => void;
   setActiveServer: (id: string) => void;
@@ -174,6 +176,40 @@ export const useAppStore = create<AppStore>()(
           contentCache: EMPTY_CACHE,
           syncState: { ...INITIAL_SYNC_STATE },
         })),
+
+      upsertCodeServer: (server) =>
+        set((state) => {
+          const existing = state.servers.find((item) =>
+            item.sourceType === "xtream-code" && item.serverCode === server.serverCode,
+          );
+          const id = existing?.id ?? server.id;
+          const userData = getServerUserData(state.userDataByServer, id);
+          const refreshed: ServerProfile = {
+            ...server,
+            id,
+            isActive: true,
+            addedAt: existing?.addedAt ?? server.addedAt,
+          };
+          return {
+            servers: existing
+              ? state.servers.map((item) => item.id === existing.id ? refreshed : { ...item, isActive: false })
+              : [...state.servers.map((item) => ({ ...item, isActive: false })), refreshed],
+            activeServerId: id,
+            favoriteIds: userData.favoriteIds,
+            favoriteChannelIds: userData.favoriteChannelIds,
+            favoriteMovieIds: userData.favoriteMovieIds,
+            favoriteSeriesIds: userData.favoriteSeriesIds,
+            history: userData.history,
+            blockedContentIds: userData.blockedContentIds,
+            blockedCategoryIds: userData.blockedCategoryIds,
+            playCounts: userData.playCounts,
+            userDataByServer: state.userDataByServer[id]
+              ? state.userDataByServer
+              : { ...state.userDataByServer, [id]: EMPTY_SERVER_USER_DATA },
+            contentCache: EMPTY_CACHE,
+            syncState: { ...INITIAL_SYNC_STATE },
+          };
+        }),
 
       upsertPortalServer: (server) =>
         set((state) => {

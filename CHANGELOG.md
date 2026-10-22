@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login Xtream por código: nova modalidade com Código, Usuário e Senha. O código é normalizado e resolvido no Portal antes da autenticação Xtream, sem enviar credenciais IPTV à Edge Function. Conexões por código atualizam o DNS a cada reconexão e preservam uma única Lista Salva por código; Xtream por Host e M3U permanecem disponíveis.
+
 - Controle parental: bloqueios por categoria agora seguem Canais, Filmes e Séries até o player. O PIN é solicitado antes da reprodução mesmo quando o catálogo foi carregado por paginação e o item não está no cache em memória.
 
 - Portal: sincronização segura de listas M3U e Xtream cadastradas no Portal ELVANOQ Play. A lista é obtida somente após validação de MAC + chave, é adicionada/atualizada em Listas Salvas sem duplicar, sem trocar a lista ativa e permanece disponível offline. Incluído fluxo explícito para informar a chave gerada pelo Portal quando o primeiro cadastro foi feito sem a chave do aplicativo.

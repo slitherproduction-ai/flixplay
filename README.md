@@ -19,7 +19,7 @@ O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e 
 
 ## Principais recursos
 
-- Conexão por **Xtream Codes** ou importação de **M3U/M3U Plus**, com XMLTV opcional.
+- Conexão por **Código do servidor + Xtream**, **Xtream por Host** ou importação de **M3U/M3U Plus**, com XMLTV opcional. O código consulta somente o Host/DNS no Portal; usuário e senha seguem apenas ao servidor IPTV.
 - Catálogo de TV ao vivo, filmes e séries, incluindo busca, favoritos, bloqueios, assistir mais tarde e continuar assistindo.
 - Guia de TV ao vivo responsivo: lista de canais à esquerda e preview/EPG à direita no modo TV.
 - Preview com áudio apenas enquanto a guia TV ao vivo está ativa; ao sair da tela, a reprodução é pausada.

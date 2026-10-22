@@ -33,6 +33,7 @@ import { logTechnicalError } from "@/services/security/sanitize";
 import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/deviceIdentity";
 import type { PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
 import { syncPortalPlaylist, type PortalPlaylistSyncResult } from "@/services/device/portalPlaylistSync";
+import { isValidServerCode, normalizeServerCode, resolveServerCode } from "@/services/device/serverCodeResolver";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -153,6 +154,13 @@ function validateLoginFields(host: string, username: string, password: string): 
   if (!isValidServerUrl(normalised)) {
     return "Informe o Host / URL do servidor. Exemplos: servidor.exemplo.com, http://192.168.1.1:8080";
   }
+  if (!username.trim()) return "Informe o usuário.";
+  if (!password) return "Informe a senha.";
+  return null;
+}
+
+function validateCodeLoginFields(code: string, username: string, password: string): string | null {
+  if (!isValidServerCode(normalizeServerCode(code))) return "Informe um código de servidor válido.";
   if (!username.trim()) return "Informe o usuário.";
   if (!password) return "Informe a senha.";
   return null;
@@ -291,7 +299,11 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
                     {server.portalManaged ? "Recebida do Portal ELVANOQ" : server.serverUrl}
                   </AppText>
                   <AppText style={modalStyles.serverMeta}>
-                    {server.portalManaged ? `${server.sourceType === "m3u" ? "M3U" : "Xtream"} · Atualização manual disponível` : `${maskUsername(server.username)} · Adicionado em ${formatAddedAt(server.addedAt)}`}
+                    {server.portalManaged
+                      ? `${server.sourceType === "m3u" ? "M3U" : "Xtream"} · Atualização manual disponível`
+                      : server.sourceType === "xtream-code" && server.serverCode
+                        ? `Código ${server.serverCode} · ${maskUsername(server.username)}`
+                        : `${maskUsername(server.username)} · Adicionado em ${formatAddedAt(server.addedAt)}`}
                   </AppText>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={Colors.subtle} />
@@ -339,6 +351,7 @@ export default function LoginScreen() {
   const compactTv = tvMode && viewportHeight < 900;
   const insets = useSafeAreaInsets();
   const addServer = useAppStore((state) => state.addServer);
+  const upsertCodeServer = useAppStore((state) => state.upsertCodeServer);
   const upsertPortalServer = useAppStore((state) => state.upsertPortalServer);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const removeServer = useAppStore((state) => state.removeServer);
@@ -346,6 +359,7 @@ export default function LoginScreen() {
   const servers = useAppStore((state) => state.servers);
 
   const [host, setHost] = useState("");
+  const [serverCode, setServerCode] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [listName, setListName] = useState("");
@@ -354,8 +368,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diagInfo, setDiagInfo] = useState<DiagInfo | null>(null);
   const [showSavedLists, setShowSavedLists] = useState(false);
-  const [focusedField, setFocusedField] = useState<"host" | "username" | "password" | "listName" | null>(null);
-  const [accessMethod, setAccessMethod] = useState<"chooser" | "xtream">("chooser");
+  const [focusedField, setFocusedField] = useState<"host" | "code" | "username" | "password" | "listName" | null>(null);
+  const [accessMethod, setAccessMethod] = useState<"chooser" | "xtream" | "xtream-code">("chooser");
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(null);
   const [portalDeviceStatus, setPortalDeviceStatus] = useState<PortalDeviceStatus | null>(null);
   const [portalSyncState, setPortalSyncState] = useState<PortalSyncState>("idle");
@@ -364,6 +378,7 @@ export default function LoginScreen() {
   const [portalLinkKey, setPortalLinkKey] = useState("");
 
   const hostRef = useRef<TextInput>(null);
+  const serverCodeRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const listNameRef = useRef<TextInput>(null);
@@ -371,6 +386,7 @@ export default function LoginScreen() {
   const savedListsButtonRef = useRef<TVFocusableHandle>(null);
   const [formFocusHandles, setFormFocusHandles] = useState({
     host: 0,
+    code: 0,
     username: 0,
     password: 0,
     listName: 0,
@@ -381,6 +397,7 @@ export default function LoginScreen() {
     requestAnimationFrame(() => {
       setFormFocusHandles({
         host: findNodeHandle(hostRef.current) ?? 0,
+        code: findNodeHandle(serverCodeRef.current) ?? 0,
         username: findNodeHandle(usernameRef.current) ?? 0,
         password: findNodeHandle(passwordRef.current) ?? 0,
         listName: findNodeHandle(listNameRef.current) ?? 0,
@@ -427,8 +444,8 @@ export default function LoginScreen() {
   }, [applyPortalSyncResult]);
 
   useEffect(() => {
-    if (!tvMode || accessMethod !== "xtream") return;
-    const timer = setTimeout(() => hostRef.current?.focus(), 350);
+    if (!tvMode || (accessMethod !== "xtream" && accessMethod !== "xtream-code")) return;
+    const timer = setTimeout(() => (accessMethod === "xtream-code" ? serverCodeRef : hostRef).current?.focus(), 350);
     return () => clearTimeout(timer);
   }, [accessMethod, tvMode]);
 
@@ -477,6 +494,7 @@ export default function LoginScreen() {
         maxConnections: null,
         activeConnections: null,
         format: null,
+        sourceType: "xtream",
         addedAt: new Date().toISOString(),
       };
 
@@ -506,9 +524,71 @@ export default function LoginScreen() {
     }
   }, [addServer, listName, password, router, username]);
 
+  const performCodeConnect = useCallback(async () => {
+    setError(null);
+    setDiagInfo(null);
+
+    const validationError = validateCodeLoginFields(serverCode, username, password);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Only the normalized administrator code is sent to the Portal. IPTV
+      // credentials are used exclusively by authenticateXtream below.
+      const resolved = await resolveServerCode(serverCode);
+      const profile: ServerProfile = {
+        id: `server-code-${resolved.code}`,
+        name: listName.trim() || username.trim(),
+        serverUrl: resolved.host,
+        username: username.trim(),
+        password,
+        isActive: true,
+        expiryDate: "Não informado",
+        maxConnections: null,
+        activeConnections: null,
+        format: null,
+        sourceType: "xtream-code",
+        serverCode: resolved.code,
+        serverCodeUpdatedAt: resolved.updatedAt,
+        addedAt: new Date().toISOString(),
+      };
+      const authResult = await authenticateXtream(profile);
+      const userInfo = authResult.user_info;
+
+      if (!checkXtreamAuth(userInfo)) {
+        setError("Usuário ou senha incorretos. Verifique suas credenciais IPTV.");
+        return;
+      }
+      const statusError = getUserStatusError(userInfo.status);
+      if (statusError) {
+        setError(statusError);
+        return;
+      }
+
+      // The code is the stable identity: refresh a changed DNS without
+      // duplicating this saved list or changing unrelated saved lists.
+      upsertCodeServer({ ...profile, ...buildProfileUpdate(userInfo) });
+      router.replace("/(tabs)");
+    } catch (connectError) {
+      logTechnicalError("Login Xtream por código", connectError);
+      setError(mapConnectError(connectError));
+    } finally {
+      setLoading(false);
+    }
+  }, [listName, password, router, serverCode, username, upsertCodeServer]);
+
   const handleConnect = useCallback(
-    () => performConnect(host),
-    [host, performConnect],
+    () => {
+      if (accessMethod === "xtream-code") {
+        void performCodeConnect();
+        return;
+      }
+      void performConnect(host);
+    },
+    [accessMethod, host, performCodeConnect, performConnect],
   );
 
   /** Switches the host field to the alternate protocol and immediately retries. */
@@ -522,12 +602,48 @@ export default function LoginScreen() {
 
 
   const handleSelectSaved = useCallback(
-    (server: ServerProfile) => {
-      setActiveServer(server.id);
+    async (server: ServerProfile) => {
+      setError(null);
+      setDiagInfo(null);
       setShowSavedLists(false);
-      router.replace("/(tabs)");
+
+      if (server.sourceType !== "xtream-code" || !server.serverCode) {
+        setActiveServer(server.id);
+        router.replace("/(tabs)");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Code-based lists resolve again on every reconnection. If this fails,
+        // the saved host is not used silently and the active list is untouched.
+        const resolved = await resolveServerCode(server.serverCode);
+        const refreshed: ServerProfile = {
+          ...server,
+          serverUrl: resolved.host,
+          serverCode: resolved.code,
+          serverCodeUpdatedAt: resolved.updatedAt,
+        };
+        const authResult = await authenticateXtream(refreshed);
+        if (!checkXtreamAuth(authResult.user_info)) {
+          setError("Usuário ou senha incorretos. Verifique suas credenciais IPTV.");
+          return;
+        }
+        const statusError = getUserStatusError(authResult.user_info.status);
+        if (statusError) {
+          setError(statusError);
+          return;
+        }
+        upsertCodeServer({ ...refreshed, ...buildProfileUpdate(authResult.user_info) });
+        router.replace("/(tabs)");
+      } catch (connectError) {
+        logTechnicalError("Reconexão Xtream por código", connectError);
+        setError(mapConnectError(connectError));
+      } finally {
+        setLoading(false);
+      }
     },
-    [router, setActiveServer]
+    [router, setActiveServer, upsertCodeServer]
   );
 
   const openSavedLists = useCallback(() => {
@@ -656,16 +772,18 @@ export default function LoginScreen() {
               <AppText style={styles.cardSubtitle}>
                 {accessMethod === "chooser"
                   ? "Escolha como deseja conectar seu conteúdo ao ELVANOQ."
-                  : "Informe os dados do seu acesso Xtream Codes para conectar seu conteúdo."}
+                  : accessMethod === "xtream-code"
+                    ? "Informe o código recebido, seu usuário e sua senha IPTV."
+                    : "Informe os dados do seu acesso Xtream Codes para conectar seu conteúdo."}
               </AppText>
 
               {accessMethod === "chooser" ? (
                 <>
                   <TVFocusable
                     accessibilityRole="button"
-                    accessibilityLabel="Conexão Xtream Codes"
+                    accessibilityLabel="Conexão por código"
                     hasTVPreferredFocus={tvMode}
-                    onPress={() => setAccessMethod("xtream")}
+                    onPress={() => setAccessMethod("xtream-code")}
                     style={({ pressed }) => [styles.xtreamAccess, compactTv && styles.tvCompactXtreamAccess, pressed && styles.pressed]}
                     // The card is intentionally white. Its focus treatment
                     // preserves that premium surface instead of inheriting the
@@ -674,10 +792,21 @@ export default function LoginScreen() {
                   >
                     <View style={styles.xtreamAccessIcon}><Ionicons name="server-outline" size={22} color={Colors.background} /></View>
                     <View style={styles.m3uAccessCopy}>
-                      <AppText style={styles.xtreamAccessTitle}>Conexão Xtream Codes</AppText>
-                      <AppText style={styles.xtreamAccessMeta}>Host, usuário e senha do seu provedor</AppText>
+                      <AppText style={styles.xtreamAccessTitle}>Código do servidor</AppText>
+                      <AppText style={styles.xtreamAccessMeta}>Código, usuário e senha da sua lista IPTV</AppText>
                     </View>
                     <Ionicons name="chevron-forward" size={22} color={Colors.background} />
+                  </TVFocusable>
+
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel="Conexão Xtream por Host"
+                    onPress={() => setAccessMethod("xtream")}
+                    style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
+                  >
+                    <View style={styles.m3uAccessIcon}><Ionicons name="server-outline" size={18} color={Colors.blueBright} /></View>
+                    <View style={styles.m3uAccessCopy}><AppText style={styles.m3uAccessTitle}>Xtream por Host</AppText><AppText style={styles.m3uAccessMeta}>Usar Host, usuário e senha diretamente</AppText></View>
+                    <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
                   </TVFocusable>
 
                   <TVFocusable
@@ -703,8 +832,37 @@ export default function LoginScreen() {
                     <AppText style={styles.methodBackText}>Métodos de conexão</AppText>
                   </TVFocusable>
 
-              {/* Host field */}
+              {accessMethod === "xtream-code" ? (
               <View style={styles.fieldGroup}>
+                <AppText style={styles.fieldLabel}>CÓDIGO</AppText>
+                <View style={[styles.inputWrapper, focusedField === "code" && styles.inputWrapperFocused]}>
+                  <View style={styles.inputIconBox}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /></View>
+                  <TextInput
+                    ref={serverCodeRef}
+                    autoFocus={tvMode && accessMethod === "xtream-code"}
+                    hasTVPreferredFocus={tvMode && accessMethod === "xtream-code"}
+                    accessibilityLabel="Código do servidor"
+                    {...({ nextFocusDown: formFocusHandles.username || undefined } as Record<string, number | undefined>)}
+                    value={serverCode}
+                    onChangeText={(value) => setServerCode(normalizeServerCode(value))}
+                    placeholder="Ex.: pfast"
+                    placeholderTextColor={Colors.subtle}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => usernameRef.current?.focus()}
+                    onFocus={() => setFocusedField("code")}
+                    onBlur={() => setFocusedField(null)}
+                    style={styles.input}
+                  />
+                  {serverCode.length > 0 ? <TVFocusable onPress={() => setServerCode("")} style={styles.inputClearBtn} accessibilityLabel="Limpar código"><Ionicons name="close-circle" size={17} color={Colors.muted} /></TVFocusable> : null}
+                </View>
+                <AppText style={styles.fieldHint}>O código localiza o servidor cadastrado pelo administrador.</AppText>
+              </View>
+              ) : null}
+
+              {/* Host field remains available for existing direct Xtream logins. */}
+              {accessMethod === "xtream" ? <View style={styles.fieldGroup}>
                 <AppText style={styles.fieldLabel}>HOST / URL DO SERVIDOR</AppText>
                 <View style={[styles.inputWrapper, focusedField === "host" && styles.inputWrapperFocused]}>
                   <View style={styles.inputIconBox}>
@@ -742,7 +900,7 @@ export default function LoginScreen() {
                 <AppText style={styles.fieldHint}>
                   HTTP e HTTPS suportados · Portas personalizadas aceitas
                 </AppText>
-              </View>
+              </View> : null}
 
               {/* Username field */}
               <View style={styles.fieldGroup}>
@@ -756,7 +914,7 @@ export default function LoginScreen() {
                     value={username}
                     accessibilityLabel="Usuário"
                     {...({
-                      nextFocusUp: formFocusHandles.host || undefined,
+                      nextFocusUp: (accessMethod === "xtream-code" ? formFocusHandles.code : formFocusHandles.host) || undefined,
                       nextFocusDown: formFocusHandles.password || undefined,
                     } as Record<string, number | undefined>)}
                     onChangeText={setUsername}

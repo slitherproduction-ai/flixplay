@@ -9,7 +9,7 @@ import { useAppStore } from "@/store/useAppStore";
 import type { ParentalCategoryKind } from "@/store/types";
 import { clearParentalPin, getParentalPinStatus, setParentalPin, verifyParentalPin } from "@/services/security/parentalControl";
 
-type PinMode = "setup" | "change" | "remove" | null;
+type PinMode = "change" | "remove" | null;
 type Category = { id: string; name: string };
 const META: Record<ParentalCategoryKind, { title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap }> = {
   live: { title: "Canais", subtitle: "Categorias de TV ao vivo", icon: "tv-outline" },
@@ -25,7 +25,7 @@ export default function ParentalSettingsScreen() {
   const blocked = useAppStore((s) => s.blockedCategoryIds);
   const toggleCategoryBlocked = useAppStore((s) => s.toggleCategoryBlocked);
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [mode, setMode] = useState<PinMode>("setup");
+  const [mode, setMode] = useState<PinMode>(null);
   const [accessPin, setAccessPin] = useState("");
   const [currentPin, setCurrentPin] = useState("");
   const [pin, setPin] = useState("");
@@ -39,8 +39,8 @@ export default function ParentalSettingsScreen() {
   const refresh = useCallback(async () => {
     try {
       const status = await getParentalPinStatus();
-      setConfigured(status.configured); setMode(status.configured ? null : "setup"); setUnlocked(false); setMessage(""); setAccessPin("");
-    } catch (error) { setConfigured(false); setMessage(error instanceof Error ? error.message : "Não foi possível acessar o armazenamento seguro."); }
+      setConfigured(status.configured); setMode(null); setUnlocked(false); setMessage(""); setAccessPin("");
+    } catch (error) { setConfigured(null); setMessage(error instanceof Error ? error.message : "Não foi possível acessar o armazenamento seguro."); }
   }, []);
   useEffect(() => { const timer = setTimeout(() => void refresh(), 0); return () => clearTimeout(timer); }, [refresh]);
 
@@ -49,19 +49,17 @@ export default function ParentalSettingsScreen() {
     try {
       const result = await verifyParentalPin(accessPin);
       if (!result.success) { setMessage(result.lockedUntil > Date.now() ? "PIN temporariamente bloqueado. Tente novamente mais tarde." : "PIN incorreto."); return; }
-      setAccessPin(""); setUnlocked(true);
+      setAccessPin(""); setUnlocked(true); setMessage("");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível validar o PIN."); }
     finally { setBusy(false); }
   }, [accessPin, busy]);
 
   const submitPin = useCallback(async () => {
     if (busy || !mode) return; setMessage("");
-    if (mode !== "setup") {
-      try { const result = await verifyParentalPin(currentPin); if (!result.success) { setMessage(result.lockedUntil > Date.now() ? "PIN temporariamente bloqueado. Tente novamente mais tarde." : "PIN atual incorreto."); return; } }
-      catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível validar o PIN."); return; }
-    }
+    try { const result = await verifyParentalPin(currentPin); if (!result.success) { setMessage(result.lockedUntil > Date.now() ? "PIN temporariamente bloqueado. Tente novamente mais tarde." : "PIN atual incorreto."); return; } }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível validar o PIN."); return; }
     if (mode === "remove") {
-      setBusy(true); try { await clearParentalPin(currentPin); setCurrentPin(""); await refresh(); } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível remover o PIN."); } finally { setBusy(false); } return;
+      setBusy(true); try { const result = await clearParentalPin(currentPin); if (!result.success) { setMessage("PIN atual incorreto."); return; } setCurrentPin(""); await refresh(); Alert.alert("Controle parental", "PIN restaurado para o padrão 0000."); } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível restaurar o PIN padrão."); } finally { setBusy(false); } return;
     }
     if (pin !== confirmation) { setMessage("A confirmação do novo PIN não corresponde."); return; }
     setBusy(true);
@@ -71,30 +69,30 @@ export default function ParentalSettingsScreen() {
   }, [busy, confirmation, currentPin, mode, pin, refresh]);
   const enterMode = useCallback((next: "change" | "remove") => { setCurrentPin(""); setPin(""); setConfirmation(""); setMessage(""); setMode(next); }, []);
 
-  const editingPin = configured === false || mode === "change" || mode === "remove";
+  const editingPin = mode === "change" || mode === "remove";
   return <View style={styles.screen}>
     <View style={styles.header}><IconButton icon="close" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SEGURANÇA</AppText><AppText style={styles.title}>Controle parental</AppText></View></View>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {configured === null ? <AppText style={styles.body}>Verificando armazenamento seguro…</AppText> : null}
       {editingPin ? <View style={styles.card}>
-        <AppText style={styles.cardTitle}>{mode === "remove" ? "Remover PIN" : configured ? "Alterar PIN" : "Criar PIN"}</AppText>
-        <AppText style={styles.body}>O PIN fica armazenado somente no cofre seguro do Android. Sem PIN válido, alterações de proteção não são permitidas.</AppText>
-        {configured && mode !== "setup" ? <PinField label="PIN atual" value={currentPin} onChange={setCurrentPin} /> : null}
+        <AppText style={styles.cardTitle}>{mode === "remove" ? "Restaurar PIN padrão" : "Alterar PIN"}</AppText>
+        <AppText style={styles.body}>{mode === "remove" ? "Confirme o PIN atual para restaurar o código padrão 0000." : "Confirme o PIN atual e informe o novo código. O PIN fica protegido no cofre seguro do Android."}</AppText>
+        <PinField label="PIN atual" value={currentPin} onChange={setCurrentPin} />
         {mode !== "remove" ? <><PinField label="Novo PIN (4 a 8 números)" value={pin} onChange={setPin} /><PinField label="Confirmar novo PIN" value={confirmation} onChange={setConfirmation} /></> : null}
         {message ? <AppText style={styles.error}>{message}</AppText> : null}
-        <TVFocusable disabled={busy || configured === null} onPress={() => void submitPin()} style={styles.primary}><AppText style={styles.primaryText}>{mode === "remove" ? "Remover PIN" : configured ? "Salvar novo PIN" : "Criar PIN"}</AppText></TVFocusable>
-        {configured ? <TVFocusable disabled={busy} onPress={() => { setMode(null); setMessage(""); }} style={styles.secondary}><AppText style={styles.secondaryText}>Cancelar</AppText></TVFocusable> : null}
+        <TVFocusable disabled={busy || configured === null} onPress={() => void submitPin()} style={styles.primary}><AppText style={styles.primaryText}>{mode === "remove" ? "Restaurar PIN 0000" : "Salvar novo PIN"}</AppText></TVFocusable>
+        <TVFocusable disabled={busy} onPress={() => { setMode(null); setMessage(""); }} style={styles.secondary}><AppText style={styles.secondaryText}>Cancelar</AppText></TVFocusable>
       </View> : null}
       {configured && mode === null && !unlocked ? <View style={styles.card}>
-        <View style={styles.lockHeader}><Ionicons name="shield-checkmark-outline" size={24} color={Colors.blueBright} /><View style={styles.copy}><AppText style={styles.cardTitle}>Desbloquear controles</AppText><AppText style={styles.body}>Informe o PIN para escolher as categorias protegidas.</AppText></View></View>
-        <PinField label="PIN parental" value={accessPin} onChange={setAccessPin} />
+        <View style={styles.lockHeader}><Ionicons name="shield-checkmark-outline" size={24} color={Colors.blueBright} /><View style={styles.copy}><AppText style={styles.cardTitle}>Desbloquear controles</AppText><AppText style={styles.body}>No primeiro acesso, informe o PIN padrão 0000. Após confirmar, escolha as categorias a proteger.</AppText></View></View>
+        <PinField label="PIN parental (padrão: 0000)" value={accessPin} onChange={setAccessPin} />
         {message ? <AppText style={styles.error}>{message}</AppText> : null}
         <TVFocusable disabled={busy} onPress={() => void unlockControls()} style={styles.primary}><AppText style={styles.primaryText}>Acessar controles</AppText></TVFocusable>
       </View> : null}
       {configured && mode === null && unlocked ? <>
         <View style={styles.intro}><AppText style={styles.cardTitle}>Categorias protegidas</AppText><AppText style={styles.body}>Abra uma área e use o cadeado ao lado de cada categoria. A reprodução desses conteúdos exigirá o PIN.</AppText></View>
         {(Object.keys(META) as ParentalCategoryKind[]).map((kind) => <CategorySection key={kind} kind={kind} categories={groups[kind]} blockedIds={blocked[kind]} expanded={expanded === kind} onExpand={() => setExpanded((value) => value === kind ? null : kind)} onToggle={(id) => toggleCategoryBlocked(kind, id)} />)}
-        <View style={styles.management}><TVFocusable onPress={() => enterMode("change")} style={styles.managementButton}><Ionicons name="key-outline" size={17} color={Colors.text} /><AppText style={styles.secondaryText}>Alterar PIN</AppText></TVFocusable><TVFocusable onPress={() => enterMode("remove")} style={styles.managementButton}><Ionicons name="trash-outline" size={17} color={Colors.red} /><AppText style={[styles.secondaryText, { color: Colors.red }]}>Remover PIN</AppText></TVFocusable></View>
+        <View style={styles.management}><TVFocusable onPress={() => enterMode("change")} style={styles.managementButton}><Ionicons name="key-outline" size={17} color={Colors.text} /><AppText style={styles.secondaryText}>Alterar PIN</AppText></TVFocusable><TVFocusable onPress={() => enterMode("remove")} style={styles.managementButton}><Ionicons name="refresh-outline" size={17} color={Colors.amber} /><AppText style={[styles.secondaryText, { color: Colors.amber }]}>Restaurar PIN</AppText></TVFocusable></View>
         <TVFocusable onPress={() => setUnlocked(false)} style={styles.secondary}><AppText style={styles.secondaryText}>Bloquear controles</AppText></TVFocusable>
       </> : null}
     </ScrollView>

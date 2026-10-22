@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Controle parental: primeiro acesso agora valida o PIN padrão 0000 e, após a confirmação, libera as categorias de Canais, Filmes e Séries. Implementada a troca segura de PIN e a restauração opcional ao padrão 0000.
+
 - Login: MAC, Chave do dispositivo e estado do Portal agora são exibidos como texto branco simples, sem card, borda, fundo ou ícone em TV, smartphone e tablet.
 
 - Metadados de release alinhados para 2.17.16 / Android versionCode 20261031.

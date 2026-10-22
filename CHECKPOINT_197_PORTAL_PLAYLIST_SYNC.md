@@ -14,10 +14,10 @@
 ## Contrato do servidor implantado
 
 - Projeto Supabase: `xrrgjssvdqvtrqhxpask`.
-- Função: `portal-control`, versão 11.
+- Função: `portal-control`, versão 12.
 - Ação: `playlist-sync`.
 - Acesso: `POST { action, mac, device_key }`; MAC sem chave nunca retorna lista.
-- Portal publicado: commit `cf5c24beca450086808c73f022f0383a2f489524`.
+- Portal publicado: commit `b796f69c85f636c37a8666195cb108e987c97434`.
 
 ## Validação executada
 

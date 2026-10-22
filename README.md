@@ -76,6 +76,15 @@ O token é opcional durante o desenvolvimento da interface, mas o script de rele
 
 As conexões Xtream, M3U e XMLTV são configuradas pelo próprio aplicativo.
 
+## Sincronização com o Portal ELVANOQ Play
+
+Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salvas** sem substituir as listas locais nem mudar a lista ativa. A consulta é realizada ao abrir/retornar ao login, ao abrir **Listas Salvas** e pelo botão **Atualizar**.
+
+- O aplicativo consulta somente a lista associada ao seu próprio MAC e à chave do dispositivo.
+- Se a lista foi cadastrada no Portal sem chave, o Portal exibe uma chave gerada uma única vez. No aplicativo, abra **Listas Salvas → Vincular chave** e informe-a. Essa operação é explícita e não altera a chave local mostrada no login.
+- Credenciais de playlist permanecem no armazenamento protegido do aparelho e não são exibidas na lista salva. Sem conexão com o Portal, as listas que já estavam salvas continuam disponíveis.
+- A sincronização não seleciona, reproduz nem troca a lista ativa automaticamente.
+
 ## Qualidade
 
 Execute antes de abrir uma revisão ou gerar uma release:

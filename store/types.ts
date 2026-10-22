@@ -25,6 +25,12 @@ export interface ServerProfile {
   sourceType?: "xtream" | "m3u";
   m3uUrl?: string;
   xmltvUrl?: string;
+  /** Stable identifier used only for the Portal-managed playlist of this device. */
+  portalPlaylistId?: string;
+  /** Allows Portal refreshes without touching locally registered lists. */
+  portalManaged?: boolean;
+  /** Informational server timestamp; credentials are never rendered from it. */
+  portalUpdatedAt?: string;
 }
 
 export interface EpgProgram {

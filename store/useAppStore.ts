@@ -67,6 +67,8 @@ interface AppStore {
   setHydrating: () => void;
   setPreference: (key: string, value: string | number | boolean | null) => void;
   addServer: (server: ServerProfile) => void;
+  /** Saves or refreshes the one Portal-bound list without changing the active list. */
+  upsertPortalServer: (server: ServerProfile) => void;
   setActiveServer: (id: string) => void;
   removeServer: (id: string) => Promise<void>;
   removeAllServers: () => Promise<void>;
@@ -172,6 +174,21 @@ export const useAppStore = create<AppStore>()(
           contentCache: EMPTY_CACHE,
           syncState: { ...INITIAL_SYNC_STATE },
         })),
+
+      upsertPortalServer: (server) =>
+        set((state) => {
+          const existing = state.servers.find((item) => item.portalPlaylistId === server.portalPlaylistId);
+          if (!existing) {
+            return {
+              servers: [...state.servers, { ...server, isActive: false }],
+              userDataByServer: state.userDataByServer[server.id]
+                ? state.userDataByServer
+                : { ...state.userDataByServer, [server.id]: EMPTY_SERVER_USER_DATA },
+            };
+          }
+          const refreshed = { ...server, id: existing.id, isActive: existing.isActive, addedAt: existing.addedAt ?? server.addedAt };
+          return { servers: state.servers.map((item) => item.id === existing.id ? refreshed : item) };
+        }),
 
       setActiveServer: (id) =>
         set((state) => {

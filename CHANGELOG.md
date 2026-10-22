@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Portal: sincronização segura de listas M3U e Xtream cadastradas no Portal ELVANOQ Play. A lista é obtida somente após validação de MAC + chave, é adicionada/atualizada em Listas Salvas sem duplicar, sem trocar a lista ativa e permanece disponível offline. Incluído fluxo explícito para informar a chave gerada pelo Portal quando o primeiro cadastro foi feito sem a chave do aplicativo.
+
 - Controle parental: primeiro acesso agora valida o PIN padrão 0000 e, após a confirmação, libera as categorias de Canais, Filmes e Séries. Implementada a troca segura de PIN e a restauração opcional ao padrão 0000.
 
 - Login: MAC, Chave do dispositivo e estado do Portal agora são exibidos como texto branco simples, sem card, borda, fundo ou ícone em TV, smartphone e tablet.

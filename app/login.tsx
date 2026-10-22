@@ -3,7 +3,7 @@ import { BlurTargetView, BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { APP_INFO } from "@/constants/app";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -31,7 +31,8 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { logTechnicalError } from "@/services/security/sanitize";
 import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/deviceIdentity";
-import { getPortalDeviceStatus, type PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
+import type { PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
+import { syncPortalPlaylist, type PortalPlaylistSyncResult } from "@/services/device/portalPlaylistSync";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -188,9 +189,15 @@ interface SavedListsModalProps {
   onDelete: (id: string, name: string) => void;
   onDeleteAll: () => void;
   onClose: () => void;
+  portalState: PortalSyncState;
+  portalMessage: string | null;
+  onSyncPortal: () => void;
+  onLinkPortal: () => void;
 }
 
-function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: SavedListsModalProps) {
+type PortalSyncState = "idle" | "syncing" | "synced" | "no-playlist" | "pending" | "inactive" | "unavailable";
+
+function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, portalState, portalMessage, onSyncPortal, onLinkPortal }: SavedListsModalProps) {
   const insets = useSafeAreaInsets();
   const closeButtonRef = useRef<TVFocusableHandle>(null);
 
@@ -230,6 +237,19 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={modalStyles.listContent}
       >
+        <View style={modalStyles.portalSyncCard}>
+          <View style={modalStyles.portalSyncCopy}>
+            <AppText style={modalStyles.portalSyncTitle}>Listas do Portal</AppText>
+            <AppText style={modalStyles.portalSyncBody}>
+              {portalState === "syncing" ? "Sincronizando sem alterar a lista ativa…" : portalMessage ?? "Atualize para buscar a lista vinculada a este dispositivo."}
+            </AppText>
+          </View>
+          <TVFocusable accessibilityRole="button" accessibilityLabel="Sincronizar listas do Portal" disabled={portalState === "syncing"} onPress={onSyncPortal} style={({ pressed }) => [modalStyles.portalSyncButton, pressed && modalStyles.pressed]}>
+            {portalState === "syncing" ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="sync-outline" size={17} color={Colors.background} />}
+            <AppText style={modalStyles.portalSyncButtonText}>Atualizar</AppText>
+          </TVFocusable>
+          {portalState === "pending" ? <TVFocusable accessibilityRole="button" accessibilityLabel="Vincular chave do Portal" onPress={onLinkPortal} style={({ pressed }) => [modalStyles.portalLinkButton, pressed && modalStyles.pressed]}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /><AppText style={modalStyles.portalLinkButtonText}>Vincular chave</AppText></TVFocusable> : null}
+        </View>
         {servers.length === 0 ? (
           <View style={modalStyles.emptyState}>
             <View style={modalStyles.emptyIcon}>
@@ -268,10 +288,10 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose }: 
                     ) : null}
                   </View>
                   <AppText style={modalStyles.serverUrl} numberOfLines={1}>
-                    {server.serverUrl}
+                    {server.portalManaged ? "Recebida do Portal ELVANOQ" : server.serverUrl}
                   </AppText>
                   <AppText style={modalStyles.serverMeta}>
-                    {maskUsername(server.username)} · Adicionado em {formatAddedAt(server.addedAt)}
+                    {server.portalManaged ? `${server.sourceType === "m3u" ? "M3U" : "Xtream"} · Atualização manual disponível` : `${maskUsername(server.username)} · Adicionado em ${formatAddedAt(server.addedAt)}`}
                   </AppText>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={Colors.subtle} />
@@ -319,6 +339,7 @@ export default function LoginScreen() {
   const compactTv = tvMode && viewportHeight < 900;
   const insets = useSafeAreaInsets();
   const addServer = useAppStore((state) => state.addServer);
+  const upsertPortalServer = useAppStore((state) => state.upsertPortalServer);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const removeServer = useAppStore((state) => state.removeServer);
   const removeAllServers = useAppStore((state) => state.removeAllServers);
@@ -337,6 +358,10 @@ export default function LoginScreen() {
   const [accessMethod, setAccessMethod] = useState<"chooser" | "xtream">("chooser");
   const [deviceIdentity, setDeviceIdentity] = useState<DeviceIdentity | null>(null);
   const [portalDeviceStatus, setPortalDeviceStatus] = useState<PortalDeviceStatus | null>(null);
+  const [portalSyncState, setPortalSyncState] = useState<PortalSyncState>("idle");
+  const [portalSyncMessage, setPortalSyncMessage] = useState<string | null>(null);
+  const [showPortalLink, setShowPortalLink] = useState(false);
+  const [portalLinkKey, setPortalLinkKey] = useState("");
 
   const hostRef = useRef<TextInput>(null);
   const usernameRef = useRef<TextInput>(null);
@@ -364,6 +389,43 @@ export default function LoginScreen() {
     });
   }, []);
 
+  const applyPortalSyncResult = useCallback((result: PortalPlaylistSyncResult) => {
+    if (result.state === "synced") {
+      upsertPortalServer(result.server);
+      setPortalDeviceStatus({ state: "linked", displayName: result.displayName });
+      setPortalSyncState("synced");
+      setPortalSyncMessage("Lista do Portal recebida. Escolha-a abaixo quando quiser usar.");
+      return;
+    }
+    if (result.state === "no-playlist") {
+      setPortalDeviceStatus({ state: "linked", displayName: result.displayName });
+      setPortalSyncState("no-playlist");
+      setPortalSyncMessage("Dispositivo vinculado, mas sem lista cadastrada no Portal.");
+      return;
+    }
+    if (result.state === "inactive") {
+      setPortalDeviceStatus({ state: "inactive", displayName: result.displayName });
+      setPortalSyncState("inactive");
+      setPortalSyncMessage("Este dispositivo está desativado no Portal. As listas locais não foram alteradas.");
+      return;
+    }
+    if (result.state === "link-required") {
+      setPortalDeviceStatus({ state: "pending" });
+      setPortalSyncState("pending");
+      setPortalSyncMessage(result.message);
+      return;
+    }
+    setPortalSyncState("unavailable");
+    setPortalSyncMessage(result.message);
+  }, [upsertPortalServer]);
+
+  const synchronizePortal = useCallback(async (identity: DeviceIdentity, explicitKey?: string) => {
+    setPortalSyncState("syncing");
+    const result = await syncPortalPlaylist(identity, explicitKey);
+    applyPortalSyncResult(result);
+    return result;
+  }, [applyPortalSyncResult]);
+
   useEffect(() => {
     if (!tvMode || accessMethod !== "xtream") return;
     const timer = setTimeout(() => hostRef.current?.focus(), 350);
@@ -375,15 +437,17 @@ export default function LoginScreen() {
     void getDeviceIdentity().then((identity) => {
       if (!active) return;
       setDeviceIdentity(identity);
-      // The Portal lookup is non-blocking and never starts a trial, charge or lock.
-      void getPortalDeviceStatus(identity).then((status) => {
-        if (active) setPortalDeviceStatus(status);
-      });
+      // The Portal lookup never changes the active list or blocks login.
+      void synchronizePortal(identity);
     }).catch(() => {
       // Identity display must never interfere with entering an IPTV account.
     });
     return () => { active = false; };
-  }, []);
+  }, [synchronizePortal]);
+
+  useFocusEffect(useCallback(() => {
+    if (deviceIdentity) void synchronizePortal(deviceIdentity);
+  }, [deviceIdentity, synchronizePortal]));
 
   /**
    * Core connect logic. Accepts an explicit `effectiveHost` so both the main
@@ -466,7 +530,23 @@ export default function LoginScreen() {
     [router, setActiveServer]
   );
 
-  const openSavedLists = useCallback(() => setShowSavedLists(true), []);
+  const openSavedLists = useCallback(() => {
+    setShowSavedLists(true);
+    if (deviceIdentity) void synchronizePortal(deviceIdentity);
+  }, [deviceIdentity, synchronizePortal]);
+
+  const handlePortalSync = useCallback(() => {
+    if (deviceIdentity) void synchronizePortal(deviceIdentity);
+  }, [deviceIdentity, synchronizePortal]);
+
+  const handlePortalLink = useCallback(async () => {
+    if (!deviceIdentity || !portalLinkKey.trim()) return;
+    const result = await synchronizePortal(deviceIdentity, portalLinkKey);
+    if (result.state === "synced" || result.state === "no-playlist" || result.state === "inactive") {
+      setPortalLinkKey("");
+      setShowPortalLink(false);
+    }
+  }, [deviceIdentity, portalLinkKey, synchronizePortal]);
 
   const closeSavedLists = useCallback(() => {
     setShowSavedLists(false);
@@ -910,6 +990,10 @@ export default function LoginScreen() {
               onDelete={handleDeleteServer}
               onDeleteAll={handleDeleteAll}
               onClose={closeSavedLists}
+              portalState={portalSyncState}
+              portalMessage={portalSyncMessage}
+              onSyncPortal={handlePortalSync}
+              onLinkPortal={() => setShowPortalLink(true)}
             />
           </View>
         ) : (
@@ -919,8 +1003,27 @@ export default function LoginScreen() {
             onDelete={handleDeleteServer}
             onDeleteAll={handleDeleteAll}
             onClose={closeSavedLists}
+            portalState={portalSyncState}
+            portalMessage={portalSyncMessage}
+            onSyncPortal={handlePortalSync}
+            onLinkPortal={() => setShowPortalLink(true)}
           />
         )}
+      </Modal>
+
+      <Modal visible={showPortalLink} transparent animationType="fade" onRequestClose={() => setShowPortalLink(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.portalLinkDialog}>
+            <Ionicons name="key-outline" size={24} color={Colors.blueBright} />
+            <AppText style={styles.portalLinkTitle}>Vincular chave do Portal</AppText>
+            <AppText style={styles.portalLinkBody}>Informe a chave usada no cadastro ou a chave gerada pelo Portal. A chave local do aplicativo não será alterada.</AppText>
+            <TextInput value={portalLinkKey} onChangeText={setPortalLinkKey} secureTextEntry autoCapitalize="none" autoCorrect={false} accessibilityLabel="Chave do Portal" placeholder="Chave do Portal" placeholderTextColor={Colors.subtle} style={styles.portalLinkInput} />
+            <View style={styles.portalLinkActions}>
+              <TVFocusable accessibilityRole="button" onPress={() => setShowPortalLink(false)} style={({ pressed }) => [styles.portalLinkCancel, pressed && styles.pressed]}><AppText style={styles.portalLinkCancelText}>Cancelar</AppText></TVFocusable>
+              <TVFocusable accessibilityRole="button" disabled={!portalLinkKey.trim() || portalSyncState === "syncing"} onPress={() => void handlePortalLink()} style={({ pressed }) => [styles.portalLinkConfirm, pressed && styles.pressed]}><AppText style={styles.portalLinkConfirmText}>{portalSyncState === "syncing" ? "Verificando…" : "Vincular"}</AppText></TVFocusable>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1212,6 +1315,15 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
   },
+  portalLinkDialog: { width: "88%", maxWidth: 430, alignSelf: "center", marginTop: "auto", marginBottom: "auto", padding: 22, borderRadius: 18, backgroundColor: Colors.backgroundRaised, borderWidth: 1, borderColor: Colors.border, gap: 11 },
+  portalLinkTitle: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.text },
+  portalLinkBody: { fontSize: 12, lineHeight: 18, color: Colors.muted },
+  portalLinkInput: { minHeight: 46, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, color: Colors.text, paddingHorizontal: 12, backgroundColor: "rgba(255,255,255,0.06)" },
+  portalLinkActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
+  portalLinkCancel: { minHeight: 42, paddingHorizontal: 16, justifyContent: "center", borderRadius: 10 },
+  portalLinkCancelText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.muted },
+  portalLinkConfirm: { minHeight: 42, paddingHorizontal: 17, justifyContent: "center", borderRadius: 10, backgroundColor: Colors.text },
+  portalLinkConfirmText: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.background },
   diagCard: {
     borderRadius: Radii.small,
     borderWidth: 1,
@@ -1338,6 +1450,14 @@ const modalStyles = StyleSheet.create({
     padding: 20,
     paddingBottom: 24,
   },
+  portalSyncCard: { gap: 9, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(96,165,250,0.26)", backgroundColor: "rgba(59,130,246,0.07)" },
+  portalSyncCopy: { gap: 3 },
+  portalSyncTitle: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.text },
+  portalSyncBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
+  portalSyncButton: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, backgroundColor: Colors.text },
+  portalSyncButtonText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.background },
+  portalLinkButton: { minHeight: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(96,165,250,0.32)" },
+  portalLinkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.blueBright },
   emptyState: {
     alignItems: "center",
     paddingVertical: 48,

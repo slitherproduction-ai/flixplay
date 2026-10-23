@@ -35,6 +35,11 @@ export interface ServerProfile {
   portalManaged?: boolean;
   /** Informational server timestamp; credentials are never rendered from it. */
   portalUpdatedAt?: string;
+  /** Host/DNS association returned by the Portal for this playlist. */
+  portalServerCode?: string | null;
+  portalLicenseStatus?: string | null;
+  portalLicenseUntil?: string | null;
+  portalAccessState?: "granted" | "blocked";
   /** Result of the one-time legacy Portal enrollment for code-based profiles. */
   portalMigrationState?: "confirmed" | "pending";
 }

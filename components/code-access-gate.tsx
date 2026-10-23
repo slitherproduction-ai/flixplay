@@ -9,7 +9,7 @@ import { AppText } from "@/components/ui";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useAppStore } from "@/store/useAppStore";
 import { getDeviceIdentity } from "@/services/device/deviceIdentity";
-import { CodeDeviceAccessError, revalidateCodeDevice } from "@/services/device/codeDeviceAccess";
+import { CodeDeviceAccessError, revalidateCodeDevice, revalidatePortalManagedDevice } from "@/services/device/codeDeviceAccess";
 import { createPixOrder, getPixConfig, getPixOrder, type PixConfig, type PixOrder } from "@/services/payments/paghiper";
 
 const RECHECK_MS = 5 * 60_000;
@@ -28,22 +28,22 @@ export function CodeAccessGate() {
   const setAccess = useAppStore((state) => state.setCodeAccessSnapshot);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const [checking, setChecking] = useState(false); const [notice, setNotice] = useState<string | null>(null);
+  const isConfirmedCodeProfile = activeServer?.sourceType === "xtream-code" && activeServer.portalMigrationState === "confirmed" && Boolean(activeServer.serverCode);
+  const isPortalManagedProfile = activeServer?.portalManaged === true;
+  const requiresPortalAccess = isConfirmedCodeProfile || isPortalManagedProfile;
   const [verificationNote, setVerificationNote] = useState<string | null>(null);
   const lastGranted = useRef<number | null>(null); const inFlight = useRef(false);
   const [paymentOpen, setPaymentOpen] = useState(false); const [config, setConfig] = useState<PixConfig | null>(null); const [order, setOrder] = useState<PixOrder | null>(null);
   const [payerName, setPayerName] = useState(""); const [payerEmail, setPayerEmail] = useState(""); const [payerDocument, setPayerDocument] = useState(""); const [consent, setConsent] = useState(false); const [paymentError, setPaymentError] = useState<string | null>(null); const [issuing, setIssuing] = useState(false);
 
   const recheck = useCallback(async () => {
-    if (
-      !activeServer ||
-      activeServer.sourceType !== "xtream-code" ||
-      activeServer.portalMigrationState !== "confirmed" ||
-      !activeServer.serverCode ||
-      inFlight.current
-    ) return;
+    if (!activeServer || !requiresPortalAccess || inFlight.current) return;
     inFlight.current = true; setChecking(true); setNotice(null);
     try {
-      const snapshot = await revalidateCodeDevice(await getDeviceIdentity(), activeServer.serverCode);
+      const identity = await getDeviceIdentity();
+      const snapshot = isPortalManagedProfile
+        ? await revalidatePortalManagedDevice(identity)
+        : await revalidateCodeDevice(identity, activeServer.serverCode!);
       setAccess(snapshot);
       if (snapshot.state === "granted") lastGranted.current = Date.now();
     } catch (error) {
@@ -58,13 +58,13 @@ export function CodeAccessGate() {
         setAccess({ state: "unavailable", canPlay: false, canConnect: false, paymentRequired: false, reason: "network", message: "Não foi possível verificar o acesso agora. Verifique sua conexão antes de continuar.", accessUntil: null, licenseUntil: null, licenseStatus: null, individualAccess: null, macAddress: identity?.macAddress ?? "", checkedAt: new Date().toISOString() });
       }
     } finally { inFlight.current = false; setChecking(false); }
-  }, [activeServer, setAccess]);
+  }, [activeServer, isPortalManagedProfile, requiresPortalAccess, setAccess]);
 
   useEffect(() => {
     // A profile restored from an older app is kept online while its Portal
     // identity is migrated. Enforcement starts only after the Portal confirms
     // the same MAC/key pairing; this prevents an upgrade from creating a trial.
-    if (!activeServer || activeServer.sourceType !== "xtream-code" || activeServer.portalMigrationState !== "confirmed") {
+    if (!activeServer || !requiresPortalAccess) {
       setAccess(null);
       return;
     }
@@ -74,7 +74,7 @@ export function CodeAccessGate() {
     const stop = () => { if (timer) { clearInterval(timer); timer = undefined; } };
     start(); const sub = AppState.addEventListener("change", (state) => { if (state === "active") void recheck(); else stop(); });
     return () => { stop(); sub.remove(); };
-  }, [activeServer?.id, activeServer?.sourceType, recheck, setAccess]);
+  }, [activeServer?.id, requiresPortalAccess, recheck, setAccess]);
 
   useEffect(() => {
     if (!paymentOpen || !order || !isPending(order.status)) return;

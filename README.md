@@ -84,6 +84,9 @@ Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salv
 - Se a lista foi cadastrada no Portal sem chave, o Portal exibe uma chave gerada uma única vez. No aplicativo, abra **Listas Salvas → Vincular chave** e informe-a. Essa operação é explícita e não altera a chave local mostrada no login.
 - Credenciais de playlist permanecem no armazenamento protegido do aparelho e não são exibidas na lista salva. Sem conexão com o Portal, as listas que já estavam salvas continuam disponíveis.
 - A sincronização não seleciona, reproduz nem troca a lista ativa automaticamente.
+- Quando o Host/DNS da lista sincronizada é reconhecido, o Portal devolve o código associado e a licença. A lista continua sendo M3U ou Xtream; ela não é convertida para login por código.
+- Antes de usar uma lista gerenciada pelo Portal e a cada revalidação em primeiro plano, o app consulta `license-status` com o MAC e a chave. Códigos anuais/vitalícios válidos liberam acesso; códigos restritos aplicam somente a renovação daquele MAC.
+- Bloqueio explícito mantém a lista local intacta e interrompe a reprodução. Falhas de rede e limite de requisições não são tratados como expiração.
 
 ## Migração de instalações anteriores
 

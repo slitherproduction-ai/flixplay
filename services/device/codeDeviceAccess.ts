@@ -53,11 +53,17 @@ function normalizeReason(reason: string | null, fallback: string | null): string
   return fallback;
 }
 
-function snapshotFrom(payload: RecordValue, identity: DeviceIdentity, fallbackMessage: string | null = null): CodeAccessSnapshot {
+function snapshotFrom(
+  payload: RecordValue,
+  identity: DeviceIdentity,
+  fallbackMessage: string | null = null,
+  requiresCodeAccess = true,
+): CodeAccessSnapshot {
   const license = asRecord(payload.license);
   const codeAccess = asRecord(payload.code_access);
   const canPlay = bool(license?.can_play) ?? false;
-  const canConnect = bool(codeAccess?.can_connect) ?? false;
+  // A Portal-managed M3U/Xtream list without a server code uses its individual license.
+  const canConnect = bool(codeAccess?.can_connect) ?? !requiresCodeAccess;
   const paymentRequired = bool(license?.payment_required) ?? bool(codeAccess?.payment_required) ?? false;
   const reason = text(codeAccess?.reason) ?? text(license?.reason);
   const allowed = canPlay && canConnect;
@@ -137,4 +143,15 @@ export async function revalidateCodeDevice(identity: DeviceIdentity, code: strin
   const registered = await registerCodeDevice(identity, code);
   if (!registered.canPlay || !registered.canConnect) return registered;
   return resolveCodeDeviceAccess(identity, code);
+}
+
+/** Revalidates a Portal-managed M3U/Xtream list without re-registering its code. */
+export async function revalidatePortalManagedDevice(identity: DeviceIdentity): Promise<CodeAccessSnapshot> {
+  const response = await request("license-status", { mac: identity.macAddress, device_key: identity.deviceKey });
+  if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
+  if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Este dispositivo não foi encontrado no Portal.");
+  if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de licença é inválida.");
+  if (response.status === 200 || response.status === 403) return snapshotFrom(response.payload, identity, null, false);
+  // Rate limiting and service failures are network failures, never an inferred expiry.
+  throw new CodeDeviceAccessError("network", "Não foi possível consultar a licença agora.");
 }

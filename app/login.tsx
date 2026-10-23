@@ -33,6 +33,7 @@ import { logTechnicalError } from "@/services/security/sanitize";
 import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/deviceIdentity";
 import type { PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
 import { syncPortalPlaylist, type PortalPlaylistSyncResult } from "@/services/device/portalPlaylistSync";
+import { revalidatePortalManagedDevice } from "@/services/device/codeDeviceAccess";
 import { isValidServerCode, normalizeServerCode, resolveServerCode } from "@/services/device/serverCodeResolver";
 import { revalidateCodeDevice } from "@/services/device/codeDeviceAccess";
 
@@ -416,6 +417,12 @@ export default function LoginScreen() {
       setPortalSyncMessage("Lista do Portal recebida. Escolha-a abaixo quando quiser usar.");
       return;
     }
+    if (result.state === "blocked") {
+      setPortalDeviceStatus({ state: "linked", displayName: result.displayName });
+      setPortalSyncState("inactive");
+      setPortalSyncMessage(result.message);
+      return;
+    }
     if (result.state === "no-playlist") {
       setPortalDeviceStatus({ state: "linked", displayName: result.displayName });
       setPortalSyncState("no-playlist");
@@ -619,6 +626,25 @@ export default function LoginScreen() {
       setError(null);
       setDiagInfo(null);
       setShowSavedLists(false);
+
+      if (server.portalManaged) {
+        setLoading(true);
+        try {
+          // Keep M3U and Xtream source types intact; the Portal already matched Host/DNS.
+          const access = await revalidatePortalManagedDevice(await getDeviceIdentity());
+          setCodeAccessSnapshot(access);
+          if (!access.canPlay || !access.canConnect) {
+            setError(access.message ?? "O acesso a esta lista foi restringido pelo Portal.");
+            return;
+          }
+          setActiveServer(server.id);
+          router.replace("/(tabs)");
+        } catch (connectError) {
+          logTechnicalError("Reconexão de lista Portal", connectError);
+          setError(mapConnectError(connectError));
+        } finally { setLoading(false); }
+        return;
+      }
 
       if (server.sourceType !== "xtream-code" || !server.serverCode) {
         setActiveServer(server.id);

@@ -331,7 +331,13 @@ export default function PlayerScreen() {
   const allChannels = useAppStore((state) => state.contentCache.liveChannels);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const activeServer = useAppStore((state) => state.servers.find((server) => server.id === activeServerId));
-  const codeAccessBlocked = useAppStore((state) => state.accessControl.isBlocked);
+  const accessControl = useAppStore((state) => state.accessControl);
+  const codeAccessBlocked = accessControl.isBlocked;
+  const requiresPortalAccess = Boolean(
+    activeServer?.portalManaged ||
+    (activeServer?.sourceType === "xtream-code" && activeServer.portalMigrationState === "confirmed"),
+  );
+  const portalAccessGranted = !requiresPortalAccess || accessControl.snapshot?.state === "granted";
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
@@ -428,7 +434,7 @@ export default function PlayerScreen() {
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
-      if (!directPlaybackBlocked && !codeAccessBlocked) videoPlayer.play();
+      if (!directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) videoPlayer.play();
     },
   );
   // Ref gives mutable access to the player without triggering the
@@ -546,11 +552,16 @@ export default function PlayerScreen() {
   }, [directPlaybackBlocked, id, player]);
 
   useEffect(() => {
-    if (!codeAccessBlocked || activeServer?.sourceType !== "xtream-code") return;
-    try { player.pause(); } catch { /* The global gate still prevents interaction. */ }
-    const timer = setTimeout(() => router.replace("/(tabs)"), 0);
-    return () => clearTimeout(timer);
-  }, [activeServer?.sourceType, codeAccessBlocked, player, router]);
+    if (!requiresPortalAccess) return;
+    if (codeAccessBlocked) {
+      try { player.pause(); } catch { /* The global gate still prevents interaction. */ }
+      const timer = setTimeout(() => router.replace("/(tabs)"), 0);
+      return () => clearTimeout(timer);
+    }
+    if (!directPlaybackBlocked && portalAccessGranted) {
+      try { player.play(); setIsPlaying(true); } catch { /* The native player may still be preparing. */ }
+    }
+  }, [codeAccessBlocked, directPlaybackBlocked, player, portalAccessGranted, requiresPortalAccess, router]);
 
   const authorizeDirectPlayback = useCallback(() => {
     setPendingDirectPlayback(false);

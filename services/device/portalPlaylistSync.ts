@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import type { ServerProfile } from "@/store/types";
 import type { DeviceIdentity } from "./deviceIdentity";
+import type { CodeAccessSnapshot } from "./codeDeviceAccess";
 
 // This is a publishable Supabase key only. Playlist credentials are returned
 // exclusively by the Edge Function after it verifies the device MAC and key.
@@ -28,11 +29,15 @@ type PortalSyncResponse = {
   active?: boolean;
   display_name?: string | null;
   playlist?: PortalPlaylist | null;
+  server_code?: string | null;
+  license?: { can_play?: boolean; status?: string; expires_at?: string | null; access_until?: string | null; payment_required?: boolean; reason?: string } | null;
+  code_access?: { can_connect?: boolean; access_until?: string | null; payment_required?: boolean; reason?: string; individual_access?: boolean } | null;
   message?: string;
 };
 
 export type PortalPlaylistSyncResult =
-  | { state: "synced"; server: ServerProfile; displayName: string | null }
+  | { state: "synced"; server: ServerProfile; displayName: string | null; access: CodeAccessSnapshot }
+  | { state: "blocked"; displayName: string | null; message: string }
   | { state: "no-playlist"; displayName: string | null }
   | { state: "inactive"; displayName: string | null }
   | { state: "link-required"; message: string }
@@ -89,7 +94,28 @@ export async function getStoredPortalLinkKey(): Promise<string | null> {
   return key?.trim() || null;
 }
 
-function profileFromPlaylist(identity: DeviceIdentity, playlist: PortalPlaylist): ServerProfile | null {
+function portalAccessAllowed(payload: PortalSyncResponse): boolean {
+  if (payload.license?.can_play !== true) return false;
+  return payload.code_access?.can_connect !== false;
+}
+
+function portalAccessMessage(payload: PortalSyncResponse): string {
+  if (payload.code_access?.reason === "device_suspended") return "Este dispositivo está suspenso. Procure o responsável.";
+  if (payload.code_access?.reason === "device_removed") return "Este dispositivo foi removido. Procure o responsável.";
+  if (payload.code_access?.payment_required || payload.license?.payment_required) return "Este dispositivo precisa de renovação individual para continuar.";
+  return payload.message || "O acesso desta lista foi restringido pelo Portal.";
+}
+
+function syncAccessSnapshot(identity: DeviceIdentity, payload: PortalSyncResponse): CodeAccessSnapshot {
+  const license = payload.license ?? {};
+  const code = payload.code_access;
+  const canPlay = license.can_play === true;
+  const canConnect = code?.can_connect !== false;
+  const reason = typeof code?.reason === "string" ? code.reason : typeof license.reason === "string" ? license.reason : null;
+  return { state: canPlay && canConnect ? "granted" : "blocked", canPlay, canConnect, paymentRequired: license.payment_required === true || code?.payment_required === true, reason, message: portalAccessMessage(payload), accessUntil: typeof code?.access_until === "string" ? code.access_until : null, licenseUntil: typeof license.expires_at === "string" ? license.expires_at : typeof license.access_until === "string" ? license.access_until : null, licenseStatus: typeof license.status === "string" ? license.status : null, individualAccess: typeof code?.individual_access === "boolean" ? code.individual_access : null, macAddress: identity.macAddress, checkedAt: new Date().toISOString() };
+}
+
+function profileFromPlaylist(identity: DeviceIdentity, playlist: PortalPlaylist, payload: PortalSyncResponse): ServerProfile | null {
   const id = `portal-${identity.macAddress.replace(/[^0-9A-F]/gi, "").toLowerCase()}`;
   const portalPlaylistId = identity.macAddress;
   const name = playlist.name.trim().slice(0, 100);
@@ -114,6 +140,10 @@ function profileFromPlaylist(identity: DeviceIdentity, playlist: PortalPlaylist)
       portalPlaylistId,
       portalManaged: true,
       portalUpdatedAt: playlist.updated_at,
+      portalServerCode: typeof payload.server_code === "string" ? payload.server_code : null,
+      portalLicenseStatus: typeof payload.license?.status === "string" ? payload.license.status : null,
+      portalLicenseUntil: typeof payload.license?.expires_at === "string" ? payload.license.expires_at : typeof payload.license?.access_until === "string" ? payload.license.access_until : null,
+      portalAccessState: portalAccessAllowed(payload) ? "granted" : "blocked",
     };
   }
 
@@ -135,6 +165,10 @@ function profileFromPlaylist(identity: DeviceIdentity, playlist: PortalPlaylist)
     portalPlaylistId,
     portalManaged: true,
     portalUpdatedAt: playlist.updated_at,
+    portalServerCode: typeof payload.server_code === "string" ? payload.server_code : null,
+    portalLicenseStatus: typeof payload.license?.status === "string" ? payload.license.status : null,
+    portalLicenseUntil: typeof payload.license?.expires_at === "string" ? payload.license.expires_at : typeof payload.license?.access_until === "string" ? payload.license.access_until : null,
+    portalAccessState: portalAccessAllowed(payload) ? "granted" : "blocked",
   };
 }
 
@@ -179,14 +213,19 @@ export async function syncPortalPlaylist(
     // server authenticated it. This avoids silently replacing the app key.
     if (manualKey) await writeLinkKey(manualKey);
 
+    const access = syncAccessSnapshot(identity, payload);
+    // A null playlist with an explicit denial never means the local list was deleted.
+    if (!access.canPlay || !access.canConnect) {
+      return { state: "blocked", displayName: typeof payload.display_name === "string" ? payload.display_name : null, message: access.message ?? "O acesso desta lista foi restringido pelo Portal." };
+    }
     if (!payload.playlist) {
       return { state: "no-playlist", displayName: typeof payload.display_name === "string" ? payload.display_name : null };
     }
-    const server = profileFromPlaylist(identity, payload.playlist);
+    const server = profileFromPlaylist(identity, payload.playlist, payload);
     if (!server) {
       return { state: "unavailable", message: "A lista recebida do Portal está incompleta. Atualize-a no Portal e tente novamente." };
     }
-    return { state: "synced", server, displayName: typeof payload.display_name === "string" ? payload.display_name : null };
+    return { state: "synced", server, displayName: typeof payload.display_name === "string" ? payload.display_name : null, access };
   } catch {
     return { state: "unavailable", message: "Portal indisponível. Suas listas salvas continuam disponíveis offline." };
   } finally {

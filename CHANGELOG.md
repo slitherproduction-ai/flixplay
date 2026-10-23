@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Portal: licenciamento por Host/DNS aplicado também a listas M3U e Xtream sincronizadas. As listas mantêm seu tipo original, consultam `license-status` com MAC/chave antes do uso e nas revalidações, preservam cópia local em bloqueios e não registram códigos novamente.
 - Controle parental: registrado o módulo seguro Android no aplicativo e adicionada recuperação com tempo limite; a tela não permanece mais indefinidamente em “Verificando armazenamento seguro”.
 - Portal: a reativação explícita de um dispositivo pendente pelo responsável agora confirma o vínculo de migração; nenhuma licença, período de teste ou cobrança é alterado nesse processo.
 - Migração de instalações anteriores: após restaurar o estado local, o app registra a identidade no Portal em segundo plano, sem alterar listas, sessão, favoritos, histórico ou progresso. O Portal confirma somente o mesmo MAC/chave, não recebe credenciais/listas e não cria testes, licenças ou cobranças. Casos sem comprovação ficam pendentes de regularização administrativa, com repetição segura e progressiva.

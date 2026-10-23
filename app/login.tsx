@@ -555,6 +555,7 @@ export default function LoginScreen() {
         sourceType: "xtream-code",
         serverCode: resolved.code,
         serverCodeUpdatedAt: resolved.updatedAt,
+        portalMigrationState: "confirmed",
         addedAt: new Date().toISOString(),
       };
       const authResult = await authenticateXtream(profile);
@@ -627,8 +628,27 @@ export default function LoginScreen() {
 
       setLoading(true);
       try {
-        // Authorize this exact installation first; a restricted device never
-        // receives or falls back to a stale Host/DNS.
+        // Restored profiles stay usable while the background migration awaits
+        // Portal confirmation. Their saved Host and credentials are used as-is;
+        // this path cannot create or restart a license trial.
+        if (server.portalMigrationState !== "confirmed") {
+          const authResult = await authenticateXtream(server);
+          if (!checkXtreamAuth(authResult.user_info)) {
+            setError("Usuário ou senha incorretos. Verifique suas credenciais IPTV.");
+            return;
+          }
+          const statusError = getUserStatusError(authResult.user_info.status);
+          if (statusError) {
+            setError(statusError);
+            return;
+          }
+          setActiveServer(server.id);
+          router.replace("/(tabs)");
+          return;
+        }
+
+        // Authorize a Portal-confirmed installation before resolving its current
+        // Host/DNS. A failed lookup never falls back to a stale endpoint.
         const identity = await getDeviceIdentity();
         const access = await revalidateCodeDevice(identity, server.serverCode);
         setCodeAccessSnapshot(access);
@@ -1198,7 +1218,9 @@ function DeviceIdentityPanel({ identity, status, compact = false }: { identity: 
     ? "Portal: vinculado"
     : status?.state === "inactive"
       ? "Portal: dispositivo inativo"
-      : status?.state === "pending"
+      : status?.state === "migration-pending"
+        ? "Portal: regularização pendente"
+        : status?.state === "pending"
         ? "Portal: aguardando vínculo"
         : null;
   return <View style={[styles.deviceIdentity, compact && styles.tvDeviceIdentityPanel]}>

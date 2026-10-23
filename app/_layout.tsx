@@ -15,6 +15,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { TVFocusable } from "@/components/tv-focusable";
 import { UpdateAvailableNotice } from "@/components/update-available-notice";
 import { CodeAccessGate } from "@/components/code-access-gate";
+import { LegacyPortalMigration } from "@/components/legacy-portal-migration";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -549,6 +550,7 @@ export default function RootLayout() {
                 <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
               </Stack>
               <RootExitGuard />
+              <LegacyPortalMigration />
               <CodeAccessGate />
               <UpdateAvailableNotice />
               {/* Global floating PiP overlay — renders above all screens */}

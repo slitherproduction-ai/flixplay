@@ -34,7 +34,13 @@ export function CodeAccessGate() {
   const [payerName, setPayerName] = useState(""); const [payerEmail, setPayerEmail] = useState(""); const [payerDocument, setPayerDocument] = useState(""); const [consent, setConsent] = useState(false); const [paymentError, setPaymentError] = useState<string | null>(null); const [issuing, setIssuing] = useState(false);
 
   const recheck = useCallback(async () => {
-    if (!activeServer || activeServer.sourceType !== "xtream-code" || !activeServer.serverCode || inFlight.current) return;
+    if (
+      !activeServer ||
+      activeServer.sourceType !== "xtream-code" ||
+      activeServer.portalMigrationState !== "confirmed" ||
+      !activeServer.serverCode ||
+      inFlight.current
+    ) return;
     inFlight.current = true; setChecking(true); setNotice(null);
     try {
       const snapshot = await revalidateCodeDevice(await getDeviceIdentity(), activeServer.serverCode);
@@ -55,7 +61,13 @@ export function CodeAccessGate() {
   }, [activeServer, setAccess]);
 
   useEffect(() => {
-    if (!activeServer || activeServer.sourceType !== "xtream-code") { setAccess(null); return; }
+    // A profile restored from an older app is kept online while its Portal
+    // identity is migrated. Enforcement starts only after the Portal confirms
+    // the same MAC/key pairing; this prevents an upgrade from creating a trial.
+    if (!activeServer || activeServer.sourceType !== "xtream-code" || activeServer.portalMigrationState !== "confirmed") {
+      setAccess(null);
+      return;
+    }
     void recheck();
     let timer: ReturnType<typeof setInterval> | undefined;
     const start = () => { if (!timer) timer = setInterval(() => void recheck(), RECHECK_MS); };

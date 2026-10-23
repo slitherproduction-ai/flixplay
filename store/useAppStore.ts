@@ -79,6 +79,8 @@ interface AppStore {
   upsertCodeServer: (server: ServerProfile) => void;
   /** Saves or refreshes the one Portal-bound list without changing the active list. */
   upsertPortalServer: (server: ServerProfile) => void;
+  /** Updates migration metadata only; never changes endpoints, credentials or active list. */
+  setServerPortalMigrationStates: (states: Record<string, "confirmed" | "pending">) => void;
   setActiveServer: (id: string) => void;
   removeServer: (id: string) => Promise<void>;
   removeAllServers: () => Promise<void>;
@@ -239,6 +241,14 @@ export const useAppStore = create<AppStore>()(
           const refreshed = { ...server, id: existing.id, isActive: existing.isActive, addedAt: existing.addedAt ?? server.addedAt };
           return { servers: state.servers.map((item) => item.id === existing.id ? refreshed : item) };
         }),
+
+      setServerPortalMigrationStates: (states) =>
+        set((state) => ({
+          servers: state.servers.map((server) => {
+            const portalMigrationState = states[server.id];
+            return portalMigrationState ? { ...server, portalMigrationState } : server;
+          }),
+        })),
 
       setActiveServer: (id) =>
         set((state) => {

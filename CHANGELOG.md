@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Migração de instalações anteriores: após restaurar o estado local, o app registra a identidade no Portal em segundo plano, sem alterar listas, sessão, favoritos, histórico ou progresso. O Portal confirma somente o mesmo MAC/chave, não recebe credenciais/listas e não cria testes, licenças ou cobranças. Casos sem comprovação ficam pendentes de regularização administrativa, com repetição segura e progressiva.
+
 - Bloqueio por Código: corrigidos os botões de verificação e retorno ao login. O retorno encerra somente a sessão ativa do código, preserva a lista salva e não deixa a camada de bloqueio sobreposta ao login. A nova verificação agora informa quando a restrição persiste.
 
 - Login por Código: o Host/DNS retornado pelo Portal agora mantém estritamente o protocolo e a porta configurados. Conexões HTTP não sofrem mais tentativa automática de HTTPS. O diagnóstico separa resolução do código, autenticação Xtream e carregamento de catálogo, sem registrar credenciais.

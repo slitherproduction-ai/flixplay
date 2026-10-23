@@ -10,12 +10,14 @@ export type PortalDeviceStatus =
   | { state: "linked"; displayName: string | null }
   | { state: "inactive"; displayName: string | null }
   | { state: "pending" }
+  | { state: "migration-pending"; displayName: string | null }
   | { state: "unavailable" };
 
 type PortalResponse = {
   registered?: boolean;
   active?: boolean;
   display_name?: string | null;
+  migration_state?: string | null;
 };
 
 /**
@@ -44,6 +46,9 @@ export async function getPortalDeviceStatus(identity: DeviceIdentity): Promise<P
     if (!response.ok) return { state: "unavailable" };
     const payload = (await response.json()) as PortalResponse;
     if (!payload.registered) return { state: "pending" };
+    if (payload.migration_state === "pending_review") {
+      return { state: "migration-pending", displayName: typeof payload.display_name === "string" ? payload.display_name : null };
+    }
     return {
       state: payload.active ? "linked" : "inactive",
       displayName: typeof payload.display_name === "string" ? payload.display_name : null,

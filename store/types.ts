@@ -35,6 +35,8 @@ export interface ServerProfile {
   portalManaged?: boolean;
   /** Informational server timestamp; credentials are never rendered from it. */
   portalUpdatedAt?: string;
+  /** Result of the one-time legacy Portal enrollment for code-based profiles. */
+  portalMigrationState?: "confirmed" | "pending";
 }
 
 export interface EpgProgram {

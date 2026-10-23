@@ -85,6 +85,17 @@ Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salv
 - Credenciais de playlist permanecem no armazenamento protegido do aparelho e não são exibidas na lista salva. Sem conexão com o Portal, as listas que já estavam salvas continuam disponíveis.
 - A sincronização não seleciona, reproduz nem troca a lista ativa automaticamente.
 
+## Migração de instalações anteriores
+
+Após uma atualização, o aplicativo restaura primeiro o estado persistido de versões anteriores e só então executa, em segundo plano, a migração de identidade para o Portal.
+
+- Listas Xtream, M3U e por código, credenciais protegidas, favoritos, histórico, progresso e preferências não são alterados nem enviados ao Portal.
+- Versões anteriores não possuíam uma identidade do Portal reutilizável. Nesses casos o app cria uma identidade local uma única vez e a mantém em armazenamento seguro; ela não é recriada em cada abertura.
+- O Portal confirma a migração apenas para o mesmo par MAC/chave. Conflitos de chave exigem redefinição autorizada pelo administrador; o aplicativo nunca troca a chave silenciosamente.
+- O endpoint de migração não cria teste, não concede licença, não reinicia validade e não processa pagamentos. Sem correspondência comprovada, o dispositivo fica como **regularização pendente** no Portal, enquanto as listas locais continuam preservadas.
+- A operação não envia URL M3U, Host, usuário ou senha. A sincronização de listas do Portal continua sendo o fluxo explícito já documentado acima.
+- Falhas de rede, limite de requisições ou indisponibilidade deixam os dados locais intactos e são tentadas novamente com intervalo progressivo. A migração só é marcada como concluída após confirmação do Portal.
+
 ## Qualidade
 
 Execute antes de abrir uma revisão ou gerar uma release:

@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Portal: links externos do aplicativo foram centralizados em `https://elvanoqplay.app`. Listas Salvas agora oferece acesso ao gerenciamento no Portal; endpoints Supabase, QR Codes Pix e hosts IPTV não foram alterados.
 - Portal: licenciamento por Host/DNS aplicado também a listas M3U e Xtream sincronizadas. As listas mantêm seu tipo original, consultam `license-status` com MAC/chave antes do uso e nas revalidações, preservam cópia local em bloqueios e não registram códigos novamente.
 - Controle parental: registrado o módulo seguro Android no aplicativo e adicionada recuperação com tempo limite; a tela não permanece mais indefinidamente em “Verificando armazenamento seguro”.
 - Portal: a reativação explícita de um dispositivo pendente pelo responsável agora confirma o vínculo de migração; nenhuma licença, período de teste ou cobrança é alterado nesse processo.

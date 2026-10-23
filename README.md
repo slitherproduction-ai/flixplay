@@ -78,6 +78,8 @@ As conexões Xtream, M3U e XMLTV são configuradas pelo próprio aplicativo.
 
 ## Sincronização com o Portal ELVANOQ Play
 
+O Portal oficial é **https://elvanoqplay.app**. A opção **Listas Salvas → Gerenciar no Portal** abre esse endereço no navegador externo do dispositivo para cadastro, vínculo e gerenciamento. A origem do site é mantida separada dos endpoints Supabase e não altera o Host/DNS, o protocolo ou a porta de nenhuma lista IPTV.
+
 Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salvas** sem substituir as listas locais nem mudar a lista ativa. A consulta é realizada ao abrir/retornar ao login, ao abrir **Listas Salvas** e pelo botão **Atualizar**.
 
 - O aplicativo consulta somente a lista associada ao seu próprio MAC e à chave do dispositivo.
@@ -87,6 +89,7 @@ Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salv
 - Quando o Host/DNS da lista sincronizada é reconhecido, o Portal devolve o código associado e a licença. A lista continua sendo M3U ou Xtream; ela não é convertida para login por código.
 - Antes de usar uma lista gerenciada pelo Portal e a cada revalidação em primeiro plano, o app consulta `license-status` com o MAC e a chave. Códigos anuais/vitalícios válidos liberam acesso; códigos restritos aplicam somente a renovação daquele MAC.
 - Bloqueio explícito mantém a lista local intacta e interrompe a reprodução. Falhas de rede e limite de requisições não são tratados como expiração.
+- QR Codes Pix permanecem sob controle do provedor de pagamento: o aplicativo apenas exibe o conteúdo retornado pelo servidor e não o substitui por links do Portal.
 
 ## Migração de instalações anteriores
 

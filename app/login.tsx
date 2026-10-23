@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurTargetView, BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { APP_INFO } from "@/constants/app";
+import { PORTAL_LINKS } from "@/constants/portal";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,6 +11,7 @@ import {
   Alert,
   findNodeHandle,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -203,11 +205,12 @@ interface SavedListsModalProps {
   portalMessage: string | null;
   onSyncPortal: () => void;
   onLinkPortal: () => void;
+  onManagePortal: () => void;
 }
 
 type PortalSyncState = "idle" | "syncing" | "synced" | "no-playlist" | "pending" | "inactive" | "unavailable";
 
-function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, portalState, portalMessage, onSyncPortal, onLinkPortal }: SavedListsModalProps) {
+function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, portalState, portalMessage, onSyncPortal, onLinkPortal, onManagePortal }: SavedListsModalProps) {
   const insets = useSafeAreaInsets();
   const closeButtonRef = useRef<TVFocusableHandle>(null);
 
@@ -257,6 +260,10 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
           <TVFocusable accessibilityRole="button" accessibilityLabel="Sincronizar listas do Portal" disabled={portalState === "syncing"} onPress={onSyncPortal} style={({ pressed }) => [modalStyles.portalSyncButton, pressed && modalStyles.pressed]}>
             {portalState === "syncing" ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="sync-outline" size={17} color={Colors.background} />}
             <AppText style={modalStyles.portalSyncButtonText}>Atualizar</AppText>
+          </TVFocusable>
+          <TVFocusable accessibilityRole="link" accessibilityLabel="Gerenciar listas no Portal" onPress={onManagePortal} style={({ pressed }) => [modalStyles.portalManageButton, pressed && modalStyles.pressed]}>
+            <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
+            <AppText style={modalStyles.portalManageButtonText}>Gerenciar no Portal</AppText>
           </TVFocusable>
           {portalState === "pending" ? <TVFocusable accessibilityRole="button" accessibilityLabel="Vincular chave do Portal" onPress={onLinkPortal} style={({ pressed }) => [modalStyles.portalLinkButton, pressed && modalStyles.pressed]}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /><AppText style={modalStyles.portalLinkButtonText}>Vincular chave</AppText></TVFocusable> : null}
         </View>
@@ -719,6 +726,13 @@ export default function LoginScreen() {
   const handlePortalSync = useCallback(() => {
     if (deviceIdentity) void synchronizePortal(deviceIdentity);
   }, [deviceIdentity, synchronizePortal]);
+
+  const handleManagePortal = useCallback(() => {
+    void Linking.openURL(PORTAL_LINKS.deviceAndPlaylists).catch((error) => {
+      logTechnicalError("Login/openPortal", error);
+      Alert.alert("Não foi possível abrir o Portal", "Verifique se há um navegador disponível neste dispositivo.");
+    });
+  }, []);
 
   const handlePortalLink = useCallback(async () => {
     if (!deviceIdentity || !portalLinkKey.trim()) return;
@@ -1203,6 +1217,7 @@ export default function LoginScreen() {
               portalMessage={portalSyncMessage}
               onSyncPortal={handlePortalSync}
               onLinkPortal={() => setShowPortalLink(true)}
+              onManagePortal={handleManagePortal}
             />
           </View>
         ) : (
@@ -1216,6 +1231,7 @@ export default function LoginScreen() {
             portalMessage={portalSyncMessage}
             onSyncPortal={handlePortalSync}
             onLinkPortal={() => setShowPortalLink(true)}
+            onManagePortal={handleManagePortal}
           />
         )}
       </Modal>
@@ -1667,6 +1683,8 @@ const modalStyles = StyleSheet.create({
   portalSyncBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
   portalSyncButton: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, backgroundColor: Colors.text },
   portalSyncButtonText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.background },
+  portalManageButton: { minHeight: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(96,165,250,0.32)" },
+  portalManageButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.blueBright },
   portalLinkButton: { minHeight: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(96,165,250,0.32)" },
   portalLinkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.blueBright },
   emptyState: {

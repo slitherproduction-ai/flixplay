@@ -15,7 +15,8 @@ Versão: 2.17.16
 
 - Migração aplicada: `legacy_device_migration_enrollment`.
 - Nova função segura: `portal_legacy_device_migrate`, executável somente pelo `service_role` da Edge Function.
-- `portal-control` foi implantada como versão 25 com a ação pública limitada `legacy-device-migrate`, rate-limited por MAC.
+- `portal-control` foi implantada como versão 26 com a ação pública limitada `legacy-device-migrate`, rate-limited por MAC.
+- A reativação explícita por administrador/responsável promove o vínculo pendente para verificado, sem alterar licença ou pagamento.
 - Novo dispositivo sem comprovação prévia é criado como `active=false` e `migration_status=pending_review`. Não recebe licença, período de teste, pagamento ou ativação.
 - MAC já registrado com chave divergente retorna conflito; não há rebind automático.
 - O contrato atual não oferece associação automática de uma lista Host/M3U sem enviar conteúdo privado. O app preserva essas listas localmente; o cadastro/sincronização de playlist permanece no fluxo explícito do Portal. Isso é intencional para não enviar URLs ou credenciais durante migração.

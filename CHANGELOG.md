@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Portal: a reativação explícita de um dispositivo pendente pelo responsável agora confirma o vínculo de migração; nenhuma licença, período de teste ou cobrança é alterado nesse processo.
 - Migração de instalações anteriores: após restaurar o estado local, o app registra a identidade no Portal em segundo plano, sem alterar listas, sessão, favoritos, histórico ou progresso. O Portal confirma somente o mesmo MAC/chave, não recebe credenciais/listas e não cria testes, licenças ou cobranças. Casos sem comprovação ficam pendentes de regularização administrativa, com repetição segura e progressiva.
 
 - Bloqueio por Código: corrigidos os botões de verificação e retorno ao login. O retorno encerra somente a sessão ativa do código, preserva a lista salva e não deixa a camada de bloqueio sobreposta ao login. A nova verificação agora informa quando a restrição persiste.

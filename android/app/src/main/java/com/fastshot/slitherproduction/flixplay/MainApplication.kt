@@ -11,6 +11,8 @@ import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
+import com.fastshot.slitherproduction.flixplay.security.SecureStoragePackage
+
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
 
@@ -21,8 +23,9 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          // The credential/PIN vault is an in-app native module and is not
+          // autolinked as an external library.
+          add(SecureStoragePackage())
         }
     )
   }

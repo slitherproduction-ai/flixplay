@@ -7,6 +7,7 @@ import { TVFocusable } from "@/components/tv-focusable";
 import { Colors, Radii } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import type { ParentalCategoryKind } from "@/store/types";
+const SECURE_STORAGE_TIMEOUT_MS = 5_000;
 import { clearParentalPin, getParentalPinStatus, setParentalPin, verifyParentalPin } from "@/services/security/parentalControl";
 
 type PinMode = "change" | "remove" | null;
@@ -37,10 +38,17 @@ export default function ParentalSettingsScreen() {
   const groups = useMemo(() => ({ live, movies, series }), [live, movies, series]);
 
   const refresh = useCallback(async () => {
+    setConfigured(null);
     try {
-      const status = await getParentalPinStatus();
+      const status = await Promise.race([
+        getParentalPinStatus(),
+        new Promise<never>((_, reject) => setTimeout(
+          () => reject(new Error("O armazenamento seguro demorou para responder.")),
+          SECURE_STORAGE_TIMEOUT_MS,
+        )),
+      ]);
       setConfigured(status.configured); setMode(null); setUnlocked(false); setMessage(""); setAccessPin("");
-    } catch (error) { setConfigured(null); setMessage(error instanceof Error ? error.message : "Não foi possível acessar o armazenamento seguro."); }
+    } catch (error) { setConfigured(false); setMessage(error instanceof Error ? error.message : "Não foi possível acessar o armazenamento seguro."); }
   }, []);
   useEffect(() => { const timer = setTimeout(() => void refresh(), 0); return () => clearTimeout(timer); }, [refresh]);
 
@@ -74,6 +82,11 @@ export default function ParentalSettingsScreen() {
     <View style={styles.header}><IconButton icon="close" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SEGURANÇA</AppText><AppText style={styles.title}>Controle parental</AppText></View></View>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {configured === null ? <AppText style={styles.body}>Verificando armazenamento seguro…</AppText> : null}
+      {configured === false ? <View style={styles.card}>
+        <AppText style={styles.cardTitle}>Armazenamento seguro indisponível</AppText>
+        <AppText style={styles.body}>{message || "Não foi possível preparar o controle parental neste momento."}</AppText>
+        <TVFocusable disabled={busy} onPress={() => void refresh()} style={styles.primary}><AppText style={styles.primaryText}>Tentar novamente</AppText></TVFocusable>
+      </View> : null}
       {editingPin ? <View style={styles.card}>
         <AppText style={styles.cardTitle}>{mode === "remove" ? "Restaurar PIN padrão" : "Alterar PIN"}</AppText>
         <AppText style={styles.body}>{mode === "remove" ? "Confirme o PIN atual para restaurar o código padrão 0000." : "Confirme o PIN atual e informe o novo código. O PIN fica protegido no cofre seguro do Android."}</AppText>

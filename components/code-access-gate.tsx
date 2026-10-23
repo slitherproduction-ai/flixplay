@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, BackHandler, Modal, Platform, StyleSheet, TextInput, View } from "react-native";
+import { AppState, Modal, Platform, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Radii } from "@/constants/theme";
@@ -26,7 +26,9 @@ export function CodeAccessGate() {
   const activeServer = useAppStore((state) => state.servers.find((item) => item.id === activeServerId));
   const access = useAppStore((state) => state.accessControl);
   const setAccess = useAppStore((state) => state.setCodeAccessSnapshot);
+  const setActiveServer = useAppStore((state) => state.setActiveServer);
   const [checking, setChecking] = useState(false); const [notice, setNotice] = useState<string | null>(null);
+  const [verificationNote, setVerificationNote] = useState<string | null>(null);
   const lastGranted = useRef<number | null>(null); const inFlight = useRef(false);
   const [paymentOpen, setPaymentOpen] = useState(false); const [config, setConfig] = useState<PixConfig | null>(null); const [order, setOrder] = useState<PixOrder | null>(null);
   const [payerName, setPayerName] = useState(""); const [payerEmail, setPayerEmail] = useState(""); const [payerDocument, setPayerDocument] = useState(""); const [consent, setConsent] = useState(false); const [paymentError, setPaymentError] = useState<string | null>(null); const [issuing, setIssuing] = useState(false);
@@ -73,6 +75,26 @@ export function CodeAccessGate() {
     return () => clearInterval(timer);
   }, [order, paymentOpen, recheck]);
 
+  const verifyAgain = useCallback(async () => {
+    setVerificationNote(null);
+    await recheck();
+    const snapshot = useAppStore.getState().accessControl.snapshot;
+    if (snapshot?.state !== "granted") {
+      setVerificationNote(snapshot?.message ?? "A verificação foi concluída, mas o acesso continua restrito.");
+    }
+  }, [recheck]);
+
+  const returnToLogin = useCallback(() => {
+    // Keep the saved connection intact, but clear the active code session first.
+    // Otherwise this global gate would immediately cover the login route again.
+    setPaymentOpen(false);
+    setNotice(null);
+    setVerificationNote(null);
+    setActiveServer("");
+    setAccess(null);
+    router.replace("/login");
+  }, [router, setAccess, setActiveServer]);
+
   const openPayment = useCallback(async () => {
     setPaymentError(null); setPaymentOpen(true);
     try { setConfig(await getPixConfig()); } catch (error) { setPaymentError(error instanceof Error ? error.message : "Não foi possível consultar o Pix."); }
@@ -88,7 +110,7 @@ export function CodeAccessGate() {
   const blocked = access.isBlocked && access.snapshot;
   return <>
     {notice ? <View pointerEvents="none" style={styles.notice}><AppText style={styles.noticeText}>{notice}</AppText></View> : null}
-    <Modal visible={!!blocked} transparent={false} animationType="fade" onRequestClose={() => router.replace("/login")}>
+    <Modal visible={!!blocked} transparent={false} animationType="fade" onRequestClose={returnToLogin}>
       <View style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.card}>
           <View style={styles.icon}><Ionicons name="lock-closed" size={28} color={Colors.blueBright} /></View>
@@ -96,8 +118,9 @@ export function CodeAccessGate() {
           <AppText style={styles.copy}>{blocked.message ?? "Este dispositivo não está autorizado para este código."}</AppText>
           <View style={styles.info}><AppText style={styles.infoLabel}>MAC</AppText><AppText style={styles.infoValue}>{blocked.macAddress || "Não disponível"}</AppText><AppText style={styles.infoLabel}>LICENÇA</AppText><AppText style={styles.infoValue}>{blocked.licenseStatus ?? "Restrita"} · até {date(blocked.licenseUntil ?? blocked.accessUntil)}</AppText></View>
           {blocked.paymentRequired ? <TVFocusable accessibilityRole="button" onPress={() => void openPayment()} style={styles.primary}><Ionicons name="qr-code-outline" size={19} color={Colors.background} /><AppText style={styles.primaryText}>Gerar ou consultar Pix</AppText></TVFocusable> : <AppText style={styles.help}>Pagamento não libera dispositivos suspensos ou removidos. Procure o responsável.</AppText>}
-          <TVFocusable accessibilityRole="button" disabled={checking} onPress={() => void recheck()} style={styles.secondary}><Ionicons name="refresh" size={17} color={Colors.blueBright} /><AppText style={styles.secondaryText}>{checking ? "Verificando…" : "Verificar novamente"}</AppText></TVFocusable>
-          <TVFocusable accessibilityRole="button" onPress={() => router.replace("/login")} style={styles.back}><AppText style={styles.backText}>Voltar para login</AppText></TVFocusable>
+          <TVFocusable accessibilityRole="button" disabled={checking} onPress={() => void verifyAgain()} style={styles.secondary}><Ionicons name="refresh" size={17} color={Colors.blueBright} /><AppText style={styles.secondaryText}>{checking ? "Verificando…" : "Verificar novamente"}</AppText></TVFocusable>
+          {verificationNote ? <AppText style={styles.verifyNote}>{verificationNote}</AppText> : null}
+          <TVFocusable accessibilityRole="button" onPress={returnToLogin} style={styles.back}><AppText style={styles.backText}>Voltar para login</AppText></TVFocusable>
         </View>
       </View>
     </Modal>
@@ -120,4 +143,4 @@ export function CodeAccessGate() {
   </>;
 }
 
-const styles = StyleSheet.create({ screen:{ flex:1, backgroundColor:Colors.background, justifyContent:"center", paddingHorizontal:22 }, card:{ maxWidth:520, width:"100%", alignSelf:"center", alignItems:"center", gap:14, padding:28, borderRadius:Radii.large, backgroundColor:"#101827", borderWidth:1, borderColor:Colors.border }, icon:{ width:60,height:60,borderRadius:30,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(34,211,238,0.12)" }, title:{ fontSize:23,fontFamily:"Inter_700Bold",color:Colors.text,textAlign:"center" }, copy:{ fontSize:14,lineHeight:21,color:Colors.muted,textAlign:"center" }, info:{ width:"100%",gap:3,padding:14,borderRadius:12,backgroundColor:"rgba(255,255,255,0.05)" }, infoLabel:{ fontSize:10,letterSpacing:1,color:Colors.subtle },infoValue:{ fontSize:13,color:Colors.text,marginBottom:6 },primary:{ minHeight:50,width:"100%",borderRadius:13,backgroundColor:Colors.white,flexDirection:"row",gap:8,alignItems:"center",justifyContent:"center",paddingHorizontal:14 },primaryText:{ color:Colors.background,fontFamily:"Inter_700Bold",fontSize:14 },secondary:{ minHeight:46,width:"100%",borderRadius:13,borderWidth:1,borderColor:Colors.border,flexDirection:"row",gap:8,alignItems:"center",justifyContent:"center" },secondaryText:{ color:Colors.blueBright,fontFamily:"Inter_600SemiBold",fontSize:13 },back:{ padding:10 },backText:{ color:Colors.muted,fontSize:13 },help:{ color:Colors.muted,fontSize:12,lineHeight:17,textAlign:"center" },overlay:{ flex:1,backgroundColor:"rgba(0,0,0,0.72)",justifyContent:"center",padding:20 },paymentCard:{ maxWidth:520,width:"100%",alignSelf:"center",gap:12,padding:24,borderRadius:Radii.large,backgroundColor:Colors.background },input:{ minHeight:48,borderWidth:1,borderColor:Colors.border,borderRadius:11,color:Colors.text,paddingHorizontal:12 },consent:{ flexDirection:"row",gap:9,alignItems:"flex-start",paddingVertical:4 },qr:{ width:210,height:210,alignSelf:"center",backgroundColor:Colors.white },emv:{ color:Colors.blueBright,fontSize:11,textAlign:"center" },error:{ color:Colors.red,fontSize:12,textAlign:"center" },notice:{ position:"absolute",top:58,left:18,right:18,zIndex:30,padding:12,borderRadius:10,backgroundColor:"#5b4520" },noticeText:{ color:Colors.white,fontSize:12,textAlign:"center" } });
+const styles = StyleSheet.create({ screen:{ flex:1, backgroundColor:Colors.background, justifyContent:"center", paddingHorizontal:22 }, card:{ maxWidth:520, width:"100%", alignSelf:"center", alignItems:"center", gap:14, padding:28, borderRadius:Radii.large, backgroundColor:"#101827", borderWidth:1, borderColor:Colors.border }, icon:{ width:60,height:60,borderRadius:30,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(34,211,238,0.12)" }, title:{ fontSize:23,fontFamily:"Inter_700Bold",color:Colors.text,textAlign:"center" }, copy:{ fontSize:14,lineHeight:21,color:Colors.muted,textAlign:"center" }, info:{ width:"100%",gap:3,padding:14,borderRadius:12,backgroundColor:"rgba(255,255,255,0.05)" }, infoLabel:{ fontSize:10,letterSpacing:1,color:Colors.subtle },infoValue:{ fontSize:13,color:Colors.text,marginBottom:6 },primary:{ minHeight:50,width:"100%",borderRadius:13,backgroundColor:Colors.white,flexDirection:"row",gap:8,alignItems:"center",justifyContent:"center",paddingHorizontal:14 },primaryText:{ color:Colors.background,fontFamily:"Inter_700Bold",fontSize:14 },secondary:{ minHeight:46,width:"100%",borderRadius:13,borderWidth:1,borderColor:Colors.border,flexDirection:"row",gap:8,alignItems:"center",justifyContent:"center" },secondaryText:{ color:Colors.blueBright,fontFamily:"Inter_600SemiBold",fontSize:13 },back:{ padding:10 },backText:{ color:Colors.muted,fontSize:13 },help:{ color:Colors.muted,fontSize:12,lineHeight:17,textAlign:"center" },overlay:{ flex:1,backgroundColor:"rgba(0,0,0,0.72)",justifyContent:"center",padding:20 },paymentCard:{ maxWidth:520,width:"100%",alignSelf:"center",gap:12,padding:24,borderRadius:Radii.large,backgroundColor:Colors.background },input:{ minHeight:48,borderWidth:1,borderColor:Colors.border,borderRadius:11,color:Colors.text,paddingHorizontal:12 },consent:{ flexDirection:"row",gap:9,alignItems:"flex-start",paddingVertical:4 },qr:{ width:210,height:210,alignSelf:"center",backgroundColor:Colors.white },emv:{ color:Colors.blueBright,fontSize:11,textAlign:"center" },error:{ color:Colors.red,fontSize:12,textAlign:"center" },notice:{ position:"absolute",top:58,left:18,right:18,zIndex:30,padding:12,borderRadius:10,backgroundColor:"#5b4520" },noticeText:{ color:Colors.white,fontSize:12,textAlign:"center" },verifyNote:{ color:Colors.muted,fontSize:11,lineHeight:16,textAlign:"center" } });

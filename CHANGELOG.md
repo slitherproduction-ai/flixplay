@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Bloqueio por Código: corrigidos os botões de verificação e retorno ao login. O retorno encerra somente a sessão ativa do código, preserva a lista salva e não deixa a camada de bloqueio sobreposta ao login. A nova verificação agora informa quando a restrição persiste.
+
 - Login por Código: o Host/DNS retornado pelo Portal agora mantém estritamente o protocolo e a porta configurados. Conexões HTTP não sofrem mais tentativa automática de HTTPS. O diagnóstico separa resolução do código, autenticação Xtream e carregamento de catálogo, sem registrar credenciais.
 
 - Acesso por código e dispositivo: validação de licença vinculada ao MAC/chave persistente, revalidação ao retornar ao app e a cada cinco minutos em primeiro plano, bloqueio global e encerramento seguro do player quando houver negativa explícita. Incluído fluxo Pix PagHiper com QR Code, Copia e Cola, consentimento, sessão segura e confirmação somente pelo servidor.

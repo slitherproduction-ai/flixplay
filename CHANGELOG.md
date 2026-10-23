@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Acesso por código e dispositivo: validação de licença vinculada ao MAC/chave persistente, revalidação ao retornar ao app e a cada cinco minutos em primeiro plano, bloqueio global e encerramento seguro do player quando houver negativa explícita. Incluído fluxo Pix PagHiper com QR Code, Copia e Cola, consentimento, sessão segura e confirmação somente pelo servidor.
+
 - Login: removido o atalho de conexão M3U da tela inicial para simplificar o acesso. “Listas Salvas” agora fica dentro do mesmo card dos métodos de conexão, com contador e acesso à sincronização do Portal. O suporte e as listas M3U já salvas foram preservados.
 
 - Login Xtream por código: nova modalidade com Código, Usuário e Senha. O código é normalizado e resolvido no Portal antes da autenticação Xtream, sem enviar credenciais IPTV à Edge Function. Conexões por código atualizam o DNS a cada reconexão e preservam uma única Lista Salva por código; Xtream por Host e M3U permanecem disponíveis.

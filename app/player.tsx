@@ -331,6 +331,7 @@ export default function PlayerScreen() {
   const allChannels = useAppStore((state) => state.contentCache.liveChannels);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const activeServer = useAppStore((state) => state.servers.find((server) => server.id === activeServerId));
+  const codeAccessBlocked = useAppStore((state) => state.accessControl.isBlocked);
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
   const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
@@ -427,7 +428,7 @@ export default function PlayerScreen() {
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
-      if (!directPlaybackBlocked) videoPlayer.play();
+      if (!directPlaybackBlocked && !codeAccessBlocked) videoPlayer.play();
     },
   );
   // Ref gives mutable access to the player without triggering the
@@ -543,6 +544,13 @@ export default function PlayerScreen() {
     }, 0);
     return () => clearTimeout(timer);
   }, [directPlaybackBlocked, id, player]);
+
+  useEffect(() => {
+    if (!codeAccessBlocked || activeServer?.sourceType !== "xtream-code") return;
+    try { player.pause(); } catch { /* The global gate still prevents interaction. */ }
+    const timer = setTimeout(() => router.replace("/(tabs)"), 0);
+    return () => clearTimeout(timer);
+  }, [activeServer?.sourceType, codeAccessBlocked, player, router]);
 
   const authorizeDirectPlayback = useCallback(() => {
     setPendingDirectPlayback(false);

@@ -34,6 +34,7 @@ import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/device
 import type { PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
 import { syncPortalPlaylist, type PortalPlaylistSyncResult } from "@/services/device/portalPlaylistSync";
 import { isValidServerCode, normalizeServerCode, resolveServerCode } from "@/services/device/serverCodeResolver";
+import { revalidateCodeDevice } from "@/services/device/codeDeviceAccess";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -352,6 +353,7 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const addServer = useAppStore((state) => state.addServer);
   const upsertCodeServer = useAppStore((state) => state.upsertCodeServer);
+  const setCodeAccessSnapshot = useAppStore((state) => state.setCodeAccessSnapshot);
   const upsertPortalServer = useAppStore((state) => state.upsertPortalServer);
   const setActiveServer = useAppStore((state) => state.setActiveServer);
   const removeServer = useAppStore((state) => state.removeServer);
@@ -568,6 +570,16 @@ export default function LoginScreen() {
         return;
       }
 
+      // The Portal receives only installation identity and code, never the
+      // IPTV credentials that authenticated above.
+      const identity = await getDeviceIdentity();
+      const access = await revalidateCodeDevice(identity, resolved.code);
+      setCodeAccessSnapshot(access);
+      if (!access.canPlay || !access.canConnect) {
+        setError(access.message ?? "Este dispositivo não está autorizado para este código.");
+        return;
+      }
+
       // The code is the stable identity: refresh a changed DNS without
       // duplicating this saved list or changing unrelated saved lists.
       upsertCodeServer({ ...profile, ...buildProfileUpdate(userInfo) });
@@ -578,7 +590,7 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  }, [listName, password, router, serverCode, username, upsertCodeServer]);
+  }, [listName, password, router, serverCode, username, upsertCodeServer, setCodeAccessSnapshot]);
 
   const handleConnect = useCallback(
     () => {
@@ -615,9 +627,16 @@ export default function LoginScreen() {
 
       setLoading(true);
       try {
-        // Code-based lists resolve again on every reconnection. If this fails,
-        // the saved host is not used silently and the active list is untouched.
-        const resolved = await resolveServerCode(server.serverCode);
+        // Authorize this exact installation first; a restricted device never
+        // receives or falls back to a stale Host/DNS.
+        const identity = await getDeviceIdentity();
+        const access = await revalidateCodeDevice(identity, server.serverCode);
+        setCodeAccessSnapshot(access);
+        if (!access.canPlay || !access.canConnect) {
+          setError(access.message ?? "Este dispositivo não está autorizado para este código.");
+          return;
+        }
+        const resolved = await resolveServerCode(server.serverCode, identity);
         const refreshed: ServerProfile = {
           ...server,
           serverUrl: resolved.host,
@@ -643,7 +662,7 @@ export default function LoginScreen() {
         setLoading(false);
       }
     },
-    [router, setActiveServer, upsertCodeServer]
+    [router, setActiveServer, upsertCodeServer, setCodeAccessSnapshot]
   );
 
   const openSavedLists = useCallback(() => {

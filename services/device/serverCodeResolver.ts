@@ -1,8 +1,10 @@
+import type { DeviceIdentity } from "@/services/device/deviceIdentity";
+
 const PORTAL_FUNCTION_URL = "https://xrrgjssvdqvtrqhxpask.supabase.co/functions/v1/portal-control";
 const PORTAL_PUBLISHABLE_KEY = "sb_publishable_zTZ9IwqmgdIcQfvsy_Qz0w_ZwIOa1kl";
 const REQUEST_TIMEOUT_MS = 8_000;
 
-export type ServerCodeResolveFailure = "invalid-code" | "not-found" | "timeout" | "unavailable" | "invalid-response";
+export type ServerCodeResolveFailure = "invalid-code" | "not-found" | "identity-conflict" | "timeout" | "unavailable" | "invalid-response";
 
 export class ServerCodeResolveError extends Error {
   constructor(public readonly reason: ServerCodeResolveFailure, message: string) {
@@ -46,7 +48,7 @@ async function parsePayload(response: Response): Promise<Record<string, unknown>
 }
 
 /** Resolves only a Portal server code; IPTV credentials never enter this request. */
-export async function resolveServerCode(input: string): Promise<ResolvedServerCode> {
+export async function resolveServerCode(input: string, identity?: DeviceIdentity): Promise<ResolvedServerCode> {
   const code = normalizeServerCode(input);
   if (!isValidServerCode(code)) throw new ServerCodeResolveError("invalid-code", "Informe um código de servidor válido.");
 
@@ -56,12 +58,13 @@ export async function resolveServerCode(input: string): Promise<ResolvedServerCo
     const response = await fetch(PORTAL_FUNCTION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: PORTAL_PUBLISHABLE_KEY },
-      body: JSON.stringify({ action: "server-code-resolve", code }),
+      body: JSON.stringify({ action: "server-code-resolve", code, ...(identity ? { mac: identity.macAddress, device_key: identity.deviceKey } : {}) }),
       signal: controller.signal,
     });
     const payload = await parsePayload(response);
     if (response.status === 400) throw new ServerCodeResolveError("invalid-code", "O código informado não é válido.");
     if (response.status === 404) throw new ServerCodeResolveError("not-found", "Código não encontrado ou desativado. Verifique com seu administrador.");
+    if (response.status === 403) throw new ServerCodeResolveError("identity-conflict", "Este dispositivo não está autorizado para consultar este código.");
     if (!response.ok) throw new ServerCodeResolveError("unavailable", "Não foi possível consultar o servidor agora. Tente novamente.");
 
     const server = payload?.server;

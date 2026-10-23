@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { secureStateStorage } from '@/services/security/secureStorage';
 import { catalogDatabase } from '@/data/database/catalogDatabase';
+import type { CodeAccessSnapshot } from '@/services/device/codeDeviceAccess';
 import {
   EMPTY_SERVER_USER_DATA,
   getServerUserData,
@@ -30,6 +31,11 @@ export interface SyncState {
   progressPercent: number;
   stages: Record<"live" | "movies" | "series", "pending" | "running" | "complete" | "error">;
   stageErrors: Partial<Record<"live" | "movies" | "series", string>>;
+}
+
+export interface AccessControlStoreState {
+  snapshot: CodeAccessSnapshot | null;
+  isBlocked: boolean;
 }
 
 export interface PiPState {
@@ -63,9 +69,11 @@ interface AppStore {
   contentCache: ContentCache;
   syncState: SyncState;
   pip: PiPState;
+  accessControl: AccessControlStoreState;
   setHydrated: () => void;
   setHydrating: () => void;
   setPreference: (key: string, value: string | number | boolean | null) => void;
+  setCodeAccessSnapshot: (snapshot: CodeAccessSnapshot | null) => void;
   addServer: (server: ServerProfile) => void;
   /** Saves or refreshes a code-based Xtream list without duplicate entries. */
   upsertCodeServer: (server: ServerProfile) => void;
@@ -151,12 +159,18 @@ export const useAppStore = create<AppStore>()(
       contentCache: EMPTY_CACHE,
       syncState: INITIAL_SYNC_STATE,
       pip: INITIAL_PIP,
+      accessControl: { snapshot: null, isBlocked: false },
 
       setHydrated: () => set({ _hasHydrated: true }),
       setHydrating: () => set({ _hasHydrated: false }),
 
       setPreference: (key, value) =>
         set((state) => ({ preferences: { ...state.preferences, [key]: value } })),
+
+      setCodeAccessSnapshot: (snapshot) => set({
+        // An unavailable check is not a denial; it only blocks after the bounded offline grace elapsed.
+        accessControl: { snapshot, isBlocked: snapshot?.state === "blocked" || snapshot?.state === "unavailable" },
+      }),
 
       addServer: (server) =>
         set((state) => ({

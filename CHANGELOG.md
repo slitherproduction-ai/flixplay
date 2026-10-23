@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login por Código: o Host/DNS retornado pelo Portal agora mantém estritamente o protocolo e a porta configurados. Conexões HTTP não sofrem mais tentativa automática de HTTPS. O diagnóstico separa resolução do código, autenticação Xtream e carregamento de catálogo, sem registrar credenciais.
+
 - Acesso por código e dispositivo: validação de licença vinculada ao MAC/chave persistente, revalidação ao retornar ao app e a cada cinco minutos em primeiro plano, bloqueio global e encerramento seguro do player quando houver negativa explícita. Incluído fluxo Pix PagHiper com QR Code, Copia e Cola, consentimento, sessão segura e confirmação somente pelo servidor.
 
 - Login: removido o atalho de conexão M3U da tela inicial para simplificar o acesso. “Listas Salvas” agora fica dentro do mesmo card dos métodos de conexão, com contador e acesso à sincronização do Portal. O suporte e as listas M3U já salvas foram preservados.

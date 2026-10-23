@@ -218,7 +218,12 @@ const XTREAM_HEADERS: Record<string, string> = {
   Accept: "application/json, text/plain, */*",
 };
 
-function buildApiUrl(
+/**
+ * Builds the sole Xtream API endpoint from the configured Host/DNS.
+ * The configured protocol and explicit port are retained verbatim; credentials
+ * live only in the encoded query string and are never used for diagnostics.
+ */
+export function buildXtreamApiUrl(
   profile: ServerProfile,
   action?: string,
   params: Record<string, string> = {},
@@ -279,71 +284,80 @@ async function fetchWebDirect(
   }
 }
 
-/** Returns true when the error message indicates Android cleartext-HTTP blocking. */
+/** Returns true when Android itself rejected a configured HTTP connection. */
 function isCleartextBlockError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
   return msg.includes("cleartext") || msg.includes("not permitted by network security");
 }
 
 /**
- * Produces the only transport candidates that may be attempted automatically.
- * An explicitly configured HTTP endpoint may be upgraded to HTTPS. An HTTPS
- * endpoint is never downgraded to cleartext because that would send credentials
- * over a weaker transport without the user's consent.
+ * Native requests intentionally use only the protocol and port supplied by the
+ * server code or by the user. Retrying HTTP as HTTPS changes the destination
+ * contract and can turn a valid Xtream endpoint into an unrelated 404.
  */
-export function getSafeTransportCandidates(url: string): string[] {
-  if (url.startsWith("http://")) {
-    return [url, url.replace(/^http:\/\//, "https://")];
-  }
-  return [url];
-}
-
-async function fetchNativeWithSafeFallback(
+async function fetchNativeWithConfiguredProtocol(
   url: string,
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<Response> {
-  let firstError: unknown;
-
-  const candidates = getSafeTransportCandidates(url);
-  for (const [index, candidate] of candidates.entries()) {
-    try {
-      return await timedFetch(candidate, timeoutMs, signal);
-    } catch (err) {
-      if (isAbortError(err)) {
-        throw new XtreamApiError(
-          `Host não respondeu (Timeout após ${Math.round(timeoutMs / 1000)}s). Verifique a URL e sua conexão.`,
-          0,
-        );
-      }
-      if (err instanceof XtreamApiError) throw err;
-      if (index === 0) firstError = err;
+  try {
+    return await timedFetch(url, timeoutMs, signal);
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new XtreamApiError(
+        `Host não respondeu (Timeout após ${Math.round(timeoutMs / 1000)}s). Verifique o endereço, a porta e sua conexão.`,
+        0,
+      );
     }
-  }
-
-  // Every allowed attempt failed — surface the most actionable error.
-  if (isCleartextBlockError(firstError)) {
+    if (isCleartextBlockError(err)) {
+      throw new XtreamApiError(
+        "Tráfego HTTP bloqueado pelo sistema. Esta instalação precisa permitir conexões HTTP para este servidor.",
+        0,
+      );
+    }
     throw new XtreamApiError(
-      "Tráfego HTTP bloqueado pelo sistema. Tente usar HTTPS no endereço do servidor.",
+      "Não foi possível alcançar o servidor. Verifique o endereço, a porta e sua conexão.",
       0,
-      url.replace(/\/player_api\.php.*$/, ""),
     );
   }
-  throw new XtreamApiError(
-    "Não foi possível alcançar o servidor. Verifique o endereço, a porta e sua conexão.",
-    0,
-    url.replace(/\/player_api\.php.*$/, ""),
-  );
 }
 
-function fetchWithFallbacks(
+function fetchWithConfiguredProtocol(
   url: string,
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<Response> {
   return Platform.OS === "web"
     ? fetchWebDirect(url, timeoutMs, signal)
-    : fetchNativeWithSafeFallback(url, timeoutMs, signal);
+    : fetchNativeWithConfiguredProtocol(url, timeoutMs, signal);
+}
+
+function describeXtreamStage(action?: string): string {
+  if (!action) return "autenticação";
+  const labels: Record<string, string> = {
+    get_live_categories: "catálogo de categorias ao vivo",
+    get_live_streams: "catálogo de canais",
+    get_vod_categories: "catálogo de categorias de filmes",
+    get_vod_streams: "catálogo de filmes",
+    get_series_categories: "catálogo de categorias de séries",
+    get_series: "catálogo de séries",
+    get_series_info: "detalhes da série",
+    get_short_epg: "EPG",
+    get_simple_data_table: "EPG",
+  };
+  return labels[action] ?? "catálogo";
+}
+
+function createSafeEndpointDiagnostic(url: string, status: number): Error {
+  try {
+    const parsed = new URL(url);
+    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+    return new Error(
+      `protocol=${parsed.protocol.slice(0, -1)} host=${parsed.hostname} port=${port} path=${parsed.pathname || "/"} status=${status}`,
+    );
+  } catch {
+    return new Error(`endpoint=invalid status=${status}`);
+  }
 }
 
 /**
@@ -374,15 +388,18 @@ export function normalizeXtreamList<T>(body: unknown): T[] {
 }
 
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */
-async function parseXtreamResponse<T>(response: Response): Promise<T> {
+async function parseXtreamResponse<T>(response: Response, action?: string): Promise<T> {
   if (!response.ok) {
+    const stage = describeXtreamStage(action);
     const denied = response.status === 401 || response.status === 403;
     const tlsGatewayFailure = response.status === 502 || response.status === 525 || response.status === 526;
-    const msg = denied
-      ? `Acesso negado pelo servidor (HTTP ${response.status}). Usuário ou senha incorretos.`
-      : tlsGatewayFailure
-        ? "O domínio do servidor falhou na conexão segura (TLS/SSL). A autenticação não foi enviada. Use o endereço e a porta Xtream fornecidos pelo provedor ou solicite a correção do certificado."
-      : `Servidor respondeu com status ${response.status}.`;
+    const msg = response.status === 404
+      ? `A rota de ${stage} do servidor Xtream não foi encontrada (HTTP 404). Confirme o Host/DNS, a porta e se o painel fornece /player_api.php.`
+      : denied
+        ? `Acesso negado pelo servidor durante ${stage} (HTTP ${response.status}). Usuário ou senha incorretos.`
+        : tlsGatewayFailure
+          ? "O domínio do servidor falhou na conexão segura (TLS/SSL). A autenticação não foi enviada. Use o endereço e a porta Xtream fornecidos pelo provedor ou solicite a correção do certificado."
+          : `${stage.charAt(0).toUpperCase()}${stage.slice(1)} respondeu com status ${response.status}.`;
     throw new XtreamApiError(msg, response.status);
   }
 
@@ -445,13 +462,13 @@ async function requestXtream<T>(
   params: Record<string, string> = {},
   signal?: AbortSignal,
 ): Promise<T> {
-  const url = buildApiUrl(profile, action, params);
+  const url = buildXtreamApiUrl(profile, action, params);
   const timeoutMs = getXtreamRequestTimeoutMs(action);
   try {
-    const response = await fetchWithFallbacks(url, timeoutMs, signal);
-    return await parseXtreamResponse<T>(response);
+    const response = await fetchWithConfiguredProtocol(url, timeoutMs, signal);
+    return await parseXtreamResponse<T>(response, action);
   } catch (err) {
-    logTechnicalError("Xtream", err);
+    logTechnicalError("Xtream", createSafeEndpointDiagnostic(url, err instanceof XtreamApiError ? err.status : 0));
     // Attach the clean base URL for diagnostics if not already set
     if (err instanceof XtreamApiError && !err.testedUrl) {
       err.testedUrl = profile.serverUrl;

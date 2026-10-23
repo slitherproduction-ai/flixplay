@@ -104,6 +104,10 @@ Após uma atualização, o aplicativo restaura primeiro o estado persistido de v
 
 ## Qualidade
 
+### Composição responsiva
+
+As telas principais de catálogo já usam a classificação compartilhada de smartphone, tablet e TV. Formulários e painéis auxiliares também limitam a área de leitura em telas largas, mantendo o conteúdo centralizado; painéis em smartphone conservam a composição vertical e as áreas de toque.
+
 Execute antes de abrir uma revisão ou gerar uma release:
 
 ```bash

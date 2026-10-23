@@ -9,11 +9,13 @@ import { useAppStore } from "@/store/useAppStore";
 import { authenticateXtream } from "@/services/xtream";
 import { logTechnicalError } from "@/services/security/sanitize";
 import type { ServerProfile } from "@/store/types";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 
 export default function AddServerScreen() {
   const router = useRouter();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const addServer = useAppStore((state) => state.addServer);
+  const { tvMode, isTablet, contentPadding, contentMaxWidth } = useResponsiveLayout();
   const [name, setName] = useState("");
   const [serverUrl, setServerUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -86,7 +88,16 @@ export default function AddServerScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.screen}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[
+          styles.content,
+          { paddingHorizontal: tvMode ? 34 : contentPadding },
+          (tvMode || isTablet) && styles.wideContent,
+          contentMaxWidth ? { maxWidth: tvMode ? 640 : Math.min(contentMaxWidth, 720) } : undefined,
+        ]}
+      >
         <View style={styles.header}><IconButton icon="close" label="Fechar" onPress={() => router.back()} /><View style={styles.headerTitle}><AppText style={styles.kicker}>NOVA CONEXÃO</AppText><AppText style={styles.title}>Adicionar servidor</AppText></View><View style={styles.headerSpacer} /></View>
         <AppText style={styles.intro}>{sourceType === "m3u" ? "Importe uma lista M3U/M3U Plus com XMLTV opcional." : "Conecte uma lista Xtream Codes para acessar seu conteúdo."}</AppText>
         <View style={styles.form}>
@@ -111,6 +122,7 @@ function Field({ label, value, onChangeText, placeholder, secureTextEntry = fals
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   content: { gap: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36 },
+  wideContent: { width: "100%", alignSelf: "center", paddingTop: 30, paddingBottom: 48 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
   headerTitle: { flex: 1, alignItems: "center", gap: 3 },
   headerSpacer: { width: 42 },

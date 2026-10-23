@@ -11,6 +11,7 @@ import { catalogDatabase } from "@/data/database/catalogDatabase";
 import { authenticateXtream } from "@/services/xtream";
 import { sanitizeError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return "0 MB";
@@ -19,6 +20,7 @@ function formatBytes(bytes: number): string {
 
 export default function DiagnosticsScreen() {
   const router = useRouter();
+  const { tvMode, isTablet, contentPadding, contentMaxWidth } = useResponsiveLayout();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
   const cache = useAppStore((state) => state.contentCache);
@@ -102,8 +104,8 @@ export default function DiagnosticsScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.topBar}><IconButton icon="chevron-back" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SUPORTE TÉCNICO</AppText><AppText style={styles.title}>Diagnóstico</AppText></View></View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <View style={[styles.topBar, (tvMode || isTablet) && styles.wideTopBar, { paddingHorizontal: tvMode ? 40 : contentPadding }]}><IconButton icon="chevron-back" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SUPORTE TÉCNICO</AppText><AppText style={styles.title}>Diagnóstico</AppText></View></View>
+      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: tvMode ? 40 : contentPadding }, (tvMode || isTablet) && styles.wideContent, contentMaxWidth ? { maxWidth: tvMode ? 880 : Math.min(contentMaxWidth, 820) } : undefined]}>
         <View style={styles.card}>{rows.map(([label, value]) => <View key={label} style={styles.row}><AppText style={styles.label}>{label}</AppText><AppText selectable style={styles.value}>{value}</AppText></View>)}</View>
         <View style={styles.actions}>
           <Action icon="pulse-outline" label={testing ? "Testando..." : "Testar conexão"} disabled={!activeServer || testing} onPress={testConnection} />
@@ -125,9 +127,11 @@ function Action({ icon, label, disabled = false, onPress }: { icon: keyof typeof
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   topBar: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingTop: 22 },
+  wideTopBar: { width: "100%", maxWidth: 880, alignSelf: "center", paddingTop: 28 },
   kicker: { fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },
   title: { fontSize: 27, fontFamily: "Inter_700Bold", color: Colors.text },
   content: { gap: 16, padding: 20, paddingBottom: 48 },
+  wideContent: { width: "100%", alignSelf: "center", paddingTop: 24, paddingBottom: 56 },
   card: { overflow: "hidden", borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
   row: { minHeight: 58, justifyContent: "center", gap: 4, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
   label: { fontSize: 10, color: Colors.subtle },

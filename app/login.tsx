@@ -212,7 +212,10 @@ type PortalSyncState = "idle" | "syncing" | "synced" | "no-playlist" | "pending"
 
 function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, portalState, portalMessage, onSyncPortal, onLinkPortal, onManagePortal }: SavedListsModalProps) {
   const insets = useSafeAreaInsets();
+  const { tvMode, isTablet, height } = useResponsiveLayout();
   const closeButtonRef = useRef<TVFocusableHandle>(null);
+  const largeSurface = tvMode || isTablet;
+  const surfaceMaxHeight = Math.max(440, Math.min(height - 72, tvMode ? 760 : 720));
 
   useEffect(() => {
     const timer = setTimeout(() => closeButtonRef.current?.focus(), 120);
@@ -224,10 +227,15 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
       accessibilityViewIsModal
       importantForAccessibility="yes"
       onAccessibilityEscape={onClose}
-      style={[modalStyles.screen, { paddingBottom: insets.bottom }]}
+      style={[
+        modalStyles.screen,
+        largeSurface && modalStyles.largeScreen,
+        tvMode && modalStyles.tvScreen,
+        largeSurface ? { maxHeight: surfaceMaxHeight } : { paddingBottom: insets.bottom },
+      ]}
     >
-      <View style={modalStyles.header}>
-        <View style={modalStyles.grabber} />
+      <View style={[modalStyles.header, largeSurface && modalStyles.largeHeader]}>
+        {!largeSurface ? <View style={modalStyles.grabber} /> : null}
         <View style={modalStyles.titleRow}>
           <AppText style={modalStyles.title}>Listas Salvas</AppText>
           <View style={modalStyles.countBadge}>
@@ -250,22 +258,24 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
         showsVerticalScrollIndicator={false}
         contentContainerStyle={modalStyles.listContent}
       >
-        <View style={modalStyles.portalSyncCard}>
+        <View style={[modalStyles.portalSyncCard, largeSurface && modalStyles.largePortalSyncCard]}>
           <View style={modalStyles.portalSyncCopy}>
             <AppText style={modalStyles.portalSyncTitle}>Listas do Portal</AppText>
             <AppText style={modalStyles.portalSyncBody}>
               {portalState === "syncing" ? "Sincronizando sem alterar a lista ativa…" : portalMessage ?? "Atualize para buscar a lista vinculada a este dispositivo."}
             </AppText>
           </View>
-          <TVFocusable accessibilityRole="button" accessibilityLabel="Sincronizar listas do Portal" disabled={portalState === "syncing"} onPress={onSyncPortal} style={({ pressed }) => [modalStyles.portalSyncButton, pressed && modalStyles.pressed]}>
-            {portalState === "syncing" ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="sync-outline" size={17} color={Colors.background} />}
-            <AppText style={modalStyles.portalSyncButtonText}>Atualizar</AppText>
-          </TVFocusable>
-          <TVFocusable accessibilityRole="link" accessibilityLabel="Gerenciar listas no Portal" onPress={onManagePortal} style={({ pressed }) => [modalStyles.portalManageButton, pressed && modalStyles.pressed]}>
-            <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
-            <AppText style={modalStyles.portalManageButtonText}>Gerenciar no Portal</AppText>
-          </TVFocusable>
-          {portalState === "pending" ? <TVFocusable accessibilityRole="button" accessibilityLabel="Vincular chave do Portal" onPress={onLinkPortal} style={({ pressed }) => [modalStyles.portalLinkButton, pressed && modalStyles.pressed]}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /><AppText style={modalStyles.portalLinkButtonText}>Vincular chave</AppText></TVFocusable> : null}
+          <View style={[modalStyles.portalActions, largeSurface && modalStyles.largePortalActions]}>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Sincronizar listas do Portal" disabled={portalState === "syncing"} onPress={onSyncPortal} style={({ pressed }) => [modalStyles.portalSyncButton, largeSurface && modalStyles.largePortalAction, pressed && modalStyles.pressed]}>
+              {portalState === "syncing" ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="sync-outline" size={17} color={Colors.background} />}
+              <AppText style={modalStyles.portalSyncButtonText}>Atualizar</AppText>
+            </TVFocusable>
+            <TVFocusable accessibilityRole="link" accessibilityLabel="Gerenciar listas no Portal" onPress={onManagePortal} style={({ pressed }) => [modalStyles.portalManageButton, largeSurface && modalStyles.largePortalAction, pressed && modalStyles.pressed]}>
+              <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
+              <AppText style={modalStyles.portalManageButtonText}>Gerenciar no Portal</AppText>
+            </TVFocusable>
+            {portalState === "pending" ? <TVFocusable accessibilityRole="button" accessibilityLabel="Vincular chave do Portal" onPress={onLinkPortal} style={({ pressed }) => [modalStyles.portalLinkButton, largeSurface && modalStyles.largePortalAction, pressed && modalStyles.pressed]}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /><AppText style={modalStyles.portalLinkButtonText}>Vincular chave</AppText></TVFocusable> : null}
+          </View>
         </View>
         {servers.length === 0 ? (
           <View style={modalStyles.emptyState}>
@@ -354,6 +364,7 @@ export default function LoginScreen() {
   const tvMode = useTVMode();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const { isTablet, isTabletLandscape } = useResponsiveLayout();
+  const largeModalSurface = tvMode || isTablet;
   const compactMobile = !tvMode && viewportWidth < 600;
   // Fire TV and many 720p Android TV panels have substantially less vertical
   // space than a 1080p television. Keep the entire entry flow visible there.
@@ -1205,7 +1216,7 @@ export default function LoginScreen() {
             accessibilityViewIsModal
             importantForAccessibility="yes"
             onAccessibilityEscape={closeSavedLists}
-            style={styles.modalOverlay}
+            style={[styles.modalOverlay, largeModalSurface && styles.largeModalOverlay]}
           >
             <SavedListsModal
               servers={servers}
@@ -1237,7 +1248,7 @@ export default function LoginScreen() {
       </Modal>
 
       <Modal visible={showPortalLink} transparent animationType="fade" onRequestClose={() => setShowPortalLink(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, largeModalSurface && styles.largeModalOverlay]}>
           <View style={styles.portalLinkDialog}>
             <Ionicons name="key-outline" size={24} color={Colors.blueBright} />
             <AppText style={styles.portalLinkTitle}>Vincular chave do Portal</AppText>
@@ -1542,6 +1553,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
   },
+  largeModalOverlay: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 28,
+  },
   portalLinkDialog: { width: "88%", maxWidth: 430, alignSelf: "center", marginTop: "auto", marginBottom: "auto", padding: 22, borderRadius: 18, backgroundColor: Colors.backgroundRaised, borderWidth: 1, borderColor: Colors.border, gap: 11 },
   portalLinkTitle: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.text },
   portalLinkBody: { fontSize: 12, lineHeight: 18, color: Colors.muted },
@@ -1619,12 +1635,28 @@ const modalStyles = StyleSheet.create({
     borderTopRightRadius: Radii.large,
     minHeight: 400,
   },
+  largeScreen: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    borderRadius: Radii.large,
+    overflow: "hidden",
+  },
+  tvScreen: {
+    maxWidth: 900,
+    minHeight: 0,
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  largeHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   grabber: {
     alignSelf: "center",
@@ -1678,11 +1710,15 @@ const modalStyles = StyleSheet.create({
     paddingBottom: 24,
   },
   portalSyncCard: { gap: 9, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(96,165,250,0.26)", backgroundColor: "rgba(59,130,246,0.07)" },
+  largePortalSyncCard: { padding: 14, gap: 10 },
   portalSyncCopy: { gap: 3 },
   portalSyncTitle: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.text },
   portalSyncBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
   portalSyncButton: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, backgroundColor: Colors.text },
   portalSyncButtonText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.background },
+  portalActions: { gap: 8 },
+  largePortalActions: { flexDirection: "row", alignItems: "stretch", gap: 8 },
+  largePortalAction: { flex: 1, minHeight: 38 },
   portalManageButton: { minHeight: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(96,165,250,0.32)" },
   portalManageButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.blueBright },
   portalLinkButton: { minHeight: 38, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, borderWidth: 1, borderColor: "rgba(96,165,250,0.32)" },

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurTargetView, BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { APP_INFO } from "@/constants/app";
-import { PORTAL_LINKS } from "@/constants/portal";
+import { PORTAL_LINKS, PORTAL_ORIGIN } from "@/constants/portal";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -1280,6 +1280,7 @@ function DeviceIdentityPanel({ identity, status, compact = false }: { identity: 
     <View style={styles.deviceIdentityCopy}>
       <AppText style={styles.deviceIdentityText}>MAC: {identity.macAddress}</AppText>
       <AppText style={styles.deviceIdentityText}>Chave: {identity.deviceKey}</AppText>
+      <AppText style={styles.deviceIdentityText}>Cadastre-se no Portal: {PORTAL_ORIGIN.replace("https://", "")}</AppText>
       {portalLabel ? <AppText style={styles.deviceIdentityText}>{portalLabel}</AppText> : null}
     </View>
   </View>;

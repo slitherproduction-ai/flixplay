@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login: o rodapé de identidade agora informa claramente o endereço de cadastro `elvanoqplay.app`, preservando MAC, chave e estado do Portal.
+
 - Responsividade: Listas Salvas deixa de ocupar a tela inteira em TV e tablet. O painel agora usa largura/altura limitadas, ações proporcionais em linha e lista com rolagem interna; no smartphone, o painel inferior foi preservado.
 - Responsividade: cadastro manual de servidor e Diagnóstico agora centralizam conteúdo e limitam a largura em tablet e TV, evitando formulários, linhas e controles excessivamente esticados.
 - Portal: links externos do aplicativo foram centralizados em `https://elvanoqplay.app`. Listas Salvas agora oferece acesso ao gerenciamento no Portal; endpoints Supabase, QR Codes Pix e hosts IPTV não foram alterados.

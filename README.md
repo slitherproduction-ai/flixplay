@@ -91,6 +91,10 @@ Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salv
 - Bloqueio explícito mantém a lista local intacta e interrompe a reprodução. Falhas de rede e limite de requisições não são tratados como expiração.
 - QR Codes Pix permanecem sob controle do provedor de pagamento: o aplicativo apenas exibe o conteúdo retornado pelo servidor e não o substitui por links do Portal.
 
+### Comunicação resiliente
+
+Os fluxos públicos de Código, vínculo de dispositivo, sincronização, licença e migração usam um único cliente para `portal-control`. Ele mantém o mesmo contrato da API e separa limites de requisição, indisponibilidade temporária e falha de rede de bloqueios ou expiração explícitos. Consultas de código continuam enviando apenas o código e a identidade necessária: usuário, senha IPTV e URLs privadas de lista não são incluídos nessas requisições.
+
 ## Migração de instalações anteriores
 
 Após uma atualização, o aplicativo restaura primeiro o estado persistido de versões anteriores e só então executa, em segundo plano, a migração de identidade para o Portal.

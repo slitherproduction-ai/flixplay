@@ -1,8 +1,5 @@
 import type { DeviceIdentity } from "@/services/device/deviceIdentity";
-
-const PORTAL_FUNCTION_URL = "https://xrrgjssvdqvtrqhxpask.supabase.co/functions/v1/portal-control";
-const PORTAL_PUBLISHABLE_KEY = "sb_publishable_zTZ9IwqmgdIcQfvsy_Qz0w_ZwIOa1kl";
-const REQUEST_TIMEOUT_MS = 8_000;
+import { PortalRequestError, portalServiceMessage, requestPortal, type PortalRecord } from "./portalClient";
 
 export type ServerCodeResolveFailure = "invalid-code" | "not-found" | "identity-conflict" | "timeout" | "unavailable" | "invalid-response";
 
@@ -38,34 +35,26 @@ function normalizeResolvedHost(value: unknown): string | null {
   }
 }
 
-async function parsePayload(response: Response): Promise<Record<string, unknown> | null> {
-  try {
-    const payload: unknown = await response.json();
-    return payload && typeof payload === "object" ? payload as Record<string, unknown> : null;
-  } catch {
-    return null;
-  }
-}
-
 /** Resolves only a Portal server code; IPTV credentials never enter this request. */
 export async function resolveServerCode(input: string, identity?: DeviceIdentity): Promise<ResolvedServerCode> {
   const code = normalizeServerCode(input);
   if (!isValidServerCode(code)) throw new ServerCodeResolveError("invalid-code", "Informe um código de servidor válido.");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(PORTAL_FUNCTION_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: PORTAL_PUBLISHABLE_KEY },
-      body: JSON.stringify({ action: "server-code-resolve", code, ...(identity ? { mac: identity.macAddress, device_key: identity.deviceKey } : {}) }),
-      signal: controller.signal,
+    const response = await requestPortal<PortalRecord>("server-code-resolve", {
+      code,
+      ...(identity ? { mac: identity.macAddress, device_key: identity.deviceKey } : {}),
     });
-    const payload = await parsePayload(response);
+    const payload = response.payload;
     if (response.status === 400) throw new ServerCodeResolveError("invalid-code", "O código informado não é válido.");
     if (response.status === 404) throw new ServerCodeResolveError("not-found", "Código não encontrado ou desativado. Verifique com seu administrador.");
     if (response.status === 403) throw new ServerCodeResolveError("identity-conflict", "Este dispositivo não está autorizado para consultar este código.");
-    if (!response.ok) throw new ServerCodeResolveError("unavailable", "Não foi possível consultar o servidor agora. Tente novamente.");
+    if (!response.ok) {
+      throw new ServerCodeResolveError(
+        "unavailable",
+        portalServiceMessage(response.status, response.retryAfterSeconds, "Não foi possível consultar o servidor agora. Tente novamente."),
+      );
+    }
 
     const server = payload?.server;
     if (!server || typeof server !== "object") throw new ServerCodeResolveError("invalid-response", "A resposta do servidor é inválida. Tente novamente.");
@@ -76,9 +65,9 @@ export async function resolveServerCode(input: string, identity?: DeviceIdentity
     return { code: resolvedCode, host, updatedAt: typeof record.updated_at === "string" ? record.updated_at : null };
   } catch (error) {
     if (error instanceof ServerCodeResolveError) throw error;
-    if (error instanceof Error && error.name === "AbortError") throw new ServerCodeResolveError("timeout", "A consulta ao código demorou demais. Verifique sua conexão e tente novamente.");
+    if (error instanceof PortalRequestError) {
+      throw new ServerCodeResolveError(error.reason === "timeout" ? "timeout" : "unavailable", error.message);
+    }
     throw new ServerCodeResolveError("unavailable", "Não foi possível consultar o servidor agora. Verifique sua conexão e tente novamente.");
-  } finally {
-    clearTimeout(timeout);
   }
 }

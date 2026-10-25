@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Portal: centralizado o transporte público de `portal-control` para os fluxos de Código, status do dispositivo, sincronização de listas e migração. Limites de requisição (429), indisponibilidade temporária (502/503/504) e falhas de rede agora têm tratamento consistente, sem serem confundidos com bloqueio de licença.
+
 - Login: o rodapé de identidade agora informa claramente o endereço de cadastro `elvanoqplay.app`, preservando MAC, chave e estado do Portal.
 
 - Responsividade: Listas Salvas deixa de ocupar a tela inteira em TV e tablet. O painel agora usa largura/altura limitadas, ações proporcionais em linha e lista com rolagem interna; no smartphone, o painel inferior foi preservado.

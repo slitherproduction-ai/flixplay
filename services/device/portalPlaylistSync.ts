@@ -4,13 +4,9 @@ import { Platform } from "react-native";
 import type { ServerProfile } from "@/store/types";
 import type { DeviceIdentity } from "./deviceIdentity";
 import type { CodeAccessSnapshot } from "./codeDeviceAccess";
+import { portalServiceMessage, requestPortal } from "./portalClient";
 
-// This is a publishable Supabase key only. Playlist credentials are returned
-// exclusively by the Edge Function after it verifies the device MAC and key.
-const PORTAL_FUNCTION_URL = "https://xrrgjssvdqvtrqhxpask.supabase.co/functions/v1/portal-control";
-const PORTAL_PUBLISHABLE_KEY = "sb_publishable_zTZ9IwqmgdIcQfvsy_Qz0w_ZwIOa1kl";
 const PORTAL_LINK_KEY_STORAGE = "elvanoq-portal-link-key-v1";
-const REQUEST_TIMEOUT_MS = 8_000;
 
 type PortalPlaylist = {
   name: string;
@@ -184,23 +180,21 @@ export async function syncPortalPlaylist(
   const manualKey = explicitPortalKey?.trim();
   const storedKey = manualKey || await getStoredPortalLinkKey();
   const deviceKey = storedKey || identity.deviceKey;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
   try {
-    const response = await fetch(PORTAL_FUNCTION_URL, {
-      method: "POST",
-      headers: { apikey: PORTAL_PUBLISHABLE_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "playlist-sync", mac: identity.macAddress, device_key: deviceKey }),
-      signal: controller.signal,
+    const response = await requestPortal<PortalSyncResponse>("playlist-sync", {
+      mac: identity.macAddress,
+      device_key: deviceKey,
     });
-    const payload = (await response.json().catch(() => ({}))) as PortalSyncResponse;
+    const payload = response.payload ?? {};
 
     if (response.status === 403 || response.status === 404) {
       return { state: "link-required", message: "Informe no aplicativo a chave usada ou gerada no Portal para vincular este dispositivo." };
     }
     if (!response.ok) {
-      return { state: "unavailable", message: payload.message || "Não foi possível sincronizar agora." };
+      return {
+        state: "unavailable",
+        message: portalServiceMessage(response.status, response.retryAfterSeconds, payload.message || "Não foi possível sincronizar agora."),
+      };
     }
     if (!payload.registered) {
       return { state: "link-required", message: "Este dispositivo ainda não está vinculado no Portal." };
@@ -228,7 +222,5 @@ export async function syncPortalPlaylist(
     return { state: "synced", server, displayName: typeof payload.display_name === "string" ? payload.display_name : null, access };
   } catch {
     return { state: "unavailable", message: "Portal indisponível. Suas listas salvas continuam disponíveis offline." };
-  } finally {
-    clearTimeout(timeout);
   }
 }

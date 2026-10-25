@@ -1,10 +1,7 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type { DeviceIdentity } from "@/services/device/deviceIdentity";
-
-const PORTAL_URL = "https://xrrgjssvdqvtrqhxpask.supabase.co/functions/v1/portal-control";
-const PUBLIC_KEY = "sb_publishable_zTZ9IwqmgdIcQfvsy_Qz0w_ZwIOa1kl";
-const REQUEST_TIMEOUT_MS = 8_000;
+import { PortalRequestError, portalServiceMessage, requestPortal } from "./portalClient";
 
 export type AccessState = "idle" | "checking" | "granted" | "blocked" | "unavailable";
 
@@ -83,28 +80,6 @@ function snapshotFrom(
   };
 }
 
-async function request(action: string, body: RecordValue): Promise<{ status: number; payload: RecordValue | null }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(PORTAL_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: PUBLIC_KEY },
-      body: JSON.stringify({ action, ...body }),
-      signal: controller.signal,
-    });
-    const raw: unknown = await response.json().catch(() => null);
-    return { status: response.status, payload: asRecord(raw) };
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new CodeDeviceAccessError("network", "A consulta de acesso demorou demais. Verifique sua conexão.");
-    }
-    throw new CodeDeviceAccessError("network", "Não foi possível consultar o acesso agora. Verifique sua conexão.");
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 function devicePayload(identity: DeviceIdentity, code: string) {
   return {
     mac: identity.macAddress,
@@ -118,24 +93,36 @@ function devicePayload(identity: DeviceIdentity, code: string) {
 
 /** Registers this installation without ever sending IPTV credentials. */
 export async function registerCodeDevice(identity: DeviceIdentity, code: string): Promise<CodeAccessSnapshot> {
-  const response = await request("code-device-register", devicePayload(identity, code));
+  let response;
+  try {
+    response = await requestPortal<RecordValue>("code-device-register", devicePayload(identity, code));
+  } catch (error) {
+    if (error instanceof PortalRequestError) throw new CodeDeviceAccessError("network", error.message);
+    throw error;
+  }
   if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
   if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Código de servidor não encontrado.");
   if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de acesso é inválida.");
-  if (!response.status.toString().startsWith("2")) {
-    return snapshotFrom(response.payload, identity, "Não foi possível registrar este dispositivo.");
+  if (!response.ok) {
+    return snapshotFrom(response.payload, identity, portalServiceMessage(response.status, response.retryAfterSeconds, "Não foi possível registrar este dispositivo."));
   }
   return snapshotFrom(response.payload, identity);
 }
 
 /** Rechecks access bound to this exact MAC/key pair. HTTP 403 is parsed, not assumed. */
 export async function resolveCodeDeviceAccess(identity: DeviceIdentity, code: string): Promise<CodeAccessSnapshot> {
-  const response = await request("server-code-resolve", { code, mac: identity.macAddress, device_key: identity.deviceKey });
+  let response;
+  try {
+    response = await requestPortal<RecordValue>("server-code-resolve", { code, mac: identity.macAddress, device_key: identity.deviceKey });
+  } catch (error) {
+    if (error instanceof PortalRequestError) throw new CodeDeviceAccessError("network", error.message);
+    throw error;
+  }
   if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Código de servidor não encontrado.");
   if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
   if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de acesso é inválida.");
   if (response.status === 403 || response.status === 200) return snapshotFrom(response.payload, identity);
-  throw new CodeDeviceAccessError("network", "Não foi possível consultar o acesso agora.");
+  throw new CodeDeviceAccessError("network", portalServiceMessage(response.status, response.retryAfterSeconds, "Não foi possível consultar o acesso agora."));
 }
 
 /** Server authorization is valid only when both license and code rules allow it. */
@@ -147,11 +134,17 @@ export async function revalidateCodeDevice(identity: DeviceIdentity, code: strin
 
 /** Revalidates a Portal-managed M3U/Xtream list without re-registering its code. */
 export async function revalidatePortalManagedDevice(identity: DeviceIdentity): Promise<CodeAccessSnapshot> {
-  const response = await request("license-status", { mac: identity.macAddress, device_key: identity.deviceKey });
+  let response;
+  try {
+    response = await requestPortal<RecordValue>("license-status", { mac: identity.macAddress, device_key: identity.deviceKey });
+  } catch (error) {
+    if (error instanceof PortalRequestError) throw new CodeDeviceAccessError("network", error.message);
+    throw error;
+  }
   if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
   if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Este dispositivo não foi encontrado no Portal.");
   if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de licença é inválida.");
   if (response.status === 200 || response.status === 403) return snapshotFrom(response.payload, identity, null, false);
   // Rate limiting and service failures are network failures, never an inferred expiry.
-  throw new CodeDeviceAccessError("network", "Não foi possível consultar a licença agora.");
+  throw new CodeDeviceAccessError("network", portalServiceMessage(response.status, response.retryAfterSeconds, "Não foi possível consultar a licença agora."));
 }

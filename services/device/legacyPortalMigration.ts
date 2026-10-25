@@ -3,11 +3,9 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type { ServerProfile } from "@/store/types";
 import { getDeviceIdentity } from "@/services/device/deviceIdentity";
+import { portalServiceMessage, requestPortal } from "./portalClient";
 
-const PORTAL_FUNCTION_URL = "https://xrrgjssvdqvtrqhxpask.supabase.co/functions/v1/portal-control";
-const PORTAL_PUBLISHABLE_KEY = "sb_publishable_zTZ9IwqmgdIcQfvsy_Qz0w_ZwIOa1kl";
 const STORAGE_KEY = "elvanoq.legacy-portal-migration.v1";
-const REQUEST_TIMEOUT_MS = 8_000;
 
 type MigrationStatus = "completed" | "pending" | "conflict" | "unavailable";
 type StoredMigration = {
@@ -89,23 +87,15 @@ async function execute(servers: ServerProfile[]): Promise<LegacyPortalMigrationR
   }
 
   const identity = await getDeviceIdentity();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(PORTAL_FUNCTION_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: PORTAL_PUBLISHABLE_KEY },
-      body: JSON.stringify({
-        action: "legacy-device-migrate",
-        mac: identity.macAddress,
-        device_key: identity.deviceKey,
-        name: Constants.deviceName ?? undefined,
-        platform: Platform.OS,
-        app_version: Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? undefined,
-      }),
-      signal: controller.signal,
+    const response = await requestPortal<PortalMigrationResponse>("legacy-device-migrate", {
+      mac: identity.macAddress,
+      device_key: identity.deviceKey,
+      name: Constants.deviceName ?? undefined,
+      platform: Platform.OS,
+      app_version: Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? undefined,
     });
-    const payload = await response.json().catch(() => ({})) as PortalMigrationResponse;
+    const payload = response.payload ?? {};
     const attempts = (previous?.attempts ?? 0) + 1;
 
     if (response.status === 409) {
@@ -116,7 +106,7 @@ async function execute(servers: ServerProfile[]): Promise<LegacyPortalMigrationR
     if (!response.ok) {
       const record: StoredMigration = { version: 1, status: "unavailable", attempts, nextAttemptAt: Date.now() + nextDelayMs(attempts, "unavailable") };
       await writeStoredMigration(record);
-      return { status: "unavailable", message: payload.message ?? "Não foi possível concluir a migração agora.", codeAccessEnforced: false };
+      return { status: "unavailable", message: portalServiceMessage(response.status, response.retryAfterSeconds, payload.message ?? "Não foi possível concluir a migração agora."), codeAccessEnforced: false };
     }
 
     const result = outcomeFor(payload);
@@ -133,8 +123,6 @@ async function execute(servers: ServerProfile[]): Promise<LegacyPortalMigrationR
     const attempts = (previous?.attempts ?? 0) + 1;
     await writeStoredMigration({ version: 1, status: "unavailable", attempts, nextAttemptAt: Date.now() + nextDelayMs(attempts, "unavailable") });
     return { status: "unavailable", message: "Portal indisponível. Suas listas locais continuam disponíveis.", codeAccessEnforced: false };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

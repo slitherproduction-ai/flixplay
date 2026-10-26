@@ -77,6 +77,15 @@ describe("Portal updater", () => {
     );
   });
 
+  it("does not classify a successful HTTP 200 response as a Portal error", async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValueOnce(response({ release: publishedRelease() }, 200));
+
+    await expect(checkForPortalUpdate()).resolves.toMatchObject({
+      hasUpdate: true,
+      error: null,
+    });
+  });
+
   it("does not offer equal or older Portal releases as downgrades", async () => {
     const fetchMock = globalThis.fetch as jest.Mock;
     fetchMock

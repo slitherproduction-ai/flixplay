@@ -118,10 +118,13 @@ export async function checkForPortalUpdate(): Promise<UpdateCheckResult> {
       cache: "no-store",
       signal: controller.signal,
     });
-    const statusError = serviceError(response.status);
-    if (statusError !== null) return { ...base, error: statusError };
-    if (response.status === 404) return base;
-    if (!response.ok) return { ...base, error: "Não foi possível validar a atualização publicada pelo Portal." };
+    if (!response.ok) {
+      const statusError = serviceError(response.status);
+      if (statusError !== null) return { ...base, error: statusError };
+      // A ausência de uma publicação é um estado válido para a distribuição.
+      if (response.status === 404) return base;
+      return { ...base, error: "Não foi possível validar a atualização publicada pelo Portal." };
+    }
 
     const payload = await response.json() as PortalReleaseResponse;
     if (payload.release === null) return base;

@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Atualizações: corrigida a classificação de respostas HTTP 200 do Portal. Uma release válida não é mais exibida indevidamente como indisponível.
 - Atualizações: substituída a consulta e o download via GitHub Releases pela distribuição oficial do Portal ELVANOQ Play. O app consulta somente a release publicada, evita downgrade e confere tamanho e SHA-256 do APK antes de abrir o instalador Android, com progresso e cancelamento.
 
 - Qualidade: ampliada a cobertura dos fluxos de Portal para Código (403/404/429/503), sincronização de lista M3U, bloqueio explícito e migração legada sem envio de credenciais. Incluídos testes de validação do login e da normalização de episódios.

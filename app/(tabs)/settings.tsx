@@ -197,7 +197,7 @@ export default function SettingsScreen() {
                   <AppText style={styles.aboutTitle}>Sobre o Aplicativo</AppText>
                   <View style={styles.aboutBadge}><AppText style={styles.aboutBadgeText}>v{APP_INFO.version}</AppText></View>
                 </View>
-                <AppText style={styles.aboutMeta}>{APP_INFO.versionLabel} · Auto-Update GitHub Integrado</AppText>
+                <AppText style={styles.aboutMeta}>{APP_INFO.versionLabel} · Atualizações pelo Portal ELVANOQ Play</AppText>
               </View>
               <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
             </TVFocusable>

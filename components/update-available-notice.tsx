@@ -5,11 +5,12 @@ import { AppText } from "@/components/ui";
 import { TVFocusable } from "@/components/tv-focusable";
 import { Colors, Radii } from "@/constants/theme";
 import {
-  checkForGitHubUpdate,
+  cancelUpdateDownload,
   downloadAndInstallUpdate,
+  checkForPortalUpdate,
   type UpdateCheckResult,
   type UpdateDownloadProgress,
-} from "@/services/githubUpdater";
+} from "@/services/portalUpdater";
 import { logTechnicalError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -35,7 +36,7 @@ export function UpdateAvailableNotice() {
     if (!hydrated || autoUpdate === false || hasChecked.current) return;
     hasChecked.current = true;
     let active = true;
-    void checkForGitHubUpdate().then((next) => {
+    void checkForPortalUpdate().then((next) => {
       if (!active || next.error || !next.hasUpdate || !next.apkUrl) return;
       setResult(next);
       setVisible(true);
@@ -49,7 +50,7 @@ export function UpdateAvailableNotice() {
     setDownloading(true);
     setProgress(null);
     try {
-      await downloadAndInstallUpdate(result.apkUrl, result.apkSize, setProgress);
+      await downloadAndInstallUpdate(result.apkUrl, result.apkSize ?? 0, result.apkSha256 ?? "", setProgress);
     } catch (downloadError) {
       logTechnicalError("UpdateNotice/install", downloadError);
       setError(downloadError instanceof Error ? downloadError.message : "Não foi possível baixar a atualização.");
@@ -57,6 +58,10 @@ export function UpdateAvailableNotice() {
       setDownloading(false);
     }
   }, [downloading, result]);
+
+  const handleCancel = useCallback(() => {
+    void cancelUpdateDownload();
+  }, []);
 
   if (!result) return null;
 
@@ -92,6 +97,8 @@ export function UpdateAvailableNotice() {
             </View>
           ) : null}
 
+          {result.releaseNotes ? <AppText style={styles.notes}>{result.releaseNotes}</AppText> : null}
+
           {error ? <AppText style={styles.error}>{error}</AppText> : null}
 
           <View style={styles.actions}>
@@ -105,6 +112,11 @@ export function UpdateAvailableNotice() {
               {downloading ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="download-outline" size={18} color={Colors.background} />}
               <AppText style={styles.primaryText}>{downloading ? "Baixando" : "Baixar agora"}</AppText>
             </TVFocusable>
+            {downloading ? (
+              <TVFocusable accessibilityLabel="Cancelar download" onPress={handleCancel} style={styles.secondary}>
+                <AppText style={styles.secondaryText}>Cancelar</AppText>
+              </TVFocusable>
+            ) : null}
             <TVFocusable
               accessibilityLabel="Atualizar mais tarde"
               disabled={downloading}
@@ -128,6 +140,7 @@ const styles = StyleSheet.create({
   body: { color: Colors.muted, fontSize: 14, lineHeight: 21 },
   metaRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   meta: { color: Colors.subtle, fontSize: 12 },
+  notes: { color: Colors.muted, fontSize: 12, lineHeight: 18 },
   progressArea: { gap: 7, marginTop: 3 },
   progressTrack: { height: 6, overflow: "hidden", borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)" },
   progressFill: { height: "100%", borderRadius: 3, backgroundColor: Colors.blueBright },

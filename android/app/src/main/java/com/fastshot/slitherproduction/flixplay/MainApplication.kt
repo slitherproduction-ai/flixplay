@@ -12,6 +12,7 @@ import com.facebook.react.common.ReleaseLevel
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
 import com.fastshot.slitherproduction.flixplay.security.SecureStoragePackage
+import com.fastshot.slitherproduction.flixplay.update.UpdateIntegrityPackage
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
@@ -26,6 +27,8 @@ class MainApplication : Application(), ReactApplication {
           // The credential/PIN vault is an in-app native module and is not
           // autolinked as an external library.
           add(SecureStoragePackage())
+          // Streams update APK checksums off the JS heap on low-memory TV devices.
+          add(UpdateIntegrityPackage())
         }
     )
   }

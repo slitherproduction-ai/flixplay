@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Atualizações: substituída a consulta e o download via GitHub Releases pela distribuição oficial do Portal ELVANOQ Play. O app consulta somente a release publicada, evita downgrade e confere tamanho e SHA-256 do APK antes de abrir o instalador Android, com progresso e cancelamento.
+
 - Qualidade: ampliada a cobertura dos fluxos de Portal para Código (403/404/429/503), sincronização de lista M3U, bloqueio explícito e migração legada sem envio de credenciais. Incluídos testes de validação do login e da normalização de episódios.
 - Arquitetura: regras puras de Login, parsing de episódios de Detalhes e navegação de episódios do Player foram movidos para módulos próprios, preservando as telas e reduzindo o risco de regressão em arquivos extensos.
 - Performance: adicionado roteiro de teste físico sanitizado para Fire TV/Fire Stick com catálogo grande, troca de categorias, preview, retorno do player e fluxo de série.

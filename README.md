@@ -96,6 +96,15 @@ Uma lista M3U ou Xtream cadastrada no Portal pode ser trazida para **Listas Salv
 
 Os fluxos públicos de Código, vínculo de dispositivo, sincronização, licença e migração usam um único cliente para `portal-control`. Ele mantém o mesmo contrato da API e separa limites de requisição, indisponibilidade temporária e falha de rede de bloqueios ou expiração explícitos. Consultas de código continuam enviando apenas o código e a identidade necessária: usuário, senha IPTV e URLs privadas de lista não são incluídos nessas requisições.
 
+## Atualizações pelo Portal ELVANOQ Play
+
+O aplicativo consulta exclusivamente a release publicada pelo Portal em `https://downloads.elvanoqplay.app/release.json`. O contrato público atual retorna `release` nula quando não há publicação ou, quando há uma versão pronta, `version`, `size`, `sha256`, `notes`, `published_at` e `download_url`.
+
+- Somente uma versão numericamente superior à instalada é oferecida; uma publicação igual ou inferior nunca causa downgrade.
+- O APK é baixado exclusivamente de `https://downloads.elvanoqplay.app/ELVANOQ-Play.apk`, com progresso, cancelamento, conferência do tamanho e SHA-256 antes do instalador Android ser aberto mediante confirmação do usuário.
+- Nenhuma credencial IPTV, identidade do aparelho, chave do dispositivo ou token do Portal é enviada ao serviço público de distribuição.
+- Falhas de conexão, timeout, 403, 404, 429, 5xx, release ausente ou metadados inválidos não interrompem o uso normal do aplicativo.
+
 ## Migração de instalações anteriores
 
 Após uma atualização, o aplicativo restaura primeiro o estado persistido de versões anteriores e só então executa, em segundo plano, a migração de identidade para o Portal.
@@ -121,7 +130,7 @@ npm test -- --runInBand
 npm run lint
 ```
 
-Na validação da versão `2.17.13`, TypeScript foi aprovado e os testes automatizados concluíram com **27 suítes / 113 testes**. A validação estática não substitui os testes físicos em smartphone, Android TV, Fire TV e Fire Stick.
+As verificações estáticas e testes automatizados devem ser executados com as dependências do projeto instaladas. A validação estática não substitui os testes físicos em smartphone, Android TV, Fire TV e Fire Stick.
 
 Para validar fluidez em catálogo grande, preview e retorno do player em Fire TV/Fire Stick, siga o roteiro sanitizado em [docs/FIRE_STICK_PERFORMANCE_VALIDATION.md](docs/FIRE_STICK_PERFORMANCE_VALIDATION.md).
 

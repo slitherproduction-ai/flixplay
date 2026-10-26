@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -19,10 +18,12 @@ import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import {
-  checkForGitHubUpdate,
+  cancelUpdateDownload,
+  checkForPortalUpdate,
   downloadAndInstallUpdate,
   type UpdateCheckResult,
-} from "@/services/githubUpdater";
+  type UpdateDownloadProgress,
+} from "@/services/portalUpdater";
 import { logTechnicalError } from "@/services/security/sanitize";
 
 type ChangeTag = "Novidade" | "Melhoria" | "Correção";
@@ -262,21 +263,15 @@ function formatDownloadSize(bytes: number): string {
 async function runInstallUpdate(
   apkUrl: string,
   apkSize: number | null | undefined,
+  apkSha256: string | null | undefined,
+  onProgress: (progress: UpdateDownloadProgress) => void,
   onError: (msg: string) => void,
 ): Promise<void> {
   try {
-    await downloadAndInstallUpdate(apkUrl, apkSize);
+    await downloadAndInstallUpdate(apkUrl, apkSize ?? 0, apkSha256 ?? "", onProgress);
   } catch (err) {
     logTechnicalError("UpdateModal/install", err);
     onError(err instanceof Error ? err.message : "Falha ao iniciar a instalação.");
-  }
-}
-
-async function openReleaseUrl(url: string): Promise<void> {
-  try {
-    await Linking.openURL(url);
-  } catch (e) {
-    logTechnicalError("UpdateModal/release", e);
   }
 }
 
@@ -315,7 +310,7 @@ function InstallButton({
   installing: boolean;
   onPress: () => void;
 }) {
-  if (!result.hasUpdate || !(result.apkUrl ?? result.releaseUrl)) return null;
+  if (!result.hasUpdate || !result.apkUrl || !result.apkSha256) return null;
   return (
     <TVFocusable
       onPress={onPress}
@@ -346,21 +341,23 @@ function UpdateModal({
 }) {
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<UpdateDownloadProgress | null>(null);
 
   const handleInstall = useCallback(async () => {
     setInstallError(null);
     setInstalling(true);
+    setProgress(null);
     await runInstallUpdate(
-      result?.apkUrl ?? result?.releaseUrl ?? "",
+      result?.apkUrl ?? "",
       result?.apkSize,
+      result?.apkSha256,
+      setProgress,
       setInstallError,
     );
     setInstalling(false);
   }, [result]);
 
-  const handleOpenRelease = useCallback(() => {
-    void openReleaseUrl(result?.releaseUrl ?? "");
-  }, [result]);
+  const handleCancelDownload = useCallback(() => { void cancelUpdateDownload(); }, []);
 
   if (!result) return null;
 
@@ -431,17 +428,19 @@ function UpdateModal({
             </View>
           ) : null}
 
+          {installing ? <AppText style={modalStyles.progressText}>{progress?.fraction === null || progress?.fraction === undefined ? "Baixando atualização…" : `Baixando… ${Math.round(progress.fraction * 100)}%`}</AppText> : null}
+
           {/* Actions */}
           <View style={modalStyles.actions}>
             <InstallButton result={result} installing={installing} onPress={handleInstall} />
-            {result.releaseUrl ? (
+            {installing ? (
               <TVFocusable
-                onPress={handleOpenRelease}
+                onPress={handleCancelDownload}
                 style={modalStyles.releaseBtn}
-                accessibilityLabel="Ver release no GitHub"
+                accessibilityLabel="Cancelar download"
               >
-                <Ionicons name="logo-github" size={17} color={Colors.text} />
-                <AppText style={modalStyles.releaseBtnText}>Ver no GitHub</AppText>
+                <Ionicons name="close-outline" size={17} color={Colors.text} />
+                <AppText style={modalStyles.releaseBtnText}>Cancelar</AppText>
               </TVFocusable>
             ) : null}
             <TVFocusable onPress={onClose} style={modalStyles.cancelBtn} accessibilityLabel="Fechar">
@@ -473,7 +472,7 @@ export default function AboutScreen() {
     setActionError(null);
     setCheckState("checking");
     try {
-      const result = await checkForGitHubUpdate();
+      const result = await checkForPortalUpdate();
       setUpdateResult(result);
       setCheckState("done");
 
@@ -491,23 +490,6 @@ export default function AboutScreen() {
       setCheckState("idle");
     }
   }, []);
-
-  const openExternalLink = useCallback(async (url: string, destination: string) => {
-    setActionError(null);
-    try {
-      await Linking.openURL(url);
-    } catch (linkError) {
-      logTechnicalError("About/open-link", linkError);
-      setActionError(`Não foi possível abrir ${destination}. Verifique sua conexão e tente novamente.`);
-    }
-  }, []);
-
-  const handleGitHub = useCallback(() => {
-    void openExternalLink(
-      `https://github.com/${APP_INFO.githubRepo}`,
-      "o repositório GitHub",
-    );
-  }, [openExternalLink]);
 
   const handleCloseModal = useCallback(() => setModalVisible(false), []);
 
@@ -553,27 +535,20 @@ export default function AboutScreen() {
             </View>
           </View>
 
-          {/* GitHub update source */}
-          <GlassCard style={styles.githubCard} intensity={18}>
-            <View style={styles.githubRow}>
-              <View style={styles.githubIconWrap}>
-                <Ionicons name="logo-github" size={20} color={Colors.text} />
+          {/* Portal update source */}
+          <GlassCard style={styles.portalCard} intensity={18}>
+            <View style={styles.portalRow}>
+              <View style={styles.portalIconWrap}>
+                <Ionicons name="cloud-download-outline" size={20} color={Colors.text} />
               </View>
-              <View style={styles.githubCopy}>
-                <View style={styles.githubTitleRow}>
-                  <AppText style={styles.githubTitle}>Atualizações via GitHub Releases</AppText>
-                  <View style={styles.githubActiveBadge}>
-                    <AppText style={styles.githubActiveText}>VERIFICAÇÃO MANUAL</AppText>
+              <View style={styles.portalCopy}>
+                <View style={styles.portalTitleRow}>
+                  <AppText style={styles.portalTitle}>Atualizações pelo Portal ELVANOQ Play</AppText>
+                  <View style={styles.portalActiveBadge}>
+                    <AppText style={styles.portalActiveText}>VERIFICAÇÃO MANUAL</AppText>
                   </View>
                 </View>
               </View>
-              <TVFocusable
-                onPress={handleGitHub}
-                style={styles.githubOpenBtn}
-                accessibilityLabel="Abrir página de atualizações"
-              >
-                <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
-              </TVFocusable>
             </View>
           </GlassCard>
 
@@ -589,7 +564,7 @@ export default function AboutScreen() {
             <View style={styles.cardDivider} />
             <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e progresso local para acompanhar seu conteúdo." />
             <View style={styles.cardDivider} />
-            <TechnologyRow icon="logo-github" title="Verificação de atualizações" body="GitHub Releases" />
+            <TechnologyRow icon="cloud-download-outline" title="Verificação de atualizações" body="Portal ELVANOQ Play" />
           </GlassCard>
 
           {/* Changelog */}
@@ -789,16 +764,15 @@ const styles = StyleSheet.create({
   techRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 18 },
   techBadge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: Radii.pill, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.06)" },
   techBadgeText: { fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.muted },
-  // GitHub integration card
-  githubCard: { paddingHorizontal: 14, paddingVertical: 12 },
-  githubRow: { flexDirection: "row", alignItems: "center", gap: 11 },
-  githubIconWrap: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: Colors.border },
-  githubCopy: { flex: 1 },
-  githubTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  githubTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
-  githubActiveBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.15)" },
-  githubActiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
-  githubOpenBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: "rgba(59,130,246,0.1)" },
+  // Portal distribution card
+  portalCard: { paddingHorizontal: 14, paddingVertical: 12 },
+  portalRow: { flexDirection: "row", alignItems: "center", gap: 11 },
+  portalIconWrap: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: Colors.border },
+  portalCopy: { flex: 1 },
+  portalTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  portalTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  portalActiveBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.15)" },
+  portalActiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
   sectionHeading: { gap: 3 },
   sectionSubtitle: { fontSize: 12, color: Colors.subtle },
   technologyCard: { paddingHorizontal: 14 },

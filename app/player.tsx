@@ -66,6 +66,11 @@ import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import { openInExternalPlayer } from "@/services/externalPlayer";
 import { buildCatchupUrl } from "@/services/catchup";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
+import {
+  getIntroSkipTarget,
+  getNextEpisodeCountdown,
+  readIntroEndSeconds,
+} from "@/features/player/EpisodeAutomation";
 
 /** Format seconds → hh:mm:ss */
 function formatTime(secs: number): string {
@@ -264,6 +269,7 @@ type SeriesEpisodeNavigation = {
   episodeNumber: number;
   title: string;
   streamUrl: string;
+  introEndSeconds: number | null;
 };
 
 type XtreamEpisodeNavigationRaw = {
@@ -271,6 +277,7 @@ type XtreamEpisodeNavigationRaw = {
   episode_num?: string | number;
   title?: string;
   container_extension?: string;
+  info?: { intro_end_seconds?: string | number; introEndSeconds?: string | number };
 };
 
 function parseSeriesEpisodeNavigation(
@@ -291,6 +298,7 @@ function parseSeriesEpisodeNavigation(
       episodeNumber,
       title: episode.title ?? `Episódio ${episodeNumber}`,
       streamUrl: createSeriesEpisodeUrl(profile, streamId, episode.container_extension ?? "mp4"),
+      introEndSeconds: readIntroEndSeconds(episode.info),
     };
   };
   const source = Array.isArray(episodes)
@@ -313,6 +321,7 @@ export default function PlayerScreen() {
     seriesId?: string | string[];
     parentalCategoryKind?: string | string[];
     parentalCategoryId?: string | string[];
+    introEndSeconds?: string | string[];
   }>();
   const id = readParam(params.id) ?? "";
   const title = readParam(params.title) ?? "Conteúdo";
@@ -323,6 +332,7 @@ export default function PlayerScreen() {
   const sourceSeriesId = readParam(params.seriesId);
   const sourceParentalCategoryKind = readParam(params.parentalCategoryKind);
   const sourceParentalCategoryId = readParam(params.parentalCategoryId);
+  const sourceIntroEndSeconds = readIntroEndSeconds({ intro_end_seconds: readParam(params.introEndSeconds) });
   const tvMode = useTVMode();
   const insets = useSafeAreaInsets();
   const saveHistory = useAppStore((state) => state.saveHistory);
@@ -401,6 +411,8 @@ export default function PlayerScreen() {
   const [pendingProtectedChannelId, setPendingProtectedChannelId] = useState<string | null>(null);
   const [pendingDirectPlayback, setPendingDirectPlayback] = useState(false);
   const [seriesEpisodes, setSeriesEpisodes] = useState<SeriesEpisodeNavigation[]>([]);
+  const [episodeAdvanceCancelled, setEpisodeAdvanceCancelled] = useState(false);
+  const [episodeEnded, setEpisodeEnded] = useState(false);
 
   // ─── Overlays ─────────────────────────────────────────────────────────────
   const playButtonRef = useRef<TVFocusableHandle>(null);
@@ -420,6 +432,8 @@ export default function PlayerScreen() {
   const sessionGuardRef = useRef(createPlaybackSessionGuard());
   const currentChannelIdRef = useRef(id);
   const recordedPlaybackRef = useRef<string | null>(null);
+  const episodeAdvanceHandledRef = useRef(false);
+  const episodeAdvanceRevealedRef = useRef(false);
   const [previousChannelId, setPreviousChannelId] = useState<string | null>(null);
   const isCurrentChannelFavorite = contentType === "live" && favoriteChannelIds.includes(id);
   const isCurrentContentBlocked = directPlaybackBlocked;
@@ -474,7 +488,20 @@ export default function PlayerScreen() {
 
   const currentEpisodeIndex = seriesEpisodes.findIndex((episode) => episode.id === id);
   const nextEpisode = currentEpisodeIndex >= 0 ? seriesEpisodes[currentEpisodeIndex + 1] : undefined;
-  const canSkipIntro = contentType === "episode" && duration > 0 && currentTime < Math.min(180, duration - 5);
+  const introSkipTarget = getIntroSkipTarget(currentTime, duration, sourceIntroEndSeconds);
+  const canSkipIntro = contentType === "episode" && introSkipTarget !== null;
+  const nextEpisodeCountdown = getNextEpisodeCountdown(
+    currentTime,
+    duration,
+    contentType === "episode" && Boolean(nextEpisode) && isPlaying && !episodeAdvanceCancelled,
+  );
+
+  useEffect(() => {
+    setEpisodeAdvanceCancelled(false);
+    setEpisodeEnded(false);
+    episodeAdvanceHandledRef.current = false;
+    episodeAdvanceRevealedRef.current = false;
+  }, [id]);
 
   // Live channels do not have progress, but they still belong in the user's
   // recent activity. This lets Home prioritise the channels actually watched
@@ -660,6 +687,7 @@ export default function PlayerScreen() {
     const endSub = player.addListener("playToEnd", () => {
       if (!sessionGuard.isCurrent(sessionToken)) return;
       removeHistoryItem(id);
+      setEpisodeEnded(true);
     });
 
     return () => {
@@ -716,6 +744,14 @@ export default function PlayerScreen() {
     pendingTvOsdFocusRef.current = target;
     showControlsWithTimer();
   }, [showControlsWithTimer]);
+
+  // A countdown must be visible even when the normal OSD has already faded.
+  // Reveal it once; resetting on a new episode avoids repeated timer churn.
+  useEffect(() => {
+    if (nextEpisodeCountdown === null || episodeAdvanceRevealedRef.current) return;
+    episodeAdvanceRevealedRef.current = true;
+    showControlsWithTimer();
+  }, [nextEpisodeCountdown, showControlsWithTimer]);
 
   const focusTopControls = useCallback(() => {
     pendingTvOsdFocusRef.current = "top";
@@ -879,20 +915,20 @@ export default function PlayerScreen() {
   );
 
   const handleSkipIntro = useCallback(() => {
-    const target = Math.min(Math.max(0, duration - 2), Math.max(currentTime + 75, 90));
-    if (contentType !== "episode" || target <= currentTime) return;
+    if (contentType !== "episode" || introSkipTarget === null) return;
     try {
-      player.currentTime = target;
-      latestPositionRef.current = target;
-      setCurrentTime(target);
+      player.currentTime = introSkipTarget;
+      latestPositionRef.current = introSkipTarget;
+      setCurrentTime(introSkipTarget);
       showControlsWithTimer();
     } catch (error) {
       logTechnicalError("Player/skip-intro", error);
     }
-  }, [contentType, currentTime, duration, player, showControlsWithTimer]);
+  }, [contentType, introSkipTarget, player, showControlsWithTimer]);
 
   const handleNextEpisode = useCallback(() => {
     if (!nextEpisode) return;
+    episodeAdvanceHandledRef.current = true;
     persistProgress(latestPositionRef.current, latestDurationRef.current);
     const seriesTitle = sourceSubtitle.replace(/\s·\sT\d+:E\d+$/, "") || currentSeries?.title || title;
     router.replace({
@@ -905,9 +941,29 @@ export default function PlayerScreen() {
         subtitle: seriesTitle,
         thumbnail: sourceThumbnail || backdrop,
         seriesId: sourceSeriesId,
+        ...(nextEpisode.introEndSeconds ? { introEndSeconds: String(nextEpisode.introEndSeconds) } : {}),
       },
     });
   }, [backdrop, currentSeries?.title, nextEpisode, persistProgress, router, sourceSeriesId, sourceSubtitle, sourceThumbnail, title]);
+
+  const handleCancelNextEpisode = useCallback(() => {
+    setEpisodeAdvanceCancelled(true);
+    setEpisodeEnded(false);
+    showControlsWithTimer();
+  }, [showControlsWithTimer]);
+
+  useEffect(() => {
+    if (
+      !episodeEnded ||
+      contentType !== "episode" ||
+      !nextEpisode ||
+      episodeAdvanceCancelled ||
+      episodeAdvanceHandledRef.current
+    ) return;
+    episodeAdvanceHandledRef.current = true;
+    const timer = setTimeout(handleNextEpisode, 0);
+    return () => clearTimeout(timer);
+  }, [contentType, episodeAdvanceCancelled, episodeEnded, handleNextEpisode, nextEpisode]);
 
   const handlePanel = useCallback((nextPanel: Panel) => {
     setPanel((current) => (current === nextPanel ? null : nextPanel));
@@ -1390,7 +1446,9 @@ export default function PlayerScreen() {
             canSkipIntro={canSkipIntro}
             onSkipIntro={handleSkipIntro}
             nextEpisode={nextEpisode}
+            nextEpisodeCountdown={nextEpisodeCountdown}
             onNextEpisode={handleNextEpisode}
+            onCancelNextEpisode={handleCancelNextEpisode}
             onSelectAudio={handleSelectAudio}
             onSelectSubtitle={handleSelectSubtitle}
             onSelectSpeed={handleSelectSpeed}
@@ -1884,7 +1942,9 @@ function PlayerBottomPanel({
   canSkipIntro,
   onSkipIntro,
   nextEpisode,
+  nextEpisodeCountdown,
   onNextEpisode,
+  onCancelNextEpisode,
   onSelectAudio,
   onSelectSubtitle,
   onSelectSpeed,
@@ -1914,7 +1974,9 @@ function PlayerBottomPanel({
   canSkipIntro: boolean;
   onSkipIntro: () => void;
   nextEpisode?: SeriesEpisodeNavigation;
+  nextEpisodeCountdown: number | null;
   onNextEpisode: () => void;
+  onCancelNextEpisode: () => void;
   onSelectAudio: (option: AudioTrack) => void;
   onSelectSubtitle: (option: SubtitleTrack | null) => void;
   onSelectSpeed: (value: number) => void;
@@ -1972,14 +2034,29 @@ function PlayerBottomPanel({
           {nextEpisode ? (
             <TVFocusable
               accessibilityRole="button"
-              accessibilityLabel={`Próximo episódio: ${nextEpisode.title}`}
+              accessibilityLabel={nextEpisodeCountdown
+                ? `Próximo episódio em ${nextEpisodeCountdown} segundos: ${nextEpisode.title}`
+                : `Próximo episódio: ${nextEpisode.title}`}
               onPress={onNextEpisode}
-              style={styles.episodeActionSecondary}
+              focusStyle={styles.whiteActionFocused}
+              style={styles.episodeActionPrimary}
             >
-              <AppText numberOfLines={1} style={styles.episodeActionSecondaryText}>
-                Próximo episódio
+              <AppText numberOfLines={1} style={styles.episodeActionPrimaryText}>
+                {nextEpisodeCountdown ? `Próximo em ${nextEpisodeCountdown}s` : "Próximo episódio"}
               </AppText>
-              <Ionicons name="play-skip-forward-outline" size={16} color={Colors.white} />
+              <Ionicons name="play-skip-forward-outline" size={16} color={Colors.black} />
+            </TVFocusable>
+          ) : null}
+          {nextEpisodeCountdown ? (
+            <TVFocusable
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar avanço automático"
+              onPress={onCancelNextEpisode}
+              focusStyle={styles.whiteActionFocused}
+              style={styles.episodeActionPrimary}
+            >
+              <Ionicons name="close-outline" size={16} color={Colors.black} />
+              <AppText style={styles.episodeActionPrimaryText}>Cancelar</AppText>
             </TVFocusable>
           ) : null}
         </View>

@@ -120,6 +120,8 @@ export interface EpisodeItem {
   duration: string;
   plot: string;
   streamUrl: string;
+  /** Optional explicit intro marker supplied by the provider, in seconds. */
+  introEndSeconds?: number;
   resumePositionMs?: number;
 }
 

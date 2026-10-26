@@ -2,6 +2,9 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Player: séries agora avançam para o próximo episódio ao terminar, após uma contagem visível de seis segundos e com ação explícita para cancelar. A ação manual de próximo episódio foi preservada em TV, tablet e smartphone.
+- Player: “Pular abertura” deixou de usar uma estimativa fixa. O botão só aparece quando o provedor entregar o marcador explícito `intro_end_seconds`/`introEndSeconds`, evitando saltos indevidos em episódios sem marcação.
+
 - Portal: centralizado o transporte público de `portal-control` para os fluxos de Código, status do dispositivo, sincronização de listas e migração. Limites de requisição (429), indisponibilidade temporária (502/503/504) e falhas de rede agora têm tratamento consistente, sem serem confundidos com bloqueio de licença.
 
 - Login: o rodapé de identidade agora informa claramente o endereço de cadastro `elvanoqplay.app`, preservando MAC, chave e estado do Portal.

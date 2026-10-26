@@ -12,6 +12,7 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
+import { readIntroEndSeconds } from "@/features/player/EpisodeAutomation";
 import { verifyParentalPin } from "@/services/security/parentalControl";
 import { fetchTmdbMetadata, isTmdbConfigured, type TmdbMetadata } from "@/services/tmdb";
 import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
@@ -45,6 +46,8 @@ interface XtreamEpisodeRaw {
     duration?: string;
     plot?: string;
     movie_image?: string;
+    intro_end_seconds?: string | number;
+    introEndSeconds?: string | number;
   };
 }
 
@@ -95,6 +98,7 @@ function parseSeriesInfo(
       thumbnail: ep.info?.movie_image ?? "",
       duration,
       plot: ep.info?.plot ?? "",
+      introEndSeconds: readIntroEndSeconds(ep.info),
       streamUrl: streamId
         ? createSeriesEpisodeUrl(profile as Parameters<typeof createSeriesEpisodeUrl>[0], streamId, ext)
         : "",
@@ -321,6 +325,7 @@ export default function DetailsScreen() {
           seriesId: show.id,
           parentalCategoryKind: "series",
           parentalCategoryId: show.categoryId,
+          ...(episode.introEndSeconds ? { introEndSeconds: String(episode.introEndSeconds) } : {}),
         },
       });
     },

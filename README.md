@@ -24,6 +24,7 @@ O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e 
 - Guia de TV ao vivo responsivo: lista de canais à esquerda e preview/EPG à direita no modo TV.
 - Preview com áudio apenas enquanto a guia TV ao vivo está ativa; ao sair da tela, a reprodução é pausada.
 - Player com HLS/TS, áudio e legendas, OSD, troca rápida de canais, escolha de proporção, PiP no Android e preferência de formato de stream.
+- Séries com avanço controlado para o próximo episódio, contagem cancelável e pulo de abertura somente quando o provedor informar um marcador explícito.
 - Metadados complementares do TMDB quando configurado para o build.
 - Controle parental, diagnóstico de conexão, cache local por servidor e relatório técnico sanitizado.
 - Interface responsiva: navegação inferior para toque e menu lateral retrátil com D-pad para TV.

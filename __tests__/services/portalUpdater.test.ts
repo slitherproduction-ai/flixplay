@@ -92,7 +92,12 @@ describe("Portal updater", () => {
       .mockResolvedValueOnce(response({ release: publishedRelease({ version: "2.17.16" }) }))
       .mockResolvedValueOnce(response({ release: publishedRelease({ version: "2.17.15" }) }));
 
-    await expect(checkForPortalUpdate()).resolves.toMatchObject({ hasUpdate: false, error: null });
+    await expect(checkForPortalUpdate()).resolves.toMatchObject({
+      hasUpdate: false,
+      latestVersion: "2.17.16",
+      releaseNotes: "Correções de estabilidade.",
+      error: null,
+    });
     await expect(checkForPortalUpdate()).resolves.toMatchObject({ hasUpdate: false, error: null });
   });
 

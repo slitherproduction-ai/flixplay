@@ -9,7 +9,7 @@ Aplicativo Android de streaming para listas próprias e autorizadas, com suporte
 | Item | Valor |
 | --- | --- |
 | Versão | `2.17.16` |
-| Build / versionCode | `20261031` |
+| Build / versionCode | `20261032` |
 | Pacote Android | `com.fastshot.slitherproduction.flixplay` |
 | Android mínimo | API 24 |
 | Arquiteturas do APK universal | `armeabi-v7a`, `arm64-v8a` |

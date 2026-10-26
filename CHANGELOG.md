@@ -2,6 +2,10 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Qualidade: ampliada a cobertura dos fluxos de Portal para Código (403/404/429/503), sincronização de lista M3U, bloqueio explícito e migração legada sem envio de credenciais. Incluídos testes de validação do login e da normalização de episódios.
+- Arquitetura: regras puras de Login, parsing de episódios de Detalhes e navegação de episódios do Player foram movidos para módulos próprios, preservando as telas e reduzindo o risco de regressão em arquivos extensos.
+- Performance: adicionado roteiro de teste físico sanitizado para Fire TV/Fire Stick com catálogo grande, troca de categorias, preview, retorno do player e fluxo de série.
+
 - Player: séries agora avançam para o próximo episódio ao terminar, após uma contagem visível de seis segundos e com ação explícita para cancelar. A ação manual de próximo episódio foi preservada em TV, tablet e smartphone.
 - Player: “Pular abertura” deixou de usar uma estimativa fixa. O botão só aparece quando o provedor entregar o marcador explícito `intro_end_seconds`/`introEndSeconds`, evitando saltos indevidos em episódios sem marcação.
 

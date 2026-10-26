@@ -11,8 +11,8 @@ import { AppText, EmptyState, ErrorState, IconButton, SectionHeader } from "@/co
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
-import { getSeriesInfo, createSeriesEpisodeUrl } from "@/services/xtream";
-import { readIntroEndSeconds } from "@/features/player/EpisodeAutomation";
+import { getSeriesInfo } from "@/services/xtream";
+import { parseSeriesEpisodes } from "@/features/details/seriesEpisodes";
 import { verifyParentalPin } from "@/services/security/parentalControl";
 import { fetchTmdbMetadata, isTmdbConfigured, type TmdbMetadata } from "@/services/tmdb";
 import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
@@ -31,104 +31,6 @@ function isResumable(entry?: PlayHistory): boolean {
   const progress = getHistoryProgress(entry);
   return Boolean(entry && entry.positionMs >= 5_000 && progress > 0 && progress < 95);
 }
-
-// ---------------------------------------------------------------------------
-// Xtream series info response types
-// ---------------------------------------------------------------------------
-
-interface XtreamEpisodeRaw {
-  id?: string | number;
-  episode_num?: number | string;
-  title?: string;
-  container_extension?: string;
-  info?: {
-    duration_secs?: number;
-    duration?: string;
-    plot?: string;
-    movie_image?: string;
-    intro_end_seconds?: string | number;
-    introEndSeconds?: string | number;
-  };
-}
-
-interface XtreamSeriesInfoResponse {
-  info?: {
-    name?: string;
-    cover?: string;
-    plot?: string;
-    cast?: string;
-    rating?: string | number;
-    releaseDate?: string;
-  };
-  seasons?: { season_number?: number; name?: string }[];
-  episodes?: Record<string, XtreamEpisodeRaw[]> | XtreamEpisodeRaw[];
-}
-
-// ---------------------------------------------------------------------------
-// Parse raw Xtream series info into normalised EpisodeItem[]
-// ---------------------------------------------------------------------------
-
-function parseSeriesInfo(
-  raw: unknown,
-  seriesId: string,
-  profile: { serverUrl: string; username: string; password: string },
-): { episodes: EpisodeItem[]; seasonsCount: number } {
-  if (!raw || typeof raw !== "object") return { episodes: [], seasonsCount: 1 };
-
-  const data = raw as XtreamSeriesInfoResponse;
-  const episodesRaw = data.episodes;
-
-  if (!episodesRaw) return { episodes: [], seasonsCount: 1 };
-
-  const buildEpisode = (
-    ep: XtreamEpisodeRaw,
-    seasonNumber: number,
-  ): EpisodeItem => {
-    const streamId = String(ep.id ?? "");
-    const ext = ep.container_extension ?? "mp4";
-    const durationSecs = ep.info?.duration_secs ?? 0;
-    const mins = Math.floor(durationSecs / 60);
-    const duration = mins > 0 ? `${mins}min` : ep.info?.duration ?? "N/A";
-    return {
-      id: `ep-${seriesId}-s${seasonNumber}-e${ep.episode_num ?? 0}`,
-      seriesId,
-      seasonNumber,
-      episodeNumber: Number(ep.episode_num ?? 0),
-      title: ep.title ?? `Episódio ${ep.episode_num ?? ""}`,
-      thumbnail: ep.info?.movie_image ?? "",
-      duration,
-      plot: ep.info?.plot ?? "",
-      introEndSeconds: readIntroEndSeconds(ep.info),
-      streamUrl: streamId
-        ? createSeriesEpisodeUrl(profile as Parameters<typeof createSeriesEpisodeUrl>[0], streamId, ext)
-        : "",
-    };
-  };
-
-  if (Array.isArray(episodesRaw)) {
-    const eps = episodesRaw.map((ep) => buildEpisode(ep, 1));
-    return { episodes: eps, seasonsCount: 1 };
-  }
-
-  // Object indexed by season number
-  const allEpisodes: EpisodeItem[] = [];
-  const seasonKeys = Object.keys(episodesRaw).sort((a, b) => Number(a) - Number(b));
-  for (const key of seasonKeys) {
-    const seasonNum = Number(key);
-    const epList = (episodesRaw as Record<string, XtreamEpisodeRaw[]>)[key];
-    if (Array.isArray(epList)) {
-      for (const ep of epList) {
-        allEpisodes.push(buildEpisode(ep, seasonNum));
-      }
-    }
-  }
-  const seasonsCount = seasonKeys.length || 1;
-  return { episodes: allEpisodes, seasonsCount };
-}
-
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
 
 export default function DetailsScreen() {
   const router = useRouter();
@@ -200,7 +102,7 @@ export default function DetailsScreen() {
     getSeriesInfo(activeProfile, show.seriesId, controller.signal)
       .then((raw) => {
         if (cancelled) return;
-        const { episodes: parsed, seasonsCount: sc } = parseSeriesInfo(
+        const { episodes: parsed, seasonsCount: sc } = parseSeriesEpisodes(
           raw,
           show.id,
           activeProfile,

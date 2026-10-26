@@ -41,4 +41,18 @@ describe("server code resolution", () => {
       message: "Portal temporariamente indisponível. Tente novamente em instantes.",
     });
   });
+
+  it("preserves explicit 403 and 404 access meanings", async () => {
+    (globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce(response({ message: "restricted" }, 403))
+      .mockResolvedValueOnce(response({ message: "missing" }, 404));
+
+    await expect(resolveServerCode("flixplay")).rejects.toMatchObject({ reason: "identity-conflict" });
+    await expect(resolveServerCode("flixplay")).rejects.toMatchObject({ reason: "not-found" });
+  });
+
+  it("treats rate limiting as temporary unavailability", async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(response({ message: "slow down" }, 429));
+    await expect(resolveServerCode("flixplay")).rejects.toMatchObject({ reason: "unavailable" });
+  });
 });

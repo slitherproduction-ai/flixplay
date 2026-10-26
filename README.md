@@ -123,6 +123,8 @@ npm run lint
 
 Na validação da versão `2.17.13`, TypeScript foi aprovado e os testes automatizados concluíram com **27 suítes / 113 testes**. A validação estática não substitui os testes físicos em smartphone, Android TV, Fire TV e Fire Stick.
 
+Para validar fluidez em catálogo grande, preview e retorno do player em Fire TV/Fire Stick, siga o roteiro sanitizado em [docs/FIRE_STICK_PERFORMANCE_VALIDATION.md](docs/FIRE_STICK_PERFORMANCE_VALIDATION.md).
+
 ## Compilar APK universal
 
 O projeto possui um script de build que confere os pré-requisitos, exige a configuração TMDB, utiliza caches locais e gera um APK ARM universal.

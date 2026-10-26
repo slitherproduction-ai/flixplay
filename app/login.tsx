@@ -25,8 +25,7 @@ import { Colors, Radii, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { BrandLogo } from "@/components/brand-logo";
-import { authenticateXtream, XtreamApiError } from "@/services/xtream";
-import type { XtreamUserInfo } from "@/services/xtream";
+import { authenticateXtream } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
 import { useTVMode } from "@/hooks/use-tv-mode";
@@ -36,164 +35,24 @@ import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/device
 import type { PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
 import { syncPortalPlaylist, type PortalPlaylistSyncResult } from "@/services/device/portalPlaylistSync";
 import { revalidatePortalManagedDevice } from "@/services/device/codeDeviceAccess";
-import { isValidServerCode, normalizeServerCode, resolveServerCode } from "@/services/device/serverCodeResolver";
+import { resolveServerCode } from "@/services/device/serverCodeResolver";
 import { revalidateCodeDevice } from "@/services/device/codeDeviceAccess";
+import {
+  buildDiagInfoFromError,
+  buildProfileUpdate,
+  checkXtreamAuth,
+  formatAddedAt,
+  getUserStatusError,
+  mapConnectError,
+  maskUsername,
+  normalizeServerUrl,
+  validateCodeLoginFields,
+  validateLoginFields,
+  type DiagInfo,
+} from "@/features/login/loginValidation";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
-
-interface DiagInfo {
-  testedUrl: string;
-  alternateProtocol: "HTTPS" | "HTTP";
-  alternateUrl: string;
-}
-
-// ---------------------------------------------------------------------------
-// Pure module-level helpers — extracted to keep performConnect simple
-// ---------------------------------------------------------------------------
-
-/** Returns true when the Xtream server confirmed a successful authentication. */
-function checkXtreamAuth(userInfo: XtreamUserInfo | null): userInfo is XtreamUserInfo {
-  if (!userInfo) return false;
-  const v = userInfo.auth;
-  if (v === 1 || v === "1" || v === true) return true;
-  // Some servers omit the auth field entirely but still return a username on success
-  return v === undefined && !!userInfo.username;
-}
-
-/** Builds a DiagInfo from a caught error, or null when not an XtreamApiError. */
-function buildDiagInfoFromError(err: unknown): DiagInfo | null {
-  if (!(err instanceof XtreamApiError) || !err.testedUrl) return null;
-  const base = err.testedUrl;
-  const isHttp = base.startsWith("http://");
-  return {
-    testedUrl: base,
-    alternateProtocol: isHttp ? "HTTPS" : "HTTP",
-    alternateUrl: isHttp
-      ? base.replace("http://", "https://")
-      : base.replace("https://", "http://"),
-  };
-}
-
-/** Maps a successfully authenticated user_info into the profile fields to persist. */
-function buildProfileUpdate(userInfo: XtreamUserInfo) {
-  const formats = Array.isArray(userInfo.allowed_output_formats)
-    ? userInfo.allowed_output_formats.map((value) => value.toLowerCase())
-    : [];
-  const format = formats.includes("m3u8")
-    ? "HLS"
-    : formats.includes("ts")
-      ? "TS"
-      : null;
-  return {
-    expiryDate: parseExpiryDisplay(userInfo.exp_date ?? null),
-    maxConnections: userInfo.max_connections ? Number(userInfo.max_connections) : null,
-    activeConnections: userInfo.active_cons ? Number(userInfo.active_cons) : null,
-    format: format as ServerProfile["format"],
-    status: userInfo.status ?? null,
-  };
-}
-
-function normalizeUrl(input: string): string {
-  let url = input.trim();
-  if (!url) return url;
-
-  // Add http:// if no protocol present — IPTV servers are typically plain HTTP
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    url = `http://${url}`;
-  }
-
-  // Use URL.origin to extract ONLY protocol + hostname + port.
-  // This correctly strips any path, query, fragment, or embedded user-info
-  // that users accidentally paste (e.g. http://server:8080/player_api.php?...
-  // or http://server/live/user/pass/123).  A regex whitelist of known paths is
-  // brittle and silently passes unknown paths through to buildApiUrl, which
-  // then appends /player_api.php to them and creates an invalid endpoint.
-  try {
-    const parsed = new URL(url);
-    return parsed.origin; // "http://hostname:port" — no trailing slash, no path
-  } catch {
-    // Malformed URL — strip trailing slashes and return as-is; the subsequent
-    // isValidServerUrl check will catch it and show a helpful error.
-    return url.replace(/\/+$/, "");
-  }
-}
-
-/** Returns true when the normalised URL has a non-empty hostname. */
-function isValidServerUrl(normalised: string): boolean {
-  if (!normalised) return false;
-  try {
-    const parsed = new URL(normalised);
-    // Must have a real hostname — rejects "http://" with empty host
-    return parsed.hostname.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return "Erro desconhecido. Tente novamente.";
-}
-
-function formatAddedAt(iso?: string): string {
-  if (!iso) return "Data desconhecida";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("pt-BR");
-  } catch {
-    return "Data inválida";
-  }
-}
-
-function maskUsername(value: string): string {
-  if (value.length <= 2) return "••";
-  return `${value.slice(0, 1)}${"•".repeat(Math.min(6, value.length - 2))}${value.slice(-1)}`;
-}
-
-function validateLoginFields(host: string, username: string, password: string): string | null {
-  const normalised = normalizeUrl(host);
-  if (!isValidServerUrl(normalised)) {
-    return "Informe o Host / URL do servidor. Exemplos: servidor.exemplo.com, http://192.168.1.1:8080";
-  }
-  if (!username.trim()) return "Informe o usuário.";
-  if (!password) return "Informe a senha.";
-  return null;
-}
-
-function validateCodeLoginFields(code: string, username: string, password: string): string | null {
-  if (!isValidServerCode(normalizeServerCode(code))) return "Informe um código de servidor válido.";
-  if (!username.trim()) return "Informe o usuário.";
-  if (!password) return "Informe a senha.";
-  return null;
-}
-
-function parseExpiryDisplay(expDate: string | null): string {
-  if (!expDate) return "Ilimitado";
-  const expTs = Number(expDate);
-  if (Number.isNaN(expTs) || expTs <= 0) return "Ilimitado";
-  return new Date(expTs * 1000).toLocaleDateString("pt-BR");
-}
-
-function getUserStatusError(status?: string): string | null {
-  if (!status) return null;
-  const s = status.toLowerCase().trim();
-  if (s === "expired") return "Conta expirada. Entre em contato com seu provedor IPTV.";
-  if (s === "disabled" || s === "banned" || s === "blocked")
-    return "Conta desativada. Entre em contato com seu provedor IPTV.";
-  return null;
-}
-
-function mapConnectError(error: unknown): string {
-  // XtreamApiError already has a descriptive, user-facing message — use it directly.
-  const msg = getErrorMessage(error);
-  if (!msg || msg === "Erro desconhecido. Tente novamente.") {
-    return "Falha ao conectar. Verifique a URL, usuário e senha.";
-  }
-  return msg;
-}
 
 interface SavedListsModalProps {
   servers: ServerProfile[];
@@ -513,7 +372,7 @@ export default function LoginScreen() {
       const profile: ServerProfile = {
         id: `server-${Date.now()}`,
         name: listName.trim() || username.trim(),
-        serverUrl: normalizeUrl(effectiveHost),
+        serverUrl: normalizeServerUrl(effectiveHost),
         username: username.trim(),
         password,
         isActive: true,

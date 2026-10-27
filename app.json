@@ -52,9 +52,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/brand/ELVANOQ_adaptive_foreground_v3.png",
+          "image": "./assets/images/brand/ELVANOQ_splash_native_mark_v5.png",
           "resizeMode": "contain",
-          "backgroundColor": "#020714"
+          "backgroundColor": "#03070f"
         }
       ],
       "@react-native-community/datetimepicker",

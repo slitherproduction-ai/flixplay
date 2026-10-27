@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Splash Android: adotado o novo símbolo branco transparente, centralizado e proporcional, sobre o fundo nativo `#03070f` em smartphone, tablet, Android TV, Google TV e Fire TV.
 - Build Android: elevado para `20261032`, permitindo instalar a correção do atualizador por cima do APK 2.17.16 publicado anteriormente.
 - Atualizações: corrigida a classificação de respostas HTTP 200 do Portal. Uma release válida não é mais exibida indevidamente como indisponível.
 - Atualizações: substituída a consulta e o download via GitHub Releases pela distribuição oficial do Portal ELVANOQ Play. O app consulta somente a release publicada, evita downgrade e confere tamanho e SHA-256 do APK antes de abrir o instalador Android, com progresso e cancelamento.

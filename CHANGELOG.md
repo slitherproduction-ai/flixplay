@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login Android: o campo Código deixou de reescrever o texto no mesmo evento da digitação e não monta o botão de limpar em smartphone/tablet após o primeiro caractere. A normalização para minúsculas e remoção de espaços ocorre ao conectar. Build elevado para `20261034`.
 - Login Android: eliminada a atualização de handles D-Pad durante o redimensionamento pelo teclado em smartphone/tablet. Os handles e foco preferencial agora sequer são enviados aos campos fora de TV. Build elevado para `20261033` para garantir a instalação desta correção sobre o APK anterior.
 - Login Android: corrigido encerramento ao focar o campo Código. O formulário deixa de recriar o `BlurView` nativo enquanto o teclado abre, usa redimensionamento estável da janela e aplica atributos de D-Pad somente em TV.
 - Splash Android: adotado o novo símbolo branco transparente, centralizado e proporcional, sobre o fundo nativo `#03070f` em smartphone, tablet, Android TV, Google TV e Fire TV.

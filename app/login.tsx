@@ -35,7 +35,7 @@ import { getDeviceIdentity, type DeviceIdentity } from "@/services/device/device
 import type { PortalDeviceStatus } from "@/services/device/portalDeviceStatus";
 import { syncPortalPlaylist, type PortalPlaylistSyncResult } from "@/services/device/portalPlaylistSync";
 import { revalidatePortalManagedDevice } from "@/services/device/codeDeviceAccess";
-import { resolveServerCode } from "@/services/device/serverCodeResolver";
+import { normalizeServerCode, resolveServerCode } from "@/services/device/serverCodeResolver";
 import { revalidateCodeDevice } from "@/services/device/codeDeviceAccess";
 import {
   buildDiagInfoFromError,
@@ -416,7 +416,12 @@ export default function LoginScreen() {
     setError(null);
     setDiagInfo(null);
 
-    const validationError = validateCodeLoginFields(serverCode, username, password);
+    // Keep TextInput's native editing buffer untouched while the user types.
+    // Samsung/Android IMEs can terminate a Fabric surface when a controlled
+    // field rewrites its own value in the same text-change event. The Portal
+    // contract still receives the exact normalized value at submission time.
+    const normalizedCode = normalizeServerCode(serverCode);
+    const validationError = validateCodeLoginFields(normalizedCode, username, password);
     if (validationError) {
       setError(validationError);
       return;
@@ -426,7 +431,7 @@ export default function LoginScreen() {
     try {
       // Only the normalized administrator code is sent to the Portal. IPTV
       // credentials are used exclusively by authenticateXtream below.
-      const resolved = await resolveServerCode(serverCode);
+      const resolved = await resolveServerCode(normalizedCode);
       const profile: ServerProfile = {
         id: `server-code-${resolved.code}`,
         name: listName.trim() || username.trim(),
@@ -802,7 +807,7 @@ export default function LoginScreen() {
                     accessibilityLabel="Código do servidor"
                     {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
                     value={serverCode}
-                    onChangeText={(value) => setServerCode(normalizeServerCode(value))}
+                    onChangeText={setServerCode}
                     placeholder="Ex.: pfast"
                     placeholderTextColor={Colors.subtle}
                     autoCapitalize="none"
@@ -813,7 +818,7 @@ export default function LoginScreen() {
                     onBlur={() => setFocusedField(null)}
                     style={styles.input}
                   />
-                  {serverCode.length > 0 ? <TVFocusable onPress={() => setServerCode("")} style={styles.inputClearBtn} accessibilityLabel="Limpar código"><Ionicons name="close-circle" size={17} color={Colors.muted} /></TVFocusable> : null}
+                  {tvMode && serverCode.length > 0 ? <TVFocusable onPress={() => setServerCode("")} style={styles.inputClearBtn} accessibilityLabel="Limpar código"><Ionicons name="close-circle" size={17} color={Colors.muted} /></TVFocusable> : null}
                 </View>
                 <AppText style={styles.fieldHint}>O código localiza o servidor cadastrado pelo administrador.</AppText>
               </View>

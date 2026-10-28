@@ -2,6 +2,7 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Login Android: corrigido encerramento ao focar o campo Código. O formulário deixa de recriar o `BlurView` nativo enquanto o teclado abre, usa redimensionamento estável da janela e aplica atributos de D-Pad somente em TV.
 - Splash Android: adotado o novo símbolo branco transparente, centralizado e proporcional, sobre o fundo nativo `#03070f` em smartphone, tablet, Android TV, Google TV e Fire TV.
 - Splash Android: os recursos nativos agora usam a área recomendada de `108dp` em cada densidade, derivados do PNG mestre de alta resolução. Isso evita a ampliação do bitmap pelo SplashScreen do Android e mantém o símbolo nítido.
 - Build Android: elevado para `20261032`, permitindo instalar a correção do atualizador por cima do APK 2.17.16 publicado anteriormente.

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BlurTargetView, BlurView } from "expo-blur";
+import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { APP_INFO } from "@/constants/app";
 import { PORTAL_LINKS, PORTAL_ORIGIN } from "@/constants/portal";
@@ -216,10 +216,8 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
 
 export default function LoginScreen() {
   const router = useRouter();
-  // Android's native BlurView needs an explicit source view. Keeping the
-  // poster mosaic and its veil together in this target makes the glass card
-  // refract the actual artwork behind it instead of falling back to no blur.
-  const backdropRef = useRef<View>(null);
+  // Android intentionally keeps the login surface independent from a native
+  // blur target, so opening the IME cannot trigger a blur re-capture.
   const tvMode = useTVMode();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const { isTablet, isTabletLandscape } = useResponsiveLayout();
@@ -666,7 +664,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
-      <BlurTargetView ref={backdropRef} collapsable={false} style={styles.loginBackdrop} pointerEvents="none">
+      <View collapsable={false} style={styles.loginBackdrop} pointerEvents="none">
         <Image
           source={tvMode
             ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v4.jpg")
@@ -676,10 +674,14 @@ export default function LoginScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.loginBackdropVeil, tvMode && styles.tvBackdropVeil]} />
-      </BlurTargetView>
+      </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        // Android uses the Activity's adjustResize mode. Combining that with
+        // KeyboardAvoidingView height changes forces a native BlurView redraw
+        // while the IME is opening, which can terminate the process on some
+        // Android / Fire OS devices.
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboardView}
       >
         <ScrollView
@@ -705,15 +707,11 @@ export default function LoginScreen() {
 
           {/* Glass card */}
           <View style={[styles.card, tvMode && styles.tvCard, isTablet && styles.tabletCard, isTabletLandscape && styles.tabletLandscapeCard, compactTv && styles.tvCompactCard]} onLayout={resolveFormFocusHandles}>
-            <BlurView
-              blurTarget={backdropRef}
-              intensity={72}
-              blurReductionFactor={1}
-              tint="dark"
-              blurMethod={Platform.OS === "android" ? "dimezisBlurViewSdk31Plus" : undefined}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
+            {Platform.OS === "ios" ? (
+              <BlurView intensity={72} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
+            ) : (
+              <View style={styles.androidCardBackdrop} pointerEvents="none" />
+            )}
             <View style={styles.cardHighlight} pointerEvents="none" />
             <View style={[styles.cardInner, tvMode && styles.tvCardInner, compactTv && styles.tvCompactCardInner]}>
               <AppText style={styles.cardEyebrow}>COMECE AQUI</AppText>
@@ -796,7 +794,7 @@ export default function LoginScreen() {
                     autoFocus={tvMode && accessMethod === "xtream-code"}
                     hasTVPreferredFocus={tvMode && accessMethod === "xtream-code"}
                     accessibilityLabel="Código do servidor"
-                    {...({ nextFocusDown: formFocusHandles.username || undefined } as Record<string, number | undefined>)}
+                    {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
                     value={serverCode}
                     onChangeText={(value) => setServerCode(normalizeServerCode(value))}
                     placeholder="Ex.: pfast"
@@ -827,7 +825,7 @@ export default function LoginScreen() {
                     autoFocus={tvMode && accessMethod === "xtream"}
                     hasTVPreferredFocus={tvMode && accessMethod === "xtream"}
                     accessibilityLabel="Host ou URL do servidor"
-                    {...({ nextFocusDown: formFocusHandles.username || undefined } as Record<string, number | undefined>)}
+                    {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
                     value={host}
                     onChangeText={setHost}
                     placeholder="http://servidor.tv:8080"
@@ -867,10 +865,10 @@ export default function LoginScreen() {
                     ref={usernameRef}
                     value={username}
                     accessibilityLabel="Usuário"
-                    {...({
+                    {...(tvMode ? {
                       nextFocusUp: (accessMethod === "xtream-code" ? formFocusHandles.code : formFocusHandles.host) || undefined,
                       nextFocusDown: formFocusHandles.password || undefined,
-                    } as Record<string, number | undefined>)}
+                    } : {})}
                     onChangeText={setUsername}
                     placeholder="Seu usuário"
                     placeholderTextColor={Colors.subtle}
@@ -905,10 +903,10 @@ export default function LoginScreen() {
                     ref={passwordRef}
                     value={password}
                     accessibilityLabel="Senha"
-                    {...({
+                    {...(tvMode ? {
                       nextFocusUp: formFocusHandles.username || undefined,
                       nextFocusDown: formFocusHandles.listName || undefined,
-                    } as Record<string, number | undefined>)}
+                    } : {})}
                     onChangeText={setPassword}
                     placeholder="Sua senha"
                     placeholderTextColor={Colors.subtle}
@@ -949,10 +947,10 @@ export default function LoginScreen() {
                     ref={listNameRef}
                     value={listName}
                     accessibilityLabel="Nome da lista, opcional"
-                    {...({
+                    {...(tvMode ? {
                       nextFocusUp: formFocusHandles.password || undefined,
                       nextFocusDown: formFocusHandles.connect || undefined,
-                    } as Record<string, number | undefined>)}
+                    } : {})}
                     onChangeText={setListName}
                     placeholder="Ex.: Minha Lista IPTV"
                     placeholderTextColor={Colors.subtle}
@@ -1021,7 +1019,7 @@ export default function LoginScreen() {
                 disabled={loading}
                 onPress={handleConnect}
                 hasTVPreferredFocus={!tvMode}
-                nextFocusUp={formFocusHandles.listName || undefined}
+                {...(tvMode ? { nextFocusUp: formFocusHandles.listName || undefined } : {})}
                 style={({ pressed }) => [
                   styles.connectBtn,
                   pressed && styles.pressed,
@@ -1207,6 +1205,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(10,15,25,0.20)",
     ...Shadows.card,
   },
+  // Android intentionally avoids a native BlurView inside an IME-resized
+  // screen. The opaque tint retains the same visual hierarchy without the
+  // unstable redraw path that occurred when the code field gained focus.
+  androidCardBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8,14,27,0.82)" },
   tvCard: { borderRadius: 28, borderColor: "rgba(191,219,254,0.24)", backgroundColor: "rgba(8,14,27,0.22)" },
   tabletCard: { borderRadius: 26 },
   tabletLandscapeCard: { backgroundColor: "rgba(8,14,27,0.26)" },

@@ -272,6 +272,10 @@ export default function LoginScreen() {
   });
 
   const resolveFormFocusHandles = useCallback(() => {
+    // These native node handles exist only for D-Pad traversal. Resolving
+    // them after every mobile keyboard resize can schedule a state update
+    // during TextInput focus, so never run this path outside TV devices.
+    if (!tvMode) return;
     requestAnimationFrame(() => {
       setFormFocusHandles({
         host: findNodeHandle(hostRef.current) ?? 0,
@@ -282,7 +286,7 @@ export default function LoginScreen() {
         connect: connectButtonRef.current?.getNodeHandle() ?? 0,
       });
     });
-  }, []);
+  }, [tvMode]);
 
   const applyPortalSyncResult = useCallback((result: PortalPlaylistSyncResult) => {
     if (result.state === "synced") {
@@ -706,7 +710,10 @@ export default function LoginScreen() {
           </View>
 
           {/* Glass card */}
-          <View style={[styles.card, tvMode && styles.tvCard, isTablet && styles.tabletCard, isTabletLandscape && styles.tabletLandscapeCard, compactTv && styles.tvCompactCard]} onLayout={resolveFormFocusHandles}>
+          <View
+            style={[styles.card, tvMode && styles.tvCard, isTablet && styles.tabletCard, isTabletLandscape && styles.tabletLandscapeCard, compactTv && styles.tvCompactCard]}
+            onLayout={tvMode ? resolveFormFocusHandles : undefined}
+          >
             {Platform.OS === "ios" ? (
               <BlurView intensity={72} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
             ) : (
@@ -791,8 +798,7 @@ export default function LoginScreen() {
                   <View style={styles.inputIconBox}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /></View>
                   <TextInput
                     ref={serverCodeRef}
-                    autoFocus={tvMode && accessMethod === "xtream-code"}
-                    hasTVPreferredFocus={tvMode && accessMethod === "xtream-code"}
+                    {...(tvMode && accessMethod === "xtream-code" ? { autoFocus: true, hasTVPreferredFocus: true } : {})}
                     accessibilityLabel="Código do servidor"
                     {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
                     value={serverCode}
@@ -822,8 +828,7 @@ export default function LoginScreen() {
                   </View>
                   <TextInput
                     ref={hostRef}
-                    autoFocus={tvMode && accessMethod === "xtream"}
-                    hasTVPreferredFocus={tvMode && accessMethod === "xtream"}
+                    {...(tvMode && accessMethod === "xtream" ? { autoFocus: true, hasTVPreferredFocus: true } : {})}
                     accessibilityLabel="Host ou URL do servidor"
                     {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
                     value={host}

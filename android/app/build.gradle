@@ -92,7 +92,7 @@ android {
         applicationId 'com.fastshot.slitherproduction.flixplay'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 20261032
+        versionCode 20261033
         versionName "2.17.16"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

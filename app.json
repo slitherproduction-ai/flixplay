@@ -24,7 +24,7 @@
         "backgroundColor": "#070B14"
       },
       "isTV": true,
-      "versionCode": 20261032,
+      "versionCode": 20261033,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [

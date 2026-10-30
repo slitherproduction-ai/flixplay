@@ -23,6 +23,7 @@ import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
+import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
 const SERIES_FOCUS_SCOPE = "series-grid";
 
@@ -275,6 +276,38 @@ export default function SeriesScreen() {
       ),
     [isEmpty, refresh, genre],
   );
+
+  // TV: navegação no formato do ELVANOQ Play para Roku (painel de categorias
+  // + grade de pôsteres), na ordem em que as séries chegam da lista.
+  const tvEntries = useMemo<TvCatalogEntry[]>(() => {
+    if (!tvMode) return [];
+    return seriesList.map((item) => ({
+      id: item.id,
+      title: item.title,
+      poster: item.poster,
+      rating: item.rating,
+      year: item.year,
+      category: item.genre,
+      detail: item.seasonsCount > 0 ? `${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""}` : "",
+    }));
+  }, [seriesList, tvMode]);
+  const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
+
+  if (tvMode) {
+    return (
+      <TvCatalogBrowser
+        kind="series"
+        entries={tvEntries}
+        categoryNames={tvCategoryNames}
+        favoriteIds={favoriteSeriesIds}
+        isSyncing={isSyncing}
+        syncProgress={syncProgress}
+        syncError={syncError}
+        onOpen={handleSeries}
+        onRefresh={refresh}
+      />
+    );
+  }
 
   return (
     <View style={styles.screen}>

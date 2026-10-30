@@ -14,7 +14,8 @@ import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo } from "@/services/xtream";
 import { parseSeriesEpisodes } from "@/features/details/seriesEpisodes";
 import { verifyParentalPin } from "@/services/security/parentalControl";
-import { fetchTmdbMetadata, isTmdbConfigured, type TmdbMetadata } from "@/services/tmdb";
+import { fetchTmdbMetadata, isTmdbConfigured, normalizeCatalogTitle, type TmdbMetadata } from "@/services/tmdb";
+import { TvDetailsContent } from "@/features/details/tv-details";
 import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 import { loadOrFetchSynopsis } from "@/features/details/synopsis";
 
@@ -175,7 +176,7 @@ export default function DetailsScreen() {
         if (cancelled || !isTmdbConfigured()) return;
         setTmdbLoading(true);
         try {
-          const metadata = await fetchTmdbMetadata(item.title, movie ? "movie" : "tv");
+          const metadata = await fetchTmdbMetadata(item.title, movie ? "movie" : "tv", item.year);
           if (!cancelled) setTmdbMetadata(metadata);
         } finally {
           if (!cancelled) setTmdbLoading(false);
@@ -188,6 +189,32 @@ export default function DetailsScreen() {
       task.cancel();
     };
   }, [movie, show]);
+
+  // TV: "Mais como este" segue o Roku — recomendações do TMDB, mas somente as
+  // que existem na lista do usuário. Sem correspondência, usa a mesma categoria.
+  const tvRecommendations = useMemo(() => {
+    if (!tvMode) return { items: [] as (VodMovie | SeriesItem)[], fromTmdb: false };
+    const source: (VodMovie | SeriesItem)[] = show ? cachedSeries : cachedMovies;
+    const currentId = show?.id ?? movie?.id;
+    const wanted = new Set((tmdbMetadata?.recommendations ?? []).map(normalizeCatalogTitle).filter(Boolean));
+    const matched: (VodMovie | SeriesItem)[] = [];
+    if (wanted.size > 0) {
+      for (const entry of source) {
+        if (entry.id === currentId) continue;
+        if (wanted.has(normalizeCatalogTitle(entry.title))) matched.push(entry);
+        if (matched.length === 12) break;
+      }
+    }
+    if (matched.length > 0) return { items: matched, fromTmdb: true };
+    const genre = movie?.genre ?? show?.genre;
+    const sameCategory: (VodMovie | SeriesItem)[] = [];
+    for (const entry of source) {
+      if (entry.id === currentId || entry.genre !== genre) continue;
+      sameCategory.push(entry);
+      if (sameCategory.length === 12) break;
+    }
+    return { items: sameCategory.length > 0 ? sameCategory : similar, fromTmdb: false };
+  }, [cachedMovies, cachedSeries, movie?.genre, movie?.id, show?.genre, show?.id, similar, tmdbMetadata?.recommendations, tvMode]);
 
   const missingError = !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;
 
@@ -321,7 +348,32 @@ export default function DetailsScreen() {
         </View>
       </Modal>
       {missingError ? <ErrorState message={missingError} onRetry={handleRetry} /> : null}
-        {movie || show ? (
+        {(movie || show) && tvMode ? (
+          <TvDetailsContent
+            movie={movie}
+            show={show}
+            tmdb={tmdbMetadata}
+            tmdbLoading={tmdbLoading}
+            fallbackSynopsis={fetchedSynopsis}
+            synopsisLoading={synopsisLoading}
+            season={season}
+            seasonsCount={seasonsCount}
+            episodes={selectedEpisodes}
+            episodesLoading={episodesLoading}
+            episodesError={episodesError}
+            history={history}
+            canResume={isResumable(resumeEntry)}
+            isFavorite={isFavorite}
+            isBlocked={isBlocked}
+            recommendations={tvRecommendations.items}
+            recommendationsFromTmdb={tvRecommendations.fromTmdb}
+            onPlay={handlePlay}
+            onFavorite={handleFavorite}
+            onToggleBlocked={handleToggleBlocked}
+            onSeasonChange={setSeason}
+            onOpenTitle={handleSimilar}
+          />
+        ) : movie || show ? (
           <DetailsContent
             movie={movie}
             show={show}

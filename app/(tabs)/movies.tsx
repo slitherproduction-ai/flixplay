@@ -23,6 +23,7 @@ import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
+import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
 const MOVIES_FOCUS_SCOPE = "movies-grid";
 
@@ -312,6 +313,48 @@ export default function MoviesScreen() {
       ),
     [isEmpty, refresh, genre],
   );
+
+  // TV: navegação no formato do ELVANOQ Play para Roku (painel de categorias
+  // + grade de pôsteres). Os filmes já estão em memória, então a filtragem é
+  // local; a ordem é a de inclusão na lista, do mais recente ao mais antigo.
+  const tvEntries = useMemo<TvCatalogEntry[]>(() => {
+    if (!tvMode) return [];
+    const addedValue = (value?: string) => {
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+      return Date.parse(value ?? "") || 0;
+    };
+    return movies
+      .map((movie) => ({ movie, added: addedValue(movie.addedAt) }))
+      .sort((a, b) => b.added - a.added)
+      .map(({ movie }) => ({
+        id: movie.id,
+        title: movie.title,
+        poster: movie.poster,
+        rating: movie.rating,
+        year: movie.year,
+        category: movie.genre,
+        detail: movie.duration,
+        quality: movie.quality,
+      }));
+  }, [movies, tvMode]);
+  const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
+
+  if (tvMode) {
+    return (
+      <TvCatalogBrowser
+        kind="movies"
+        entries={tvEntries}
+        categoryNames={tvCategoryNames}
+        favoriteIds={favoriteMovieIds}
+        isSyncing={isSyncing}
+        syncProgress={syncProgress}
+        syncError={syncError}
+        onOpen={handleMovie}
+        onRefresh={refresh}
+      />
+    );
+  }
 
   return (
     <View style={styles.screen}>

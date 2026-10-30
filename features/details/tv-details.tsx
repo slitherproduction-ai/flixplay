@@ -9,6 +9,8 @@ import { BRAND } from "@/constants/brand";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import type { TmdbMetadata } from "@/services/tmdb";
+import { useTVMode } from "@/hooks/use-tv-mode";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { EpisodeItem, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 
 // ---------------------------------------------------------------------------
@@ -25,6 +27,9 @@ import type { EpisodeItem, PlayHistory, SeriesItem, VodMovie } from "@/store/typ
 //   • séries Xtream usam temporadas e episódios do servidor, nunca do TMDB;
 //   • recomendações do TMDB são cruzadas com a lista — só aparece o que o
 //     usuário pode assistir.
+//
+// No tablet na horizontal (toque) a mesma composição ganha botão Voltar,
+// respeita as áreas seguras e usa alvos de toque maiores.
 // ---------------------------------------------------------------------------
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
@@ -52,6 +57,7 @@ export type TvDetailsProps = {
   onToggleBlocked: () => void;
   onSeasonChange: (season: number) => void;
   onOpenTitle: (id: string) => void;
+  onBack: () => void;
 };
 
 function formatReleaseDate(value?: string | null): string {
@@ -66,9 +72,11 @@ function DetailAction({
   label,
   accessibilityLabel,
   preferred = false,
+  touch = false,
   onPress,
 }: {
   variant: "primary" | "glass" | "icon";
+  touch?: boolean;
   icon: IoniconName;
   label?: string;
   accessibilityLabel: string;
@@ -87,15 +95,18 @@ function DetailAction({
       onBlur={() => setFocused(false)}
       onPress={onPress}
       focusStyle={styles.actionFocused}
-      style={[
+      style={({ pressed }) => [
         styles.action,
+        touch && styles.touchAction,
         variant === "primary" && styles.actionPrimary,
         variant !== "primary" && styles.actionGlass,
         variant === "icon" && styles.actionIcon,
+        variant === "icon" && touch && styles.touchActionIcon,
+        pressed && styles.pressed,
       ]}
     >
       <Ionicons name={icon} size={variant === "icon" ? 16 : 15} color={color} />
-      {label ? <AppText style={[styles.actionText, { color }]}>{label}</AppText> : null}
+      {label ? <AppText style={[styles.actionText, touch && styles.touchActionText, { color }]}>{label}</AppText> : null}
     </TVFocusable>
   );
 }
@@ -104,11 +115,13 @@ const EpisodeCard = memo(function EpisodeCard({
   episode,
   progress,
   fallbackImage,
+  width,
   onPlay,
 }: {
   episode: EpisodeItem;
   progress: number;
   fallbackImage: string;
+  width: number;
   onPlay: (id: string) => void;
 }) {
   return (
@@ -117,7 +130,7 @@ const EpisodeCard = memo(function EpisodeCard({
       accessibilityLabel={`Episódio ${episode.episodeNumber}: ${episode.title}`}
       onPress={() => onPlay(episode.id)}
       focusStyle={styles.cardFocused}
-      style={styles.episodeCard}
+      style={[styles.episodeCard, { width }]}
     >
       <View style={styles.episodeImage}>
         <Image source={{ uri: episode.thumbnail || fallbackImage }} contentFit="cover" transition={160} style={StyleSheet.absoluteFill} />
@@ -156,8 +169,11 @@ export function TvDetailsContent({
   onToggleBlocked,
   onSeasonChange,
   onOpenTitle,
+  onBack,
 }: TvDetailsProps) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const touch = !useTVMode();
   const item = movie ?? show;
   const [status, setStatus] = useState("");
   const confident = Boolean(tmdb?.confidentMatch);
@@ -194,7 +210,10 @@ export function TvDetailsContent({
   }, [history]);
 
   const playLabel = canResume ? "Continuar" : show ? "Assistir" : "Assistir agora";
-  const posterWidth = Math.round(Math.min(190, width * 0.19));
+  const posterWidth = Math.round(Math.min(touch ? 250 : 190, width * 0.19));
+  const episodeWidth = touch ? 220 : 156;
+  const recommendationWidth = touch ? 120 : 96;
+  const horizontalPadding = touch ? 40 : 32;
   const posterHeight = Math.round(posterWidth * 1.5);
   const heroHeight = Math.max(330, Math.round(height * 0.66));
 
@@ -224,15 +243,22 @@ export function TvDetailsContent({
         style={StyleSheet.absoluteFill}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <View style={[styles.hero, { minHeight: heroHeight }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, touch && { paddingBottom: insets.bottom + 32 }]}>
+        {touch ? (
+          <View style={[styles.touchTopBar, { paddingTop: insets.top + 10, paddingHorizontal: horizontalPadding }]}>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Voltar" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+              <Ionicons name="chevron-back" size={22} color={Colors.text} />
+            </TVFocusable>
+          </View>
+        ) : null}
+        <View style={[styles.hero, { minHeight: heroHeight, paddingHorizontal: horizontalPadding }, touch && styles.touchHero]}>
           <View style={[styles.copy, { marginRight: posterWidth + 48 }]}>
             <View style={styles.eyebrowRow}>
               <AppText style={styles.eyebrow}>DETALHES</AppText>
               <View style={styles.eyebrowDot} />
               <AppText style={styles.eyebrowKind}>{show ? "SÉRIE" : "FILME"}</AppText>
             </View>
-            <AppText numberOfLines={2} style={styles.title}>{title}</AppText>
+            <AppText numberOfLines={2} style={[styles.title, touch && styles.touchTitle]}>{title}</AppText>
             <View style={styles.metaRow}>
               {rating > 0 ? (
                 <View style={styles.ratingPill}>
@@ -245,7 +271,7 @@ export function TvDetailsContent({
             </View>
             {genres.length ? <AppText numberOfLines={1} style={styles.genres}>{genres.join("  •  ")}</AppText> : null}
             {synopsis ? (
-              <AppText numberOfLines={4} style={styles.overview}>{synopsis}</AppText>
+              <AppText numberOfLines={4} style={[styles.overview, touch && styles.touchOverview]}>{synopsis}</AppText>
             ) : synopsisLoading || tmdbLoading ? (
               <View style={styles.loadingRow}>
                 <ActivityIndicator size="small" color={Colors.subtle} />
@@ -262,20 +288,21 @@ export function TvDetailsContent({
             ) : null}
 
             <View style={styles.actions}>
-              <DetailAction variant="primary" icon="play" label={playLabel} accessibilityLabel={`${playLabel}: ${title}`} preferred onPress={() => onPlay()} />
+              <DetailAction variant="primary" icon="play" touch={touch} label={playLabel} accessibilityLabel={`${playLabel}: ${title}`} preferred onPress={() => onPlay()} />
               <DetailAction
                 variant="glass"
                 icon={isFavorite ? "checkmark" : "add"}
-                label={isFavorite ? "Na Minha Lista" : "Minha Lista"}
+                touch={touch} label={isFavorite ? "Na Minha Lista" : "Minha Lista"}
                 accessibilityLabel={isFavorite ? "Remover da Minha Lista" : "Adicionar à Minha Lista"}
                 onPress={handleFavorite}
               />
               {tmdb?.trailerUrl ? (
-                <DetailAction variant="glass" icon="film-outline" label="Trailer" accessibilityLabel={`Trailer de ${title}`} onPress={handleTrailer} />
+                <DetailAction variant="glass" icon="film-outline" touch={touch} label="Trailer" accessibilityLabel={`Trailer de ${title}`} onPress={handleTrailer} />
               ) : null}
               <DetailAction
                 variant="icon"
                 icon={isBlocked ? "lock-closed" : "lock-open-outline"}
+                touch={touch}
                 accessibilityLabel={isBlocked ? "Remover bloqueio parental" : "Bloquear conteúdo"}
                 onPress={onToggleBlocked}
               />
@@ -289,7 +316,7 @@ export function TvDetailsContent({
         </View>
 
         {show ? (
-          <View style={styles.section}>
+          <View style={[styles.section, { paddingHorizontal: horizontalPadding }]}>
             <View style={styles.sectionHeader}>
               <AppText style={styles.sectionTitle}>Temporadas</AppText>
               <AppText style={styles.sectionHint}>
@@ -307,7 +334,7 @@ export function TvDetailsContent({
                     accessibilityState={{ selected }}
                     onPress={() => onSeasonChange(number)}
                     focusStyle={styles.seasonFocused}
-                    style={[styles.seasonChip, selected && styles.seasonChipSelected]}
+                    style={({ pressed }) => [styles.seasonChip, touch && styles.touchSeasonChip, selected && styles.seasonChipSelected, pressed && styles.pressed]}
                   >
                     <AppText style={[styles.seasonText, selected && styles.seasonTextSelected]}>Temporada {number}</AppText>
                   </TVFocusable>
@@ -328,6 +355,7 @@ export function TvDetailsContent({
                     episode={episode}
                     progress={progressById.get(episode.id) ?? 0}
                     fallbackImage={item?.backdrop || item?.poster || ""}
+                    width={episodeWidth}
                     onPlay={onPlay}
                   />
                 ))}
@@ -337,7 +365,7 @@ export function TvDetailsContent({
         ) : null}
 
         {recommendations.length > 0 ? (
-          <View style={styles.section}>
+          <View style={[styles.section, { paddingHorizontal: horizontalPadding }]}>
             <View style={styles.sectionHeader}>
               <AppText style={styles.sectionTitle}>Mais como este</AppText>
               <AppText style={styles.sectionHint}>{recommendationsFromTmdb ? "Recomendações do TMDB disponíveis na sua lista" : "Da mesma categoria"}</AppText>
@@ -350,7 +378,7 @@ export function TvDetailsContent({
                   accessibilityLabel={`Abrir ${entry.title}`}
                   onPress={() => onOpenTitle(entry.id)}
                   focusStyle={styles.cardFocused}
-                  style={styles.recommendation}
+                  style={[styles.recommendation, { width: recommendationWidth }]}
                 >
                   <View style={styles.recommendationPoster}>
                     <Image source={{ uri: entry.poster }} contentFit="cover" transition={160} style={StyleSheet.absoluteFill} />
@@ -432,4 +460,15 @@ const styles = StyleSheet.create({
   recommendationTitle: { marginTop: 5, paddingHorizontal: 2, fontSize: 10, color: Colors.muted },
   source: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 32, marginTop: 4 },
   sourceText: { fontSize: 9, color: Colors.subtle },
+  pressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
+  // Tablet (toque).
+  touchTopBar: { position: "absolute", top: 0, left: 0, zIndex: 5 },
+  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, borderWidth: 1, borderColor: "rgba(244,248,255,0.18)", backgroundColor: "rgba(7,11,20,0.55)" },
+  touchHero: { paddingTop: 76 },
+  touchTitle: { fontSize: 34, lineHeight: 40, letterSpacing: -1.1 },
+  touchOverview: { fontSize: 14, lineHeight: 21, maxWidth: 680 },
+  touchAction: { minHeight: 46, paddingHorizontal: 20, borderRadius: 12 },
+  touchActionIcon: { width: 46, borderRadius: 23 },
+  touchActionText: { fontSize: 14 },
+  touchSeasonChip: { minHeight: 40, paddingHorizontal: 18, borderRadius: 20 },
 });

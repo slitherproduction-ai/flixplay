@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
@@ -38,6 +39,9 @@ export default function DetailsScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const tvMode = useTVMode();
+  const { isTabletLandscape } = useResponsiveLayout();
+  // Layout do Roku na TV e no tablet na horizontal.
+  const roku = tvMode || isTabletLandscape;
 
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
@@ -193,7 +197,7 @@ export default function DetailsScreen() {
   // TV: "Mais como este" segue o Roku — recomendações do TMDB, mas somente as
   // que existem na lista do usuário. Sem correspondência, usa a mesma categoria.
   const tvRecommendations = useMemo(() => {
-    if (!tvMode) return { items: [] as (VodMovie | SeriesItem)[], fromTmdb: false };
+    if (!roku) return { items: [] as (VodMovie | SeriesItem)[], fromTmdb: false };
     const source: (VodMovie | SeriesItem)[] = show ? cachedSeries : cachedMovies;
     const currentId = show?.id ?? movie?.id;
     const wanted = new Set((tmdbMetadata?.recommendations ?? []).map(normalizeCatalogTitle).filter(Boolean));
@@ -214,7 +218,7 @@ export default function DetailsScreen() {
       if (sameCategory.length === 12) break;
     }
     return { items: sameCategory.length > 0 ? sameCategory : similar, fromTmdb: false };
-  }, [cachedMovies, cachedSeries, movie?.genre, movie?.id, show?.genre, show?.id, similar, tmdbMetadata?.recommendations, tvMode]);
+  }, [cachedMovies, cachedSeries, movie?.genre, movie?.id, show?.genre, show?.id, similar, tmdbMetadata?.recommendations, roku]);
 
   const missingError = !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;
 
@@ -348,7 +352,7 @@ export default function DetailsScreen() {
         </View>
       </Modal>
       {missingError ? <ErrorState message={missingError} onRetry={handleRetry} /> : null}
-        {(movie || show) && tvMode ? (
+        {(movie || show) && roku ? (
           <TvDetailsContent
             movie={movie}
             show={show}
@@ -372,6 +376,7 @@ export default function DetailsScreen() {
             onToggleBlocked={handleToggleBlocked}
             onSeasonChange={setSeason}
             onOpenTitle={handleSimilar}
+            onBack={router.back}
           />
         ) : movie || show ? (
           <DetailsContent
@@ -526,6 +531,7 @@ function ContentSummary({
   onFavorite: () => void;
 }) {
   const { isTablet, isTabletLandscape } = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
   const title = movie?.title ?? show?.title ?? "Conteúdo";
   const poster = movie?.poster ?? show?.poster;
   const backdrop = movie?.backdrop ?? show?.backdrop;
@@ -554,7 +560,7 @@ function ContentSummary({
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
         />
-        <View style={[styles.topControls, tvMode && styles.tvTopControls]}>
+        <View style={[styles.topControls, tvMode ? styles.tvTopControls : { top: insets.top + 12 }]}>
           <IconButton icon="chevron-back" label="Voltar" onPress={onBack} />
           <View style={styles.topPill}>
             <Ionicons name="information-circle-outline" size={15} color={Colors.muted} />

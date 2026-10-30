@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -56,8 +57,10 @@ function MoviesHeader({
   isSyncing, syncError, syncProgress, genres, genre, sort,
   filteredCount, totalCount, refresh, setGenre, setSort, query, setQuery,
 }: MoviesHeaderProps) {
+  // Edge-to-edge no Android: o cabeçalho começa abaixo da barra de status.
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.headerBlock}>
+    <View style={[styles.headerBlock, { paddingTop: insets.top + 22 }]}>
       {isSyncing ? (
         <View style={styles.syncBanner}>
           <ActivityIndicator size="small" color={Colors.blueBright} />
@@ -317,8 +320,10 @@ export default function MoviesScreen() {
   // TV: navegação no formato do ELVANOQ Play para Roku (painel de categorias
   // + grade de pôsteres). Os filmes já estão em memória, então a filtragem é
   // local; a ordem é a de inclusão na lista, do mais recente ao mais antigo.
+  // O mesmo navegador atende o tablet na horizontal (toque).
+  const catalogBrowserMode = tvMode || isTabletLandscape;
   const tvEntries = useMemo<TvCatalogEntry[]>(() => {
-    if (!tvMode) return [];
+    if (!catalogBrowserMode) return [];
     const addedValue = (value?: string) => {
       const numeric = Number(value);
       if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
@@ -337,10 +342,10 @@ export default function MoviesScreen() {
         detail: movie.duration,
         quality: movie.quality,
       }));
-  }, [movies, tvMode]);
+  }, [catalogBrowserMode, movies]);
   const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
 
-  if (tvMode) {
+  if (catalogBrowserMode) {
     return (
       <TvCatalogBrowser
         kind="movies"

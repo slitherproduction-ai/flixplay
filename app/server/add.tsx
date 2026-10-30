@@ -10,9 +10,12 @@ import { authenticateXtream } from "@/services/xtream";
 import { logTechnicalError } from "@/services/security/sanitize";
 import type { ServerProfile } from "@/store/types";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { buildProfileUpdate, checkXtreamAuth, getUserStatusError, mapConnectError } from "@/features/login/loginValidation";
 
 export default function AddServerScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { source } = useLocalSearchParams<{ source?: string }>();
   const addServer = useAppStore((state) => state.addServer);
   const { tvMode, isTablet, contentPadding, contentMaxWidth } = useResponsiveLayout();
@@ -65,22 +68,24 @@ export default function AddServerScreen() {
         else router.back();
         return;
       }
+      // Mesmas regras do Login: credenciais, status da conta (expirada,
+      // bloqueada) e dados da conta (validade, conexões) vêm do servidor.
       const auth = await authenticateXtream(profile);
       const userInfo = auth.user_info;
-      const authenticated = userInfo && (userInfo.auth === 1 || userInfo.auth === "1" || userInfo.auth === true || (userInfo.auth === undefined && Boolean(userInfo.username)));
-      if (!authenticated) throw new Error("Credenciais rejeitadas pelo servidor.");
-      const formats = userInfo.allowed_output_formats?.map((value) => value.toLowerCase()) ?? [];
-      addServer({
-        ...profile,
-        maxConnections: userInfo.max_connections ? Number(userInfo.max_connections) : null,
-        activeConnections: userInfo.active_cons ? Number(userInfo.active_cons) : null,
-        format: formats.includes("m3u8") ? "HLS" : formats.includes("ts") ? "TS" : null,
-        status: userInfo.status ?? null,
-      });
+      if (!checkXtreamAuth(userInfo)) {
+        setError("Usuário ou senha incorretos. Verifique suas credenciais e o endereço do servidor.");
+        return;
+      }
+      const statusError = getUserStatusError(userInfo.status);
+      if (statusError) {
+        setError(statusError);
+        return;
+      }
+      addServer({ ...profile, ...buildProfileUpdate(userInfo) });
       router.back();
     } catch (saveError) {
       logTechnicalError("AddServer", saveError);
-      setError(saveError instanceof Error ? saveError.message : "Não foi possível validar este servidor.");
+      setError(mapConnectError(saveError));
     } finally {
       setSaving(false);
     }
@@ -93,7 +98,7 @@ export default function AddServerScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
-          { paddingHorizontal: tvMode ? 34 : contentPadding },
+          { paddingHorizontal: tvMode ? 34 : contentPadding, paddingTop: insets.top + (tvMode || isTablet ? 30 : 20) },
           (tvMode || isTablet) && styles.wideContent,
           contentMaxWidth ? { maxWidth: tvMode ? 640 : Math.min(contentMaxWidth, 720) } : undefined,
         ]}

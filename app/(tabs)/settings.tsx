@@ -10,10 +10,44 @@ import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { maskUsername } from "@/features/login/loginValidation";
+
+/**
+ * Descrição da lista sem expor o Host/DNS do servidor (mesma regra da tela de
+ * Listas Salvas do login e do Roku): listas do Portal e por código nunca
+ * mostram o endereço resolvido.
+ */
+function describeServer(server: ServerProfile): string {
+  if (server.portalManaged) return `Recebida do Portal · ${server.sourceType === "m3u" ? "M3U" : "Xtream"}`;
+  if (server.sourceType === "xtream-code" && server.serverCode) return `Código ${server.serverCode} · ${maskUsername(server.username)}`;
+  return `${maskUsername(server.username)} · ${server.sourceType === "m3u" ? "M3U" : "Xtream"}`;
+}
+
+function expiryLabel(server?: ServerProfile): string {
+  const value = server?.expiryDate?.trim();
+  return value && value !== "Não informado" ? value : "Sem data";
+}
+
+type StatusTone = "success" | "warning" | "neutral";
+
+/** Traduz o status Xtream e define a cor: só "ativa" aparece em verde. */
+function statusInfo(status?: string | null): { label: string; tone: StatusTone } {
+  const value = (status ?? "").trim().toLowerCase();
+  if (!value) return { label: "Indisponível", tone: "neutral" };
+  if (value === "active") return { label: "Ativa", tone: "success" };
+  if (value === "expired") return { label: "Expirada", tone: "warning" };
+  if (value === "banned") return { label: "Bloqueada", tone: "warning" };
+  if (value === "disabled") return { label: "Desativada", tone: "warning" };
+  return { label: status ?? "", tone: "neutral" };
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
+  const insets = useSafeAreaInsets();
+  const { isTablet, contentPadding, contentMaxWidth } = useResponsiveLayout();
   const { isSyncing, refresh: syncRefresh } = useSyncStatus();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
@@ -94,14 +128,17 @@ export default function SettingsScreen() {
     router.push("/settings/about");
   }, [router]);
 
+  // O andamento aparece na própria linha ("Sincronizando…"); um alerta
+  // interrompia a navegação, principalmente no controle remoto.
   const handleSyncIptv = useCallback(() => {
     syncRefresh();
-    Alert.alert("Atualização iniciada", "A lista IPTV está sendo baixada do servidor.");
   }, [syncRefresh]);
+  const activeStatus = statusInfo(activeServer?.status);
 
   if (tvMode) {
     return (
       <TvSettingsDashboard
+        activeServer={activeServer}
         servers={servers}
         activeServerId={activeServerId}
         isSyncing={isSyncing}
@@ -122,7 +159,15 @@ export default function SettingsScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.ambient} />
-        <ScrollView contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.content,
+            // Edge-to-edge no Android: o conteúdo começa abaixo da barra de status.
+            { paddingTop: insets.top + 16 },
+            isTablet && { paddingHorizontal: contentPadding, width: "100%", maxWidth: Math.min(contentMaxWidth ?? 860, 860), alignSelf: "center" },
+          ]}
+        >
           <View style={styles.header}>
           <View style={styles.headerCopy}><AppText style={styles.kicker}>CONTROLE DA SUA CONTA</AppText><AppText style={Type.display}>Ajustes</AppText><AppText style={styles.subtitle}>Personalize sua experiência ELVANOQ</AppText></View>
           </View>
@@ -136,7 +181,7 @@ export default function SettingsScreen() {
                   <View key={server.id} style={[styles.serverRowContainer, active && styles.serverRowContainerActive]}>
                     <TVFocusable accessibilityRole="button" accessibilityState={{ selected: active }} hasTVPreferredFocus={server.id === servers[0]?.id} onPress={() => handleServer(server.id)} style={({ pressed }) => [styles.serverRow, pressed && styles.pressed]}>
                       <View style={[styles.serverStatus, active && styles.serverStatusActive]}><Ionicons name={active ? "checkmark" : "cloud-outline"} size={17} color={active ? Colors.green : Colors.muted} /></View>
-                      <View style={styles.serverRowCopy}><View style={styles.serverNameRow}><AppText style={styles.serverName}>{server.name}</AppText>{active ? <View style={styles.activeBadge}><AppText style={styles.activeText}>ATIVO</AppText></View> : null}</View><AppText style={styles.serverMeta}>{server.serverUrl} · expira {server.expiryDate}</AppText></View>
+                      <View style={styles.serverRowCopy}><View style={styles.serverNameRow}><AppText style={styles.serverName}>{server.name}</AppText>{active ? <View style={styles.activeBadge}><AppText style={styles.activeText}>ATIVO</AppText></View> : null}</View><AppText numberOfLines={1} style={styles.serverMeta}>{describeServer(server)} · expira {expiryLabel(server)}</AppText></View>
                       <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={19} color={active ? Colors.blueBright : Colors.subtle} />
                     </TVFocusable>
                     <TVFocusable
@@ -177,9 +222,9 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <SectionHeader title="Dados e suporte" subtitle="Status da lista, atualização e diagnóstico" />
             <View style={styles.statusStrip}>
-              <StatusItem label="LISTA" value={activeServer?.status ?? "Indisponível"} tone="success" />
-              <StatusItem label="FORMATO" value={activeServer?.format ?? "Auto"} />
-              <StatusItem label="CONEXÕES" value={activeServer?.activeConnections ?? "—"} />
+              <StatusItem label="LISTA" value={activeStatus.label} tone={activeStatus.tone} />
+              <StatusItem label="EXPIRA" value={expiryLabel(activeServer)} />
+              <StatusItem label="CONEXÕES" value={activeServer?.maxConnections ? `${activeServer.activeConnections ?? 0}/${activeServer.maxConnections}` : activeServer?.activeConnections ?? "—"} />
             </View>
             {activeServer?.serverUrl.startsWith("http://") ? <View style={styles.httpWarning}><Ionicons name="shield-outline" size={16} color={Colors.amber} /><AppText style={styles.httpWarningText}>Conexão sem criptografia fornecida pelo servidor.</AppText></View> : null}
             <SettingsRow icon="refresh" title="Atualizar lista IPTV" subtitle={isSyncing ? "Sincronizando…" : "Recarregar canais, filmes e séries do servidor"} onPress={handleSyncIptv} disabled={isSyncing} emphasis />
@@ -227,6 +272,7 @@ export default function SettingsScreen() {
 }
 
 function TvSettingsDashboard({
+  activeServer,
   servers,
   activeServerId,
   isSyncing,
@@ -241,6 +287,7 @@ function TvSettingsDashboard({
   onAbout,
   onLogout,
 }: {
+  activeServer?: ServerProfile;
   servers: ServerProfile[];
   activeServerId: string;
   isSyncing: boolean;
@@ -273,6 +320,22 @@ function TvSettingsDashboard({
           <AppText style={styles.tvDashboardSubtitle}>Conta, reprodução e segurança</AppText>
         </View>
 
+        {activeServer ? (() => {
+          const status = statusInfo(activeServer.status);
+          return (
+            <View style={styles.tvAccountCard}>
+              <View style={styles.tvAccountAvatar}><AppText style={styles.tvAccountInitial}>{(activeServer.name.trim().charAt(0) || "E").toLocaleUpperCase("pt-BR")}</AppText></View>
+              <View style={styles.tvAccountCopy}>
+                <AppText numberOfLines={1} style={styles.tvAccountName}>{activeServer.name}</AppText>
+                <AppText numberOfLines={1} style={styles.tvAccountMeta}>{describeServer(activeServer)}</AppText>
+              </View>
+              <StatusItem label="LISTA" value={status.label} tone={status.tone} />
+              <StatusItem label="EXPIRA" value={expiryLabel(activeServer)} />
+              <StatusItem label="CONEXÕES" value={activeServer.maxConnections ? `${activeServer.activeConnections ?? 0}/${activeServer.maxConnections}` : activeServer.activeConnections ?? "—"} />
+            </View>
+          );
+        })() : null}
+
         <View style={styles.tvActionGrid}>
           {actions.map((action) => <TvSettingsTile key={action.title} {...action} />)}
         </View>
@@ -288,7 +351,7 @@ function TvSettingsDashboard({
               return <View key={server.id} style={[styles.tvServerRowContainer, active && styles.tvServerRowActive]}>
                 <TVFocusable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => onSelectServer(server.id)} style={styles.tvServerRow}>
                   <Ionicons name={active ? "checkmark-circle" : "cloud-outline"} size={19} color={active ? Colors.green : Colors.muted} />
-                  <View style={styles.tvServerCopy}><AppText numberOfLines={1} style={styles.tvServerName}>{server.name}</AppText><AppText numberOfLines={1} style={styles.tvServerMeta}>{server.serverUrl}</AppText></View>
+                  <View style={styles.tvServerCopy}><AppText numberOfLines={1} style={styles.tvServerName}>{server.name}</AppText><AppText numberOfLines={1} style={styles.tvServerMeta}>{describeServer(server)} · expira {expiryLabel(server)}</AppText></View>
                   {active ? <AppText style={styles.tvActiveLabel}>ATIVO</AppText> : null}
                 </TVFocusable>
                 <TVFocusable accessibilityRole="button" accessibilityLabel={`Excluir lista ${server.name}`} onPress={() => onDeleteServer(server.id, server.name)} style={styles.tvServerDelete}><Ionicons name="trash-outline" size={17} color={Colors.red} /></TVFocusable>
@@ -323,8 +386,8 @@ function SettingsRow({ icon, title, subtitle, onPress, disabled = false, emphasi
   );
 }
 
-function StatusItem({ label, value, tone }: { label: string; value: string | number; tone?: "success" }) {
-  return <View style={styles.statusItem}><AppText style={styles.statusLabel}>{label}</AppText><AppText numberOfLines={1} style={[styles.statusValue, tone === "success" && styles.statusValueSuccess]}>{value}</AppText></View>;
+function StatusItem({ label, value, tone = "neutral" }: { label: string; value: string | number; tone?: StatusTone }) {
+  return <View style={styles.statusItem}><AppText style={styles.statusLabel}>{label}</AppText><AppText numberOfLines={1} style={[styles.statusValue, tone === "success" && styles.statusValueSuccess, tone === "warning" && styles.statusValueWarning]}>{value}</AppText></View>;
 }
 
 const styles = StyleSheet.create({
@@ -378,6 +441,13 @@ const styles = StyleSheet.create({
   statusLabel: { fontFamily: "Inter_600SemiBold", fontSize: 8, letterSpacing: 0.7, color: Colors.subtle },
   statusValue: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
   statusValueSuccess: { color: Colors.green },
+  statusValueWarning: { color: Colors.amber },
+  tvAccountCard: { flexDirection: "row", alignItems: "center", gap: 14, padding: 13, borderRadius: 12, borderWidth: 1, borderColor: "rgba(0,215,255,0.20)", backgroundColor: "rgba(20,125,255,0.08)" },
+  tvAccountAvatar: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: Colors.blue },
+  tvAccountInitial: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.white },
+  tvAccountCopy: { flex: 2, minWidth: 0, gap: 2 },
+  tvAccountName: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
+  tvAccountMeta: { fontSize: 10, color: Colors.muted },
   serverList: { gap: 8 },
   serverRowContainer: { flexDirection: "row", alignItems: "stretch", borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft, overflow: "hidden" },
   serverRowContainerActive: { borderColor: "rgba(59, 130, 246, 0.46)", backgroundColor: "rgba(59, 130, 246, 0.11)" },

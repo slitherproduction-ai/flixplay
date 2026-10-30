@@ -11,6 +11,8 @@ import { CatalogBackground } from "@/components/catalog-background";
 import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
+import { useTVMode } from "@/hooks/use-tv-mode";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchTmdbPersonFilmography, normalizeCatalogTitle } from "@/services/tmdb";
 
 // ---------------------------------------------------------------------------
@@ -20,6 +22,9 @@ import { fetchTmdbPersonFilmography, normalizeCatalogTitle } from "@/services/tm
 //     "Buscar título ou ator" e a grade muda ao parar sobre uma categoria;
 //   • grade de pôsteres à direita, com o rótulo da categoria;
 //   • rodapé com o título focado e seus dados.
+//
+// Também é usado no tablet na horizontal (toque): sem menu lateral, alvos de
+// toque maiores, título sob cada pôster e sem as dicas do controle remoto.
 // ---------------------------------------------------------------------------
 
 export type TvCatalogEntry = {
@@ -72,6 +77,7 @@ const PosterTile = memo(function PosterTile({
   index,
   focusScope,
   preferred,
+  touch,
   onOpen,
   onFocusEntry,
 }: {
@@ -80,10 +86,11 @@ const PosterTile = memo(function PosterTile({
   index: number;
   focusScope: string;
   preferred: boolean;
+  touch: boolean;
   onOpen: (id: string) => void;
   onFocusEntry: (entry: TvCatalogEntry) => void;
 }) {
-  return (
+  const tile = (
     <TVFocusable
       accessibilityRole="button"
       accessibilityLabel={`${entry.title}${entry.rating > 0 ? `, nota ${entry.rating.toFixed(1)}` : ""}`}
@@ -108,6 +115,17 @@ const PosterTile = memo(function PosterTile({
       ) : null}
     </TVFocusable>
   );
+  if (!touch) return tile;
+  // No toque não há foco para alimentar o rodapé: o título vai sob o pôster.
+  return (
+    <View style={{ width }}>
+      {tile}
+      <AppText numberOfLines={1} style={styles.touchPosterTitle}>{entry.title}</AppText>
+      <AppText numberOfLines={1} style={styles.touchPosterMeta}>
+        {[entry.year > 0 ? String(entry.year) : "", entry.rating > 0 ? `★ ${entry.rating.toFixed(1)}` : ""].filter(Boolean).join("  ·  ")}
+      </AppText>
+    </View>
+  );
 });
 
 const CategoryRowItem = memo(function CategoryRowItem({
@@ -115,6 +133,7 @@ const CategoryRowItem = memo(function CategoryRowItem({
   index,
   kind,
   selected,
+  touch,
   onFocusRow,
   onPressRow,
 }: {
@@ -122,6 +141,7 @@ const CategoryRowItem = memo(function CategoryRowItem({
   index: number;
   kind: string;
   selected: boolean;
+  touch: boolean;
   onFocusRow: (item: CategoryRow) => void;
   onPressRow: (item: CategoryRow) => void;
 }) {
@@ -139,13 +159,13 @@ const CategoryRowItem = memo(function CategoryRowItem({
       onBlur={() => setFocused(false)}
       onPress={() => onPressRow(item)}
       focusStyle={styles.categoryFocused}
-      style={[styles.categoryRow, selected && styles.categoryRowSelected]}
+      style={({ pressed }) => [styles.categoryRow, touch && styles.touchCategoryRow, selected && styles.categoryRowSelected, pressed && styles.categoryPressed]}
     >
       {selected && !focused ? <View style={styles.categoryMarker} /> : null}
       {item.icon ? (
         <Ionicons name={item.icon} size={12} color={focused ? Colors.white : highlight ? Colors.blueBright : Colors.muted} />
       ) : null}
-      <AppText numberOfLines={1} style={[styles.categoryName, highlight && styles.categoryNameSelected, focused && styles.categoryTextFocused]}>{item.name}</AppText>
+      <AppText numberOfLines={1} style={[styles.categoryName, touch && styles.touchCategoryName, highlight && styles.categoryNameSelected, focused && styles.categoryTextFocused]}>{item.name}</AppText>
       {item.total !== null ? (
         <AppText style={[styles.categoryCount, selected && styles.categoryCountSelected, focused && styles.categoryTextFocused]}>{formatCount(item.total)}</AppText>
       ) : null}
@@ -165,6 +185,8 @@ export function TvCatalogBrowser({
   onRefresh,
 }: Props) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const touch = !useTVMode();
   const focusScope = `${kind}-grid`;
   const sectionTitle = kind === "movies" ? "Filmes" : "Séries";
   const noun = kind === "movies" ? "filme" : "série";
@@ -182,17 +204,17 @@ export function TvCatalogBrowser({
   const searchGeneration = useRef(0);
 
   // Layout derivado do Roku (painel 400 px + grade de 6 colunas a 1920 px).
-  const contentWidth = width - TV_NAV_WIDTH;
-  const sidePadding = 28;
-  const panelWidth = Math.round(Math.min(220, Math.max(180, contentWidth * 0.22)));
-  const panelGap = 20;
-  const columns = 6;
+  const contentWidth = width - (touch ? insets.left + insets.right : TV_NAV_WIDTH);
+  const sidePadding = touch ? 32 : 28;
+  const panelWidth = Math.round(touch ? Math.min(280, Math.max(220, contentWidth * 0.22)) : Math.min(220, Math.max(180, contentWidth * 0.22)));
+  const panelGap = touch ? 24 : 20;
+  const columns = touch && contentWidth >= 1400 ? 7 : 6;
   const gridGap = 12;
   const gridWidth = contentWidth - sidePadding * 2 - panelWidth - panelGap;
   // Desconta o recuo interno da grade (espaço para a ampliação do foco).
   const gridInset = 8;
   const posterWidth = Math.floor((gridWidth - gridInset * 2 - gridGap * (columns - 1)) / columns);
-  const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<TvCatalogEntry>(focusScope, true, columns);
+  const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<TvCatalogEntry>(focusScope, !touch, columns);
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -328,11 +350,12 @@ export function TvCatalogBrowser({
       item={item}
       index={index}
       kind={kind}
+      touch={touch}
       selected={item.key === selectedKey}
       onFocusRow={handleCategoryFocus}
       onPressRow={handleCategoryPress}
     />
-  ), [handleCategoryFocus, handleCategoryPress, kind, selectedKey]);
+  ), [handleCategoryFocus, handleCategoryPress, kind, selectedKey, touch]);
 
   const preferFirstPoster = !hasRememberedTvFocus(focusScope);
   const renderPoster = useCallback(({ item, index }: { item: TvCatalogEntry; index: number }) => (
@@ -341,11 +364,12 @@ export function TvCatalogBrowser({
       width={posterWidth}
       index={index}
       focusScope={focusScope}
-      preferred={preferFirstPoster && index === 0}
+      preferred={!touch && preferFirstPoster && index === 0}
+      touch={touch}
       onOpen={onOpen}
       onFocusEntry={handleEntryFocus}
     />
-  ), [focusScope, handleEntryFocus, onOpen, posterWidth, preferFirstPoster]);
+  ), [focusScope, handleEntryFocus, onOpen, posterWidth, preferFirstPoster, touch]);
 
   const emptyMessage = selectedKey === SEARCH_KEY
     ? (searchLoading
@@ -370,19 +394,19 @@ export function TvCatalogBrowser({
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={[styles.header, { paddingHorizontal: sidePadding }]}>
+      <View style={[styles.header, { paddingHorizontal: sidePadding, paddingTop: (touch ? insets.top + 18 : 26) }]}>
         <View style={styles.headerCopy}>
-          <AppText style={styles.title}>{sectionTitle}</AppText>
-          <AppText style={styles.count}>
+          <AppText style={[styles.title, touch && styles.touchTitle]}>{sectionTitle}</AppText>
+          <AppText style={[styles.count, touch && styles.touchCount]}>
             {isSyncing && entries.length === 0
               ? (syncProgress ?? "Carregando…")
               : `${formatCount(entries.length)} títulos   •   ${formatCount(realCategoryCount)} categorias`}
           </AppText>
         </View>
         <View style={styles.headerRight}>
-          <AppText style={styles.hint}>
+          {touch ? null : <AppText style={styles.hint}>
             {kind === "series" ? "←  Categorias e Busca   •   OK  Temporadas e episódios" : "←  Categorias e Busca   •   OK  Detalhes e assistir"}
-          </AppText>
+          </AppText>}
           {syncError ? (
             <TVFocusable accessibilityRole="button" accessibilityLabel="Tentar sincronizar novamente" onPress={onRefresh} style={styles.retry} focusStyle={styles.retryFocused}>
               <Ionicons name="refresh" size={12} color={Colors.background} />
@@ -409,7 +433,7 @@ export function TvCatalogBrowser({
         <View style={styles.gridArea}>
           <AppText numberOfLines={1} style={styles.eyebrow}>{eyebrow}</AppText>
           {selectedKey === SEARCH_KEY ? (
-            <View style={styles.searchBox}>
+            <View style={[styles.searchBox, touch && styles.touchSearchBox]}>
               <Ionicons name="search" size={14} color={Colors.blueBright} />
               <TextInput
                 ref={inputRef}
@@ -421,7 +445,7 @@ export function TvCatalogBrowser({
                 returnKeyType="search"
                 autoCorrect={false}
                 autoCapitalize="none"
-                style={styles.searchInput}
+                style={[styles.searchInput, touch && styles.touchSearchInput]}
                 accessibilityLabel="Buscar título ou ator"
               />
               {searchLoading ? <ActivityIndicator size="small" color={Colors.blueBright} /> : null}
@@ -435,9 +459,9 @@ export function TvCatalogBrowser({
             keyExtractor={(item) => item.id}
             renderItem={renderPoster}
             columnWrapperStyle={{ gap: gridGap }}
-            ItemSeparatorComponent={() => <View style={{ height: gridGap + 2 }} />}
+            ItemSeparatorComponent={() => <View style={{ height: touch ? 18 : gridGap + 2 }} />}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.gridContent, { paddingBottom: Math.round(height * 0.16) }]}
+            contentContainerStyle={[styles.gridContent, { paddingBottom: touch ? 32 : Math.round(height * 0.16) }]}
             initialNumToRender={18}
             maxToRenderPerBatch={18}
             windowSize={5}
@@ -450,7 +474,7 @@ export function TvCatalogBrowser({
               </View>
             }
           />
-          {footerTitle ? (
+          {footerTitle && !touch ? (
             <LinearGradient
               pointerEvents="none"
               colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.92)", BRAND.colors.background]}
@@ -498,6 +522,16 @@ const styles = StyleSheet.create({
   categoryCount: { fontSize: 9, color: Colors.muted },
   categoryCountSelected: { color: Colors.blueBright },
   categoryTextFocused: { fontFamily: "Inter_600SemiBold", color: Colors.white },
+  categoryPressed: { opacity: 0.7 },
+  // Tablet (toque): alvos de 40 dp e texto maior.
+  touchCategoryRow: { minHeight: 40, borderRadius: 9 },
+  touchCategoryName: { fontSize: 13 },
+  touchTitle: { fontSize: 28, lineHeight: 34 },
+  touchCount: { fontSize: 12 },
+  touchSearchBox: { height: 44 },
+  touchSearchInput: { height: 44, fontSize: 14 },
+  touchPosterTitle: { marginTop: 7, fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  touchPosterMeta: { marginTop: 2, fontSize: 10, color: Colors.muted },
 
   gridArea: { flex: 1, minWidth: 0 },
   eyebrow: { marginTop: 2, marginBottom: 10, fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.3, color: Colors.blueBright },

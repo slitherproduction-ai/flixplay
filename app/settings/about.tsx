@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -458,6 +459,7 @@ function UpdateModal({
 export default function AboutScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
+  const insets = useSafeAreaInsets();
   const autoUpdate = useAppStore((state) => state.preferences["autoUpdate"]);
   const setPreference = useAppStore((state) => state.setPreference);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -500,7 +502,7 @@ export default function AboutScreen() {
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, tvMode && styles.tvContent]}
+          contentContainerStyle={[styles.content, tvMode && styles.tvContent, !tvMode && { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 42 }]}
         >
           {/* Header */}
           <View style={styles.header}>

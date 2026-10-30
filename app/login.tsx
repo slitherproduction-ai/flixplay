@@ -73,11 +73,15 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
   const insets = useSafeAreaInsets();
   const { tvMode, isTablet, height } = useResponsiveLayout();
   const closeButtonRef = useRef<TVFocusableHandle>(null);
+  const preferredServerRef = useRef<TVFocusableHandle>(null);
   const largeSurface = tvMode || isTablet;
   const surfaceMaxHeight = Math.max(440, Math.min(height - 72, tvMode ? 760 : 720));
+  // Na TV, o foco inicial vai para a lista ativa (ou a primeira): abrir o
+  // painel é quase sempre para escolher uma lista, não para fechá-lo.
+  const preferredServerId = (servers.find((server) => server.isActive) ?? servers[0])?.id;
 
   useEffect(() => {
-    const timer = setTimeout(() => closeButtonRef.current?.focus(), 120);
+    const timer = setTimeout(() => (preferredServerRef.current ?? closeButtonRef.current)?.focus(), 120);
     return () => clearTimeout(timer);
   }, []);
 
@@ -105,7 +109,7 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
           ref={closeButtonRef}
           accessibilityRole="button"
           accessibilityLabel="Fechar"
-          hasTVPreferredFocus
+          hasTVPreferredFocus={!preferredServerId}
           onPress={onClose}
           style={modalStyles.closeBtn}
         >
@@ -150,8 +154,10 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
           servers.map((server) => (
             <View key={server.id} style={modalStyles.serverRow}>
               <TVFocusable
+                ref={server.id === preferredServerId ? preferredServerRef : undefined}
                 accessibilityRole="button"
                 accessibilityLabel={`Conectar à lista ${server.name}`}
+                hasTVPreferredFocus={tvMode && server.id === preferredServerId}
                 onPress={() => onSelect(server)}
                 style={({ pressed }) => [modalStyles.serverMain, pressed && modalStyles.pressed]}
               >
@@ -261,6 +267,7 @@ export default function LoginScreen() {
   const passwordRef = useRef<TextInput>(null);
   const listNameRef = useRef<TextInput>(null);
   const connectButtonRef = useRef<TVFocusableHandle>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const savedListsButtonRef = useRef<TVFocusableHandle>(null);
   const [formFocusHandles, setFormFocusHandles] = useState({
     host: 0,
@@ -330,6 +337,14 @@ export default function LoginScreen() {
     applyPortalSyncResult(result);
     return result;
   }, [applyPortalSyncResult]);
+
+  // Com o teclado aberto no celular, a mensagem de erro pode ficar escondida
+  // abaixo dos campos: rola até ela assim que aparece.
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    return () => clearTimeout(timer);
+  }, [error]);
 
   useEffect(() => {
     if (!tvMode || (accessMethod !== "xtream" && accessMethod !== "xtream-code")) return;
@@ -675,11 +690,13 @@ export default function LoginScreen() {
     <View style={styles.screen}>
       <View collapsable={false} style={styles.loginBackdrop} pointerEvents="none">
         <Image
-          source={tvMode
+          // O tablet na horizontal tem a mesma composição da TV (cartão à
+          // esquerda, arte à direita), então usa o fundo largo.
+          source={tvMode || isTabletLandscape
             ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v4.jpg")
             : require("@/assets/images/brand/ELVANOQ_login_mobile_backdrop_v4.jpg")}
           contentFit="cover"
-          contentPosition={tvMode ? "center" : "top"}
+          contentPosition={tvMode || isTabletLandscape ? "center" : "top"}
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.loginBackdropVeil, tvMode && styles.tvBackdropVeil]} />
@@ -694,6 +711,7 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <ScrollView
+          ref={scrollRef}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
@@ -741,8 +759,8 @@ export default function LoginScreen() {
                   <TVFocusable
                     accessibilityRole="button"
                     accessibilityLabel="Conexão por código"
-                    hasTVPreferredFocus={tvMode}
-                    onPress={() => setAccessMethod("xtream-code")}
+                    hasTVPreferredFocus={tvMode && servers.length === 0}
+                    onPress={() => { setError(null); setAccessMethod("xtream-code"); }}
                     style={({ pressed }) => [styles.xtreamAccess, compactTv && styles.tvCompactXtreamAccess, pressed && styles.pressed]}
                     // The card is intentionally white. Its focus treatment
                     // preserves that premium surface instead of inheriting the
@@ -760,7 +778,7 @@ export default function LoginScreen() {
                   <TVFocusable
                     accessibilityRole="button"
                     accessibilityLabel="Conexão Xtream por Host"
-                    onPress={() => setAccessMethod("xtream")}
+                    onPress={() => { setError(null); setAccessMethod("xtream"); }}
                     style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
                   >
                     <View style={styles.m3uAccessIcon}><Ionicons name="server-outline" size={18} color={Colors.blueBright} /></View>
@@ -772,6 +790,10 @@ export default function LoginScreen() {
                     ref={savedListsButtonRef}
                     accessibilityRole="button"
                     accessibilityLabel="Ver listas salvas"
+                    // Quem já tem listas costuma voltar a uma delas: na TV o
+                    // foco inicial vai direto para Listas Salvas.
+                    hasTVPreferredFocus={tvMode && servers.length > 0}
+                    disabled={loading}
                     onPress={openSavedLists}
                     style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
                   >
@@ -783,13 +805,28 @@ export default function LoginScreen() {
                     {servers.length > 0 ? <View style={styles.secondaryBadge}><AppText style={styles.secondaryBadgeText}>{servers.length}</AppText></View> : null}
                     <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
                   </TVFocusable>
+
+                  {/* Reconexão de uma lista salva acontece nesta tela: sem este
+                      retorno, o carregamento e os erros ficavam invisíveis. */}
+                  {loading ? (
+                    <View style={styles.chooserStatus} accessibilityLiveRegion="polite">
+                      <ActivityIndicator size="small" color={Colors.blueBright} />
+                      <AppText style={styles.chooserStatusText}>Conectando à lista salva…</AppText>
+                    </View>
+                  ) : null}
+                  {error ? (
+                    <View style={styles.errorBox} accessibilityLiveRegion="polite">
+                      <Ionicons name="alert-circle" size={17} color="#FF8B91" />
+                      <AppText style={styles.errorText} selectable>{error}</AppText>
+                    </View>
+                  ) : null}
                 </>
               ) : (
                 <>
                   <TVFocusable
                     accessibilityRole="button"
                     accessibilityLabel="Voltar para métodos de conexão"
-                    onPress={() => setAccessMethod("chooser")}
+                    onPress={() => { setError(null); setDiagInfo(null); setAccessMethod("chooser"); }}
                     style={({ pressed }) => [styles.methodBackButton, pressed && styles.pressed]}
                   >
                     <Ionicons name="chevron-back" size={15} color={Colors.blueBright} />
@@ -1164,6 +1201,8 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
+  chooserStatus: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, minHeight: 40 },
+  chooserStatusText: { fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.blueBright },
   content: {
     flexGrow: 1,
     justifyContent: "center",

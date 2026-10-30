@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Platform, ScrollView, Share, StyleSheet, View } from "react-native";
@@ -20,6 +21,7 @@ function formatBytes(bytes: number): string {
 
 export default function DiagnosticsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { tvMode, isTablet, contentPadding, contentMaxWidth } = useResponsiveLayout();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
@@ -104,7 +106,7 @@ export default function DiagnosticsScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, (tvMode || isTablet) && styles.wideTopBar, { paddingHorizontal: tvMode ? 40 : contentPadding }]}><IconButton icon="chevron-back" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SUPORTE TÉCNICO</AppText><AppText style={styles.title}>Diagnóstico</AppText></View></View>
+      <View style={[styles.topBar, (tvMode || isTablet) && styles.wideTopBar, { paddingHorizontal: tvMode ? 40 : contentPadding, paddingTop: insets.top + (tvMode || isTablet ? 28 : 22) }]}><IconButton icon="chevron-back" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SUPORTE TÉCNICO</AppText><AppText style={styles.title}>Diagnóstico</AppText></View></View>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: tvMode ? 40 : contentPadding }, (tvMode || isTablet) && styles.wideContent, contentMaxWidth ? { maxWidth: tvMode ? 880 : Math.min(contentMaxWidth, 820) } : undefined]}>
         <View style={styles.card}>{rows.map(([label, value]) => <View key={label} style={styles.row}><AppText style={styles.label}>{label}</AppText><AppText selectable style={styles.value}>{value}</AppText></View>)}</View>
         <View style={styles.actions}>

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -20,6 +21,7 @@ const META: Record<ParentalCategoryKind, { title: string; subtitle: string; icon
 
 export default function ParentalSettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const live = useAppStore((s) => s.contentCache.liveCategories);
   const movies = useAppStore((s) => s.contentCache.vodCategories);
   const series = useAppStore((s) => s.contentCache.seriesCategories);
@@ -78,7 +80,7 @@ export default function ParentalSettingsScreen() {
   const enterMode = useCallback((next: "change" | "remove") => { setCurrentPin(""); setPin(""); setConfirmation(""); setMessage(""); setMode(next); }, []);
 
   const editingPin = mode === "change" || mode === "remove";
-  return <View style={styles.screen}>
+  return <View style={[styles.screen, { paddingTop: insets.top + 20, paddingBottom: insets.bottom }]}>
     <View style={styles.header}><IconButton icon="close" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SEGURANÇA</AppText><AppText style={styles.title}>Controle parental</AppText></View></View>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {configured === null ? <AppText style={styles.body}>Verificando armazenamento seguro…</AppText> : null}

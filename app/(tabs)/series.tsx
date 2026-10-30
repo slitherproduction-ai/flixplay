@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -56,8 +57,10 @@ function SeriesHeader({
   isSyncing, syncError, syncProgress, genres, genre,
   filteredCount, totalCount, refresh, setGenre, query, setQuery,
 }: SeriesHeaderProps) {
+  // Edge-to-edge no Android: o cabeçalho começa abaixo da barra de status.
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.headerBlock}>
+    <View style={[styles.headerBlock, { paddingTop: insets.top + 22 }]}>
       {isSyncing ? (
         <View style={styles.syncBanner}>
           <ActivityIndicator size="small" color={Colors.red} />
@@ -279,8 +282,10 @@ export default function SeriesScreen() {
 
   // TV: navegação no formato do ELVANOQ Play para Roku (painel de categorias
   // + grade de pôsteres), na ordem em que as séries chegam da lista.
+  // O mesmo navegador atende o tablet na horizontal (toque).
+  const catalogBrowserMode = tvMode || isTabletLandscape;
   const tvEntries = useMemo<TvCatalogEntry[]>(() => {
-    if (!tvMode) return [];
+    if (!catalogBrowserMode) return [];
     return seriesList.map((item) => ({
       id: item.id,
       title: item.title,
@@ -290,10 +295,10 @@ export default function SeriesScreen() {
       category: item.genre,
       detail: item.seasonsCount > 0 ? `${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""}` : "",
     }));
-  }, [seriesList, tvMode]);
+  }, [catalogBrowserMode, seriesList]);
   const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
 
-  if (tvMode) {
+  if (catalogBrowserMode) {
     return (
       <TvCatalogBrowser
         kind="series"

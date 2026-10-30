@@ -169,15 +169,16 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
           focusStyle={tvMode ? styles.tvChannelFocused : undefined}
         >
           <View style={[styles.channelImage, tvMode && styles.tvChannelImage]}>
+            {/* Logotipo inteiro e nítido sobre um fundo neutro; as iniciais
+                só aparecem quando o canal não tem imagem. */}
             {channel.logo ? (
               <Image
                 source={{ uri: channel.logo }}
-                contentFit={tvMode ? "contain" : "cover"}
-                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                recyclingKey={channel.logo}
+                style={tvMode ? StyleSheet.absoluteFill : styles.channelLogoImage}
               />
-            ) : null}
-            {!tvMode ? <View style={styles.imageVeil} /> : null}
-            {!tvMode ? (
+            ) : !tvMode ? (
               <AppText style={styles.channelInitials}>
                 {channel.name.slice(0, 3).toUpperCase()}
               </AppText>
@@ -981,15 +982,17 @@ const styles = StyleSheet.create({
   tvFavoriteFocused: { borderWidth: 1, borderColor: "#96E1FF", backgroundColor: "#173C55", elevation: 0, shadowOpacity: 0, shadowRadius: 0, transform: [{ scale: 1 }] },
   channelImage: {
     width: 80,
-    height: 88,
+    height: 80,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
-    backgroundColor: Colors.backgroundRaised,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(190,222,255,0.12)",
+    backgroundColor: "#111B2D",
   },
   tvChannelImage: { width: 30, height: 25, borderRadius: 4, backgroundColor: "transparent" },
-  imageVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(8, 12, 22, 0.45)" },
+  channelLogoImage: { width: "78%", height: "62%" },
   channelInitials: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.white },
   channelDetails: { flex: 1, gap: 4 },
   channelTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },

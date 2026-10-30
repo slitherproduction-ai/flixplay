@@ -83,17 +83,19 @@ export default function TabsLayout() {
         sceneStyle: {
           backgroundColor: Colors.background,
         },
-        tabBarActiveTintColor: Colors.blueBright,
-        tabBarInactiveTintColor: Colors.subtle,
-        tabBarActiveBackgroundColor: "rgba(109, 202, 255, 0.16)",
+        // Aba ativa em branco com ícone preenchido; inativas em contorno.
+        tabBarActiveTintColor: Colors.text,
+        tabBarInactiveTintColor: "#6F7C92",
+        tabBarActiveBackgroundColor: "rgba(244, 248, 255, 0.07)",
         tabBarItemStyle: {
           marginHorizontal: 3,
           marginVertical: 6,
           borderRadius: 14,
         },
         tabBarLabelStyle: {
-          fontFamily: "Inter_500Medium",
+          fontFamily: "Inter_600SemiBold",
           fontSize: 10,
+          letterSpacing: 0.1,
           marginBottom: 2,
         },
         tabBarBackground: () => (
@@ -110,8 +112,8 @@ export default function TabsLayout() {
           paddingTop: 5,
           paddingBottom: Math.max(insets.bottom, 8),
           borderTopWidth: 1,
-          borderTopColor: "rgba(190, 222, 255, 0.14)",
-          backgroundColor: "rgba(8, 13, 23, 0.52)",
+          borderTopColor: "rgba(190, 222, 255, 0.10)",
+          backgroundColor: "rgba(7, 11, 20, 0.78)",
         },
       }}
     >
@@ -119,35 +121,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Início",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
         name="live"
         options={{
           title: "TV ao Vivo",
-          tabBarIcon: ({ color, size }) => <Ionicons name="radio" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "radio" : "radio-outline"} color={color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
         name="movies"
         options={{
           title: "Filmes",
-          tabBarIcon: ({ color, size }) => <Ionicons name="film" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "film" : "film-outline"} color={color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
         name="series"
         options={{
           title: "Séries",
-          tabBarIcon: ({ color, size }) => <Ionicons name="albums" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "albums" : "albums-outline"} color={color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Ajustes",
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings" color={color} size={size} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "settings" : "settings-outline"} color={color} size={size - 1} />,
         }}
       />
     </Tabs>

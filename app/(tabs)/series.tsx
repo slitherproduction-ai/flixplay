@@ -23,7 +23,8 @@ import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
 import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
-import { dedupeTitleVariants, displayCategory } from "@/features/catalog/display";
+import { displayCategory } from "@/features/catalog/display";
+import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
 const SERIES_FOCUS_SCOPE = "series-grid";
@@ -88,10 +89,8 @@ export default function SeriesScreen() {
     sort: "name_asc",
   });
   // Versões da mesma série (dublada/legendada) viram um único cartão.
-  const visibleSeries = useMemo(
-    () => dedupeTitleVariants(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredSeries),
-    [filteredSeries, genre, pager.enabled, pager.items],
-  );
+  // O agrupamento é preparado em segundo plano para não travar a tela.
+  const visibleSeries = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredSeries);
 
   const handleSeries = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -185,9 +184,9 @@ export default function SeriesScreen() {
   // + grade de pôsteres), na ordem em que as séries chegam da lista.
   // O mesmo navegador atende o tablet na horizontal (toque).
   const catalogBrowserMode = tvMode || isTabletLandscape;
-  const tvEntries = useMemo<TvCatalogEntry[]>(() => {
+  const tvEntriesRaw = useMemo<TvCatalogEntry[]>(() => {
     if (!catalogBrowserMode) return [];
-    return dedupeTitleVariants(seriesList.map((item) => ({
+    return seriesList.map((item) => ({
       id: item.id,
       title: item.title,
       poster: item.poster,
@@ -195,8 +194,9 @@ export default function SeriesScreen() {
       year: item.year,
       category: item.genre,
       detail: item.seasonsCount > 0 ? `${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""}` : "",
-    })));
+    }));
   }, [catalogBrowserMode, seriesList]);
+  const tvEntries = useDedupedTitles(tvEntriesRaw);
   const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
 
   if (catalogBrowserMode) {

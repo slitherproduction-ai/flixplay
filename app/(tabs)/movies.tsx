@@ -23,7 +23,8 @@ import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
 import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
-import { dedupeTitleVariants, displayCategory } from "@/features/catalog/display";
+import { displayCategory } from "@/features/catalog/display";
+import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
 const MOVIES_FOCUS_SCOPE = "movies-grid";
@@ -94,10 +95,8 @@ export default function MoviesScreen() {
   });
   // Versões do mesmo filme (dublado/legendado) viram um único cartão; a
   // versão é escolhida nos Detalhes.
-  const visibleMovies = useMemo(
-    () => dedupeTitleVariants(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredMovies),
-    [filteredMovies, genre, pager.enabled, pager.items],
-  );
+  // O agrupamento é preparado em segundo plano para não travar a tela.
+  const visibleMovies = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredMovies);
 
   const handleMovie = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -199,14 +198,14 @@ export default function MoviesScreen() {
   // local; a ordem é a de inclusão na lista, do mais recente ao mais antigo.
   // O mesmo navegador atende o tablet na horizontal (toque).
   const catalogBrowserMode = tvMode || isTabletLandscape;
-  const tvEntries = useMemo<TvCatalogEntry[]>(() => {
+  const tvEntriesRaw = useMemo<TvCatalogEntry[]>(() => {
     if (!catalogBrowserMode) return [];
     const addedValue = (value?: string) => {
       const numeric = Number(value);
       if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
       return Date.parse(value ?? "") || 0;
     };
-    return dedupeTitleVariants(movies
+    return movies
       .map((movie) => ({ movie, added: addedValue(movie.addedAt) }))
       .sort((a, b) => b.added - a.added)
       .map(({ movie }) => ({
@@ -218,8 +217,9 @@ export default function MoviesScreen() {
         category: movie.genre,
         detail: movie.duration,
         quality: movie.quality,
-      })));
+      }));
   }, [catalogBrowserMode, movies]);
+  const tvEntries = useDedupedTitles(tvEntriesRaw);
   const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
 
   if (catalogBrowserMode) {

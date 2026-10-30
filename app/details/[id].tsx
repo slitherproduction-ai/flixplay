@@ -15,10 +15,10 @@ import { useAppStore } from "@/store/useAppStore";
 import { getSeriesInfo } from "@/services/xtream";
 import { parseSeriesEpisodes } from "@/features/details/seriesEpisodes";
 import { verifyParentalPin } from "@/services/security/parentalControl";
-import { fetchTmdbMetadata, isTmdbConfigured, normalizeCatalogTitle, type TmdbMetadata } from "@/services/tmdb";
+import { fetchTmdbMetadata, isTmdbConfigured, type TmdbMetadata } from "@/services/tmdb";
 import { TvDetailsContent } from "@/features/details/tv-details";
 import { VariantSelector, type TitleVariantOption } from "@/features/details/variant-selector";
-import { VARIANT_LABEL, displayTitle, findTitleVariants, titleVariant } from "@/features/catalog/display";
+import { VARIANT_LABEL, catalogTitleKey, displayTitle, findTitleVariants, titleKeysReady, titleVariant, warmTitleKeys } from "@/features/catalog/display";
 import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 import { loadOrFetchSynopsis } from "@/features/details/synopsis";
 
@@ -196,18 +196,42 @@ export default function DetailsScreen() {
     };
   }, [movie, show]);
 
+  // Versões e recomendações comparam títulos de todo o catálogo. As chaves são
+  // preparadas em lotes depois da transição de tela, para não travar toques.
+  const catalogSource: (VodMovie | SeriesItem)[] = show ? cachedSeries : cachedMovies;
+  const [titleKeysWarm, setTitleKeysWarm] = useState(false);
+  useEffect(() => {
+    const titles = catalogSource.map((entry) => entry.title);
+    if (titleKeysReady(titles)) {
+      setTitleKeysWarm(true);
+      return;
+    }
+    setTitleKeysWarm(false);
+    let warm: ReturnType<typeof warmTitleKeys> | null = null;
+    let active = true;
+    const task = InteractionManager.runAfterInteractions(() => {
+      warm = warmTitleKeys(titles);
+      void warm.promise.then(() => { if (active) setTitleKeysWarm(true); });
+    });
+    return () => {
+      active = false;
+      task.cancel();
+      warm?.cancel();
+    };
+  }, [catalogSource]);
+
   // TV: "Mais como este" segue o Roku — recomendações do TMDB, mas somente as
   // que existem na lista do usuário. Sem correspondência, usa a mesma categoria.
   const tvRecommendations = useMemo(() => {
-    if (!roku) return { items: [] as (VodMovie | SeriesItem)[], fromTmdb: false };
+    if (!roku || !titleKeysWarm) return { items: [] as (VodMovie | SeriesItem)[], fromTmdb: false };
     const source: (VodMovie | SeriesItem)[] = show ? cachedSeries : cachedMovies;
     const currentId = show?.id ?? movie?.id;
-    const wanted = new Set((tmdbMetadata?.recommendations ?? []).map(normalizeCatalogTitle).filter(Boolean));
+    const wanted = new Set((tmdbMetadata?.recommendations ?? []).map(catalogTitleKey).filter(Boolean));
     const matched: (VodMovie | SeriesItem)[] = [];
     if (wanted.size > 0) {
       for (const entry of source) {
         if (entry.id === currentId) continue;
-        if (wanted.has(normalizeCatalogTitle(entry.title))) matched.push(entry);
+        if (wanted.has(catalogTitleKey(entry.title))) matched.push(entry);
         if (matched.length === 12) break;
       }
     }
@@ -220,13 +244,13 @@ export default function DetailsScreen() {
       if (sameCategory.length === 12) break;
     }
     return { items: sameCategory.length > 0 ? sameCategory : similar, fromTmdb: false };
-  }, [cachedMovies, cachedSeries, movie?.genre, movie?.id, show?.genre, show?.id, similar, tmdbMetadata?.recommendations, roku]);
+  }, [cachedMovies, cachedSeries, movie?.genre, movie?.id, show?.genre, show?.id, similar, tmdbMetadata?.recommendations, roku, titleKeysWarm]);
 
   // Versões do mesmo título (Dublado/Legendado): os catálogos mostram um único
   // cartão e a versão é escolhida aqui.
   const variantOptions = useMemo<TitleVariantOption[]>(() => {
     const item: VodMovie | SeriesItem | undefined = movie ?? show;
-    if (!item) return [];
+    if (!item || !titleKeysWarm) return [];
     const source: (VodMovie | SeriesItem)[] = movie ? cachedMovies : cachedSeries;
     const variants = findTitleVariants(source, item);
     if (variants.length < 2) return [];
@@ -237,7 +261,7 @@ export default function DetailsScreen() {
       seen.set(base, count);
       return { id: variant.id, label: count > 1 ? `${base} ${count}` : base };
     });
-  }, [cachedMovies, cachedSeries, movie, show]);
+  }, [cachedMovies, cachedSeries, movie, show, titleKeysWarm]);
   const handleSelectVariant = useCallback((variantId: string) => {
     router.replace(`/details/${variantId}`);
   }, [router]);

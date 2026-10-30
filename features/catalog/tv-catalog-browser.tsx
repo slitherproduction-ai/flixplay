@@ -13,8 +13,8 @@ import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { fetchTmdbPersonFilmography, normalizeCatalogTitle } from "@/services/tmdb";
-import { displayCategory, displayTitle } from "@/features/catalog/display";
+import { fetchTmdbPersonFilmography } from "@/services/tmdb";
+import { catalogTitleKey, displayCategory, displayTitle, warmTitleKeys } from "@/features/catalog/display";
 
 // ---------------------------------------------------------------------------
 // Filmes e Séries em TV no formato do ELVANOQ Play para Roku (BrowseView):
@@ -294,15 +294,18 @@ export function TvCatalogBrowser({
       return;
     }
     setSearchLoading(true);
-    const wanted = normalizeCatalogTitle(trimmed);
-    const byTitle = entries.filter((entry) => normalizeCatalogTitle(entry.title).includes(wanted));
+    // Prepara as chaves em lotes antes de filtrar (não trava o controle remoto).
+    await warmTitleKeys(entries.map((entry) => entry.title)).promise;
+    if (generation !== searchGeneration.current) return;
+    const wanted = catalogTitleKey(trimmed);
+    const byTitle = entries.filter((entry) => catalogTitleKey(entry.title).includes(wanted));
     let results = byTitle;
     let person = "";
     try {
       const filmography = await fetchTmdbPersonFilmography(trimmed, kind === "movies" ? "movie" : "tv");
       if (filmography && filmography.titles.length > 0) {
-        const titles = new Set(filmography.titles.map(normalizeCatalogTitle).filter(Boolean));
-        const byPerson = entries.filter((entry) => titles.has(normalizeCatalogTitle(entry.title)));
+        const titles = new Set(filmography.titles.map(catalogTitleKey).filter(Boolean));
+        const byPerson = entries.filter((entry) => titles.has(catalogTitleKey(entry.title)));
         if (byPerson.length > 0) {
           person = filmography.person;
           const seen = new Set(byPerson.map((entry) => entry.id));

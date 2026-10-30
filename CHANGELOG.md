@@ -2,6 +2,8 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Correção (desempenho): o agrupamento de versões e a limpeza de títulos usavam várias expressões regulares por título e eram recalculados sobre o catálogo inteiro (dezenas de milhares de itens) ao abrir Filmes/Séries, trocar de categoria, buscar e abrir Detalhes. No Hermes isso travava a interface por segundos — toques, categorias e barra de abas sem resposta. Agora as chaves são calculadas com operações simples de texto, ficam em cache por título, são preparadas em lotes em segundo plano (a lista aparece na hora e o agrupamento entra em seguida) e o índice de versões dos Detalhes é montado uma única vez.
+- Agrupamento mais preciso: "Leg Day" não é mais tratado como legendado e "Duna (Parte Dois)" não é mais agrupado com "Duna".
 - Filmes e Séries (smartphone/tablet em pé): cabeçalho compacto — título com total, busca em campo único, uma linha de categorias e "Ordenar" recolhido; atualizar passa a ser puxar a lista para baixo. O conteúdo aparece logo no topo. Séries deixa o vermelho e adota a cor do app; sem "Temporadas não informadas" (mostra ano e categoria); busca descreve o que realmente faz.
 - Títulos e categorias limpos em todo o app: "Devorador [L]" vira "Devorador", "Filmes | Mais Assistidos" vira "Mais Assistidos" e "Drama |" vira "Drama". Totais com separador de milhar (31.904).
 - Versões agrupadas: dublado, legendado e nacional do mesmo título (mesmo nome e ano) aparecem como um único cartão em Filmes, Séries, Início e na TV; a versão é escolhida nos Detalhes (seletor "Versão" em celular, tablet e TV).

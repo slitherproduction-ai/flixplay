@@ -1,150 +1,43 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   Platform,
-  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
 } from "react-native";
-import { Colors, Type } from "@/constants/theme";
+import { Colors } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
-import { AppText, Chip, EmptyState, GlassCard, PosterCard, SearchField, SectionHeader } from "@/components/ui";
+import { AppText, EmptyState, PosterCard } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem } from "@/store/types";
-import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
+import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
+import { dedupeTitleVariants, displayCategory } from "@/features/catalog/display";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
 const SERIES_FOCUS_SCOPE = "series-grid";
 
-function seasonsMeta(count: number, genre: string): string {
-  const seasons = count > 0 ? `${count} temporada${count !== 1 ? "s" : ""}` : "Temporadas não informadas";
-  return `${seasons} · ${genre}`;
+/** Temporadas quando informadas; caso contrário, ano e categoria (nunca "Temporadas não…"). */
+function seasonsMeta(count: number, year: number, genre: string): string {
+  const parts = [
+    count > 0 ? `${count} temporada${count !== 1 ? "s" : ""}` : year > 0 ? String(year) : "",
+    displayCategory(genre),
+  ];
+  return parts.filter(Boolean).join(" · ");
 }
 
 const FAVORITES_LABEL = "Favoritos";
-
-// ---------------------------------------------------------------------------
-// Static header (no SearchField here)
-// ---------------------------------------------------------------------------
-
-interface SeriesHeaderProps {
-  isSyncing: boolean;
-  syncError: string | null;
-  syncProgress: string | null;
-  genres: string[];
-  genre: string;
-  filteredCount: number;
-  totalCount: number;
-  refresh: () => void;
-  setGenre: (g: string) => void;
-  query: string;
-  setQuery: (value: string) => void;
-}
-
-function SeriesHeader({
-  isSyncing, syncError, syncProgress, genres, genre,
-  filteredCount, totalCount, refresh, setGenre, query, setQuery,
-}: SeriesHeaderProps) {
-  // Edge-to-edge no Android: o cabeçalho começa abaixo da barra de status.
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={[styles.headerBlock, { paddingTop: insets.top + 22 }]}>
-      {isSyncing ? (
-        <View style={styles.syncBanner}>
-          <ActivityIndicator size="small" color={Colors.red} />
-          <AppText style={styles.syncText}>{syncProgress ?? "Carregando séries..."}</AppText>
-        </View>
-      ) : null}
-
-      {syncError ? (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle" size={15} color="#FF8B91" />
-          <AppText style={styles.errorBannerText} numberOfLines={2}>
-            {syncError}
-          </AppText>
-          <TVFocusable
-            onPress={refresh}
-            style={styles.retryBtn}
-            accessibilityLabel="Tentar novamente"
-          >
-            <AppText style={styles.retryText}>Tentar</AppText>
-          </TVFocusable>
-        </View>
-      ) : null}
-
-      <View style={styles.heading}>
-        <View style={styles.headingCopy}>
-          <AppText style={styles.kicker}>TEMPORADAS COMPLETAS</AppText>
-          <AppText style={Type.display}>Séries</AppText>
-          <AppText style={styles.subtitle}>
-            {isSyncing
-              ? (syncProgress ?? "Carregando...")
-              : `${totalCount} séries disponíveis`}
-          </AppText>
-        </View>
-        <TVFocusable
-          onPress={refresh}
-          style={styles.libraryIcon}
-          accessibilityLabel="Atualizar catálogo de séries"
-        >
-          <Ionicons name="refresh" size={22} color={Colors.red} />
-        </TVFocusable>
-      </View>
-
-      {genre !== FAVORITES_LABEL ? (
-        <GlassCard style={styles.searchBar} intensity={16}>
-          <SearchField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscar por título ou ator"
-          />
-        </GlassCard>
-      ) : null}
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.genreScroller}
-        contentContainerStyle={styles.genreContent}
-      >
-        {genres.map((item, index) => (
-          <Chip
-            key={item}
-            label={item}
-            selected={genre === item}
-            hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(SERIES_FOCUS_SCOPE)}
-            onPress={() => setGenre(item)}
-            icon={item === FAVORITES_LABEL ? "star" : undefined}
-          />
-        ))}
-      </ScrollView>
-
-      {genre !== FAVORITES_LABEL ? (
-        <SectionHeader
-          title="Séries para maratonar"
-          subtitle={`${filteredCount} resultados`}
-        />
-      ) : (
-        <SectionHeader
-          title={`${filteredCount} favoritos`}
-          subtitle="Séries que você quer maratonar"
-        />
-      )}
-    </View>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main screen
@@ -194,7 +87,11 @@ export default function SeriesScreen() {
     query: genre === FAVORITES_LABEL ? "" : query.trim(),
     sort: "name_asc",
   });
-  const visibleSeries = pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredSeries;
+  // Versões da mesma série (dublada/legendada) viram um único cartão.
+  const visibleSeries = useMemo(
+    () => dedupeTitleVariants(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredSeries),
+    [filteredSeries, genre, pager.enabled, pager.items],
+  );
 
   const handleSeries = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -206,7 +103,7 @@ export default function SeriesScreen() {
       <PosterCard
         title={item.title}
         image={item.poster}
-        meta={seasonsMeta(item.seasonsCount, item.genre)}
+        meta={seasonsMeta(item.seasonsCount, item.year, item.genre)}
         rating={item.rating}
         width={cardWidth}
         focusId={item.id}
@@ -228,18 +125,22 @@ export default function SeriesScreen() {
   // unmounts the header when filteredSeries.length changes during search.
   const listHeaderElement = useMemo(
     () => (
-      <SeriesHeader
-        isSyncing={isSyncing}
-        syncError={syncError}
-        syncProgress={syncProgress}
-        genres={genres}
-        genre={genre}
-        filteredCount={visibleSeries.length}
+      <MobileCatalogHeader
+        title="Séries"
+        noun={{ singular: "série", plural: "séries" }}
         totalCount={seriesList.length}
-        refresh={refresh}
-        setGenre={handleSetGenre}
+        filteredCount={visibleSeries.length}
+        isSyncing={isSyncing}
+        syncProgress={syncProgress}
+        syncError={syncError}
+        onRetry={refresh}
         query={query}
         setQuery={setQuery}
+        searchPlaceholder="Buscar por título ou gênero"
+        categories={genres}
+        category={genre}
+        setCategory={handleSetGenre}
+        favoritesLabel={FAVORITES_LABEL}
       />
     ),
     [isSyncing, syncError, syncProgress, genres, genre, visibleSeries.length, seriesList.length, refresh, handleSetGenre, query],
@@ -286,7 +187,7 @@ export default function SeriesScreen() {
   const catalogBrowserMode = tvMode || isTabletLandscape;
   const tvEntries = useMemo<TvCatalogEntry[]>(() => {
     if (!catalogBrowserMode) return [];
-    return seriesList.map((item) => ({
+    return dedupeTitleVariants(seriesList.map((item) => ({
       id: item.id,
       title: item.title,
       poster: item.poster,
@@ -294,7 +195,7 @@ export default function SeriesScreen() {
       year: item.year,
       category: item.genre,
       detail: item.seasonsCount > 0 ? `${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""}` : "",
-    }));
+    })));
   }, [catalogBrowserMode, seriesList]);
   const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
 
@@ -329,7 +230,8 @@ export default function SeriesScreen() {
         ListEmptyComponent={listEmptyElement}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="none"
-        contentInsetAdjustmentBehavior="automatic"
+        // Atualizar o catálogo: puxar a lista para baixo (o andamento aparece no cabeçalho).
+        refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={Colors.blueBright} colors={[Colors.blue]} progressBackgroundColor={Colors.backgroundRaised} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
@@ -360,7 +262,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: "rgba(229, 9, 20, 0.06)",
+    backgroundColor: "rgba(20, 125, 255, 0.07)",
   },
   // The field is part of the virtualized header so Android never draws the
   // FlatList native surface above it.

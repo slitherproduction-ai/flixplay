@@ -14,10 +14,12 @@ import {
   View,
   type PressableProps,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
+import { displayTitle } from "@/features/catalog/display";
 
 /**
  * Screens expose their visual root here so GlassCard can opt into Android's
@@ -36,9 +38,19 @@ export function GlassBlurTargetProvider({
   return <GlassBlurTargetContext.Provider value={blurTarget}>{children}</GlassBlurTargetContext.Provider>;
 }
 
-export function AppText({ style, children, selectable = !Platform.isTV, ...props }: React.ComponentProps<typeof Text>) {
+/**
+ * Texto base do app.
+ * • Respeita a fonte ampliada do sistema até 1,3× — acima disso títulos de
+ *   botões e cartões quebravam em várias linhas (padrão dos apps de streaming).
+ * • Quando o estilo define `fontSize` sem `lineHeight`, não herda a altura de
+ *   linha de 20 do corpo de texto, que deixava legendas pequenas espaçadas.
+ */
+export function AppText({ style, children, selectable = !Platform.isTV, maxFontSizeMultiplier = 1.3, ...props }: React.ComponentProps<typeof Text>) {
+  const flattened = StyleSheet.flatten(style) ?? {};
+  const merged: TextStyle = { ...Type.body, ...flattened };
+  if (flattened.fontSize !== undefined && flattened.lineHeight === undefined) delete merged.lineHeight;
   return (
-    <Text selectable={selectable} style={[Type.body, style]} {...props}>
+    <Text selectable={selectable} maxFontSizeMultiplier={maxFontSizeMultiplier} style={merged} {...props}>
       {children}
     </Text>
   );
@@ -335,7 +347,7 @@ export function PosterCard({
             ou quando o servidor não envia pôster — nunca um bloco cinza. */}
         <LinearGradient colors={["#1B2A45", "#0D1422"]} style={StyleSheet.absoluteFill} />
         <View style={styles.posterPlaceholder}>
-          <AppText numberOfLines={4} style={styles.posterPlaceholderText}>{title}</AppText>
+          <AppText numberOfLines={4} style={styles.posterPlaceholderText}>{displayTitle(title)}</AppText>
         </View>
         {hasImage ? (
           <Image
@@ -358,20 +370,25 @@ export function PosterCard({
             <AppText style={styles.qualityText}>{quality}</AppText>
           </View>
         ) : null}
-        {rating ? (
-          <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={9} color={Colors.amber} />
-            <AppText style={styles.ratingText}>{rating.toFixed(1)}</AppText>
-          </View>
-        ) : null}
         {progress !== undefined ? (
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </View>
         ) : null}
       </View>
-      <AppText numberOfLines={1} style={[styles.posterTitle, focused && styles.posterTitleFocused]}>{title}</AppText>
-      <AppText numberOfLines={1} style={styles.posterMeta}>{meta}</AppText>
+      {/* Pôster limpo, como na Netflix/Apple TV: a nota fica na linha de
+          dados, não sobre a arte. */}
+      <AppText numberOfLines={1} style={[styles.posterTitle, focused && styles.posterTitleFocused]}>{displayTitle(title)}</AppText>
+      <View style={styles.posterMetaRow}>
+        {rating ? (
+          <>
+            <Ionicons name="star" size={9} color={Colors.amber} />
+            <AppText style={styles.posterRating}>{rating.toFixed(1)}</AppText>
+            {meta ? <AppText style={styles.posterMeta}>·</AppText> : null}
+          </>
+        ) : null}
+        <AppText numberOfLines={1} style={[styles.posterMeta, styles.posterMetaFlex]}>{meta}</AppText>
+      </View>
     </TVFocusable>
   );
 }
@@ -576,6 +593,9 @@ export const styles = StyleSheet.create({
   },
   chip: {
     minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     justifyContent: "center",
     paddingHorizontal: 15,
     borderRadius: Radii.pill,
@@ -743,6 +763,9 @@ export const styles = StyleSheet.create({
     color: "#D6DEEB",
   },
   posterTitleFocused: { color: Colors.white },
+  posterMetaRow: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 2 },
+  posterRating: { fontFamily: "Inter_700Bold", fontSize: 10, color: Colors.amber },
+  posterMetaFlex: { flex: 1, paddingHorizontal: 0 },
   posterMeta: {
     paddingHorizontal: 2,
     fontSize: 10,

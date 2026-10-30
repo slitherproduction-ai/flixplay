@@ -1,29 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   Platform,
-  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
 } from "react-native";
-import { Colors, Type } from "@/constants/theme";
+import { Colors } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
-import { AppText, Chip, EmptyState, GlassCard, PosterCard, SearchField, SectionHeader } from "@/components/ui";
+import { AppText, EmptyState, PosterCard } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { VodMovie } from "@/store/types";
-import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
+import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
+import { dedupeTitleVariants, displayCategory } from "@/features/catalog/display";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
 const MOVIES_FOCUS_SCOPE = "movies-grid";
@@ -32,139 +32,6 @@ const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z", "Z-A"] as cons
 type SortOption = typeof SORT_OPTIONS[number];
 
 const FAVORITES_LABEL = "Favoritos";
-
-// ---------------------------------------------------------------------------
-// Static header (no SearchField here)
-// ---------------------------------------------------------------------------
-
-interface MoviesHeaderProps {
-  isSyncing: boolean;
-  syncError: string | null;
-  syncProgress: string | null;
-  genres: string[];
-  genre: string;
-  sort: SortOption;
-  filteredCount: number;
-  totalCount: number;
-  refresh: () => void;
-  setGenre: (g: string) => void;
-  setSort: (s: SortOption) => void;
-  query: string;
-  setQuery: (value: string) => void;
-}
-
-function MoviesHeader({
-  isSyncing, syncError, syncProgress, genres, genre, sort,
-  filteredCount, totalCount, refresh, setGenre, setSort, query, setQuery,
-}: MoviesHeaderProps) {
-  // Edge-to-edge no Android: o cabeçalho começa abaixo da barra de status.
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={[styles.headerBlock, { paddingTop: insets.top + 22 }]}>
-      {isSyncing ? (
-        <View style={styles.syncBanner}>
-          <ActivityIndicator size="small" color={Colors.blueBright} />
-          <AppText style={styles.syncText}>{syncProgress ?? "Carregando filmes..."}</AppText>
-        </View>
-      ) : null}
-
-      {syncError ? (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle" size={15} color="#FF8B91" />
-          <AppText style={styles.errorBannerText} numberOfLines={2}>
-            {syncError}
-          </AppText>
-          <TVFocusable
-            onPress={refresh}
-            style={styles.retryBtn}
-            accessibilityLabel="Tentar novamente"
-          >
-            <AppText style={styles.retryText}>Tentar</AppText>
-          </TVFocusable>
-        </View>
-      ) : null}
-
-      <View style={styles.heading}>
-        <View style={styles.headingCopy}>
-          <AppText style={styles.kicker}>CATÁLOGO VOD</AppText>
-          <AppText style={Type.display}>Filmes</AppText>
-          <AppText style={styles.subtitle}>
-            {isSyncing
-              ? (syncProgress ?? "Carregando...")
-              : `${totalCount} filmes disponíveis`}
-          </AppText>
-        </View>
-        <TVFocusable
-          onPress={refresh}
-          style={styles.libraryIcon}
-          accessibilityLabel="Atualizar catálogo"
-        >
-          <Ionicons name="refresh" size={22} color={Colors.blueBright} />
-        </TVFocusable>
-      </View>
-
-      {genre !== FAVORITES_LABEL ? (
-        <GlassCard style={styles.searchBar} intensity={16}>
-          <SearchField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Buscar por título ou gênero"
-          />
-        </GlassCard>
-      ) : null}
-
-      <View style={styles.filterBlock}>
-        <AppText style={styles.filterLabel}>Categorias</AppText>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroller}
-          contentContainerStyle={styles.filterContent}
-        >
-          {genres.map((item, index) => (
-            <Chip
-              key={item}
-              label={item}
-              selected={genre === item}
-              hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(MOVIES_FOCUS_SCOPE)}
-              onPress={() => setGenre(item)}
-              icon={item === FAVORITES_LABEL ? "star" : undefined}
-            />
-          ))}
-        </ScrollView>
-      </View>
-
-      {genre !== FAVORITES_LABEL ? (
-        <View style={styles.sortRow}>
-          <SectionHeader
-            title={`${filteredCount} títulos`}
-            subtitle={isSyncing ? "Carregando..." : "Atualizados recentemente"}
-          />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.sortScroller}
-            contentContainerStyle={styles.sortContent}
-          >
-            {SORT_OPTIONS.map((item) => (
-              <Chip
-                key={item}
-                label={item}
-                selected={sort === item}
-                onPress={() => setSort(item)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      ) : (
-        <SectionHeader
-          title={`${filteredCount} favoritos`}
-          subtitle="Filmes que você quer assistir"
-        />
-      )}
-    </View>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main screen
@@ -225,7 +92,12 @@ export default function MoviesScreen() {
     query: genre === FAVORITES_LABEL ? "" : query.trim(),
     sort: sort === "Melhor avaliados" ? "rating_desc" : sort === "A-Z" ? "name_asc" : sort === "Z-A" ? "name_desc" : "added_desc",
   });
-  const visibleMovies = pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredMovies;
+  // Versões do mesmo filme (dublado/legendado) viram um único cartão; a
+  // versão é escolhida nos Detalhes.
+  const visibleMovies = useMemo(
+    () => dedupeTitleVariants(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredMovies),
+    [filteredMovies, genre, pager.enabled, pager.items],
+  );
 
   const handleMovie = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -237,7 +109,7 @@ export default function MoviesScreen() {
       <PosterCard
         title={item.title}
         image={item.poster}
-        meta={`${item.year > 0 ? item.year : "Ano não informado"} · ${item.genre}`}
+        meta={[item.year > 0 ? String(item.year) : "", displayCategory(item.genre)].filter(Boolean).join(" · ")}
         rating={item.rating}
         quality={item.quality}
         width={cardWidth}
@@ -263,20 +135,25 @@ export default function MoviesScreen() {
   // filteredMovies.length changes, which keeps the keyboard focused during search.
   const listHeaderElement = useMemo(
     () => (
-      <MoviesHeader
-        isSyncing={isSyncing}
-        syncError={syncError}
-        syncProgress={syncProgress}
-        genres={genres}
-        genre={genre}
-        sort={sort}
-        filteredCount={visibleMovies.length}
+      <MobileCatalogHeader
+        title="Filmes"
+        noun={{ singular: "filme", plural: "filmes" }}
         totalCount={movies.length}
-        refresh={refresh}
-        setGenre={handleSetGenre}
-        setSort={handleSetSort}
+        filteredCount={visibleMovies.length}
+        isSyncing={isSyncing}
+        syncProgress={syncProgress}
+        syncError={syncError}
+        onRetry={refresh}
         query={query}
         setQuery={setQuery}
+        searchPlaceholder="Buscar por título ou gênero"
+        categories={genres}
+        category={genre}
+        setCategory={handleSetGenre}
+        favoritesLabel={FAVORITES_LABEL}
+        sortOptions={SORT_OPTIONS}
+        sort={sort}
+        setSort={handleSetSort}
       />
     ),
     [isSyncing, syncError, syncProgress, genres, genre, sort, visibleMovies.length, movies.length, refresh, handleSetGenre, handleSetSort, query],
@@ -329,7 +206,7 @@ export default function MoviesScreen() {
       if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
       return Date.parse(value ?? "") || 0;
     };
-    return movies
+    return dedupeTitleVariants(movies
       .map((movie) => ({ movie, added: addedValue(movie.addedAt) }))
       .sort((a, b) => b.added - a.added)
       .map(({ movie }) => ({
@@ -341,7 +218,7 @@ export default function MoviesScreen() {
         category: movie.genre,
         detail: movie.duration,
         quality: movie.quality,
-      }));
+      })));
   }, [catalogBrowserMode, movies]);
   const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
 
@@ -376,7 +253,8 @@ export default function MoviesScreen() {
         ListEmptyComponent={listEmptyElement}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="none"
-        contentInsetAdjustmentBehavior="automatic"
+        // Atualizar o catálogo: puxar a lista para baixo (o andamento aparece no cabeçalho).
+        refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={Colors.blueBright} colors={[Colors.blue]} progressBackgroundColor={Colors.backgroundRaised} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,

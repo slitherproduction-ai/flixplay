@@ -20,6 +20,7 @@ import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { PlayHistory, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
+import { dedupeTitleVariants, displayCategory, displayTitle } from "@/features/catalog/display";
 
 // ---------------------------------------------------------------------------
 // Home em formato de hub, alinhada ao ELVANOQ Play para Roku (0.1.88):
@@ -342,7 +343,7 @@ function HeroBanner({
     };
   }, [artScale, contentOpacity, contentShift, slide.id]);
 
-  const metaParts = [yearMeta(hero.year), hero.meta, hero.genre].filter((part) => part && part.trim().length > 0);
+  const metaParts = [yearMeta(hero.year), hero.meta, displayCategory(hero.genre)].filter((part) => part && part.trim().length > 0);
 
   return (
     <View style={[styles.heroStage, { height }]}>
@@ -391,7 +392,7 @@ function HeroBanner({
           <Ionicons name={featureIcon} size={tvMode ? 11 : 12} color={Colors.blueBright} />
           <AppText style={[styles.heroEyebrowText, tvMode && styles.tvHeroEyebrowText]}>{featureLabel}</AppText>
         </View>
-        <AppText numberOfLines={2} style={[styles.heroTitle, wide && styles.wideHeroTitle, tvMode && styles.tvHeroTitle]}>{hero.title}</AppText>
+        <AppText numberOfLines={2} style={[styles.heroTitle, wide && styles.wideHeroTitle, tvMode && styles.tvHeroTitle]}>{displayTitle(hero.title)}</AppText>
         <View style={styles.heroMeta}>
           {hero.rating > 0 ? (
             <View style={styles.heroRatingPill}>
@@ -653,10 +654,11 @@ export default function HomeScreen() {
       ...movies.map((movie) => ({ added: parseAddedAt(movie.addedAt), content: toHeroMovie(movie) })),
       ...seriesList.map((item) => ({ added: 0, content: toHeroSeries(item) })),
     ];
-    return entries
+    return dedupeTitleVariants(entries
       .sort((a, b) => b.added - a.added)
-      .slice(0, PRIMARY_RAIL_LIMIT)
-      .map((entry) => entry.content);
+      .slice(0, PRIMARY_RAIL_LIMIT * 2)
+      .map((entry) => entry.content))
+      .slice(0, PRIMARY_RAIL_LIMIT);
   }, [movies, seriesList]);
 
   const heroSlides = useMemo(() => {
@@ -1007,7 +1009,7 @@ export default function HomeScreen() {
                     key={`${item.type}-${item.id}`}
                     title={item.title}
                     image={item.poster}
-                    meta={`${yearMeta(item.year)} · ${item.type === "series" ? item.meta : item.genre}`}
+                    meta={`${yearMeta(item.year)} · ${item.type === "series" ? item.meta : displayCategory(item.genre)}`}
                     rating={item.rating}
                     quality={item.quality}
                     width={posterWidth}
@@ -1027,7 +1029,7 @@ export default function HomeScreen() {
                     key={`${item.type}-${item.id}`}
                     title={item.title}
                     image={item.poster}
-                    meta={`${yearMeta(item.year)} · ${item.type === "series" ? item.meta : item.genre}`}
+                    meta={`${yearMeta(item.year)} · ${item.type === "series" ? item.meta : displayCategory(item.genre)}`}
                     rating={item.rating}
                     quality={item.quality}
                     width={posterWidth}
@@ -1079,7 +1081,7 @@ export default function HomeScreen() {
               <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
               <HorizontalScroller>
                 {recentMovies.map((movie) => (
-                  <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${yearMeta(movie.year)} · ${movie.genre}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />
+                  <PosterCard key={movie.id} title={movie.title} image={movie.poster} meta={`${yearMeta(movie.year)} · ${displayCategory(movie.genre)}`} rating={movie.rating} quality={movie.quality} width={posterWidth} onPress={() => handleContent(movie.id)} />
                 ))}
               </HorizontalScroller>
             </View>

@@ -14,6 +14,7 @@ import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchTmdbPersonFilmography, normalizeCatalogTitle } from "@/services/tmdb";
+import { displayCategory, displayTitle } from "@/features/catalog/display";
 
 // ---------------------------------------------------------------------------
 // Filmes e Séries em TV no formato do ELVANOQ Play para Roku (BrowseView):
@@ -107,7 +108,7 @@ const PosterTile = memo(function PosterTile({
       <Image source={{ uri: entry.poster }} contentFit="cover" transition={180} recyclingKey={entry.id} style={StyleSheet.absoluteFill} />
       {!entry.poster ? (
         <View style={styles.posterFallback}>
-          <AppText numberOfLines={3} style={styles.posterFallbackText}>{entry.title}</AppText>
+          <AppText numberOfLines={3} style={styles.posterFallbackText}>{displayTitle(entry.title)}</AppText>
         </View>
       ) : null}
       {entry.quality ? (
@@ -120,7 +121,7 @@ const PosterTile = memo(function PosterTile({
   return (
     <View style={{ width }}>
       {tile}
-      <AppText numberOfLines={1} style={styles.touchPosterTitle}>{entry.title}</AppText>
+      <AppText numberOfLines={1} style={styles.touchPosterTitle}>{displayTitle(entry.title)}</AppText>
       <AppText numberOfLines={1} style={styles.touchPosterMeta}>
         {[entry.year > 0 ? String(entry.year) : "", entry.rating > 0 ? `★ ${entry.rating.toFixed(1)}` : ""].filter(Boolean).join("  ·  ")}
       </AppText>
@@ -235,11 +236,11 @@ export function TvCatalogBrowser({
     for (const name of categoryNames) {
       if (seen.has(name)) continue;
       seen.add(name);
-      ordered.push({ key: name, name, total: counts.get(name) ?? 0 });
+      ordered.push({ key: name, name: displayCategory(name), total: counts.get(name) ?? 0 });
     }
     // Categorias presentes nos títulos mas ausentes da lista de categorias.
     for (const [name, total] of counts) {
-      if (!seen.has(name)) ordered.push({ key: name, name, total });
+      if (!seen.has(name)) ordered.push({ key: name, name: displayCategory(name), total });
     }
     return ordered;
   }, [categoryNames, counts, entries.length, favoriteIds.length]);
@@ -336,11 +337,11 @@ export function TvCatalogBrowser({
       ? "OK  digitar o nome do título ou de um ator"
       : `${formatCount(focusedCategory.total ?? 0)} títulos   •   →  ou  OK para ver os títulos`;
   } else if (focusedEntry) {
-    footerTitle = focusedEntry.title;
+    footerTitle = displayTitle(focusedEntry.title);
     footerMeta = [
       focusedEntry.year > 0 ? String(focusedEntry.year) : "",
       focusedEntry.detail,
-      focusedEntry.category,
+      displayCategory(focusedEntry.category),
       focusedEntry.rating > 0 ? `Nota ${focusedEntry.rating.toFixed(1)}` : "",
     ].filter(Boolean).join("   •   ");
   }

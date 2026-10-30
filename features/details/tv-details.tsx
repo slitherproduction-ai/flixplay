@@ -9,6 +9,8 @@ import { BRAND } from "@/constants/brand";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import type { TmdbMetadata } from "@/services/tmdb";
+import { VariantSelector, type TitleVariantOption } from "@/features/details/variant-selector";
+import { displayTitle } from "@/features/catalog/display";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { EpisodeItem, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
@@ -58,6 +60,8 @@ export type TvDetailsProps = {
   onSeasonChange: (season: number) => void;
   onOpenTitle: (id: string) => void;
   onBack: () => void;
+  variants: TitleVariantOption[];
+  onSelectVariant: (id: string) => void;
 };
 
 function formatReleaseDate(value?: string | null): string {
@@ -170,6 +174,8 @@ export function TvDetailsContent({
   onSeasonChange,
   onOpenTitle,
   onBack,
+  variants,
+  onSelectVariant,
 }: TvDetailsProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -178,7 +184,7 @@ export function TvDetailsContent({
   const [status, setStatus] = useState("");
   const confident = Boolean(tmdb?.confidentMatch);
 
-  const title = (confident && tmdb?.title) || item?.title || "Conteúdo";
+  const title = (confident && tmdb?.title) || displayTitle(item?.title ?? "") || "Conteúdo";
   const poster = (confident && tmdb?.posterUrl) || item?.poster || "";
   const backdrop = (confident && tmdb?.backdropUrl) || item?.backdrop || item?.poster || "";
   const serverPlot = (item?.plot ?? "").trim();
@@ -307,6 +313,9 @@ export function TvDetailsContent({
                 onPress={onToggleBlocked}
               />
             </View>
+            {variants.length > 1 ? (
+              <VariantSelector options={variants} currentId={item?.id ?? ""} onSelect={onSelectVariant} compact={!touch} />
+            ) : null}
             <AppText numberOfLines={1} style={styles.status}>{isBlocked && !status ? "Conteúdo protegido pelo PIN parental." : status}</AppText>
           </View>
 

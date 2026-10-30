@@ -767,10 +767,10 @@ export default function LoginScreen() {
                     // generic dark TV focus background.
                     focusStyle={styles.xtreamAccessFocused}
                   >
-                    <View style={styles.xtreamAccessIcon}><Ionicons name="server-outline" size={22} color={Colors.background} /></View>
+                    <View style={styles.xtreamAccessIcon}><Ionicons name="key-outline" size={22} color={Colors.background} /></View>
                     <View style={styles.m3uAccessCopy}>
-                      <AppText style={styles.xtreamAccessTitle}>Código do servidor</AppText>
-                      <AppText style={styles.xtreamAccessMeta}>Código, usuário e senha da sua lista IPTV</AppText>
+                      <AppText numberOfLines={1} style={styles.xtreamAccessTitle}>Código do servidor</AppText>
+                      <AppText numberOfLines={2} style={styles.xtreamAccessMeta}>Código, usuário e senha da sua lista IPTV</AppText>
                     </View>
                     <Ionicons name="chevron-forward" size={22} color={Colors.background} />
                   </TVFocusable>
@@ -782,7 +782,7 @@ export default function LoginScreen() {
                     style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
                   >
                     <View style={styles.m3uAccessIcon}><Ionicons name="server-outline" size={18} color={Colors.blueBright} /></View>
-                    <View style={styles.m3uAccessCopy}><AppText style={styles.m3uAccessTitle}>Xtream por Host</AppText><AppText style={styles.m3uAccessMeta}>Usar Host, usuário e senha diretamente</AppText></View>
+                    <View style={styles.m3uAccessCopy}><AppText numberOfLines={1} style={styles.m3uAccessTitle}>Xtream por Host</AppText><AppText numberOfLines={1} style={styles.m3uAccessMeta}>Host, usuário e senha diretamente</AppText></View>
                     <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
                   </TVFocusable>
 
@@ -1171,23 +1171,36 @@ export default function LoginScreen() {
 
 function DeviceIdentityPanel({ identity, status, compact = false }: { identity: DeviceIdentity | null; status: PortalDeviceStatus | null; compact?: boolean }) {
   if (!identity) return null;
-  const portalLabel = status?.state === "linked"
-    ? "Portal: vinculado"
+  const portal = status?.state === "linked"
+    ? { label: "Vinculado ao Portal", tone: "ok" as const }
     : status?.state === "inactive"
-      ? "Portal: dispositivo inativo"
+      ? { label: "Inativo no Portal", tone: "warn" as const }
       : status?.state === "migration-pending"
-        ? "Portal: regularização pendente"
+        ? { label: "Regularização pendente", tone: "warn" as const }
         : status?.state === "pending"
-        ? "Portal: aguardando vínculo"
-        : null;
-  return <View style={[styles.deviceIdentity, compact && styles.tvDeviceIdentityPanel]}>
-    <View style={styles.deviceIdentityCopy}>
-      <AppText style={styles.deviceIdentityText}>MAC: {identity.macAddress}</AppText>
-      <AppText style={styles.deviceIdentityText}>Chave: {identity.deviceKey}</AppText>
-      <AppText style={styles.deviceIdentityText}>Cadastre-se no Portal: {PORTAL_ORIGIN.replace("https://", "")}</AppText>
-      {portalLabel ? <AppText style={styles.deviceIdentityText}>{portalLabel}</AppText> : null}
+          ? { label: "Aguardando vínculo", tone: "warn" as const }
+          : null;
+  // Cartão discreto "Este aparelho": MAC e chave em uma linha (selecionáveis
+  // para copiar) e o endereço do Portal — antes eram quatro linhas brancas.
+  return (
+    <View style={[styles.deviceCard, compact && styles.tvDeviceIdentityPanel]}>
+      <View style={styles.deviceCardHeader}>
+        <Ionicons name="hardware-chip-outline" size={12} color={Colors.muted} />
+        <AppText style={styles.deviceCardTitle}>ESTE APARELHO</AppText>
+        {portal ? (
+          <View style={[styles.devicePortalChip, portal.tone === "warn" && styles.devicePortalChipWarn]}>
+            <View style={[styles.devicePortalDot, portal.tone === "warn" && styles.devicePortalDotWarn]} />
+            <AppText style={[styles.devicePortalText, portal.tone === "warn" && styles.devicePortalTextWarn]}>{portal.label}</AppText>
+          </View>
+        ) : null}
+      </View>
+      <AppText style={styles.deviceCardLine}>
+        MAC <AppText style={styles.deviceCardValue}>{identity.macAddress}</AppText>
+        {"   ·   "}Chave <AppText style={styles.deviceCardValue}>{identity.deviceKey}</AppText>
+      </AppText>
+      <AppText style={styles.deviceCardHint}>Cadastre-se em {PORTAL_ORIGIN.replace("https://", "")}</AppText>
     </View>
-  </View>;
+  );
 }
 
 const styles = StyleSheet.create({
@@ -1225,7 +1238,18 @@ const styles = StyleSheet.create({
   tvReleaseFooter: { alignItems: "flex-start", paddingTop: 6 },
   tvCompactReleaseFooter: { paddingTop: 1, paddingBottom: 0 },
   releaseFooterText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.25, color: "rgba(219, 234, 254, 0.54)" },
-  deviceIdentity: { alignSelf: "center", alignItems: "center", marginBottom: 7 },
+  deviceCard: { alignSelf: "stretch", gap: 6, marginBottom: 10, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 14, borderWidth: 1, borderColor: "rgba(190,222,255,0.12)", backgroundColor: "rgba(7,11,20,0.72)" },
+  deviceCardHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  deviceCardTitle: { flex: 1, fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.2, color: Colors.muted },
+  devicePortalChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radii.pill, backgroundColor: "rgba(22,199,132,0.12)" },
+  devicePortalChipWarn: { backgroundColor: "rgba(245,184,61,0.12)" },
+  devicePortalDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.green },
+  devicePortalDotWarn: { backgroundColor: Colors.amber },
+  devicePortalText: { fontFamily: "Inter_600SemiBold", fontSize: 9, color: Colors.green },
+  devicePortalTextWarn: { color: Colors.amber },
+  deviceCardLine: { fontSize: 11, lineHeight: 15, color: Colors.muted },
+  deviceCardValue: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.text },
+  deviceCardHint: { fontSize: 10, lineHeight: 13, color: Colors.subtle },
   tvDeviceIdentity: { position: "absolute", alignItems: "flex-end" },
   tvDeviceIdentityPanel: { alignSelf: "flex-end", marginBottom: 0 },
   deviceIdentityCopy: { gap: 1, alignItems: "center" },
@@ -1241,7 +1265,7 @@ const styles = StyleSheet.create({
   logoKicker: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(34,211,238,0.22)", backgroundColor: "rgba(5,17,35,0.48)" },
   logoKickerText: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.1, color: Colors.blueBright },
   brandLogo: { width: 270, height: 81 },
-  brandLogoMobile: { width: 270, height: 81 },
+  brandLogoMobile: { width: 220, height: 66 },
   brandLogoTv: { width: 465, maxWidth: 465, height: 141 },
   brandLogoTvCompact: { width: 330, maxWidth: 330, height: 100 },
   card: {
@@ -1296,12 +1320,12 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1 }],
   },
   xtreamAccessIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "rgba(15,23,42,0.10)", borderWidth: 1, borderColor: "rgba(15,23,42,0.12)" },
-  xtreamAccessTitle: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.background },
-  xtreamAccessMeta: { fontSize: 12, lineHeight: 17, color: "rgba(10,18,34,0.64)" },
+  xtreamAccessTitle: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, letterSpacing: -0.2, color: Colors.background },
+  xtreamAccessMeta: { fontSize: 12, lineHeight: 16, color: "rgba(10,18,34,0.64)" },
   m3uAccessIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.14)" },
   m3uAccessCopy: { flex: 1, gap: 2 },
-  m3uAccessTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  m3uAccessMeta: { fontSize: 10, color: Colors.muted },
+  m3uAccessTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18, color: Colors.text },
+  m3uAccessMeta: { fontSize: 11, lineHeight: 15, color: Colors.muted },
   methodBackButton: { alignSelf: "flex-start", minHeight: 30, flexDirection: "row", alignItems: "center", gap: 4, marginBottom: -5, paddingHorizontal: 4, borderRadius: 9 },
   methodBackText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
   fieldGroup: {

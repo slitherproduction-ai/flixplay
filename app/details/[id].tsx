@@ -17,6 +17,8 @@ import { parseSeriesEpisodes } from "@/features/details/seriesEpisodes";
 import { verifyParentalPin } from "@/services/security/parentalControl";
 import { fetchTmdbMetadata, isTmdbConfigured, normalizeCatalogTitle, type TmdbMetadata } from "@/services/tmdb";
 import { TvDetailsContent } from "@/features/details/tv-details";
+import { VariantSelector, type TitleVariantOption } from "@/features/details/variant-selector";
+import { VARIANT_LABEL, displayTitle, findTitleVariants, titleVariant } from "@/features/catalog/display";
 import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 import { loadOrFetchSynopsis } from "@/features/details/synopsis";
 
@@ -220,6 +222,26 @@ export default function DetailsScreen() {
     return { items: sameCategory.length > 0 ? sameCategory : similar, fromTmdb: false };
   }, [cachedMovies, cachedSeries, movie?.genre, movie?.id, show?.genre, show?.id, similar, tmdbMetadata?.recommendations, roku]);
 
+  // Versões do mesmo título (Dublado/Legendado): os catálogos mostram um único
+  // cartão e a versão é escolhida aqui.
+  const variantOptions = useMemo<TitleVariantOption[]>(() => {
+    const item: VodMovie | SeriesItem | undefined = movie ?? show;
+    if (!item) return [];
+    const source: (VodMovie | SeriesItem)[] = movie ? cachedMovies : cachedSeries;
+    const variants = findTitleVariants(source, item);
+    if (variants.length < 2) return [];
+    const seen = new Map<string, number>();
+    return variants.map((variant) => {
+      const base = VARIANT_LABEL[titleVariant(variant.title)];
+      const count = (seen.get(base) ?? 0) + 1;
+      seen.set(base, count);
+      return { id: variant.id, label: count > 1 ? `${base} ${count}` : base };
+    });
+  }, [cachedMovies, cachedSeries, movie, show]);
+  const handleSelectVariant = useCallback((variantId: string) => {
+    router.replace(`/details/${variantId}`);
+  }, [router]);
+
   const missingError = !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;
 
   const performPlay = useCallback(
@@ -377,6 +399,8 @@ export default function DetailsScreen() {
             onSeasonChange={setSeason}
             onOpenTitle={handleSimilar}
             onBack={router.back}
+            variants={variantOptions}
+            onSelectVariant={handleSelectVariant}
           />
         ) : movie || show ? (
           <DetailsContent
@@ -403,6 +427,8 @@ export default function DetailsScreen() {
             onPlay={handlePlay}
             onSeasonChange={setSeason}
             onSimilar={handleSimilar}
+            variants={variantOptions}
+            onSelectVariant={handleSelectVariant}
           />
         ) : null}
     </View>
@@ -433,7 +459,11 @@ function DetailsContent({
   onPlay,
   onSeasonChange,
   onSimilar,
+  variants,
+  onSelectVariant,
 }: {
+  variants: TitleVariantOption[];
+  onSelectVariant: (id: string) => void;
   movie?: VodMovie;
   show?: SeriesItem;
   similar: (VodMovie | SeriesItem)[];
@@ -487,6 +517,11 @@ function DetailsContent({
         onFavorite={onFavorite}
         onToggleBlocked={onToggleBlocked}
       />
+      {variants.length > 1 ? (
+        <View style={[styles.variantBlock, tvMode && styles.tvVariantBlock]}>
+          <VariantSelector options={variants} currentId={movie?.id ?? show?.id ?? ""} onSelect={onSelectVariant} />
+        </View>
+      ) : null}
       {show ? (
         <EpisodesSection
           show={{ ...show, seasonsCount }}
@@ -532,7 +567,7 @@ function ContentSummary({
 }) {
   const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const insets = useSafeAreaInsets();
-  const title = movie?.title ?? show?.title ?? "Conteúdo";
+  const title = displayTitle(movie?.title ?? show?.title ?? "Conteúdo");
   const poster = movie?.poster ?? show?.poster;
   const backdrop = movie?.backdrop ?? show?.backdrop;
   const rating = tmdbMetadata?.rating ?? movie?.rating ?? show?.rating ?? 0;
@@ -997,6 +1032,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   tvTopControls: { top: 26, right: 42, left: 42 },
+  variantBlock: { paddingHorizontal: 20, marginTop: 4 },
+  tvVariantBlock: { paddingHorizontal: 42 },
   topPill: {
     flexDirection: "row",
     alignItems: "center",

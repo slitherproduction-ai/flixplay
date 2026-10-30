@@ -2,6 +2,13 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Filmes e Séries (smartphone/tablet em pé): cabeçalho compacto — título com total, busca em campo único, uma linha de categorias e "Ordenar" recolhido; atualizar passa a ser puxar a lista para baixo. O conteúdo aparece logo no topo. Séries deixa o vermelho e adota a cor do app; sem "Temporadas não informadas" (mostra ano e categoria); busca descreve o que realmente faz.
+- Títulos e categorias limpos em todo o app: "Devorador [L]" vira "Devorador", "Filmes | Mais Assistidos" vira "Mais Assistidos" e "Drama |" vira "Drama". Totais com separador de milhar (31.904).
+- Versões agrupadas: dublado, legendado e nacional do mesmo título (mesmo nome e ano) aparecem como um único cartão em Filmes, Séries, Início e na TV; a versão é escolhida nos Detalhes (seletor "Versão" em celular, tablet e TV).
+- Pôster limpo: a nota saiu de cima da arte e foi para a linha de dados, como nos serviços de streaming. Chip "Minha Lista" corrigido (ícone ao lado do texto).
+- Textos: a fonte ampliada do sistema é respeitada até 1,3×, evitando títulos quebrados em botões e cartões; legendas pequenas não herdam mais a altura de linha do corpo de texto.
+- Ajustes (smartphone/tablet): estilo agrupado — cartão da conta no topo (status, validade, conexões), listas sem endereço e com um único indicador de ativa, exclusão no modo "Editar", seções com rótulos discretos e linhas agrupadas.
+- Login: ícone de chave para "Código do servidor", títulos sem quebra, logotipo mais compacto e cartão "Este aparelho" com MAC e chave em uma linha (selecionáveis) e situação do Portal.
 - Design (TV, smartphone e tablet): cartões de pôster no padrão dos serviços de streaming — cantos de 12 dp, degradê inferior, selos de qualidade e nota refinados, arte provisória com o título enquanto a imagem carrega (ou quando o servidor não envia pôster) e, na TV, foco desenhado só no pôster com ampliação e sombra.
 - Design: cabeçalhos de fileira com título mais firme e "Ver todos" em pílula com foco próprio; botões de ícone translúcidos com foco ampliado; estados de vazio e erro com ícone em degradê; carregamento com esqueletos de pôster pulsando no lugar do indicador isolado.
 - Canais: logotipos aparecem inteiros e nítidos (antes esmaecidos com iniciais por cima); as iniciais ficam só para canais sem imagem. Vale para Início, TV ao Vivo no celular e demais listas.

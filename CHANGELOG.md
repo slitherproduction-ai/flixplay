@@ -2,6 +2,11 @@
 
 ## [2.17.16] — Em desenvolvimento
 
+- Início (Android, Android TV, Google TV e Fire TV): tela reconstruída no formato de hub do ELVANOQ Play para Roku 0.1.88. Destaque de ponta a ponta com marca e conta sobre a arte, rótulo editorial, nota, qualidade, metadados, sinopse e as ações **Assistir agora**, **Minha Lista** (adiciona/remove na hora, com confirmação) e Detalhes. Ordem dos destaques igual à do Roku: Destaque da semana, Recém-adicionado e Mais bem avaliado (filmes e séries), com retornos para Continue assistindo e Destaque ELVANOQ. Rotação a cada 8 s, pausada com foco nos botões ou fora da Início.
+- Início: blocos de navegação (TV ao Vivo, Filmes, Séries, Busca, Minha Lista e Ajustes) com contagem do catálogo, exibidos em TV e tablet na horizontal. No smartphone eles não aparecem, pois a barra de abas já cumpre esse papel; a Busca ganhou um botão próprio no topo da Início. Em TV o menu lateral deixa de aparecer na Início, como no Roku; nas demais seções ele permanece, e Voltar retorna à Início com o foco no bloco de origem.
+- Início: fileira principal com os mesmos retornos do Roku (Continuar assistindo → Seus favoritos → Novidades para você), seguida de Minha Lista, Canais ao vivo, Filmes adicionados recentemente (agora pela data real de inclusão) e Séries mais bem avaliadas.
+- Acabamento: luz ambiente a partir da arte do destaque, transição suave e aproximação lenta da arte, indicador de progresso da rotação (tocável no celular), Continuar assistindo com tempo restante e canais com selo Ao vivo.
+
 - Login Android: o campo Código deixou de reescrever o texto no mesmo evento da digitação e não monta o botão de limpar em smartphone/tablet após o primeiro caractere. A normalização para minúsculas e remoção de espaços ocorre ao conectar. Build elevado para `20261034`.
 - Login Android: eliminada a atualização de handles D-Pad durante o redimensionamento pelo teclado em smartphone/tablet. Os handles e foco preferencial agora sequer são enviados aos campos fora de TV. Build elevado para `20261033` para garantir a instalação desta correção sobre o APK anterior.
 - Login Android: corrigido encerramento ao focar o campo Código. O formulário deixa de recriar o `BlurView` nativo enquanto o teclado abre, usa redimensionamento estável da janela e aplica atributos de D-Pad somente em TV.

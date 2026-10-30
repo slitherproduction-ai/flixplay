@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import type React from "react";
 import { Platform, StyleSheet, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
@@ -9,6 +9,7 @@ import { Colors } from "@/constants/theme";
 import { useXtreamSync } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { TvSideNavigation } from "@/components/tv-side-navigation";
+import { isTvRouteActive } from "@/core/navigation/tv-routes";
 import { View } from "react-native";
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,7 @@ const tabBarButton: ((props: TabButtonProps) => React.ReactNode) | undefined = P
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const tvMode = useTVMode();
+  const pathname = usePathname();
   // Trigger real server sync as soon as tabs are mounted
   useXtreamSync();
 
@@ -162,7 +164,12 @@ export default function TabsLayout() {
        * An in-flow sibling has its own reserved surface and cannot be painted
        * over by the active tab scene.
        */}
-      <TvSideNavigation />
+      {/*
+       * Como no Roku, a Início é um hub: seus blocos de navegação substituem
+       * o menu lateral. Nas demais seções o menu permanece, e Voltar retorna
+       * à Início (backBehavior padrão do Tabs: firstRoute).
+       */}
+      {isTvRouteActive(pathname, "/") ? null : <TvSideNavigation />}
       <View style={styles.tvNavigator}>{navigator}</View>
     </View>
   );

@@ -43,6 +43,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: "v2.17.17",
+    date: "2026.10",
+    changes: [
+      { tag: "Correção", text: "Navegação pelo controle volta a responder rápido em Fire TV Stick Lite e 1ª geração: o destaque da Início, os pôsteres e a grade de Filmes e Séries não redesenham mais a tela inteira a cada tecla." },
+      { tag: "Novidade", text: "Início no formato hub do ELVANOQ Play para Roku, com destaques rotativos, Minha Lista e blocos de navegação na TV e no tablet." },
+      { tag: "Novidade", text: "Na TV e no tablet na horizontal, Filmes e Séries ganharam painel de categorias com busca por título ou ator, e os Detalhes seguem o Roku com dados do TMDB." },
+      { tag: "Melhoria", text: "Versões dublada e legendada do mesmo título aparecem em um único cartão; a versão é escolhida nos Detalhes." },
+      { tag: "Melhoria", text: "Visual renovado em Filmes, Séries, Ajustes e Login, com títulos e categorias sem marcações técnicas." },
+    ],
+  },
+  {
     version: "v2.17.16",
     date: "2026.10",
     changes: [
@@ -844,6 +855,7 @@ const modalStyles = StyleSheet.create({
   notesBody: { fontSize: 11, lineHeight: 17, color: Colors.muted },
   errorRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginHorizontal: 18, marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: "rgba(229,9,20,0.12)" },
   errorText: { flex: 1, fontSize: 11, color: "#FF8B91" },
+  progressText: { fontSize: 12, color: Colors.muted, textAlign: "center", paddingHorizontal: 18 },
   actions: { gap: 8, padding: 16 },
   installBtn: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
   installText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.background },

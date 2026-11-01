@@ -14,7 +14,7 @@ type MockResponse = {
 function publishedRelease(overrides: Record<string, unknown> = {}) {
   return {
     id: "b246b60e-7e5d-4493-a655-ce9fc054631b",
-    version: "2.17.17",
+    version: "2.17.18",
     size: 74_168_777,
     sha256: "6ea59359bd0d74966337d80ef1e18b549e2521aa8a98b82a3dc1d271de350865",
     notes: "Correções de estabilidade.",
@@ -62,7 +62,7 @@ describe("Portal updater", () => {
 
     expect(result).toMatchObject({
       hasUpdate: true,
-      latestVersion: "2.17.17",
+      latestVersion: "2.17.18",
       apkUrl: "https://downloads.elvanoqplay.app/ELVANOQ-Play.apk",
       apkSize: 74_168_777,
       error: null,

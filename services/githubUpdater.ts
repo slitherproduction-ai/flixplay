@@ -12,8 +12,11 @@ import * as IntentLauncher from "expo-intent-launcher";
 import { APP_INFO } from "@/constants/app";
 import { logTechnicalError } from "@/services/security/sanitize";
 
+// Kept only for backward-compatible imports in installations that still load
+// this legacy module. The active update path uses services/portalUpdater.
+const LEGACY_GITHUB_REPOSITORY = "slitherproduction-ai/flixplay";
 const GITHUB_API =
-  `https://api.github.com/repos/${APP_INFO.githubRepo}/releases/latest`;
+  `https://api.github.com/repos/${LEGACY_GITHUB_REPOSITORY}/releases/latest`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

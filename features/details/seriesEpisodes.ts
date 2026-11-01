@@ -45,7 +45,7 @@ export function parseSeriesEpisodes(
       thumbnail: episode.info?.movie_image ?? "",
       duration: minutes > 0 ? `${minutes}min` : episode.info?.duration ?? "N/A",
       plot: episode.info?.plot ?? "",
-      introEndSeconds: readIntroEndSeconds(episode.info),
+      introEndSeconds: readIntroEndSeconds(episode.info) ?? undefined,
       streamUrl: streamId
         ? createSeriesEpisodeUrl(profile, streamId, extension)
         : "",

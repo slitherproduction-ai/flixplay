@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import { type ComponentProps, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentProps, type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Radii } from "@/constants/theme";
@@ -14,7 +14,6 @@ import { BrandLogo } from "@/components/brand-logo";
 import { CatalogBackground } from "@/components/catalog-background";
 import { ParentalGate } from "@/components/parental-gate";
 import { EPG_HOME_PRELOAD_LIMIT, useEpgPreload } from "@/hooks/useEpgPreload";
-import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
@@ -334,21 +333,23 @@ function HeroBanner({
       Animated.timing(contentOpacity, { toValue: 1, duration: 380, delay: 90, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(contentShift, { toValue: 0, duration: 420, delay: 90, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]);
-    const drift = Animated.timing(artScale, { toValue: 1.06, duration: HERO_BANNER_ROTATION_MS + 2_000, easing: Easing.linear, useNativeDriver: true });
+    // A aproximação lenta da arte é desligada na TV: em Fire TV Stick (Lite
+    // e 1ª geração) ela disputa a GPU com a navegação pelo controle.
+    const drift = tvMode ? null : Animated.timing(artScale, { toValue: 1.06, duration: HERO_BANNER_ROTATION_MS + 2_000, easing: Easing.linear, useNativeDriver: true });
     enter.start();
-    drift.start();
+    drift?.start();
     return () => {
       enter.stop();
-      drift.stop();
+      drift?.stop();
     };
-  }, [artScale, contentOpacity, contentShift, slide.id]);
+  }, [artScale, contentOpacity, contentShift, slide.id, tvMode]);
 
   const metaParts = [yearMeta(hero.year), hero.meta, displayCategory(hero.genre)].filter((part) => part && part.trim().length > 0);
 
   return (
     <View style={[styles.heroStage, { height }]}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: artScale }] }]}>
-        <Image source={{ uri: artwork }} contentFit="cover" contentPosition="top" transition={650} style={StyleSheet.absoluteFill} />
+        <Image source={{ uri: artwork }} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
       </Animated.View>
 
       {/* Equivalentes refinados de hero_shade_top/left/bottom do Roku. */}
@@ -520,6 +521,160 @@ function HomeTile({ tile, caption, width, height, tvMode, index, onPress }: {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Carrossel do destaque — isolado da Início
+//
+// Rotação, foco nos botões, retorno de "Minha Lista" e luz ambiente vivem
+// aqui. Antes esse estado ficava na Início e cada troca de destaque (a cada
+// 8 s) ou entrada/saída de foco redesenhava todas as fileiras, travando a
+// navegação em Fire TV Stick Lite e 1ª geração.
+// ---------------------------------------------------------------------------
+
+type HeroCarouselProps = {
+  slides: HeroSlide[];
+  height: number;
+  tvMode: boolean;
+  wide: boolean;
+  topInset: number;
+  header: ReactNode;
+  favoriteMovieIds: string[];
+  favoriteSeriesIds: string[];
+  onPlay: (content: HeroContent) => void;
+  onToggleFavorite: (content: HeroContent) => void;
+  onDetails: (content: HeroContent) => void;
+};
+
+const HeroCarousel = memo(function HeroCarousel({
+  slides,
+  height,
+  tvMode,
+  wide,
+  topInset,
+  header,
+  favoriteMovieIds,
+  favoriteSeriesIds,
+  onPlay,
+  onToggleFavorite,
+  onDetails,
+}: HeroCarouselProps) {
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [actionsFocused, setActionsFocused] = useState(false);
+  const [screenFocused, setScreenFocused] = useState(true);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const progress = useRef(new Animated.Value(0)).current;
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Como o `setActive` do Roku: a rotação só corre com a Início visível.
+  useFocusEffect(useCallback(() => {
+    setScreenFocused(true);
+    return () => setScreenFocused(false);
+  }, []));
+
+  const slideCount = slides.length;
+  useEffect(() => {
+    setSlideIndex((current) => Math.min(current, Math.max(0, slideCount - 1)));
+  }, [slideCount]);
+
+  // A barra do segmento ativo é o próprio relógio da rotação: pausar a
+  // animação (foco nos botões, outra aba aberta) pausa também a troca.
+  const rotationActive = slideCount > 1 && screenFocused && !actionsFocused;
+  useEffect(() => {
+    if (!rotationActive) return;
+    let cancelled = false;
+    let animation: Animated.CompositeAnimation | null = null;
+    progress.stopAnimation((value) => {
+      if (cancelled) return;
+      const remaining = Math.max(300, (1 - value) * HERO_BANNER_ROTATION_MS);
+      animation = Animated.timing(progress, { toValue: 1, duration: remaining, easing: Easing.linear, useNativeDriver: true });
+      animation.start(({ finished }) => {
+        if (!finished || cancelled) return;
+        progress.setValue(0);
+        setSlideIndex((current) => (current + 1) % slideCount);
+      });
+    });
+    return () => {
+      cancelled = true;
+      animation?.stop();
+    };
+  }, [progress, slideIndex, rotationActive, slideCount]);
+
+  useEffect(() => () => { if (focusTimer.current) clearTimeout(focusTimer.current); }, []);
+
+  const slide = slides[slideIndex] ?? slides[0];
+  const content = slide.content;
+  const isFavorite = content.type === "movie" ? favoriteMovieIds.includes(content.id) : favoriteSeriesIds.includes(content.id);
+
+  useEffect(() => { setFeedback(null); }, [content.id]);
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = setTimeout(() => setFeedback(null), 2_600);
+    return () => clearTimeout(timer);
+  }, [feedback]);
+
+  // Passar de um botão do destaque para outro gera "saiu" e "entrou" em
+  // sequência; agrupar os dois evita duas atualizações por tecla.
+  const handleActionFocusChange = useCallback((focused: boolean) => {
+    if (!tvMode) return;
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => setActionsFocused(focused), focused ? 0 : 150);
+  }, [tvMode]);
+
+  const handleSelectSlide = useCallback((index: number) => {
+    progress.setValue(0);
+    setSlideIndex(index);
+  }, [progress]);
+
+  const ambientArt = content.backdrop || content.poster;
+
+  return (
+    <View>
+      {/* Luz ambiente desfocada atrás das fileiras — só em celular/tablet;
+          na TV o desfoque é caro demais para Fire TV Stick. */}
+      {!tvMode && ambientArt ? (
+        <View pointerEvents="none" style={[styles.ambient, { top: height, height: AMBIENT_TAIL }]}>
+          <Image source={{ uri: ambientArt }} blurRadius={32} contentFit="cover" transition={900} style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={[BRAND.colors.background, "rgba(7,11,20,0.62)", BRAND.colors.background]}
+            locations={[0, 0.38, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      ) : null}
+      <HeroBanner
+        slide={slide}
+        slides={slides}
+        slideIndex={slideIndex}
+        height={height}
+        tvMode={tvMode}
+        wide={wide}
+        topInset={topInset}
+        progress={progress}
+        isFavorite={isFavorite}
+        feedback={feedback}
+        header={header}
+        onPlay={() => onPlay(content)}
+        onToggleFavorite={() => {
+          onToggleFavorite(content);
+          setFeedback(isFavorite ? "Removido da Minha Lista" : "Adicionado à Minha Lista");
+        }}
+        onDetails={() => onDetails(content)}
+        onActionFocusChange={handleActionFocusChange}
+        onSelectSlide={handleSelectSlide}
+      />
+    </View>
+  );
+});
+
+function HomeSyncBanner({ top }: { top: number }) {
+  const syncProgress = useAppStore((state) => state.syncState.syncProgress);
+  return (
+    <View style={[styles.syncBanner, { top }]}>
+      <ActivityIndicator size="small" color={Colors.blueBright} />
+      <AppText numberOfLines={1} style={styles.syncText}>{syncProgress ?? "Sincronizando conteúdo..."}</AppText>
+    </View>
+  );
+}
+
 function EmptyHomeState({ onSync }: { onSync: () => void }) {
   return (
     <View style={styles.emptyHome}>
@@ -560,21 +715,14 @@ export default function HomeScreen() {
   const toggleFavoriteMovie = useAppStore((state) => state.toggleFavoriteMovie);
   const toggleFavoriteSeries = useAppStore((state) => state.toggleFavoriteSeries);
   const activeServer = useAppStore((state) => state.servers.find((server) => server.id === state.activeServerId));
-  const { isSyncing, syncProgress, refresh } = useSyncStatus();
+  // Só o estado "sincronizando" interessa à Início; o texto de progresso fica
+  // no banner, para a tela não ser redesenhada a cada mensagem de progresso.
+  const isSyncing = useAppStore((state) => state.syncState.isSyncing);
+  const forceResync = useAppStore((state) => state.forceResync);
+  const refresh = useCallback(() => { if (!isSyncing) forceResync(); }, [forceResync, isSyncing]);
 
   const [pendingHistoryItem, setPendingHistoryItem] = useState<PlayHistory | null>(null);
   const [weeklyFeatureId, setWeeklyFeatureId] = useState<string | null>(null);
-  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
-  const [heroActionsFocused, setHeroActionsFocused] = useState(false);
-  const [screenFocused, setScreenFocused] = useState(true);
-  const [heroFeedback, setHeroFeedback] = useState<string | null>(null);
-  const heroProgress = useRef(new Animated.Value(0)).current;
-
-  // Como o `setActive` do Roku: a rotação só corre com a Home visível.
-  useFocusEffect(useCallback(() => {
-    setScreenFocused(true);
-    return () => setScreenFocused(false);
-  }, []));
 
   const wide = tvMode || isTabletLandscape || width >= 900;
   const posterWidth = computePosterWidth(tvMode, width, isTablet, isTabletLandscape);
@@ -586,7 +734,6 @@ export default function HomeScreen() {
     : wide
       ? Math.round(Math.min(560, Math.max(380, height * 0.58)))
       : Math.round(Math.min(500, Math.max(400, width * 1.08)) + insets.top);
-  const syncLabel = syncProgress ?? "Sincronizando conteúdo...";
 
   const rankedWeeklyMovie = useMemo(() => weeklyFeaturedMovie(movies), [movies]);
 
@@ -690,57 +837,6 @@ export default function HomeScreen() {
     return slides;
   }, [dedupedHistory, movieById, movies, rankedWeeklyMovie, recentTitles, seriesById, seriesList, weeklyFeatureId]);
 
-  const slideCount = heroSlides.length;
-  useEffect(() => {
-    setHeroSlideIndex((current) => Math.min(current, Math.max(0, slideCount - 1)));
-  }, [slideCount]);
-
-  // A barra do segmento ativo é o próprio relógio da rotação: pausar a
-  // animação (foco nos botões, outra aba aberta) pausa também a troca, e a
-  // retomada continua de onde parou.
-  const rotationActive = slideCount > 1 && screenFocused && !heroActionsFocused;
-  useEffect(() => {
-    if (!rotationActive) return;
-    let cancelled = false;
-    let animation: Animated.CompositeAnimation | null = null;
-    heroProgress.stopAnimation((value) => {
-      if (cancelled) return;
-      const remaining = Math.max(300, (1 - value) * HERO_BANNER_ROTATION_MS);
-      animation = Animated.timing(heroProgress, { toValue: 1, duration: remaining, easing: Easing.linear, useNativeDriver: true });
-      animation.start(({ finished }) => {
-        if (!finished || cancelled) return;
-        heroProgress.setValue(0);
-        setHeroSlideIndex((current) => (current + 1) % slideCount);
-      });
-    });
-    return () => {
-      cancelled = true;
-      animation?.stop();
-    };
-  }, [heroProgress, heroSlideIndex, rotationActive, slideCount]);
-
-  const activeHeroSlide = heroSlides[heroSlideIndex] ?? heroSlides[0] ?? null;
-  const hero = activeHeroSlide?.content ?? null;
-  const heroIsFavorite = hero
-    ? (hero.type === "movie" ? favoriteMovieIds.includes(hero.id) : favoriteSeriesIds.includes(hero.id))
-    : false;
-
-  useEffect(() => { setHeroFeedback(null); }, [hero?.id]);
-  useEffect(() => {
-    if (!heroFeedback) return;
-    const timer = setTimeout(() => setHeroFeedback(null), 2_600);
-    return () => clearTimeout(timer);
-  }, [heroFeedback]);
-
-  const handleSelectSlide = useCallback((index: number) => {
-    heroProgress.setValue(0);
-    setHeroSlideIndex(index);
-  }, [heroProgress]);
-
-  const handleHeroActionFocusChange = useCallback((focused: boolean) => {
-    if (tvMode) setHeroActionsFocused(focused);
-  }, [tvMode]);
-
   const handleOpenAccount = useCallback(() => { router.push("/settings"); }, [router]);
   const handleContinueWatchingAll = useCallback(() => { router.push("/continue-watching"); }, [router]);
   const handleWatchLaterAll = useCallback(() => { router.push("/watch-later"); }, [router]);
@@ -750,23 +846,22 @@ export default function HomeScreen() {
   const handleOpenSearch = useCallback(() => { router.push("/search"); }, [router]);
   const handleContent = useCallback((id: string) => { router.push(`/details/${id}`); }, [router]);
 
-  const handleHeroDetails = useCallback(() => {
-    if (hero) router.push(`/details/${hero.id}`);
-  }, [hero, router]);
-  const handleHeroPlay = useCallback(() => {
-    if (!hero) return;
-    if (hero.type === "movie" && hero.streamUrl) {
-      router.push({ pathname: "/player", params: { id: hero.id, title: hero.title, type: "movie", streamUrl: hero.streamUrl } });
+  // Ações do destaque recebem o título: o carrossel controla qual está ativo
+  // sem precisar redesenhar a Início inteira.
+  const handleHeroDetails = useCallback((content: HeroContent) => {
+    router.push(`/details/${content.id}`);
+  }, [router]);
+  const handleHeroPlay = useCallback((content: HeroContent) => {
+    if (content.type === "movie" && content.streamUrl) {
+      router.push({ pathname: "/player", params: { id: content.id, title: content.title, type: "movie", streamUrl: content.streamUrl } });
       return;
     }
-    router.push(`/details/${hero.id}`);
-  }, [hero, router]);
-  const handleHeroFavorite = useCallback(() => {
-    if (!hero) return;
-    if (hero.type === "movie") toggleFavoriteMovie(hero.id);
-    else toggleFavoriteSeries(hero.id);
-    setHeroFeedback(heroIsFavorite ? "Removido da Minha Lista" : "Adicionado à Minha Lista");
-  }, [hero, heroIsFavorite, toggleFavoriteMovie, toggleFavoriteSeries]);
+    router.push(`/details/${content.id}`);
+  }, [router]);
+  const handleHeroFavorite = useCallback((content: HeroContent) => {
+    if (content.type === "movie") toggleFavoriteMovie(content.id);
+    else toggleFavoriteSeries(content.id);
+  }, [toggleFavoriteMovie, toggleFavoriteSeries]);
 
   const handleLive = useCallback((channelId: string) => {
     const channel = channels.find((item) => item.id === channelId);
@@ -872,9 +967,7 @@ export default function HomeScreen() {
   const tileWidth = Math.floor((width - sidePadding * 2 - tileGap * (tileColumns - 1)) / tileColumns);
   const tileHeight = Math.round(tvMode ? Math.max(70, tileWidth * 0.54) : Math.max(84, tileWidth * 0.5));
 
-  const ambientArt = hero ? hero.backdrop || hero.poster : undefined;
-
-  const header = (
+  const header = useMemo(() => (
     <>
       <BrandLogo variant="wordmark" accessibilityLabel="ELVANOQ" style={[styles.wordmark, tvMode && styles.tvWordmark]} />
       <View style={styles.headerActions}>
@@ -892,61 +985,36 @@ export default function HomeScreen() {
         <AccountSummary profile={activeServer} tvMode={tvMode} onPress={handleOpenAccount} />
       </View>
     </>
-  );
+  ), [activeServer, handleOpenAccount, handleOpenSearch, showTiles, tvMode]);
 
   return (
     <View style={styles.screen} testID="home-screen">
       <CatalogBackground />
-      {/*
-       * Luz ambiente: a arte do destaque, desfocada, acende atrás dos blocos.
-       * Começa e termina na cor do fundo, sem emenda com o destaque. Fica
-       * fixa enquanto a página rola, como um brilho de ambiente.
-       */}
-      {ambientArt ? (
-        <View pointerEvents="none" style={[styles.ambient, { top: heroHeight, height: AMBIENT_TAIL }]}>
-          <Image source={{ uri: ambientArt }} blurRadius={tvMode ? 24 : 32} contentFit="cover" transition={900} style={StyleSheet.absoluteFill} />
-          <LinearGradient
-            colors={[BRAND.colors.background, "rgba(7,11,20,0.62)", BRAND.colors.background]}
-            locations={[0, 0.38, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
-      ) : null}
       <ParentalGate visible={pendingHistoryItem !== null} onAuthorized={openAuthorizedHistory} onClose={() => setPendingHistoryItem(null)} />
 
-      {isSyncing ? (
-        <View style={[styles.syncBanner, { top: insets.top + (tvMode ? 14 : 62) }]}>
-          <ActivityIndicator size="small" color={Colors.blueBright} />
-          <AppText numberOfLines={1} style={styles.syncText}>{syncLabel}</AppText>
-        </View>
-      ) : null}
+      {isSyncing ? <HomeSyncBanner top={insets.top + (tvMode ? 14 : 62)} /> : null}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, tvMode && styles.tvContent]}>
-        {activeHeroSlide ? (
-          <HeroBanner
-            slide={activeHeroSlide}
+        {heroSlides.length > 0 ? (
+          <HeroCarousel
             slides={heroSlides}
-            slideIndex={heroSlideIndex}
             height={heroHeight}
             tvMode={tvMode}
             wide={wide}
             topInset={tvMode ? 0 : insets.top}
-            progress={heroProgress}
-            isFavorite={heroIsFavorite}
-            feedback={heroFeedback}
             header={header}
+            favoriteMovieIds={favoriteMovieIds}
+            favoriteSeriesIds={favoriteSeriesIds}
             onPlay={handleHeroPlay}
             onToggleFavorite={handleHeroFavorite}
             onDetails={handleHeroDetails}
-            onActionFocusChange={handleHeroActionFocusChange}
-            onSelectSlide={handleSelectSlide}
           />
         ) : (
           <View style={[styles.plainHeader, { paddingTop: insets.top + (tvMode ? 22 : 10), paddingHorizontal: sidePadding }]}>{header}</View>
         )}
 
         {showTiles ? (
-        <View style={[styles.tiles, { paddingHorizontal: sidePadding, gap: tileGap }, activeHeroSlide && (tvMode ? styles.tvTilesOverlap : styles.tilesOverlap)]}>
+        <View style={[styles.tiles, { paddingHorizontal: sidePadding, gap: tileGap }, heroSlides.length > 0 && (tvMode ? styles.tvTilesOverlap : styles.tilesOverlap)]}>
           {HOME_TILES.map((tile, index) => (
             <HomeTile
               key={tile.key}
@@ -962,7 +1030,7 @@ export default function HomeScreen() {
         </View>
         ) : null}
 
-        <View style={[styles.rails, { paddingHorizontal: sidePadding }, tvMode && styles.tvRails, !showTiles && activeHeroSlide && styles.railsAfterHero]}>
+        <View style={[styles.rails, { paddingHorizontal: sidePadding }, tvMode && styles.tvRails, !showTiles && heroSlides.length > 0 && styles.railsAfterHero]}>
           {primaryRail?.kind === "continue" ? (
             <View>
               <SectionHeader title={primaryRail.title} subtitle={primaryRail.subtitle} onPress={handleContinueWatchingAll} />

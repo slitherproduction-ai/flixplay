@@ -83,7 +83,7 @@ async function execute(servers: ServerProfile[]): Promise<LegacyPortalMigrationR
   const previous = await readStoredMigration();
   if (previous?.status === "completed") return { status: "completed", message: null, codeAccessEnforced: true };
   if (previous && previous.nextAttemptAt > Date.now()) {
-    return { status: previous.status, message: null, codeAccessEnforced: previous.status === "completed" ? true : false };
+    return { status: previous.status, message: null, codeAccessEnforced: false };
   }
 
   const identity = await getDeviceIdentity();

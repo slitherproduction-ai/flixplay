@@ -119,10 +119,10 @@ export function CodeAccessGate() {
     finally { setIssuing(false); }
   }, [access.snapshot?.macAddress, consent, payerDocument, payerEmail, payerName]);
 
-  const blocked = access.isBlocked && access.snapshot;
+  const blocked = access.isBlocked && access.snapshot ? access.snapshot : null;
   return <>
     {notice ? <View pointerEvents="none" style={styles.notice}><AppText style={styles.noticeText}>{notice}</AppText></View> : null}
-    <Modal visible={!!blocked} transparent={false} animationType="fade" onRequestClose={returnToLogin}>
+    {blocked ? <Modal visible transparent={false} animationType="fade" onRequestClose={returnToLogin}>
       <View style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.card}>
           <View style={styles.icon}><Ionicons name="lock-closed" size={28} color={Colors.blueBright} /></View>
@@ -135,7 +135,7 @@ export function CodeAccessGate() {
           <TVFocusable accessibilityRole="button" onPress={returnToLogin} style={styles.back}><AppText style={styles.backText}>Voltar para login</AppText></TVFocusable>
         </View>
       </View>
-    </Modal>
+    </Modal> : null}
     <Modal visible={paymentOpen} transparent animationType="slide" onRequestClose={() => setPaymentOpen(false)}>
       <View style={styles.overlay}><View style={styles.paymentCard}>
         <AppText style={styles.title}>Pagamento Pix</AppText>

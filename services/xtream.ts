@@ -238,6 +238,16 @@ export function buildXtreamApiUrl(
   return `${base}/player_api.php?${query.toString()}`;
 }
 
+/**
+ * Returns only transport candidates that preserve the provider's intent.
+ * HTTPS is never downgraded. An explicitly configured HTTP endpoint remains
+ * first, with HTTPS as an optional fallback on the same host, port and path.
+ */
+export function getSafeTransportCandidates(url: string): string[] {
+  if (!url.startsWith("http://")) return [url];
+  return [url, `https://${url.slice("http://".length)}`];
+}
+
 /** Fetch with an independent AbortController timeout so retries get a fresh clock. */
 async function timedFetch(url: string, ms: number, externalSignal?: AbortSignal): Promise<Response> {
   const ctrl = new AbortController();
@@ -607,7 +617,7 @@ export function createVodUrl(
 
 /** Build an Xtream Codes series episode URL — credentials unencoded (see note on createStreamUrl). */
 export function createSeriesEpisodeUrl(
-  profile: ServerProfile,
+  profile: Pick<ServerProfile, "serverUrl" | "username" | "password">,
   streamId: string,
   containerExtension = "mp4",
 ) {

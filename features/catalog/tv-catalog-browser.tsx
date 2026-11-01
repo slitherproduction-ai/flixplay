@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { Colors } from "@/constants/theme";
 import { BRAND } from "@/constants/brand";
@@ -105,7 +105,7 @@ const PosterTile = memo(function PosterTile({
       focusStyle={styles.posterFocused}
       style={[styles.poster, { width, height: Math.round(width * 1.5) }]}
     >
-      <Image source={{ uri: entry.poster }} contentFit="cover" transition={180} recyclingKey={entry.id} style={StyleSheet.absoluteFill} />
+      <Image source={{ uri: entry.poster }} contentFit="cover" transition={touch ? 180 : 0} recyclingKey={entry.id} style={StyleSheet.absoluteFill} />
       {!entry.poster ? (
         <View style={styles.posterFallback}>
           <AppText numberOfLines={3} style={styles.posterFallbackText}>{displayTitle(entry.title)}</AppText>
@@ -128,6 +128,63 @@ const PosterTile = memo(function PosterTile({
     </View>
   );
 });
+
+type FooterState =
+  | { kind: "entry"; entry: TvCatalogEntry }
+  | { kind: "category"; category: CategoryRow }
+  | null;
+
+function createFooterStore() {
+  let value: FooterState = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    set: (next: FooterState) => {
+      value = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+  };
+}
+
+/** Rodapé com o título (ou a categoria) sob o foco; só ele é redesenhado ao navegar. */
+function CatalogFooter({ store, visibleCount }: { store: ReturnType<typeof createFooterStore>; visibleCount: number }) {
+  const state = useSyncExternalStore(store.subscribe, store.get, store.get);
+  if (!state) return null;
+  let title: string;
+  let meta: string;
+  let rating = 0;
+  if (state.kind === "category") {
+    const { category } = state;
+    title = category.special ? "Buscar" : category.name;
+    meta = category.special
+      ? "OK  digitar o nome do título ou de um ator"
+      : `${formatCount(category.total ?? 0)} títulos   •   →  ou  OK para ver os títulos`;
+  } else {
+    const { entry } = state;
+    rating = entry.rating;
+    title = displayTitle(entry.title);
+    meta = [
+      entry.year > 0 ? String(entry.year) : "",
+      entry.detail,
+      displayCategory(entry.category),
+      entry.rating > 0 ? `Nota ${entry.rating.toFixed(1)}` : "",
+    ].filter(Boolean).join("   •   ");
+  }
+  return (
+    <View pointerEvents="none" style={styles.footer}>
+      <AppText numberOfLines={1} style={styles.footerTitle}>{title}</AppText>
+      <View style={styles.footerRow}>
+        {rating > 0 ? <Ionicons name="star" size={10} color={Colors.amber} /> : null}
+        <AppText numberOfLines={1} style={styles.footerMeta}>{meta}</AppText>
+        <AppText style={styles.footerCount}>{formatCount(visibleCount)} títulos</AppText>
+      </View>
+    </View>
+  );
+}
 
 const CategoryRowItem = memo(function CategoryRowItem({
   item,
@@ -193,8 +250,9 @@ export function TvCatalogBrowser({
   const noun = kind === "movies" ? "filme" : "série";
 
   const [selectedKey, setSelectedKey] = useState<string>(ALL_KEY);
-  const [focusedEntry, setFocusedEntry] = useState<TvCatalogEntry | null>(null);
-  const [focusedCategory, setFocusedCategory] = useState<CategoryRow | null>(null);
+  // O item sob o foco alimenta só o rodapé. Guardá-lo em estado da tela
+  // redesenhava painel e grade a cada tecla — lento em Fire TV Stick.
+  const footerStore = useRef(createFooterStore()).current;
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [searchResults, setSearchResults] = useState<TvCatalogEntry[]>([]);
@@ -262,8 +320,7 @@ export function TvCatalogBrowser({
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
   const handleCategoryFocus = useCallback((category: CategoryRow) => {
-    setFocusedCategory(category);
-    setFocusedEntry(null);
+    footerStore.set({ kind: "category", category });
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => setSelectedKey(category.key), CATEGORY_SETTLE_MS);
   }, []);
@@ -276,8 +333,7 @@ export function TvCatalogBrowser({
   }, []);
 
   const handleEntryFocus = useCallback((entry: TvCatalogEntry) => {
-    setFocusedCategory(null);
-    setFocusedEntry(entry);
+    footerStore.set({ kind: "entry", entry });
   }, []);
 
   // Busca: primeiro pergunta ao TMDB se o texto é um ator; depois procura na
@@ -330,24 +386,6 @@ export function TvCatalogBrowser({
       ? `RESULTADOS PARA "${submittedQuery.toLocaleUpperCase("pt-BR")}"${searchPerson ? `   •   COM ${searchPerson.toLocaleUpperCase("pt-BR")}` : ""}`
       : "BUSCA")
     : selectedCategory.name.toLocaleUpperCase("pt-BR");
-
-  // Rodapé: título focado ou, no painel, a categoria sob o foco.
-  let footerTitle = "";
-  let footerMeta = "";
-  if (focusedCategory) {
-    footerTitle = focusedCategory.special ? "Buscar" : focusedCategory.name;
-    footerMeta = focusedCategory.special
-      ? "OK  digitar o nome do título ou de um ator"
-      : `${formatCount(focusedCategory.total ?? 0)} títulos   •   →  ou  OK para ver os títulos`;
-  } else if (focusedEntry) {
-    footerTitle = displayTitle(focusedEntry.title);
-    footerMeta = [
-      focusedEntry.year > 0 ? String(focusedEntry.year) : "",
-      focusedEntry.detail,
-      displayCategory(focusedEntry.category),
-      focusedEntry.rating > 0 ? `Nota ${focusedEntry.rating.toFixed(1)}` : "",
-    ].filter(Boolean).join("   •   ");
-  }
 
   const renderCategory = useCallback(({ item, index }: { item: CategoryRow; index: number }) => (
     <CategoryRowItem
@@ -478,23 +516,7 @@ export function TvCatalogBrowser({
               </View>
             }
           />
-          {footerTitle && !touch ? (
-            <LinearGradient
-              pointerEvents="none"
-              colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.92)", BRAND.colors.background]}
-              locations={[0, 0.45, 1]}
-              style={styles.footer}
-            >
-              <AppText numberOfLines={1} style={styles.footerTitle}>{footerTitle}</AppText>
-              <View style={styles.footerRow}>
-                {focusedEntry && focusedEntry.rating > 0 && !focusedCategory ? (
-                  <Ionicons name="star" size={10} color={Colors.amber} />
-                ) : null}
-                <AppText numberOfLines={1} style={styles.footerMeta}>{footerMeta}</AppText>
-                <AppText style={styles.footerCount}>{formatCount(visibleEntries.length)} títulos</AppText>
-              </View>
-            </LinearGradient>
-          ) : null}
+          {touch ? null : <CatalogFooter store={footerStore} visibleCount={visibleEntries.length} />}
         </View>
       </View>
     </View>
@@ -550,7 +572,7 @@ const styles = StyleSheet.create({
   posterQualityText: { fontFamily: "Inter_700Bold", fontSize: 7, letterSpacing: 0.3, color: Colors.text },
   empty: { alignItems: "center", justifyContent: "center", gap: 10, paddingTop: 70, paddingHorizontal: 30 },
   emptyText: { maxWidth: 380, textAlign: "center", fontSize: 12, lineHeight: 17, color: Colors.muted },
-  footer: { position: "absolute", right: 0, bottom: 0, left: 0, paddingTop: 34, paddingBottom: 18, paddingHorizontal: 4, gap: 3 },
+  footer: { position: "absolute", right: 0, bottom: 0, left: 0, paddingTop: 12, paddingBottom: 18, paddingHorizontal: 4, gap: 3, borderTopWidth: 1, borderTopColor: "rgba(190,222,255,0.08)", backgroundColor: "rgba(7,11,20,0.94)" },
   footerTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
   footerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   footerMeta: { flex: 1, fontSize: 10, color: Colors.muted },

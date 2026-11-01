@@ -1,7 +1,13 @@
 # Changelog
 
-## [2.17.16] — Em desenvolvimento
+## [2.17.17] — 2026-10-31
 
+- Correção (desempenho em Fire TV Stick Lite e 1ª geração): navegação pelo controle voltou a responder rápido.
+  - Início: o carrossel do destaque passou a ser um componente isolado. Rotação (a cada 8 s), foco nos botões e confirmação de "Minha Lista" não redesenham mais todas as fileiras. Entrar/sair de foco entre os botões do destaque gera uma única atualização.
+  - Início (TV): sem fundo desfocado e sem aproximação lenta da arte; transição da imagem mais curta. Progresso da sincronização atualiza só o banner, não a tela inteira.
+  - Pôsteres (TV): fundo sólido, sem degradês e sem animação de entrada da imagem; cartões não são redesenhados quando outros dados da tela mudam (guia, sincronização).
+  - Filmes/Séries (TV): o rodapé com o título em foco se atualiza sozinho; painel de categorias e grade não são mais redesenhados a cada tecla. Pôsteres sem animação de entrada.
+  - Textos: caminho rápido quando não há estilo próprio.
 - Correção (desempenho): o agrupamento de versões e a limpeza de títulos usavam várias expressões regulares por título e eram recalculados sobre o catálogo inteiro (dezenas de milhares de itens) ao abrir Filmes/Séries, trocar de categoria, buscar e abrir Detalhes. No Hermes isso travava a interface por segundos — toques, categorias e barra de abas sem resposta. Agora as chaves são calculadas com operações simples de texto, ficam em cache por título, são preparadas em lotes em segundo plano (a lista aparece na hora e o agrupamento entra em seguida) e o índice de versões dos Detalhes é montado uma única vez.
 - Agrupamento mais preciso: "Leg Day" não é mais tratado como legendado e "Duna (Parte Dois)" não é mais agrupado com "Duna".
 - Filmes e Séries (smartphone/tablet em pé): cabeçalho compacto — título com total, busca em campo único, uma linha de categorias e "Ordenar" recolhido; atualizar passa a ser puxar a lista para baixo. O conteúdo aparece logo no topo. Séries deixa o vermelho e adota a cor do app; sem "Temporadas não informadas" (mostra ano e categoria); busca descreve o que realmente faz.
@@ -28,6 +34,8 @@
 - Início: blocos de navegação (TV ao Vivo, Filmes, Séries, Busca, Minha Lista e Ajustes) com contagem do catálogo, exibidos em TV e tablet na horizontal. No smartphone eles não aparecem, pois a barra de abas já cumpre esse papel; a Busca ganhou um botão próprio no topo da Início. Em TV o menu lateral deixa de aparecer na Início, como no Roku; nas demais seções ele permanece, e Voltar retorna à Início com o foco no bloco de origem.
 - Início: fileira principal com os mesmos retornos do Roku (Continuar assistindo → Seus favoritos → Novidades para você), seguida de Minha Lista, Canais ao vivo, Filmes adicionados recentemente (agora pela data real de inclusão) e Séries mais bem avaliadas.
 - Acabamento: luz ambiente a partir da arte do destaque, transição suave e aproximação lenta da arte, indicador de progresso da rotação (tocável no celular), Continuar assistindo com tempo restante e canais com selo Ao vivo.
+
+## [2.17.16] — 2026-10-29
 
 - Login Android: o campo Código deixou de reescrever o texto no mesmo evento da digitação e não monta o botão de limpar em smartphone/tablet após o primeiro caractere. A normalização para minúsculas e remoção de espaços ocorre ao conectar. Build elevado para `20261034`.
 - Login Android: eliminada a atualização de handles D-Pad durante o redimensionamento pelo teclado em smartphone/tablet. Os handles e foco preferencial agora sequer são enviados aos campos fora de TV. Build elevado para `20261033` para garantir a instalação desta correção sobre o APK anterior.

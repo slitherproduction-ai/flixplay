@@ -46,9 +46,13 @@ export function GlassBlurTargetProvider({
  *   linha de 20 do corpo de texto, que deixava legendas pequenas espaçadas.
  */
 export function AppText({ style, children, selectable = !Platform.isTV, maxFontSizeMultiplier = 1.3, ...props }: React.ComponentProps<typeof Text>) {
-  const flattened = StyleSheet.flatten(style) ?? {};
-  const merged: TextStyle = { ...Type.body, ...flattened };
-  if (flattened.fontSize !== undefined && flattened.lineHeight === undefined) delete merged.lineHeight;
+  let merged: StyleProp<TextStyle> = Type.body;
+  if (style) {
+    const flattened = StyleSheet.flatten(style) ?? {};
+    const combined: TextStyle = { ...Type.body, ...flattened };
+    if (flattened.fontSize !== undefined && flattened.lineHeight === undefined) delete combined.lineHeight;
+    merged = combined;
+  }
   return (
     <Text selectable={selectable} maxFontSizeMultiplier={maxFontSizeMultiplier} style={merged} {...props}>
       {children}
@@ -293,7 +297,7 @@ export const SearchField = React.memo(function SearchField({
   );
 });
 
-export function PosterCard({
+function PosterCardBase({
   title,
   image,
   meta,
@@ -325,6 +329,10 @@ export function PosterCard({
   const [focused, setFocused] = useState(false);
   const [failed, setFailed] = useState(false);
   const hasImage = Boolean(image) && !failed;
+  // Na TV (Fire TV Stick Lite / 1ª geração) cada degradê e cada transição de
+  // imagem pesa na GPU durante a rolagem: o cartão usa fundo sólido e a
+  // imagem aparece sem animação.
+  const lite = Platform.isTV;
   return (
     <TVFocusable
       accessibilityRole="button"
@@ -345,26 +353,30 @@ export function PosterCard({
       <View style={[styles.posterFrame, { height: Math.round(width * 1.42) }, focused && styles.posterFrameFocused]}>
         {/* Arte provisória: título sobre gradiente enquanto a imagem carrega
             ou quando o servidor não envia pôster — nunca um bloco cinza. */}
-        <LinearGradient colors={["#1B2A45", "#0D1422"]} style={StyleSheet.absoluteFill} />
-        <View style={styles.posterPlaceholder}>
-          <AppText numberOfLines={4} style={styles.posterPlaceholderText}>{displayTitle(title)}</AppText>
-        </View>
+        {lite ? null : <LinearGradient colors={["#1B2A45", "#0D1422"]} style={StyleSheet.absoluteFill} />}
+        {hasImage && lite ? null : (
+          <View style={styles.posterPlaceholder}>
+            <AppText numberOfLines={4} style={styles.posterPlaceholderText}>{displayTitle(title)}</AppText>
+          </View>
+        )}
         {hasImage ? (
           <Image
             source={{ uri: image }}
             contentFit="cover"
-            transition={240}
+            transition={lite ? 0 : 240}
             recyclingKey={image}
             onError={() => setFailed(true)}
             style={StyleSheet.absoluteFill}
           />
         ) : null}
-        <LinearGradient
-          pointerEvents="none"
-          colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.62)"]}
-          locations={[0.62, 1]}
-          style={StyleSheet.absoluteFill}
-        />
+        {lite ? null : (
+          <LinearGradient
+            pointerEvents="none"
+            colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.62)"]}
+            locations={[0.62, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
         {quality ? (
           <View style={styles.qualityBadge}>
             <AppText style={styles.qualityText}>{quality}</AppText>
@@ -392,6 +404,29 @@ export function PosterCard({
     </TVFocusable>
   );
 }
+
+type PosterCardProps = React.ComponentProps<typeof PosterCardBase>;
+
+/**
+ * Cartões não são redesenhados quando a tela muda por outro motivo (guia
+ * atualizando, sincronização): só quando os próprios dados mudam. `onPress`
+ * fica fora da comparação porque as telas criam a função a cada render com
+ * o mesmo efeito (abrir este título).
+ */
+export const PosterCard = React.memo(PosterCardBase, (previous: PosterCardProps, next: PosterCardProps) => (
+  previous.title === next.title
+  && previous.image === next.image
+  && previous.meta === next.meta
+  && previous.rating === next.rating
+  && previous.quality === next.quality
+  && previous.width === next.width
+  && previous.progress === next.progress
+  && previous.hasTVPreferredFocus === next.hasTVPreferredFocus
+  && previous.focusId === next.focusId
+  && previous.focusScope === next.focusScope
+  && previous.focusIndex === next.focusIndex
+  && previous.restoreFocus === next.restoreFocus
+));
 
 export function ChannelLogo({ image, name, size = 58 }: { image: string; name: string; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -705,7 +740,7 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(190,222,255,0.10)",
-    backgroundColor: Colors.backgroundRaised,
+    backgroundColor: "#141F33",
   },
   qualityBadge: {
     position: "absolute",

@@ -83,7 +83,7 @@ export function UpdateAvailableNotice() {
   const apkSize = formatSize(result.apkSize);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!downloading) setVisible(false); }}>
       <View accessibilityViewIsModal style={styles.backdrop}>
         <View style={styles.dialog}>
           <View style={styles.header}>
@@ -131,6 +131,7 @@ export function UpdateAvailableNotice() {
           {result.releaseNotes ? <TVFocusable
             accessibilityLabel={showDetails ? "Ocultar novidades" : "Ver todas as novidades"}
             onPress={() => setShowDetails((current) => !current)}
+            focusStyle={styles.linkFocused}
             style={styles.detailsButton}
           >
             <AppText style={styles.detailsText}>{showDetails ? "Ocultar novidades" : "Ver todas as novidades"}</AppText>
@@ -150,13 +151,14 @@ export function UpdateAvailableNotice() {
               accessibilityLabel="Baixar e instalar atualização"
               disabled={downloading}
               onPress={handleInstall}
+              focusStyle={styles.primaryFocused}
               style={[styles.primary, downloading && styles.disabled]}
             >
               {downloading ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="download-outline" size={18} color={Colors.background} />}
               <AppText style={styles.primaryText}>{downloading ? "Baixando" : "Atualizar agora"}</AppText>
             </TVFocusable>
             {downloading ? (
-              <TVFocusable accessibilityLabel="Cancelar download" onPress={handleCancel} style={styles.secondary}>
+              <TVFocusable accessibilityLabel="Cancelar download" onPress={handleCancel} focusStyle={styles.secondaryFocused} style={styles.secondary}>
                 <AppText style={styles.secondaryText}>Cancelar</AppText>
               </TVFocusable>
             ) : null}
@@ -164,7 +166,8 @@ export function UpdateAvailableNotice() {
               accessibilityLabel="Atualizar mais tarde"
               disabled={downloading}
               onPress={() => setVisible(false)}
-              style={styles.secondary}
+              focusStyle={styles.secondaryFocused}
+              style={[styles.secondary, downloading && styles.disabled]}
             >
               <AppText style={styles.secondaryText}>Depois</AppText>
             </TVFocusable>
@@ -209,5 +212,9 @@ const styles = StyleSheet.create({
   primaryText: { color: Colors.background, fontSize: 14, fontFamily: "Inter_700Bold" },
   secondary: { minWidth: 88, minHeight: 46, borderRadius: 14, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
   secondaryText: { color: Colors.text, fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  // Foco visível no controle remoto (TV): o aviso abre sozinho e precisa ser legível.
+  primaryFocused: { borderWidth: 2, borderColor: Colors.blueBright, transform: [{ scale: 1.04 }] },
+  secondaryFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1.04 }] },
+  linkFocused: { borderRadius: 8, backgroundColor: "rgba(0,215,255,0.12)" },
   disabled: { opacity: 0.55 },
 });

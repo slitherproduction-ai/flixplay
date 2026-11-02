@@ -2,7 +2,7 @@
   "expo": {
     "name": "ELVANOQ",
     "slug": "flixplay",
-    "version": "2.17.18",
+    "version": "2.17.19",
     "orientation": "default",
     "icon": "./assets/images/brand/ELVANOQ_app_icon_v3.png",
     "scheme": "fastshot",
@@ -24,7 +24,7 @@
         "backgroundColor": "#070B14"
       },
       "isTV": true,
-      "versionCode": 20261036,
+      "versionCode": 20261037,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [

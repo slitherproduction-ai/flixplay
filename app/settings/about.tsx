@@ -1,21 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
   Switch,
   View,
 } from "react-native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, GlassCard, IconButton } from "@/components/ui";
-import { BrandLogo } from "@/components/brand-logo";
+import { AppText } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
-import { Colors, Radii, Shadows, Type } from "@/constants/theme";
+import { BRAND, BrandAssets } from "@/constants/brand";
+import { PORTAL_ORIGIN } from "@/constants/portal";
+import { Colors, Radii, Shadows } from "@/constants/theme";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import {
@@ -43,8 +47,18 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.18",
+    version: "v2.17.19",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Tela Sobre redesenhada: destaque com o ícone do app e a versão, atualizações em um único cartão com o resultado da verificação e seções agrupadas." },
+      { tag: "Melhoria", text: "Novidades da versão em lista, com a versão anterior sob demanda, e recursos em grade adaptada a celular, tablet e TV." },
+      { tag: "Novidade", text: "Login com o novo fundo do ELVANOQ, o mesmo do Roku, adaptado para TV, tablet e celular." },
+      { tag: "Correção", text: "No aviso de atualização, os botões mostram foco no controle remoto e o botão Voltar não fecha a janela durante o download." },
+    ],
+  },
+  {
+    version: "v2.17.18",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "O aviso automático de atualização foi redesenhado: mais compacto, com comparação de versões, tamanho do APK e resumo das novidades." },
@@ -223,44 +237,6 @@ const TAG_COLORS: Record<ChangeTag, { backgroundColor: string; color: string }> 
   Melhoria: { backgroundColor: "rgba(16,185,129,0.15)", color: "#5EEAD4" },
   Correção: { backgroundColor: "rgba(245,158,11,0.15)", color: "#FBBF24" },
 };
-
-// ─── Success toast hook ───────────────────────────────────────────────────────
-// Encapsulates the two-phase fade-in / fade-out animation so the main
-// component stays under the cognitive-complexity budget.
-
-type ToastState = "idle" | "checking" | "done";
-
-function useSuccessToast(checkState: ToastState, onDismiss: () => void) {
-  const [toastOpacity] = useState(() => new Animated.Value(0));
-  const [toastOffset] = useState(() => new Animated.Value(-12));
-  const onDismissRef = useRef(onDismiss);
-  useEffect(() => { onDismissRef.current = onDismiss; }, [onDismiss]);
-
-  useEffect(() => {
-    if (checkState !== "done") return;
-
-    toastOpacity.setValue(0);
-    toastOffset.setValue(-12);
-
-    Animated.parallel([
-      Animated.timing(toastOpacity, { toValue: 1, duration: 220, useNativeDriver: false }),
-      Animated.timing(toastOffset, { toValue: 0, duration: 220, useNativeDriver: false }),
-    ]).start();
-
-    const timeout = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(toastOpacity, { toValue: 0, duration: 180, useNativeDriver: false }),
-        Animated.timing(toastOffset, { toValue: -12, duration: 180, useNativeDriver: false }),
-      ]).start(({ finished }) => {
-        if (finished) onDismissRef.current();
-      });
-    }, 3600);
-
-    return () => clearTimeout(timeout);
-  }, [checkState, toastOffset, toastOpacity]);
-
-  return { toastOpacity, toastOffset };
-}
 
 function formatPublishedAt(iso: string | null): string {
   if (!iso) return "";
@@ -475,20 +451,36 @@ function UpdateModal({
 }
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
+// Sobre no padrão das demais telas: destaque com o ícone do app e a versão,
+// cartão de atualizações com o estado da última verificação, novidades da
+// versão atual, recursos em grade e informações agrupadas.
+
+type CheckState = "idle" | "checking" | "done";
+
+const FEATURES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+  { icon: "play-circle-outline", title: "Reprodução fluida", body: "ExoPlayer com HLS adaptativo" },
+  { icon: "server-outline", title: "Suas listas", body: "Xtream Codes, código e M3U" },
+  { icon: "calendar-outline", title: "Guia ao vivo", body: "EPG e catch-up do provedor" },
+  { icon: "film-outline", title: "Catálogo rico", body: "Capas e dados do TMDB" },
+];
 
 export default function AboutScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
   const insets = useSafeAreaInsets();
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const autoUpdate = useAppStore((state) => state.preferences["autoUpdate"]);
   const setPreference = useAppStore((state) => state.setPreference);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [checkState, setCheckState] = useState<ToastState>("idle");
+  const [checkState, setCheckState] = useState<CheckState>("idle");
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [showPrevious, setShowPrevious] = useState(false);
 
-  const handleDismissToast = useCallback(() => setCheckState("idle"), []);
-  const { toastOpacity, toastOffset } = useSuccessToast(checkState, handleDismissToast);
+  const wide = tvMode || isTabletLandscape;
+  const current = CHANGELOG[0];
+  const previous = CHANGELOG[1];
+  const autoUpdateOn = autoUpdate !== false;
 
   const handleCheckUpdates = useCallback(async () => {
     setActionError(null);
@@ -496,16 +488,14 @@ export default function AboutScreen() {
     try {
       const result = await checkForPortalUpdate();
       setUpdateResult(result);
-      setCheckState("done");
-
       if (result.error) {
         setActionError(result.error);
         setCheckState("idle");
         return;
       }
-
-      // Open modal to show result (with or without update)
-      setModalVisible(true);
+      setCheckState("done");
+      // Com atualização disponível, a janela de download abre direto.
+      if (result.hasUpdate) setModalVisible(true);
     } catch (err) {
       logTechnicalError("About/update-check", err);
       setActionError("Não foi possível verificar atualizações. Tente novamente.");
@@ -514,333 +504,305 @@ export default function AboutScreen() {
   }, []);
 
   const handleCloseModal = useCallback(() => setModalVisible(false), []);
+  const openPortal = useCallback(() => {
+    void Linking.openURL(PORTAL_ORIGIN).catch((error) => {
+      logTechnicalError("About/openPortal", error);
+      setActionError("Não há navegador disponível neste aparelho. Acesse elvanoqplay.app em outro dispositivo.");
+    });
+  }, []);
+
+  // Estado da última verificação, exibido dentro do cartão (sem alertas).
+  let status: { icon: keyof typeof Ionicons.glyphMap; color: string; text: string } = {
+    icon: "time-outline",
+    color: Colors.muted,
+    text: autoUpdateOn ? "Verificação automática ao abrir o app" : "Verificação automática desligada",
+  };
+  if (checkState === "checking") status = { icon: "sync-outline", color: Colors.blueBright, text: "Consultando o Portal ELVANOQ Play…" };
+  else if (actionError) status = { icon: "alert-circle-outline", color: "#FF8B91", text: actionError };
+  else if (checkState === "done" && updateResult?.hasUpdate) status = { icon: "arrow-up-circle-outline", color: Colors.blueBright, text: `Nova versão ${updateResult.latestVersion ?? ""} disponível` };
+  else if (checkState === "done") status = { icon: "checkmark-circle-outline", color: Colors.green, text: "Você está com a versão mais recente" };
+
+  const platformLabel = tvMode ? "Android TV" : isTablet ? "Tablet Android" : "Smartphone Android";
 
   return (
     <View style={styles.screen}>
-      <View style={styles.ambientTop} />
-      <View style={styles.ambientBottom} />
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.content, tvMode && styles.tvContent, !tvMode && { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 42 }]}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <IconButton icon="close" label="Fechar" onPress={() => router.back()} />
-            <View style={styles.headerCopy}>
-              <AppText style={styles.kicker}>SOBRE O APLICATIVO</AppText>
-              <AppText style={styles.headerTitle}>ELVANOQ</AppText>
-            </View>
-            <View style={styles.headerSpacer} />
-          </View>
+      <LinearGradient
+        pointerEvents="none"
+        colors={["rgba(20,125,255,0.22)", "rgba(0,215,255,0.06)", "rgba(7,11,20,0)"]}
+        locations={[0, 0.4, 1]}
+        style={[styles.glow, { height: 420 + insets.top }]}
+      />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + (tvMode ? 28 : 12), paddingBottom: insets.bottom + 40 },
+          tvMode && styles.tvContent,
+          (isTablet || tvMode) && styles.wideContent,
+        ]}
+      >
+        <View style={styles.topBar}>
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+            onPress={() => router.back()}
+            focusStyle={styles.backFocused}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="chevron-back" size={22} color={Colors.text} />
+          </TVFocusable>
+          <AppText style={styles.topTitle}>Sobre</AppText>
+          <View style={styles.backButtonSpacer} />
+        </View>
 
-          {/* Hero card */}
-          <View style={styles.heroCard}>
-            <View style={styles.heroGlow} />
-            <View style={styles.appIcon}>
-              <BrandLogo variant="symbol" accessibilityLabel="Ícone ELVANOQ" style={StyleSheet.absoluteFill} />
-            </View>
-            <AppText style={styles.heroName}>{APP_INFO.name}</AppText>
-            <AppText style={styles.heroVersion}>{APP_INFO.versionLabel}</AppText>
-            <View style={styles.stableBadge}>
-              <Ionicons name="information-circle-outline" size={13} color={Colors.blueBright} />
-              <AppText style={styles.stableText}>Versão instalada</AppText>
-            </View>
-            <AppText style={styles.heroSummary}>
-              Sua central de entretenimento para assistir ao vivo, explorar catálogos e continuar cada história no ponto certo.
-            </AppText>
-            <View style={styles.techRow}>
-              <TechBadge label="ExoPlayer / HLS" />
-              <TechBadge label="Xtream Codes API" />
-              <TechBadge label="EPG" />
-              <TechBadge label="PiP nativo" />
-            </View>
+        {/* Destaque */}
+        <View style={[styles.hero, wide && styles.heroWide]}>
+          <View style={styles.iconShadow}>
+            <Image source={BrandAssets.icon} contentFit="cover" style={[styles.appIcon, wide && styles.appIconWide]} accessibilityLabel="Ícone do ELVANOQ" />
           </View>
-
-          {/* Portal update source */}
-          <GlassCard style={styles.portalCard} intensity={18}>
-            <View style={styles.portalRow}>
-              <View style={styles.portalIconWrap}>
-                <Ionicons name="cloud-download-outline" size={20} color={Colors.text} />
+          <View style={[styles.heroCopy, wide && styles.heroCopyWide]}>
+            <AppText style={[styles.appName, wide && styles.appNameWide]}>{APP_INFO.name}</AppText>
+            <AppText style={[styles.tagline, wide && styles.taglineWide]}>Sua mídia. Sua experiência.</AppText>
+            <View style={[styles.versionRow, wide && styles.versionRowWide]}>
+              <View style={styles.versionPill}>
+                <AppText style={styles.versionPillText}>Versão {APP_INFO.version}</AppText>
               </View>
-              <View style={styles.portalCopy}>
-                <View style={styles.portalTitleRow}>
-                  <AppText style={styles.portalTitle}>Atualizações pelo Portal ELVANOQ Play</AppText>
-                  <View style={styles.portalActiveBadge}>
-                    <AppText style={styles.portalActiveText}>VERIFICAÇÃO MANUAL</AppText>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </GlassCard>
-
-          {/* Technology card */}
-          <View style={styles.sectionHeading}>
-            <AppText style={Type.section}>O que move o ELVANOQ</AppText>
-            <AppText style={styles.sectionSubtitle}>Tecnologias pensadas para uma reprodução fluida</AppText>
-          </View>
-          <GlassCard style={styles.technologyCard} intensity={18}>
-            <TechnologyRow icon="play-circle-outline" title="Motor de Reprodução" body="ExoPlayer com suporte a streams HLS adaptativos." />
-            <View style={styles.cardDivider} />
-            <TechnologyRow icon="server-outline" title="Suas fontes, do seu jeito" body="Xtream Codes e múltiplos servidores cadastrados pelo usuário." />
-            <View style={styles.cardDivider} />
-            <TechnologyRow icon="calendar-outline" title="Contexto em tempo real" body="EPG ao vivo e progresso local para acompanhar seu conteúdo." />
-            <View style={styles.cardDivider} />
-            <TechnologyRow icon="cloud-download-outline" title="Verificação de atualizações" body="Portal ELVANOQ Play" />
-          </GlassCard>
-
-          {/* Changelog */}
-          <View style={styles.changelogHeader}>
-            <View style={styles.sectionHeading}>
-              <AppText style={Type.section}>Histórico de versões</AppText>
-              <AppText style={styles.sectionSubtitle}>As duas versões mais recentes desta instalação</AppText>
-            </View>
-            <View style={styles.releaseCount}>
-              <AppText style={styles.releaseCountText}>{CHANGELOG.length} releases</AppText>
+              <AppText style={styles.buildText}>Build {APP_INFO.build}</AppText>
             </View>
           </View>
+        </View>
 
-          <View style={styles.changelogList}>
-            {CHANGELOG.map((release, index) => (
-              <VersionCard
-                key={release.version}
-                release={release}
-                isLast={index === CHANGELOG.length - 1}
-              />
-            ))}
+        {/* Atualizações */}
+        <View style={styles.updateCard}>
+          <View style={styles.updateHeader}>
+            <View style={styles.updateIcon}><Ionicons name="cloud-download-outline" size={20} color={Colors.blueBright} /></View>
+            <View style={styles.updateCopy}>
+              <AppText style={styles.updateTitle}>Atualizações</AppText>
+              <AppText style={styles.updateSubtitle}>Distribuídas pelo Portal ELVANOQ Play</AppText>
+            </View>
           </View>
-
-          {/* Update check area */}
-          <View style={styles.checkArea}>
-            {checkState === "done" && updateResult && !updateResult.hasUpdate ? (
-              <Animated.View
-                style={[
-                  styles.successToast,
-                  { opacity: toastOpacity, transform: [{ translateY: toastOffset }] },
-                ]}
-              >
-                <Ionicons name="checkmark-circle" size={19} color={Colors.green} />
-                <View style={styles.successCopy}>
-                  <AppText style={styles.successTitle}>Você está em dia!</AppText>
-                  <AppText style={styles.successBody}>
-                    O ELVANOQ {APP_INFO.versionLabel} é a versão mais recente.
-                  </AppText>
-                </View>
-              </Animated.View>
-            ) : null}
-
-            {actionError ? (
-              <View style={styles.actionError}>
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.red} />
-                <AppText style={styles.actionErrorText}>{actionError}</AppText>
-              </View>
-            ) : null}
-
+          <View style={styles.statusRow} accessibilityLiveRegion="polite">
+            {checkState === "checking"
+              ? <ActivityIndicator size="small" color={Colors.blueBright} />
+              : <Ionicons name={status.icon} size={16} color={status.color} />}
+            <AppText style={[styles.statusText, { color: status.color }]}>{status.text}</AppText>
+          </View>
+          <View style={[styles.updateActions, wide && styles.updateActionsWide]}>
             <TVFocusable
               accessibilityRole="button"
               hasTVPreferredFocus
               disabled={checkState === "checking"}
               onPress={handleCheckUpdates}
-              style={({ pressed }) => [
-                styles.checkButton,
-                pressed && styles.pressed,
-                checkState === "checking" && styles.disabled,
-              ]}
+              focusStyle={styles.primaryFocused}
+              style={({ pressed }) => [styles.primaryButton, wide && styles.primaryButtonWide, pressed && styles.pressed, checkState === "checking" && styles.disabled]}
             >
-              {checkState === "checking" ? (
-                <ActivityIndicator color={Colors.background} />
-              ) : (
-                <Ionicons name="refresh-outline" size={17} color={Colors.background} />
-              )}
-              <AppText style={styles.checkButtonText}>
-                {checkState === "checking" ? "Verificando..." : "Verificar Atualizações Agora"}
-              </AppText>
+              <Ionicons name="refresh" size={17} color={Colors.background} />
+              <AppText style={styles.primaryButtonText}>{checkState === "checking" ? "Verificando…" : "Verificar atualizações"}</AppText>
             </TVFocusable>
-
-            <View style={styles.autoUpdateRow}>
-              <View style={styles.autoUpdateCopy}>
-                <AppText style={styles.autoUpdateTitle}>Verificação Automática ao Iniciar</AppText>
-                <AppText style={styles.autoUpdateBody}>
-                  Verificar por atualizações automaticamente ao abrir o app
-                </AppText>
-              </View>
-              <Switch
-                value={autoUpdate !== false}
-                onValueChange={(val) => setPreference("autoUpdate", val)}
-                trackColor={{ false: Colors.border, true: Colors.blue }}
-                thumbColor={Colors.white}
-              />
+            {checkState === "done" && updateResult?.hasUpdate ? (
+              <TVFocusable
+                accessibilityRole="button"
+                onPress={() => setModalVisible(true)}
+                focusStyle={styles.secondaryFocused}
+                style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="download-outline" size={17} color={Colors.text} />
+                <AppText style={styles.secondaryButtonText}>Ver atualização</AppText>
+              </TVFocusable>
+            ) : null}
+          </View>
+          <View style={styles.divider} />
+          <TVFocusable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: autoUpdateOn }}
+            accessibilityLabel="Verificar ao abrir o app"
+            onPress={() => setPreference("autoUpdate", !autoUpdateOn)}
+            focusStyle={styles.rowFocused}
+            style={({ pressed }) => [styles.toggleRow, pressed && styles.pressed]}
+          >
+            <View style={styles.rowCopy}>
+              <AppText style={styles.rowTitle}>Verificar ao abrir o app</AppText>
+              <AppText style={styles.rowMeta}>Avisa quando houver uma nova versão</AppText>
             </View>
-          </View>
-
-          {/* Links */}
-          <View style={styles.sectionHeading}>
-            <AppText style={Type.section}>Ajuda e transparência</AppText>
-            <AppText style={styles.sectionSubtitle}>Estamos por perto quando você precisar</AppText>
-          </View>
-          <AppText style={styles.footer}>ELVANOQ · Sua mídia. Sua experiência.</AppText>
-        </ScrollView>
-
-      {/* Update result modal */}
-      <UpdateModal
-        result={updateResult}
-        visible={modalVisible}
-        onClose={handleCloseModal}
-      />
-    </View>
-  );
-}
-
-function TechBadge({ label }: { label: string }) {
-  return (
-    <View style={styles.techBadge}>
-      <AppText style={styles.techBadgeText}>{label}</AppText>
-    </View>
-  );
-}
-
-function TechnologyRow({
-  icon,
-  title,
-  body,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  body: string;
-}) {
-  return (
-    <View style={styles.technologyRow}>
-      <View style={styles.technologyIcon}>
-        <Ionicons name={icon} size={19} color={Colors.blueBright} />
-      </View>
-      <View style={styles.technologyCopy}>
-        <AppText style={styles.technologyTitle}>{title}</AppText>
-        <AppText style={styles.technologyBody}>{body}</AppText>
-      </View>
-    </View>
-  );
-}
-
-function VersionCard({ release, isLast }: { release: VersionEntry; isLast: boolean }) {
-  return (
-    <View style={styles.versionRow}>
-      <View style={styles.timeline}>
-        <View style={[styles.timelineDot, release.label ? styles.timelineDotCurrent : undefined]} />
-        {!isLast ? <View style={styles.timelineLine} /> : null}
-      </View>
-      <View style={[styles.versionCard, release.label ? styles.currentVersionCard : undefined]}>
-        <View style={styles.versionHeader}>
-          <View style={styles.versionCopy}>
-            <View style={styles.versionTitleRow}>
-              <AppText style={styles.versionTitle}>{release.version}</AppText>
-              {release.label ? (
-                <View style={styles.currentBadge}>
-                  <AppText style={styles.currentBadgeText}>{release.label}</AppText>
-                </View>
-              ) : null}
-            </View>
-            <AppText style={styles.versionDate}>{release.date}</AppText>
-          </View>
-          {release.label ? (
-            <Ionicons name="sparkles-outline" size={18} color={Colors.blueBright} />
-          ) : (
-            <Ionicons name="chevron-down" size={16} color={Colors.subtle} />
-          )}
+            <Switch focusable={false} pointerEvents="none" value={autoUpdateOn} trackColor={{ false: "#293246", true: Colors.blue }} thumbColor={Colors.white} />
+          </TVFocusable>
         </View>
-        <View style={styles.changeList}>
-          {release.changes.map((change) => (
-            <View key={`${release.version}-${change.tag}-${change.text}`} style={styles.changeItem}>
-              <View style={[styles.changeTag, { backgroundColor: TAG_COLORS[change.tag].backgroundColor }]}>
-                <AppText style={[styles.changeTagText, { color: TAG_COLORS[change.tag].color }]}>
-                  {change.tag}
-                </AppText>
+
+        {/* Novidades */}
+        {current ? (
+          <>
+            <GroupLabel title={`NOVIDADES DA VERSÃO ${current.version.replace(/^v/, "")}`} />
+            <View style={styles.group}>
+              {current.changes.map((change, index) => (
+                <ChangeRow key={`${current.version}-${index}`} change={change} divider={index > 0} />
+              ))}
+            </View>
+          </>
+        ) : null}
+        {previous ? (
+          <>
+            <TVFocusable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showPrevious }}
+              onPress={() => setShowPrevious((value) => !value)}
+              focusStyle={styles.rowFocused}
+              style={({ pressed }) => [styles.previousToggle, pressed && styles.pressed]}
+            >
+              <AppText style={styles.previousToggleText}>{showPrevious ? "Ocultar" : "Ver"} versão anterior ({previous.version.replace(/^v/, "")})</AppText>
+              <Ionicons name={showPrevious ? "chevron-up" : "chevron-down"} size={15} color={Colors.blueBright} />
+            </TVFocusable>
+            {showPrevious ? (
+              <View style={styles.group}>
+                {previous.changes.map((change, index) => (
+                  <ChangeRow key={`${previous.version}-${index}`} change={change} divider={index > 0} />
+                ))}
               </View>
-              <AppText style={styles.changeText}>{change.text}</AppText>
+            ) : null}
+          </>
+        ) : null}
+
+        {/* Recursos */}
+        <GroupLabel title="RECURSOS" />
+        <View style={styles.featureGrid}>
+          {FEATURES.map((feature) => (
+            <View key={feature.title} style={[styles.featureTile, wide && styles.featureTileWide]}>
+              <View style={styles.featureIcon}><Ionicons name={feature.icon} size={18} color={Colors.blueBright} /></View>
+              <AppText numberOfLines={1} style={styles.featureTitle}>{feature.title}</AppText>
+              <AppText numberOfLines={2} style={styles.featureBody}>{feature.body}</AppText>
             </View>
           ))}
         </View>
+
+        {/* Informações */}
+        <GroupLabel title="INFORMAÇÕES" />
+        <View style={styles.group}>
+          <InfoRow label="Versão" value={`${APP_INFO.version} (build ${APP_INFO.build})`} />
+          <InfoRow label="Aparelho" value={platformLabel} divider />
+          <InfoRow label="Distribuição" value="Portal ELVANOQ Play" divider />
+          <TVFocusable
+            accessibilityRole="link"
+            accessibilityLabel="Abrir o site elvanoqplay.app"
+            onPress={openPortal}
+            focusStyle={styles.rowFocused}
+            style={({ pressed }) => [styles.infoRow, styles.dividerTop, pressed && styles.pressed]}
+          >
+            <AppText style={styles.infoLabel}>Site e suporte</AppText>
+            <View style={styles.linkValue}>
+              <AppText style={styles.linkText}>elvanoqplay.app</AppText>
+              <Ionicons name="open-outline" size={14} color={Colors.blueBright} />
+            </View>
+          </TVFocusable>
+        </View>
+
+        <AppText style={styles.footer}>ELVANOQ · Sua mídia. Sua experiência.</AppText>
+      </ScrollView>
+
+      <UpdateModal result={updateResult} visible={modalVisible} onClose={handleCloseModal} />
+    </View>
+  );
+}
+
+function GroupLabel({ title }: { title: string }) {
+  return <AppText style={styles.groupLabel}>{title}</AppText>;
+}
+
+function ChangeRow({ change, divider }: { change: ChangeItem; divider: boolean }) {
+  const colors = TAG_COLORS[change.tag];
+  return (
+    <View style={[styles.changeRow, divider && styles.dividerTop]}>
+      <View style={[styles.changeTag, { backgroundColor: colors.backgroundColor }]}>
+        <AppText style={[styles.changeTagText, { color: colors.color }]}>{change.tag}</AppText>
       </View>
+      <AppText style={styles.changeText}>{change.text}</AppText>
+    </View>
+  );
+}
+
+function InfoRow({ label, value, divider = false }: { label: string; value: string; divider?: boolean }) {
+  return (
+    <View style={[styles.infoRow, divider && styles.dividerTop]}>
+      <AppText style={styles.infoLabel}>{label}</AppText>
+      <AppText numberOfLines={1} style={styles.infoValue}>{value}</AppText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  ambientTop: { position: "absolute", top: -150, right: -105, width: 310, height: 310, borderRadius: 155, backgroundColor: "rgba(59,130,246,0.1)" },
-  ambientBottom: { position: "absolute", bottom: 120, left: -180, width: 340, height: 340, borderRadius: 170, backgroundColor: "rgba(229,9,20,0.045)" },
-  content: { gap: 20, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 42 },
-  tvContent: { gap: 28, paddingHorizontal: 46, paddingTop: 30, paddingBottom: 58 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
-  headerCopy: { flex: 1, alignItems: "center", gap: 3 },
-  headerSpacer: { width: 42 },
-  kicker: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1, color: Colors.blueBright },
-  headerTitle: { fontFamily: "Inter_700Bold", fontSize: 20, color: Colors.text },
-  heroCard: { overflow: "hidden", alignItems: "center", padding: 24, borderRadius: Radii.large, borderWidth: 1, borderColor: "rgba(96,165,250,0.28)", backgroundColor: "rgba(22,28,45,0.76)", ...Shadows.card },
-  heroGlow: { position: "absolute", top: -80, width: 230, height: 180, borderRadius: 120, backgroundColor: "rgba(59,130,246,0.12)" },
-  appIcon: { width: 96, height: 96, overflow: "hidden", borderRadius: 25, borderWidth: 1, borderColor: "rgba(96,165,250,0.48)", backgroundColor: Colors.backgroundRaised, ...Shadows.card },
-  heroName: { marginTop: 14, ...Type.display },
-  heroVersion: { marginTop: 4, fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.blueBright },
-  stableBadge: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radii.pill, backgroundColor: "rgba(16,185,129,0.13)" },
-  stableText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: "#6EE7B7" },
-  heroSummary: { maxWidth: 320, marginTop: 15, textAlign: "center", fontSize: 13, lineHeight: 20, color: Colors.muted },
-  techRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 18 },
-  techBadge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: Radii.pill, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.06)" },
-  techBadgeText: { fontFamily: "Inter_500Medium", fontSize: 10, color: Colors.muted },
-  // Portal distribution card
-  portalCard: { paddingHorizontal: 14, paddingVertical: 12 },
-  portalRow: { flexDirection: "row", alignItems: "center", gap: 11 },
-  portalIconWrap: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: Colors.border },
-  portalCopy: { flex: 1 },
-  portalTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  portalTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
-  portalActiveBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: "rgba(16,185,129,0.15)" },
-  portalActiveText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.5, color: Colors.green },
-  sectionHeading: { gap: 3 },
-  sectionSubtitle: { fontSize: 12, color: Colors.subtle },
-  technologyCard: { paddingHorizontal: 14 },
-  technologyRow: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11 },
-  technologyIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.12)" },
-  technologyCopy: { flex: 1, gap: 3 },
-  technologyTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  technologyBody: { fontSize: 11, lineHeight: 17, color: Colors.muted },
-  cardDivider: { height: 1, backgroundColor: Colors.border },
-  changelogHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10 },
-  releaseCount: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: Radii.pill, backgroundColor: "rgba(255,255,255,0.07)" },
-  releaseCountText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.muted },
-  changelogList: { gap: 0 },
-  versionRow: { flexDirection: "row", gap: 11 },
-  timeline: { width: 14, alignItems: "center" },
-  timelineDot: { zIndex: 1, width: 9, height: 9, marginTop: 18, borderRadius: 5, borderWidth: 2, borderColor: Colors.subtle, backgroundColor: Colors.background },
-  timelineDotCurrent: { width: 11, height: 11, marginTop: 17, borderWidth: 3, borderColor: Colors.blueBright, backgroundColor: Colors.background },
-  timelineLine: { position: "absolute", top: 27, bottom: -1, width: 1, backgroundColor: Colors.border },
-  versionCard: { flex: 1, marginBottom: 12, padding: 14, borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
-  currentVersionCard: { borderColor: "rgba(96,165,250,0.4)", backgroundColor: "rgba(59,130,246,0.1)" },
-  versionHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
-  versionCopy: { flex: 1, gap: 4 },
-  versionTitleRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7 },
-  versionTitle: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.text },
-  versionDate: { fontSize: 10, color: Colors.subtle },
-  currentBadge: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: "rgba(96,165,250,0.18)" },
-  currentBadgeText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.45, color: Colors.blueBright },
-  changeList: { gap: 10, marginTop: 14 },
-  changeItem: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  changeTag: { minWidth: 65, alignItems: "center", paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6 },
-  changeTagText: { fontFamily: "Inter_600SemiBold", fontSize: 9 },
-  changeText: { flex: 1, fontSize: 11, lineHeight: 17, color: Colors.muted },
-  checkArea: { gap: 10 },
-  successToast: { flexDirection: "row", alignItems: "center", gap: 9, padding: 12, borderRadius: Radii.medium, borderWidth: 1, borderColor: "rgba(16,185,129,0.3)", backgroundColor: "rgba(16,185,129,0.11)" },
-  successCopy: { flex: 1, gap: 2 },
-  successTitle: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: "#A7F3D0" },
-  successBody: { fontSize: 11, color: Colors.muted },
-  actionError: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderRadius: 12, backgroundColor: "rgba(229,9,20,0.12)" },
-  actionErrorText: { flex: 1, fontSize: 12, lineHeight: 17, color: "#FF8B91" },
-  checkButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white, ...Shadows.card },
-  checkButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.background },
-  autoUpdateRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: Radii.medium, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.glassSoft },
-  autoUpdateCopy: { flex: 1, gap: 3 },
-  autoUpdateTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  autoUpdateBody: { fontSize: 11, lineHeight: 16, color: Colors.muted },
-  footer: { alignSelf: "center", fontSize: 10, color: Colors.subtle },
+  glow: { position: "absolute", top: 0, right: 0, left: 0 },
+  content: { gap: 18, paddingHorizontal: 20 },
+  tvContent: { paddingHorizontal: 46 },
+  wideContent: { width: "100%", maxWidth: 820, alignSelf: "center" },
+  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  backButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,248,255,0.16)", backgroundColor: "rgba(7,11,20,0.5)" },
+  backButtonSpacer: { width: 42 },
+  backFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "rgba(255,255,255,0.16)", transform: [{ scale: 1.08 }] },
+  topTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text },
+
+  hero: { alignItems: "center", gap: 14, paddingTop: 6, paddingBottom: 4 },
+  heroWide: { flexDirection: "row", alignItems: "center", gap: 22 },
+  iconShadow: { borderRadius: 26, shadowColor: "#147DFF", shadowOpacity: 0.45, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 10 },
+  appIcon: { width: 104, height: 104, borderRadius: 26 },
+  appIconWide: { width: 96, height: 96, borderRadius: 24 },
+  heroCopy: { alignItems: "center", gap: 4 },
+  heroCopyWide: { alignItems: "flex-start" },
+  appName: { fontFamily: "Inter_700Bold", fontSize: 32, lineHeight: 38, letterSpacing: -1, color: Colors.text },
+  appNameWide: { fontSize: 30, lineHeight: 36 },
+  tagline: { fontSize: 13, color: Colors.muted },
+  taglineWide: { fontSize: 12 },
+  versionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
+  versionRowWide: { marginTop: 8 },
+  versionPill: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: Radii.pill, borderWidth: 1, borderColor: "rgba(0,215,255,0.32)", backgroundColor: "rgba(0,215,255,0.10)" },
+  versionPillText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.blueBright },
+  buildText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.subtle },
+
+  updateCard: { gap: 12, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: "rgba(0,215,255,0.18)", backgroundColor: "rgba(20,125,255,0.08)" },
+  updateHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  updateIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 12, backgroundColor: "rgba(0,215,255,0.12)" },
+  updateCopy: { flex: 1, gap: 2 },
+  updateTitle: { fontFamily: "Inter_700Bold", fontSize: 16, color: Colors.text },
+  updateSubtitle: { fontSize: 12, color: Colors.muted },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, backgroundColor: "rgba(7,11,20,0.5)" },
+  statusText: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 12, lineHeight: 16 },
+  updateActions: { gap: 8 },
+  updateActionsWide: { flexDirection: "row" },
+  primaryButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, borderRadius: 14, backgroundColor: BRAND.colors.textPrimary },
+  primaryButtonWide: { alignSelf: "flex-start" },
+  primaryButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.background },
+  primaryFocused: { borderWidth: 2, borderColor: Colors.blueBright, transform: [{ scale: 1.04 }] },
+  secondaryButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, borderRadius: 14, borderWidth: 1, borderColor: "rgba(244,248,255,0.22)", backgroundColor: "rgba(17,27,45,0.82)" },
+  secondaryButtonText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
+  secondaryFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1.04 }] },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(190,222,255,0.16)" },
+  toggleRow: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 12 },
+  rowFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "rgba(0,215,255,0.08)", transform: [{ scale: 1 }] },
+  rowCopy: { flex: 1, gap: 2 },
+  rowTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
+  rowMeta: { fontSize: 11, color: Colors.muted },
+
+  groupLabel: { marginBottom: -8, paddingHorizontal: 4, fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 1.1, color: Colors.muted },
+  group: { overflow: "hidden", borderRadius: 16, borderWidth: 1, borderColor: "rgba(190,222,255,0.10)", backgroundColor: "rgba(13,20,34,0.72)" },
+  dividerTop: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(190,222,255,0.14)" },
+  changeRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  changeTag: { minWidth: 68, alignItems: "center", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
+  changeTagText: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 0.3 },
+  changeText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#D6DEEB" },
+  previousToggle: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: -6, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10 },
+  previousToggleText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.blueBright },
+
+  featureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  featureTile: { width: "48.4%", gap: 6, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "rgba(190,222,255,0.10)", backgroundColor: "rgba(13,20,34,0.72)" },
+  featureTileWide: { width: "23.6%" },
+  featureIcon: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "rgba(0,215,255,0.10)" },
+  featureTitle: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  featureBody: { fontSize: 11, lineHeight: 15, color: Colors.muted },
+
+  infoRow: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, paddingHorizontal: 14 },
+  infoLabel: { fontSize: 13, color: Colors.muted },
+  infoValue: { flexShrink: 1, fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  linkValue: { flexDirection: "row", alignItems: "center", gap: 5 },
+  linkText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.blueBright },
+  footer: { alignSelf: "center", marginTop: 4, fontSize: 10, color: Colors.subtle },
   pressed: { opacity: 0.74, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.55 },
 });

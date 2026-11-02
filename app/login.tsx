@@ -693,8 +693,8 @@ export default function LoginScreen() {
           // O tablet na horizontal tem a mesma composição da TV (cartão à
           // esquerda, arte à direita), então usa o fundo largo.
           source={tvMode || isTabletLandscape
-            ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v4.jpg")
-            : require("@/assets/images/brand/ELVANOQ_login_mobile_backdrop_v4.jpg")}
+            ? require("@/assets/images/brand/ELVANOQ_login_tv_backdrop_v5.jpg")
+            : require("@/assets/images/brand/ELVANOQ_login_mobile_backdrop_v5.jpg")}
           contentFit="cover"
           contentPosition={tvMode || isTabletLandscape ? "center" : "top"}
           style={StyleSheet.absoluteFill}

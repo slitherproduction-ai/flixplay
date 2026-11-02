@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.19] — 2026-11-01
+
+- Sobre (smartphone, tablet e TV): tela redesenhada no padrão premium das demais. Destaque com o ícone do app, nome, slogan e versão; cartão único de Atualizações com o resultado da última verificação na própria tela (sem alertas), botão "Verificar atualizações" e opção "Verificar ao abrir o app"; novidades da versão atual em lista, com a anterior sob demanda; recursos em grade (2 colunas no celular, 4 no tablet deitado e na TV); informações agrupadas (versão, aparelho, distribuição) e link para elvanoqplay.app. Tablet e TV ficam centralizados com largura máxima.
+- Sobre: corrigidos o logotipo que vazava do quadro do ícone, o selo "Verificação manual" cortado, a seção "Ajuda e transparência" vazia e a informação de verificação repetida.
+- Login (smartphone, tablet e TV): novo fundo do Roku 1.0.1 — ondas de luz azuis e o símbolo de play no lugar da parede de pôsteres. Na TV e no tablet deitado, a arte ocupa a tela; no celular e no tablet em pé, a composição foi refeita na vertical, com a arte por trás do cartão de acesso.
+- Aviso de atualização (TV): botões "Atualizar agora", "Cancelar", "Depois" e "Ver todas as novidades" ganharam foco visível no controle remoto. Durante o download, o botão Voltar não fecha mais a janela (use "Cancelar"). Build Android elevado para `20261037`.
+
 ## [2.17.18] — 2026-11-01
 
 - Atualizações: o aviso automático do Portal ELVANOQ Play foi compactado para uma apresentação mais premium. Ele mostra a versão instalada e a nova versão, tamanho do APK e até dois destaques; o changelog completo só é exibido quando solicitado.

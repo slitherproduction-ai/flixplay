@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.18] — 2026-11-01
+
+- Atualizações: o aviso automático do Portal ELVANOQ Play foi compactado para uma apresentação mais premium. Ele mostra a versão instalada e a nova versão, tamanho do APK e até dois destaques; o changelog completo só é exibido quando solicitado.
+- Atualizações: botões, progresso de download, cancelamento e navegação por controle remoto foram preservados. Build Android elevado para `20261036`.
+
 ## [2.17.17] — 2026-10-31
 
 - Correção (desempenho em Fire TV Stick Lite e 1ª geração): navegação pelo controle voltou a responder rápido.

@@ -43,6 +43,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
+    version: "v2.17.18",
+    label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "O aviso automático de atualização foi redesenhado: mais compacto, com comparação de versões, tamanho do APK e resumo das novidades." },
+      { tag: "Melhoria", text: "As notas completas ficam disponíveis sob demanda, preservando uma abertura rápida e visual mais limpo em celular, tablet e TV." },
+    ],
+  },
+  {
     version: "v2.17.17",
     date: "2026.10",
     changes: [

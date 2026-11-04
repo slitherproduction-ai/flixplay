@@ -17,6 +17,7 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { ContentType, PlayHistory } from "@/store/types";
+import { PremiumBackdrop, premium } from "@/components/premium-screen";
 
 function formatRelativeTime(iso: string): string {
   try {
@@ -260,7 +261,7 @@ export default function ContinueWatchingScreen() {
     <View style={styles.screen}>
       <ParentalGate visible={pendingHistoryItem !== null} onAuthorized={resumeAuthorized} onClose={() => setPendingHistoryItem(null)} />
       {/* Ambient glow */}
-      <View style={styles.ambient} />
+      <PremiumBackdrop />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12, paddingHorizontal: hPad }]}>
@@ -268,7 +269,8 @@ export default function ContinueWatchingScreen() {
           accessibilityRole="button"
           accessibilityLabel="Voltar"
           onPress={handleBack}
-          style={styles.backBtn}
+          focusStyle={premium.backFocused}
+          style={premium.backButton}
           hasTVPreferredFocus
         >
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
@@ -318,15 +320,6 @@ export default function ContinueWatchingScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  ambient: {
-    position: "absolute",
-    top: -80,
-    left: -60,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: "rgba(59,130,246,0.08)",
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -334,16 +327,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-  backBtn: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radii.small,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.glassSoft,
   },
   headerCopy: { flex: 1, gap: 2 },
   kicker: {

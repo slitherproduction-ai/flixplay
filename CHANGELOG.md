@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.17.21] — 2026-11-04
+
+- Player (todas as versões): retomada automática. Se o vídeo para de avançar por 12 s no ao vivo ou 20 s em filmes/séries, a mesma fonte é reaberta no mesmo ponto, até 3 vezes seguidas; depois aparece o erro com "Tentar". Pausa do usuário e app em segundo plano não contam. Aviso "O sinal parou de chegar. Reconectando…".
+- Ao vivo: com a preferência "Auto", o app lembra por lista qual formato abriu (HLS ou TS) e começa por ele nos próximos canais e na troca de canal (`liveFormat:<serverId>`). A escolha manual do usuário continua valendo.
+- Rever programas: o player tenta três formatos de arquivo Xtream (`/timeshift` com horário em segundos, `/timeshift` com data e `/streaming/timeshift.php`) antes de mostrar "Este programa não está disponível para rever"; não cai mais para o ao vivo em caso de falha.
+- Controle parental: proteção automática de conteúdo adulto (ligada por padrão). Categorias com nomes como Adultos, XXX, +18 e Eróticos pedem o PIN sem configuração; podem ser liberadas uma a uma (exceção gravada na lista de bloqueios do servidor). Selo "Automática" na lista e contagem de protegidas considera a regra.
+- Nova tela Ajustes > Categorias visíveis (celular, tablet e TV): oculta categorias de Ao vivo, Filmes e Séries por lista, sem apagar nada. As categorias ocultas somem dos chips, de "Todos" e do navegador da TV.
+- Player (Android): atalho "Abrir em outro player" na barra superior, com o formato que está funcionando. Build Android elevado para `20261039`.
+
+## [2.17.20] — 2026-11-02
+
+- Visual premium unificado (smartphone, tablet e TV): as telas secundárias seguem o padrão da tela Sobre, com brilho azul no topo, botão Voltar circular com título centralizado, cabeçalho com ícone e opções em grupos com rótulos discretos. Novo componente compartilhado `components/premium-screen.tsx` (fundo, barra, cabeçalho, grupos, linhas e botões com foco de controle remoto).
+- Controle parental: cartões de desbloqueio e troca de PIN no novo estilo, campo de PIN com dígitos espaçados e só números, contagem de categorias protegidas no topo, áreas (Canais, Filmes, Séries) como grupos expansíveis com selo "Bloqueada/Livre" e ações de PIN agrupadas.
+- Player: preferências agrupadas (Reprodução, Comportamento, Avançado) com seletores segmentados; "Modo Android TV" aparece desativado quando detectado automaticamente.
+- Diagnóstico: resumo com totais de canais, filmes e séries; Conexão, Aparelho, Ações e Armazenamento agrupados; "Reconstruir banco local" destacado como ação destrutiva.
+- Adicionar lista: seletor segmentado Xtream Codes/M3U, campos agrupados (Lista e Acesso) e botão "Importar lista" para M3U.
+- Ajustes, Assistir Mais Tarde e Continuar Assistindo: mesmo fundo da tela Sobre e botão Voltar padronizado; na TV, cartões de Ajustes com a nova paleta.
+- Busca: respeita a barra de status (antes ficava por baixo dela), fundo premium e, em tablet e TV, coluna central com largura máxima. Build Android elevado para `20261038`.
+
 ## [2.17.19] — 2026-11-01
 
 - Sobre (smartphone, tablet e TV): tela redesenhada no padrão premium das demais. Destaque com o ícone do app, nome, slogan e versão; cartão único de Atualizações com o resultado da última verificação na própria tela (sem alertas), botão "Verificar atualizações" e opção "Verificar ao abrir o app"; novidades da versão atual em lista, com a anterior sob demanda; recursos em grade (2 colunas no celular, 4 no tablet deitado e na TV); informações agrupadas (versão, aparelho, distribuição) e link para elvanoqplay.app. Tablet e TV ficam centralizados com largura máxima.

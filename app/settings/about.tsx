@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
+import { PremiumBackdrop, PremiumTopBar } from "@/components/premium-screen";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
@@ -47,8 +47,28 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.19",
+    version: "v2.17.21",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Quando o sinal para de chegar, o player reabre sozinho no mesmo ponto, até três vezes, antes de mostrar o erro." },
+      { tag: "Novidade", text: "Categorias visíveis: oculte categorias de Ao vivo, Filmes e Séries sem apagar nada." },
+      { tag: "Novidade", text: "Controle parental protege automaticamente categorias adultas (Adultos, XXX, +18); dá para liberar uma a uma." },
+      { tag: "Melhoria", text: "O ao vivo lembra qual formato (HLS ou TS) funcionou na sua lista e já começa por ele." },
+      { tag: "Melhoria", text: "Rever programas tenta formatos alternativos do servidor antes de desistir, e o player ganhou o atalho Abrir em outro player." },
+    ],
+  },
+  {
+    version: "v2.17.20",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Controle parental, Player, Diagnóstico, Adicionar lista e Busca seguem o visual da tela Sobre: brilho azul no topo, botão Voltar circular e opções agrupadas." },
+      { tag: "Melhoria", text: "Ajustes, Assistir Mais Tarde e Continuar Assistindo ganharam o mesmo fundo; na TV, os cartões de Ajustes usam a nova paleta." },
+      { tag: "Correção", text: "A Busca não fica mais sob a barra de status e, em tablet e TV, ocupa uma coluna central." },
+    ],
+  },
+  {
+    version: "v2.17.19",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Tela Sobre redesenhada: destaque com o ícone do app e a versão, atualizações em um único cartão com o resultado da verificação e seções agrupadas." },
@@ -526,12 +546,7 @@ export default function AboutScreen() {
 
   return (
     <View style={styles.screen}>
-      <LinearGradient
-        pointerEvents="none"
-        colors={["rgba(20,125,255,0.22)", "rgba(0,215,255,0.06)", "rgba(7,11,20,0)"]}
-        locations={[0, 0.4, 1]}
-        style={[styles.glow, { height: 420 + insets.top }]}
-      />
+      <PremiumBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -541,19 +556,7 @@ export default function AboutScreen() {
           (isTablet || tvMode) && styles.wideContent,
         ]}
       >
-        <View style={styles.topBar}>
-          <TVFocusable
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-            onPress={() => router.back()}
-            focusStyle={styles.backFocused}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="chevron-back" size={22} color={Colors.text} />
-          </TVFocusable>
-          <AppText style={styles.topTitle}>Sobre</AppText>
-          <View style={styles.backButtonSpacer} />
-        </View>
+        <PremiumTopBar title="Sobre" onBack={() => router.back()} />
 
         {/* Destaque */}
         <View style={[styles.hero, wide && styles.heroWide]}>
@@ -729,15 +732,9 @@ function InfoRow({ label, value, divider = false }: { label: string; value: stri
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  glow: { position: "absolute", top: 0, right: 0, left: 0 },
   content: { gap: 18, paddingHorizontal: 20 },
   tvContent: { paddingHorizontal: 46 },
   wideContent: { width: "100%", maxWidth: 820, alignSelf: "center" },
-  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  backButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,248,255,0.16)", backgroundColor: "rgba(7,11,20,0.5)" },
-  backButtonSpacer: { width: 42 },
-  backFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "rgba(255,255,255,0.16)", transform: [{ scale: 1.08 }] },
-  topTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text },
 
   hero: { alignItems: "center", gap: 14, paddingTop: 6, paddingBottom: 4 },
   heroWide: { flexDirection: "row", alignItems: "center", gap: 22 },

@@ -13,6 +13,7 @@ import type { ServerProfile } from "@/store/types";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { maskUsername } from "@/features/login/loginValidation";
+import { PremiumBackdrop } from "@/components/premium-screen";
 
 /**
  * Descrição da lista sem expor o Host/DNS do servidor (mesma regra da tela de
@@ -150,6 +151,7 @@ export default function SettingsScreen() {
         onAddServer={() => router.push("/server/add")}
         onPlayer={() => router.push("/settings/player")}
         onParental={() => router.push("/settings/parental")}
+        onCategories={() => router.push("/settings/categories")}
         onSync={handleSyncIptv}
         onDiagnostics={() => router.push("/settings/diagnostics")}
         onAbout={handleAbout}
@@ -160,7 +162,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.ambient} />
+      <PremiumBackdrop />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -248,6 +250,7 @@ export default function SettingsScreen() {
         <View style={styles.group}>
           <GroupRow icon="play-circle-outline" title="Preferências do player" subtitle="Controles, salto no vídeo e formato" onPress={() => router.push("/settings/player")} />
           <GroupRow icon="lock-closed-outline" title="Controle parental" subtitle="PIN e categorias protegidas" onPress={() => router.push("/settings/parental")} divider />
+          <GroupRow icon="eye-outline" title="Categorias visíveis" subtitle="Escolha o que aparece nas listas" onPress={() => router.push("/settings/categories")} divider />
         </View>
 
         <GroupLabel title="DADOS E SUPORTE" />
@@ -308,6 +311,7 @@ function TvSettingsDashboard({
   onAddServer,
   onPlayer,
   onParental,
+  onCategories,
   onSync,
   onDiagnostics,
   onAbout,
@@ -323,6 +327,7 @@ function TvSettingsDashboard({
   onAddServer: () => void;
   onPlayer: () => void;
   onParental: () => void;
+  onCategories: () => void;
   onSync: () => void;
   onDiagnostics: () => void;
   onAbout: () => void;
@@ -332,6 +337,7 @@ function TvSettingsDashboard({
     { icon: "add-circle-outline", title: "Adicionar lista", subtitle: "Xtream Codes ou M3U", onPress: onAddServer },
     { icon: "play-circle-outline", title: "Reprodução", subtitle: "Player, OSD e formato", onPress: onPlayer },
     { icon: "lock-closed-outline", title: "Controle parental", subtitle: "PIN e conteúdo protegido", onPress: onParental },
+    { icon: "eye-outline", title: "Categorias visíveis", subtitle: "Ocultar categorias das listas", onPress: onCategories },
     { icon: "refresh", title: "Atualizar lista", subtitle: isSyncing ? "Sincronizando…" : "Canais, filmes e séries", onPress: onSync, disabled: isSyncing },
     { icon: "pulse-outline", title: "Diagnóstico", subtitle: "Conexão e catálogo", onPress: onDiagnostics },
     { icon: "sparkles-outline", title: "Sobre o aplicativo", subtitle: APP_INFO.versionLabel, onPress: onAbout },
@@ -339,7 +345,7 @@ function TvSettingsDashboard({
 
   return (
     <View style={styles.screen}>
-      <View style={styles.ambient} />
+      <PremiumBackdrop />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tvDashboardContent}>
         <View style={styles.tvDashboardHeader}>
           <View><AppText style={styles.kicker}>ELVANOQ PLAY</AppText><AppText style={styles.tvDashboardTitle}>Ajustes</AppText></View>
@@ -408,19 +414,18 @@ function StatusItem({ label, value, tone = "neutral" }: { label: string; value: 
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  ambient: { position: "absolute", top: -130, right: -100, width: 290, height: 290, borderRadius: 145, backgroundColor: "rgba(59, 130, 246, 0.07)" },
   content: { gap: 22, paddingHorizontal: 18, paddingTop: 20, paddingBottom: 36 },
   tvDashboardContent: { gap: 16, paddingHorizontal: 34, paddingTop: 24, paddingBottom: 32 },
   tvDashboardHeader: { minHeight: 54, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(190,222,255,0.13)", paddingBottom: 12 },
   tvDashboardTitle: { fontFamily: "Inter_700Bold", fontSize: 27, lineHeight: 32, color: Colors.text },
   tvDashboardSubtitle: { fontSize: 12, color: Colors.muted, marginBottom: 3 },
   tvActionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  tvActionTile: { width: "48.8%", minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13, borderRadius: 10, borderWidth: 1, borderColor: "rgba(190,222,255,0.17)", backgroundColor: "rgba(15,23,38,0.82)" },
-  tvActionIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.13)", borderWidth: 1, borderColor: "rgba(147,197,253,0.2)" },
+  tvActionTile: { width: "48.8%", minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13, borderRadius: 16, borderWidth: 1, borderColor: "rgba(190,222,255,0.10)", backgroundColor: "rgba(13,20,34,0.72)" },
+  tvActionIcon: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(0,215,255,0.10)" },
   tvActionCopy: { flex: 1, minWidth: 0, gap: 3 },
   tvActionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
   tvActionMeta: { fontSize: 10, color: Colors.muted },
-  tvServerSection: { gap: 9, padding: 13, borderRadius: 12, borderWidth: 1, borderColor: "rgba(190,222,255,0.13)", backgroundColor: "rgba(9,17,31,0.7)" },
+  tvServerSection: { gap: 9, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: "rgba(190,222,255,0.10)", backgroundColor: "rgba(13,20,34,0.72)" },
   tvServerSectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
   tvSectionTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text },
   tvSectionHint: { marginTop: 2, fontSize: 10, color: Colors.muted },

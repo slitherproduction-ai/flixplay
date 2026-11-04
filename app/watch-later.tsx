@@ -11,6 +11,7 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem, VodMovie } from "@/store/types";
+import { PremiumBackdrop, premium } from "@/components/premium-screen";
 
 type SavedItem = {
   id: string;
@@ -84,9 +85,9 @@ export default function WatchLaterScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.ambient} />
+      <PremiumBackdrop />
       <View style={[styles.header, { paddingTop: insets.top + (tvMode ? 30 : 16), paddingHorizontal: horizontalPadding }]}>
-        <TVFocusable accessibilityRole="button" accessibilityLabel="Voltar" onPress={() => router.back()} style={styles.backButton} hasTVPreferredFocus>
+        <TVFocusable accessibilityRole="button" accessibilityLabel="Voltar" onPress={() => router.back()} focusStyle={premium.backFocused} style={premium.backButton} hasTVPreferredFocus>
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </TVFocusable>
         <View style={styles.headerCopy}>
@@ -142,9 +143,7 @@ function EmptySavedState() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  ambient: { position: "absolute", top: -110, right: -80, width: 300, height: 300, borderRadius: 150, backgroundColor: "rgba(59,130,246,0.1)" },
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingBottom: 18 },
-  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: "rgba(255,255,255,0.06)" },
   headerCopy: { flex: 1, gap: 2 },
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 9, letterSpacing: 1.3, color: Colors.blueBright },
   title: { fontFamily: "Inter_700Bold", fontSize: 24, letterSpacing: -0.55, color: Colors.text },

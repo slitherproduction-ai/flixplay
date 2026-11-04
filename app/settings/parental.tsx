@@ -1,11 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
+import { AUTO_ADULT_PREFERENCE, countBlocked, isAdultCategoryName, resolveCategoryBlocked } from "@/features/parental/adult-categories";
 import { useRouter } from "expo-router";
-import { AppText, IconButton } from "@/components/ui";
+import { AppText } from "@/components/ui";
 import { TVFocusable } from "@/components/tv-focusable";
-import { Colors, Radii } from "@/constants/theme";
+import { Group, GroupLabel, GroupRow, PremiumBackdrop, PremiumButton, PremiumHeading, PremiumTopBar, premium, usePremiumContentStyle } from "@/components/premium-screen";
+import { Colors } from "@/constants/theme";
+import { useTVMode } from "@/hooks/use-tv-mode";
+import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import type { ParentalCategoryKind } from "@/store/types";
 const SECURE_STORAGE_TIMEOUT_MS = 5_000;
@@ -21,12 +24,14 @@ const META: Record<ParentalCategoryKind, { title: string; subtitle: string; icon
 
 export default function ParentalSettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const live = useAppStore((s) => s.contentCache.liveCategories);
   const movies = useAppStore((s) => s.contentCache.vodCategories);
   const series = useAppStore((s) => s.contentCache.seriesCategories);
   const blocked = useAppStore((s) => s.blockedCategoryIds);
   const toggleCategoryBlocked = useAppStore((s) => s.toggleCategoryBlocked);
+  const autoAdultPref = useAppStore((s) => s.preferences[AUTO_ADULT_PREFERENCE]);
+  const setPreference = useAppStore((s) => s.setPreference);
+  const autoAdult = autoAdultPref !== false;
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [mode, setMode] = useState<PinMode>(null);
   const [accessPin, setAccessPin] = useState("");
@@ -80,43 +85,130 @@ export default function ParentalSettingsScreen() {
   const enterMode = useCallback((next: "change" | "remove") => { setCurrentPin(""); setPin(""); setConfirmation(""); setMessage(""); setMode(next); }, []);
 
   const editingPin = mode === "change" || mode === "remove";
-  return <View style={[styles.screen, { paddingTop: insets.top + 20, paddingBottom: insets.bottom }]}>
-    <View style={styles.header}><IconButton icon="close" label="Voltar" onPress={() => router.back()} /><View><AppText style={styles.kicker}>SEGURANÇA</AppText><AppText style={styles.title}>Controle parental</AppText></View></View>
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {configured === null ? <AppText style={styles.body}>Verificando armazenamento seguro…</AppText> : null}
-      {configured === false ? <View style={styles.card}>
+  const tvMode = useTVMode();
+  const { isTablet } = useResponsiveLayout();
+  const contentStyle = usePremiumContentStyle({ tvMode, wide: isTablet }, 760);
+  const totalBlocked = useMemo(
+    () => countBlocked(blocked.live, live, autoAdult) + countBlocked(blocked.movies, movies, autoAdult) + countBlocked(blocked.series, series, autoAdult),
+    [autoAdult, blocked, live, movies, series],
+  );
+
+  return <View style={premium.screen}>
+    <PremiumBackdrop />
+    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={contentStyle}>
+      <PremiumTopBar title="Controle parental" onBack={() => router.back()} />
+      <PremiumHeading
+        icon={unlocked ? "lock-open-outline" : "shield-checkmark-outline"}
+        title="Controle parental"
+        subtitle={unlocked
+          ? (totalBlocked ? `${totalBlocked} categoria${totalBlocked === 1 ? "" : "s"} protegida${totalBlocked === 1 ? "" : "s"} por PIN` : "Nenhuma categoria protegida ainda")
+          : "Proteja categorias com um PIN guardado no cofre seguro deste aparelho."}
+      />
+
+      {configured === null ? <View style={styles.statusRow}><ActivityIndicator size="small" color={Colors.blueBright} /><AppText style={styles.statusText}>Verificando armazenamento seguro…</AppText></View> : null}
+
+      {configured === false ? <View style={premium.card}>
         <AppText style={styles.cardTitle}>Armazenamento seguro indisponível</AppText>
         <AppText style={styles.body}>{message || "Não foi possível preparar o controle parental neste momento."}</AppText>
-        <TVFocusable disabled={busy} onPress={() => void refresh()} style={styles.primary}><AppText style={styles.primaryText}>Tentar novamente</AppText></TVFocusable>
+        <PremiumButton label="Tentar novamente" icon="refresh" hasTVPreferredFocus disabled={busy} onPress={() => void refresh()} />
       </View> : null}
-      {editingPin ? <View style={styles.card}>
+
+      {editingPin ? <View style={premium.card}>
         <AppText style={styles.cardTitle}>{mode === "remove" ? "Restaurar PIN padrão" : "Alterar PIN"}</AppText>
-        <AppText style={styles.body}>{mode === "remove" ? "Confirme o PIN atual para restaurar o código padrão 0000." : "Confirme o PIN atual e informe o novo código. O PIN fica protegido no cofre seguro do Android."}</AppText>
+        <AppText style={styles.body}>{mode === "remove" ? "Confirme o PIN atual para restaurar o código padrão 0000." : "Confirme o PIN atual e informe o novo código, de 4 a 8 números."}</AppText>
         <PinField label="PIN atual" value={currentPin} onChange={setCurrentPin} />
-        {mode !== "remove" ? <><PinField label="Novo PIN (4 a 8 números)" value={pin} onChange={setPin} /><PinField label="Confirmar novo PIN" value={confirmation} onChange={setConfirmation} /></> : null}
-        {message ? <AppText style={styles.error}>{message}</AppText> : null}
-        <TVFocusable disabled={busy || configured === null} onPress={() => void submitPin()} style={styles.primary}><AppText style={styles.primaryText}>{mode === "remove" ? "Restaurar PIN 0000" : "Salvar novo PIN"}</AppText></TVFocusable>
-        <TVFocusable disabled={busy} onPress={() => { setMode(null); setMessage(""); }} style={styles.secondary}><AppText style={styles.secondaryText}>Cancelar</AppText></TVFocusable>
+        {mode !== "remove" ? <><PinField label="Novo PIN" value={pin} onChange={setPin} /><PinField label="Confirmar novo PIN" value={confirmation} onChange={setConfirmation} /></> : null}
+        {message ? <ErrorBox text={message} /> : null}
+        <View style={[styles.actions, (isTablet || tvMode) && styles.actionsWide]}>
+          <PremiumButton label={mode === "remove" ? "Restaurar PIN 0000" : "Salvar novo PIN"} icon={mode === "remove" ? "refresh" : "checkmark"} loading={busy} disabled={configured === null} onPress={() => void submitPin()} style={styles.actionButton} />
+          <PremiumButton label="Cancelar" variant="secondary" disabled={busy} onPress={() => { setMode(null); setMessage(""); }} style={styles.actionButton} />
+        </View>
       </View> : null}
-      {configured && mode === null && !unlocked ? <View style={styles.card}>
-        <View style={styles.lockHeader}><Ionicons name="shield-checkmark-outline" size={24} color={Colors.blueBright} /><View style={styles.copy}><AppText style={styles.cardTitle}>Desbloquear controles</AppText><AppText style={styles.body}>No primeiro acesso, informe o PIN padrão 0000. Após confirmar, escolha as categorias a proteger.</AppText></View></View>
-        <PinField label="PIN parental (padrão: 0000)" value={accessPin} onChange={setAccessPin} />
-        {message ? <AppText style={styles.error}>{message}</AppText> : null}
-        <TVFocusable disabled={busy} onPress={() => void unlockControls()} style={styles.primary}><AppText style={styles.primaryText}>Acessar controles</AppText></TVFocusable>
+
+      {configured && mode === null && !unlocked ? <View style={premium.card}>
+        <AppText style={styles.cardTitle}>Desbloquear controles</AppText>
+        <AppText style={styles.body}>No primeiro acesso, use o PIN padrão 0000. Depois, escolha as categorias a proteger.</AppText>
+        <PinField label="PIN parental" value={accessPin} onChange={setAccessPin} onSubmit={() => void unlockControls()} />
+        {message ? <ErrorBox text={message} /> : null}
+        <PremiumButton label="Acessar controles" icon="lock-open-outline" hasTVPreferredFocus loading={busy} onPress={() => void unlockControls()} />
       </View> : null}
+
       {configured && mode === null && unlocked ? <>
-        <View style={styles.intro}><AppText style={styles.cardTitle}>Categorias protegidas</AppText><AppText style={styles.body}>Abra uma área e use o cadeado ao lado de cada categoria. A reprodução desses conteúdos exigirá o PIN.</AppText></View>
-        {(Object.keys(META) as ParentalCategoryKind[]).map((kind) => <CategorySection key={kind} kind={kind} categories={groups[kind]} blockedIds={blocked[kind]} expanded={expanded === kind} onExpand={() => setExpanded((value) => value === kind ? null : kind)} onToggle={(id) => toggleCategoryBlocked(kind, id)} />)}
-        <View style={styles.management}><TVFocusable onPress={() => enterMode("change")} style={styles.managementButton}><Ionicons name="key-outline" size={17} color={Colors.text} /><AppText style={styles.secondaryText}>Alterar PIN</AppText></TVFocusable><TVFocusable onPress={() => enterMode("remove")} style={styles.managementButton}><Ionicons name="refresh-outline" size={17} color={Colors.amber} /><AppText style={[styles.secondaryText, { color: Colors.amber }]}>Restaurar PIN</AppText></TVFocusable></View>
-        <TVFocusable onPress={() => setUnlocked(false)} style={styles.secondary}><AppText style={styles.secondaryText}>Bloquear controles</AppText></TVFocusable>
+        <GroupLabel title="PROTEÇÃO AUTOMÁTICA" />
+        <Group>
+          <GroupRow
+            icon="sparkles-outline"
+            title="Proteger conteúdo adulto"
+            subtitle="Categorias com nomes como Adultos, XXX ou +18 pedem o PIN sem você marcar uma a uma"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: autoAdult }}
+            onPress={() => setPreference(AUTO_ADULT_PREFERENCE, !autoAdult)}
+            right={<Switch focusable={false} pointerEvents="none" value={autoAdult} trackColor={{ false: "#293246", true: Colors.blue }} thumbColor={Colors.white} />}
+          />
+        </Group>
+
+        <GroupLabel title="CATEGORIAS PROTEGIDAS" />
+        <AppText style={styles.groupHint}>Toque em uma área e use o cadeado de cada categoria. Assistir a elas vai pedir o PIN.</AppText>
+        {(Object.keys(META) as ParentalCategoryKind[]).map((kind) => <CategorySection key={kind} kind={kind} categories={groups[kind]} blockedIds={blocked[kind]} autoAdult={autoAdult} expanded={expanded === kind} onExpand={() => setExpanded((value) => value === kind ? null : kind)} onToggle={(id) => toggleCategoryBlocked(kind, id)} />)}
+
+        <GroupLabel title="PIN" />
+        <Group>
+          <GroupRow icon="key-outline" title="Alterar PIN" subtitle="Definir um novo código de 4 a 8 números" onPress={() => enterMode("change")} />
+          <GroupRow icon="refresh-outline" iconColor={Colors.amber} title="Restaurar PIN padrão" subtitle="Volta para 0000" onPress={() => enterMode("remove")} divider />
+          <GroupRow icon="lock-closed-outline" title="Bloquear controles" subtitle="Pede o PIN para alterar de novo" onPress={() => setUnlocked(false)} divider />
+        </Group>
       </> : null}
     </ScrollView>
   </View>;
 }
 
-function CategorySection({ kind, categories, blockedIds, expanded, onExpand, onToggle }: { kind: ParentalCategoryKind; categories: Category[]; blockedIds: string[]; expanded: boolean; onExpand: () => void; onToggle: (id: string) => void }) {
-  const meta = META[kind]; const count = blockedIds.length;
-  return <View style={styles.section}><TVFocusable onPress={onExpand} accessibilityRole="button" accessibilityState={{ expanded }} style={styles.sectionHeader}><Ionicons name={meta.icon} size={20} color={Colors.blueBright} /><View style={styles.copy}><AppText style={styles.sectionTitle}>{meta.title}</AppText><AppText style={styles.sectionSub}>{categories.length ? `${meta.subtitle} · ${count} bloqueada${count === 1 ? "" : "s"}` : "Sincronize o catálogo para exibir categorias"}</AppText></View><Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={19} color={Colors.muted} /></TVFocusable>{expanded ? <View style={styles.list}>{categories.map((category) => { const locked = blockedIds.includes(category.id); return <TVFocusable key={category.id} accessibilityRole="switch" accessibilityState={{ checked: locked }} accessibilityLabel={`${locked ? "Desbloquear" : "Bloquear"} ${category.name}`} onPress={() => onToggle(category.id)} style={[styles.category, locked && styles.categoryLocked]}><Ionicons name={locked ? "lock-closed" : "lock-open-outline"} size={18} color={locked ? Colors.amber : Colors.muted} /><AppText numberOfLines={1} style={styles.categoryName}>{category.name}</AppText><AppText style={[styles.status, locked && styles.statusLocked]}>{locked ? "Bloqueada" : "Livre"}</AppText></TVFocusable>; })}</View> : null}</View>;
+function CategorySection({ kind, categories, blockedIds, autoAdult, expanded, onExpand, onToggle }: { kind: ParentalCategoryKind; categories: Category[]; blockedIds: string[]; autoAdult: boolean; expanded: boolean; onExpand: () => void; onToggle: (id: string) => void }) {
+  const meta = META[kind]; const count = countBlocked(blockedIds, categories, autoAdult);
+  return <Group>
+    <GroupRow
+      icon={meta.icon}
+      title={meta.title}
+      subtitle={categories.length ? `${meta.subtitle} · ${count} bloqueada${count === 1 ? "" : "s"}` : "Sincronize o catálogo para exibir categorias"}
+      accessibilityState={{ expanded }}
+      onPress={onExpand}
+      right={<Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={17} color={Colors.muted} />}
+    />
+    {expanded ? categories.map((category) => {
+      const locked = resolveCategoryBlocked(blockedIds, category.id, category.name, autoAdult);
+      const automatic = locked && !blockedIds.includes(category.id) && isAdultCategoryName(category.name);
+      return <TVFocusable key={category.id} accessibilityRole="switch" accessibilityState={{ checked: locked }} accessibilityLabel={`${locked ? "Desbloquear" : "Bloquear"} ${category.name}`} onPress={() => onToggle(category.id)} focusStyle={premium.rowFocused} style={[styles.category, premium.dividerTop, locked && styles.categoryLocked]}>
+        <Ionicons name={locked ? "lock-closed" : "lock-open-outline"} size={16} color={locked ? Colors.amber : Colors.subtle} />
+        <AppText numberOfLines={1} style={styles.categoryName}>{category.name}</AppText>
+        <View style={[styles.statusPill, locked && styles.statusPillLocked]}><AppText style={[styles.statusPillText, locked && styles.statusPillTextLocked]}>{automatic ? "Automática" : locked ? "Bloqueada" : "Livre"}</AppText></View>
+      </TVFocusable>;
+    }) : null}
+  </Group>;
 }
-function PinField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <View style={styles.field}><AppText style={styles.label}>{label}</AppText><TextInput value={value} onChangeText={onChange} keyboardType="number-pad" secureTextEntry maxLength={8} accessibilityLabel={label} style={styles.input} /></View>; }
-const styles = StyleSheet.create({ screen: { flex: 1, backgroundColor: Colors.background, padding: 20, gap: 18 }, header: { flexDirection: "row", alignItems: "center", gap: 14 }, content: { width: "100%", maxWidth: 900, alignSelf: "center", gap: 14, paddingBottom: 44 }, kicker: { color: Colors.blueBright, fontSize: 10, letterSpacing: 1.2 }, title: { color: Colors.text, fontSize: 22, fontWeight: "700" }, card: { gap: 16, padding: 18, borderRadius: Radii.large, backgroundColor: Colors.glassSoft, borderWidth: 1, borderColor: Colors.border }, cardTitle: { color: Colors.text, fontSize: 18, fontWeight: "700" }, body: { color: Colors.muted, lineHeight: 20 }, lockHeader: { flexDirection: "row", gap: 12, alignItems: "flex-start" }, copy: { flex: 1, gap: 3 }, field: { gap: 7 }, label: { color: Colors.text, fontSize: 13, fontWeight: "600" }, input: { height: 50, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, color: Colors.text, paddingHorizontal: 14, fontSize: 18, backgroundColor: "rgba(7,9,14,0.45)" }, primary: { minHeight: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white }, primaryText: { color: Colors.background, fontSize: 15, fontWeight: "700" }, secondary: { minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border }, secondaryText: { color: Colors.text, fontSize: 14, fontWeight: "700" }, error: { color: "#FF8B91", lineHeight: 19 }, intro: { gap: 5, paddingHorizontal: 2, paddingTop: 4 }, section: { borderRadius: 16, overflow: "hidden", backgroundColor: Colors.glassSoft, borderWidth: 1, borderColor: Colors.border }, sectionHeader: { minHeight: 68, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }, sectionTitle: { color: Colors.text, fontSize: 16, fontWeight: "700" }, sectionSub: { color: Colors.muted, fontSize: 12 }, list: { borderTopWidth: 1, borderTopColor: Colors.border }, category: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" }, categoryLocked: { backgroundColor: "rgba(245,184,64,0.08)" }, categoryName: { flex: 1, color: Colors.text, fontSize: 14 }, status: { color: Colors.muted, fontSize: 12, fontWeight: "600" }, statusLocked: { color: Colors.amber }, management: { flexDirection: "row", gap: 10 }, managementButton: { flex: 1, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", gap: 8, flexDirection: "row", borderWidth: 1, borderColor: Colors.border } });
+
+function ErrorBox({ text }: { text: string }) {
+  return <View style={premium.error} accessibilityLiveRegion="polite"><Ionicons name="alert-circle-outline" size={17} color="#FF8B91" /><AppText style={premium.errorText}>{text}</AppText></View>;
+}
+
+function PinField({ label, value, onChange, onSubmit }: { label: string; value: string; onChange: (value: string) => void; onSubmit?: () => void }) {
+  return <View style={styles.field}><AppText style={premium.fieldLabel}>{label}</AppText><TextInput value={value} onChangeText={(text) => onChange(text.replace(/\D/g, ""))} onSubmitEditing={onSubmit} keyboardType="number-pad" secureTextEntry maxLength={8} placeholder="••••" placeholderTextColor={Colors.subtle} accessibilityLabel={label} style={[premium.input, styles.pinInput]} /></View>;
+}
+
+const styles = StyleSheet.create({
+  statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12 },
+  statusText: { fontSize: 13, color: Colors.muted },
+  cardTitle: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.text },
+  body: { marginTop: -6, fontSize: 13, lineHeight: 19, color: Colors.muted },
+  field: { gap: 7 },
+  pinInput: { fontSize: 20, letterSpacing: 6 },
+  actions: { gap: 8 },
+  actionsWide: { flexDirection: "row" },
+  actionButton: { flexGrow: 1 },
+  groupHint: { marginTop: -10, paddingHorizontal: 4, fontSize: 12, lineHeight: 17, color: Colors.subtle },
+  category: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },
+  categoryLocked: { backgroundColor: "rgba(245,184,64,0.06)" },
+  categoryName: { flex: 1, fontSize: 14, color: Colors.text },
+  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.06)" },
+  statusPillLocked: { backgroundColor: "rgba(245,184,64,0.14)" },
+  statusPillText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.muted },
+  statusPillTextLocked: { color: Colors.amber },
+});

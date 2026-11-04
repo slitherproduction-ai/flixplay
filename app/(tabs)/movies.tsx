@@ -27,6 +27,7 @@ import { displayCategory } from "@/features/catalog/display";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
+import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const MOVIES_FOCUS_SCOPE = "movies-grid";
 
 const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z", "Z-A"] as const;
@@ -47,9 +48,12 @@ export default function MoviesScreen() {
   const [sort, setSort] = useState<SortOption>("Mais recentes");
   const [query, setQuery] = useState("");
 
-  const movies = useAppStore((state) => state.contentCache.vodMovies);
+  const allMovies = useAppStore((state) => state.contentCache.vodMovies);
+  const hiddenCategories = useHiddenCategoryNames("movies");
+  const movies = useMemo(() => withoutHidden(allMovies, hiddenCategories, (movie) => movie.genre), [allMovies, hiddenCategories]);
   const activeServerId = useAppStore((state) => state.activeServerId);
-  const cachedCategories = useAppStore((state) => state.contentCache.vodCategories);
+  const allCategories = useAppStore((state) => state.contentCache.vodCategories);
+  const cachedCategories = useMemo(() => withoutHidden(allCategories, hiddenCategories, (item) => item.name), [allCategories, hiddenCategories]);
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
@@ -96,7 +100,8 @@ export default function MoviesScreen() {
   // Versões do mesmo filme (dublado/legendado) viram um único cartão; a
   // versão é escolhida nos Detalhes.
   // O agrupamento é preparado em segundo plano para não travar a tela.
-  const visibleMovies = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredMovies);
+  const pagedMovies = useMemo(() => withoutHidden(pager.items, hiddenCategories, (movie) => movie.genre), [pager.items, hiddenCategories]);
+  const visibleMovies = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pagedMovies : filteredMovies);
 
   const handleMovie = useCallback(
     (id: string) => { router.push(`/details/${id}`); },

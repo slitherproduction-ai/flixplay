@@ -27,6 +27,7 @@ import { displayCategory } from "@/features/catalog/display";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
+import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const SERIES_FOCUS_SCOPE = "series-grid";
 
 /** Temporadas quando informadas; caso contrário, ano e categoria (nunca "Temporadas não…"). */
@@ -61,9 +62,12 @@ export default function SeriesScreen() {
   const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<SeriesItem>(SERIES_FOCUS_SCOPE, tvMode, numColumns);
 
-  const seriesList = useAppStore((state) => state.contentCache.seriesList);
+  const allSeries = useAppStore((state) => state.contentCache.seriesList);
+  const hiddenCategories = useHiddenCategoryNames("series");
+  const seriesList = useMemo(() => withoutHidden(allSeries, hiddenCategories, (item) => item.genre), [allSeries, hiddenCategories]);
   const activeServerId = useAppStore((state) => state.activeServerId);
-  const cachedCategories = useAppStore((state) => state.contentCache.seriesCategories);
+  const allCategories = useAppStore((state) => state.contentCache.seriesCategories);
+  const cachedCategories = useMemo(() => withoutHidden(allCategories, hiddenCategories, (item) => item.name), [allCategories, hiddenCategories]);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
@@ -90,7 +94,8 @@ export default function SeriesScreen() {
   });
   // Versões da mesma série (dublada/legendada) viram um único cartão.
   // O agrupamento é preparado em segundo plano para não travar a tela.
-  const visibleSeries = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pager.items : filteredSeries);
+  const pagedSeries = useMemo(() => withoutHidden(pager.items, hiddenCategories, (item) => item.genre), [pager.items, hiddenCategories]);
+  const visibleSeries = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pagedSeries : filteredSeries);
 
   const handleSeries = useCallback(
     (id: string) => { router.push(`/details/${id}`); },

@@ -547,6 +547,7 @@ export default function RootLayout() {
                 <Stack.Screen name="watch-later" options={{ presentation: "card" }} />
                 <Stack.Screen name="server/add" options={{ presentation: "modal" }} />
                 <Stack.Screen name="settings/player" options={{ presentation: "card" }} />
+                <Stack.Screen name="settings/categories" options={{ presentation: "card" }} />
                 <Stack.Screen name="settings/about" options={{ presentation: "modal" }} />
               </Stack>
               <RootExitGuard />

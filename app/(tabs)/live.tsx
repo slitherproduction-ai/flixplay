@@ -29,6 +29,7 @@ import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels";
 import { TvCategoryPanel, TvChannelPreview } from "@/features/live/tv-guide-panels";
 
+import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const LIVE_FOCUS_SCOPE = "live-channels";
 const EMPTY_CHANNELS: ChannelItem[] = [];
 const TV_PREVIEW_FOCUS_DELAY_MS = 180;
@@ -451,9 +452,13 @@ export default function LiveScreen() {
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const isCategoryBlocked = useAppStore((state) => state.isCategoryBlocked);
   const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
-  const channels = useAppStore((state) => state.contentCache.liveChannels);
+  const allChannels = useAppStore((state) => state.contentCache.liveChannels);
+  // Categorias ocultas em Ajustes > Categorias visíveis somem da lista inteira.
+  const hiddenCategories = useHiddenCategoryNames("live");
+  const channels = useMemo(() => withoutHidden(allChannels, hiddenCategories, (channel) => channel.categoryName), [allChannels, hiddenCategories]);
   const activeServerId = useAppStore((state) => state.activeServerId);
-  const cachedCategories = useAppStore((state) => state.contentCache.liveCategories);
+  const allCategories = useAppStore((state) => state.contentCache.liveCategories);
+  const cachedCategories = useMemo(() => withoutHidden(allCategories, hiddenCategories, (item) => item.name), [allCategories, hiddenCategories]);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
   // The TV guide is intentionally a list: its row-to-preview relationship is
   // the primary D-pad interaction and must not change with a persisted mobile
@@ -490,9 +495,9 @@ export default function LiveScreen() {
   });
   const visibleChannels = useMemo(
     () => pager.enabled && category !== FAVORITES_LABEL
-      ? hydratePagedChannelsWithEpg(pager.items, channels)
+      ? hydratePagedChannelsWithEpg(withoutHidden(pager.items, hiddenCategories, (channel) => channel.categoryName), channels)
       : filteredChannels,
-    [pager.enabled, pager.items, category, filteredChannels, channels],
+    [pager.enabled, pager.items, category, filteredChannels, channels, hiddenCategories],
   );
   // Preload beyond the rendered window so cards already have Now/Next as the
   // user changes category or scrolls. The queue keeps the provider protected.

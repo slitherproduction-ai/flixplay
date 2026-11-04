@@ -22,6 +22,7 @@ import type {
   ServerProfile,
 } from './types';
 
+import { AUTO_ADULT_PREFERENCE, resolveCategoryBlocked, toggleBlockedList } from "@/features/parental/adult-categories";
 export interface SyncState {
   isSyncing: boolean;
   /** The server id that was last successfully started (set at sync-start, before any await). */
@@ -110,6 +111,20 @@ interface AppStore {
   forceResync: () => void;
   activatePip: (streamUrl: string, title: string, type: ContentType, contentId?: string, thumbnail?: string, subtitle?: string) => void;
   deactivatePip: () => void;
+}
+
+
+// Nome da categoria pelo ID, com índice em cache por lista de categorias
+// (a lista só muda na sincronização).
+const categoryIndexCache = new WeakMap<readonly { id: string; name: string }[], Map<string, string>>();
+function categoryNameFor(cache: ContentCache, kind: ParentalCategoryKind, categoryId: string): string | undefined {
+  const list = kind === "live" ? cache.liveCategories : kind === "movies" ? cache.vodCategories : cache.seriesCategories;
+  let index = categoryIndexCache.get(list);
+  if (!index) {
+    index = new Map(list.map((category) => [category.id, category.name]));
+    categoryIndexCache.set(list, index);
+  }
+  return index.get(categoryId);
 }
 
 const EMPTY_CACHE: ContentCache = {
@@ -403,9 +418,9 @@ export const useAppStore = create<AppStore>()(
       toggleCategoryBlocked: (kind, categoryId) => set((state) => {
         if (!categoryId) return state;
         const current = state.blockedCategoryIds[kind] ?? [];
-        const next = current.includes(categoryId)
-          ? current.filter((id) => id !== categoryId)
-          : [...current, categoryId];
+        // Considera a proteção automática de conteúdo adulto: liberar uma
+        // categoria detectada grava uma exceção ("!<id>").
+        const next = toggleBlockedList(current, categoryId, categoryNameFor(state.contentCache, kind, categoryId), state.preferences[AUTO_ADULT_PREFERENCE] !== false);
         const blockedCategoryIds = { ...state.blockedCategoryIds, [kind]: next };
         return {
           blockedCategoryIds,
@@ -416,7 +431,16 @@ export const useAppStore = create<AppStore>()(
           ),
         };
       }),
-      isCategoryBlocked: (kind, categoryId) => Boolean(categoryId) && get().blockedCategoryIds[kind].includes(categoryId),
+      isCategoryBlocked: (kind, categoryId) => {
+        if (!categoryId) return false;
+        const state = get();
+        return resolveCategoryBlocked(
+          state.blockedCategoryIds[kind] ?? [],
+          categoryId,
+          categoryNameFor(state.contentCache, kind, categoryId),
+          state.preferences[AUTO_ADULT_PREFERENCE] !== false,
+        );
+      },
 
       setContentCache: (cache) =>
         set((state) => ({ contentCache: { ...state.contentCache, ...cache } })),

@@ -64,7 +64,8 @@ import {
 import { createPlaybackSessionGuard } from "@/features/player/SessionGuard";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import { openInExternalPlayer } from "@/services/externalPlayer";
-import { buildCatchupUrl } from "@/services/catchup";
+import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
+import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
 import {
   getIntroSkipTarget,
@@ -393,10 +394,22 @@ export default function PlayerScreen() {
   const isCurrentChannelFavorite = contentType === "live" && favoriteChannelIds.includes(id);
   const isCurrentContentBlocked = directPlaybackBlocked;
 
-  const fallbackUrls = useMemo(
-    () => buildFallbackUrls(streamUrl, contentType, playerPreferences.streamPreference),
-    [streamUrl, contentType, playerPreferences.streamPreference],
-  );
+  // Em "Auto", começa pelo formato que já funcionou nesta lista (HLS ou TS).
+  // Lido uma vez por stream: gravar o formato não recria a fonte em reprodução.
+  const fallbackUrls = useMemo(() => {
+    const key = formatMemoryKey(useAppStore.getState().activeServerId);
+    const remembered = key ? useAppStore.getState().preferences[key] : null;
+    return buildFallbackUrls(streamUrl, contentType, effectiveStreamPreference(playerPreferences.streamPreference, remembered));
+  }, [streamUrl, contentType, playerPreferences.streamPreference]);
+  // Rever programa: fila de endereços alternativos e endereço em uso.
+  const catchupQueueRef = useRef<string[]>([]);
+  const catchupActiveRef = useRef(false);
+  // Retomada automática quando o vídeo para de chegar.
+  const lastProgressAtRef = useRef(Date.now());
+  const lastObservedTimeRef = useRef(-1);
+  const stallRecoveriesRef = useRef(0);
+  const pendingSeekRef = useRef<number | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const player = useVideoPlayer(
     { uri: fallbackUrls[0] ?? "", headers: requestHeaders },
@@ -563,6 +576,18 @@ export default function PlayerScreen() {
       if (status.status === "readyToPlay") {
         setPlayerError(null);
         setIsBuffering(false);
+        lastProgressAtRef.current = Date.now();
+        if (pendingSeekRef.current !== null) {
+          const seekTo = pendingSeekRef.current;
+          pendingSeekRef.current = null;
+          try { player.currentTime = seekTo; } catch { /* posição indisponível: segue do início */ }
+        }
+        if (contentType === "live" && !catchupActiveRef.current) {
+          const key = formatMemoryKey(useAppStore.getState().activeServerId);
+          const format = detectLiveFormat(fallbackUrls[urlAttemptRef.current]);
+          const state = useAppStore.getState();
+          if (key && format && state.preferences[key] !== format) state.setPreference(key, format);
+        }
         tryReadDuration(player, durationRefs, setDuration);
         const mediaDuration = player.duration;
         latestDurationRef.current = mediaDuration;
@@ -579,6 +604,24 @@ export default function PlayerScreen() {
         return;
       }
       if (status.status !== "error") return;
+      // Rever programa: tenta o próximo formato de arquivo antes de desistir,
+      // sem cair no ao vivo.
+      if (catchupActiveRef.current) {
+        const nextCatchup = catchupQueueRef.current.shift();
+        if (nextCatchup) {
+          try {
+            setIsBuffering(true);
+            player.replace({ uri: nextCatchup, headers: requestHeaders });
+            player.play();
+            return;
+          } catch (catchupErr) {
+            logTechnicalError("Player/catchup-fallback", catchupErr);
+          }
+        }
+        logTechnicalError("Player/catchup", status);
+        setPlayerError("Este programa não está disponível para rever.");
+        return;
+      }
       const nextAttempt = urlAttemptRef.current + 1;
       if (nextAttempt < fallbackUrls.length) {
         urlAttemptRef.current = nextAttempt;
@@ -610,6 +653,14 @@ export default function PlayerScreen() {
         if (!sessionGuard.isCurrent(sessionToken)) return;
         const tp = payload as { currentTime?: number };
         if (typeof tp.currentTime === "number") {
+          if (tp.currentTime !== lastObservedTimeRef.current) {
+            lastObservedTimeRef.current = tp.currentTime;
+            lastProgressAtRef.current = Date.now();
+            if (stallRecoveriesRef.current > 0) {
+              stallRecoveriesRef.current = 0;
+              setReconnecting(false);
+            }
+          }
           if (!isDraggingRef.current) setCurrentTime(tp.currentTime);
           setIsBuffering(false);
           latestPositionRef.current = tp.currentTime;
@@ -655,6 +706,46 @@ export default function PlayerScreen() {
       persistProgress(latestPositionRef.current, latestDurationRef.current);
     };
   }, [contentType, fallbackUrls, id, persistProgress, player, removeHistoryItem, requestHeaders]);
+
+  // ─── Retomada automática ─────────────────────────────────────────────────
+  // Se o vídeo para de avançar (carregando ou "tocando" sem progresso), reabre
+  // a mesma fonte no mesmo ponto. Pausa do usuário e app em segundo plano não
+  // contam. Depois de 3 tentativas sem progresso, mostra o erro.
+  useEffect(() => {
+    if (directPlaybackBlocked || codeAccessBlocked || !portalAccessGranted) return;
+    lastProgressAtRef.current = Date.now();
+    const interval = setInterval(() => {
+      if (AppState.currentState !== "active" || playerError) return;
+      const current = playerRef.current;
+      const status = current.status;
+      if (status === "idle" || status === "error") return;
+      if (status === "readyToPlay" && !current.playing) {
+        lastProgressAtRef.current = Date.now();
+        return;
+      }
+      const limit = contentType === "live" ? 12_000 : 20_000;
+      if (Date.now() - lastProgressAtRef.current < limit) return;
+      if (stallRecoveriesRef.current >= 3) {
+        setReconnecting(false);
+        setPlayerError("O sinal parou de chegar. Confira a internet e tente novamente.");
+        return;
+      }
+      const uri = catchupActiveRef.current ? null : fallbackUrls[urlAttemptRef.current] ?? fallbackUrls[0];
+      if (!uri) return;
+      stallRecoveriesRef.current += 1;
+      lastProgressAtRef.current = Date.now();
+      setReconnecting(true);
+      setIsBuffering(true);
+      try {
+        if (contentType !== "live" && latestPositionRef.current > 0) pendingSeekRef.current = latestPositionRef.current;
+        current.replace({ uri, headers: requestHeaders });
+        current.play();
+      } catch (recoverError) {
+        logTechnicalError("Player/stall-recovery", recoverError);
+      }
+    }, 4_000);
+    return () => clearInterval(interval);
+  }, [codeAccessBlocked, contentType, directPlaybackBlocked, fallbackUrls, playerError, portalAccessGranted, requestHeaders]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -940,11 +1031,16 @@ export default function PlayerScreen() {
         }
         currentChannelIdRef.current = channel.id;
         sessionGuardRef.current.invalidate();
+        const formatKey = formatMemoryKey(useAppStore.getState().activeServerId);
         const preferredUrl = buildFallbackUrls(
           channel.streamUrl,
           "live",
-          playerPreferences.streamPreference,
+          effectiveStreamPreference(playerPreferences.streamPreference, formatKey ? useAppStore.getState().preferences[formatKey] : null),
         )[0] ?? channel.streamUrl;
+        catchupActiveRef.current = false;
+        catchupQueueRef.current = [];
+        stallRecoveriesRef.current = 0;
+        setReconnecting(false);
         urlAttemptRef.current = 0;
         durationSetRef.current = false;
         setIsBuffering(true);
@@ -1040,6 +1136,11 @@ export default function PlayerScreen() {
     setPlayerError(null);
     urlAttemptRef.current = 0;
     durationSetRef.current = false;
+    catchupActiveRef.current = false;
+    catchupQueueRef.current = [];
+    stallRecoveriesRef.current = 0;
+    lastProgressAtRef.current = Date.now();
+    setReconnecting(false);
     setIsBuffering(true);
     try {
       player.replace({ uri: fallbackUrls[0], headers: requestHeaders });
@@ -1136,12 +1237,12 @@ export default function PlayerScreen() {
     try {
       player.pause();
       setIsPlaying(false);
-      await openInExternalPlayer(streamUrl);
+      await openInExternalPlayer(fallbackUrls[urlAttemptRef.current] ?? streamUrl);
     } catch (externalError) {
       logTechnicalError("Player/external", externalError);
       setPlayerError(externalError instanceof Error ? externalError.message : "Não foi possível abrir o player externo.");
     }
-  }, [player, streamUrl]);
+  }, [fallbackUrls, player, streamUrl]);
 
   // ─── TV remote ───────────────────────────────────────────────────────────
   const handleOpenQuickSwitcher = useCallback(() => {
@@ -1161,8 +1262,10 @@ export default function PlayerScreen() {
   }, [clearHideTimer]);
 
   const handlePlayCatchup = useCallback((program: EpgProgram) => {
-    const catchupUrl = buildCatchupUrl(currentChannel, activeServer, program);
+    const [catchupUrl, ...alternatives] = buildCatchupCandidates(currentChannel, activeServer, program);
     if (!catchupUrl) return;
+    catchupQueueRef.current = alternatives;
+    catchupActiveRef.current = true;
     try {
       clearHideTimer();
       durationSetRef.current = false;
@@ -1303,7 +1406,7 @@ export default function PlayerScreen() {
       {isBuffering ? (
         <View style={styles.bufferingOverlay} pointerEvents="none">
           <ActivityIndicator size="large" color={Colors.blueBright} />
-          <AppText style={styles.bufferingText}>Carregando stream...</AppText>
+          <AppText style={styles.bufferingText}>{reconnecting ? "O sinal parou de chegar. Reconectando…" : "Carregando…"}</AppText>
         </View>
       ) : null}
 
@@ -1356,6 +1459,7 @@ export default function PlayerScreen() {
             onToggleFavorite={handleToggleChannelFavorite}
             protectedContent={isCurrentContentBlocked}
             onOpenParentalSettings={handleOpenParentalSettings}
+            onOpenExternal={Platform.OS === "android" && !isCurrentContentBlocked ? handleOpenExternalPlayer : undefined}
           />
           {!tvMode ? (
             <SideAdjustments
@@ -1491,6 +1595,7 @@ function PlayerTopBar({
   onToggleFavorite,
   protectedContent,
   onOpenParentalSettings,
+  onOpenExternal,
 }: {
   topControlsRef: Ref<TVFocusableHandle>;
   contentType: ContentType;
@@ -1503,6 +1608,7 @@ function PlayerTopBar({
   onToggleFavorite: () => void;
   protectedContent: boolean;
   onOpenParentalSettings: () => void;
+  onOpenExternal?: () => void;
 }) {
   return (
     <View pointerEvents="box-none" style={styles.topBar}>
@@ -1533,6 +1639,9 @@ function PlayerTopBar({
           active={protectedContent}
         />
         <PlayerTopAction icon="scan-outline" label="Alterar proporção de tela" onPress={onCycleRatio} />
+        {onOpenExternal ? (
+          <PlayerTopAction icon="open-outline" label="Abrir em outro player (VLC, MX Player)" onPress={onOpenExternal} />
+        ) : null}
       </View>
     </View>
   );

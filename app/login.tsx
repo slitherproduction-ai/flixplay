@@ -4,6 +4,7 @@ import Constants from "expo-constants";
 import { APP_INFO } from "@/constants/app";
 import { PORTAL_LINKS, PORTAL_ORIGIN } from "@/constants/portal";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -25,6 +26,7 @@ import { Colors, Radii, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { BrandLogo } from "@/components/brand-logo";
+import { ActivationChooser } from "@/features/login/activation-chooser";
 import { authenticateXtream } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import type { ServerProfile } from "@/store/types";
@@ -700,6 +702,18 @@ export default function LoginScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.loginBackdropVeil, tvMode && styles.tvBackdropVeil]} />
+        {accessMethod === "chooser" ? (
+          // Sombra do padrão Roku/LG: escurece o lado do texto e mantém a arte visível.
+          <LinearGradient
+            colors={tvMode || isTabletLandscape
+              ? ["rgba(7,11,20,0.94)", "rgba(7,11,20,0.78)", "rgba(7,11,20,0.12)"]
+              : ["rgba(7,11,20,0.25)", "rgba(7,11,20,0.82)", "rgba(7,11,20,0.97)"]}
+            locations={[0, 0.45, 1]}
+            start={tvMode || isTabletLandscape ? { x: 0, y: 0.5 } : { x: 0.5, y: 0 }}
+            end={tvMode || isTabletLandscape ? { x: 1, y: 0.5 } : { x: 0.5, y: 0.6 }}
+            style={styles.activationShade}
+          />
+        ) : null}
       </View>
 
       <KeyboardAvoidingView
@@ -720,9 +734,26 @@ export default function LoginScreen() {
             isTablet && styles.tabletContent,
             isTabletLandscape && styles.tabletLandscapeContent,
             compactTv && styles.tvCompactContent,
+            accessMethod === "chooser" && (tvMode || isTabletLandscape) && styles.activationContentWide,
             { paddingTop: insets.top + (compactTv ? 14 : 32), paddingBottom: insets.bottom + (compactTv ? 14 : 32) },
           ]}
         >
+          {accessMethod === "chooser" ? (
+            <ActivationChooser
+              layout={tvMode || isTabletLandscape ? "tv" : "phone"}
+              compact={compactTv}
+              identity={deviceIdentity}
+              status={portalDeviceStatus}
+              savedListsCount={servers.length}
+              loading={loading}
+              error={error}
+              savedListsRef={savedListsButtonRef}
+              onServerCode={() => { setError(null); setAccessMethod("xtream-code"); }}
+              onXtreamHost={() => { setError(null); setAccessMethod("xtream"); }}
+              onSavedLists={openSavedLists}
+            />
+          ) : (
+          <>
           {/* Logo section */}
           <View style={[styles.logoArea, tvMode && styles.tvLogoArea, isTablet && styles.tabletLogoArea, compactTv && styles.tvCompactLogoArea]}>
             <View style={styles.logoKicker}>
@@ -747,81 +778,12 @@ export default function LoginScreen() {
               <AppText style={styles.cardEyebrow}>COMECE AQUI</AppText>
               <AppText style={styles.cardTitle}>Configure sua lista{`\n`}para começar</AppText>
               <AppText style={styles.cardSubtitle}>
-                {accessMethod === "chooser"
-                  ? "Escolha como deseja conectar seu conteúdo ao ELVANOQ."
-                  : accessMethod === "xtream-code"
+                {accessMethod === "xtream-code"
                     ? "Informe o código recebido, seu usuário e sua senha IPTV."
                     : "Informe os dados do seu acesso Xtream Codes para conectar seu conteúdo."}
               </AppText>
 
-              {accessMethod === "chooser" ? (
-                <>
-                  <TVFocusable
-                    accessibilityRole="button"
-                    accessibilityLabel="Conexão por código"
-                    hasTVPreferredFocus={tvMode && servers.length === 0}
-                    onPress={() => { setError(null); setAccessMethod("xtream-code"); }}
-                    style={({ pressed }) => [styles.xtreamAccess, compactTv && styles.tvCompactXtreamAccess, pressed && styles.pressed]}
-                    // The card is intentionally white. Its focus treatment
-                    // preserves that premium surface instead of inheriting the
-                    // generic dark TV focus background.
-                    focusStyle={styles.xtreamAccessFocused}
-                  >
-                    <View style={styles.xtreamAccessIcon}><Ionicons name="key-outline" size={22} color={Colors.background} /></View>
-                    <View style={styles.m3uAccessCopy}>
-                      <AppText numberOfLines={1} style={styles.xtreamAccessTitle}>Código do servidor</AppText>
-                      <AppText numberOfLines={2} style={styles.xtreamAccessMeta}>Código, usuário e senha da sua lista IPTV</AppText>
-                    </View>
-                    <Ionicons name="chevron-forward" size={22} color={Colors.background} />
-                  </TVFocusable>
-
-                  <TVFocusable
-                    accessibilityRole="button"
-                    accessibilityLabel="Conexão Xtream por Host"
-                    onPress={() => { setError(null); setAccessMethod("xtream"); }}
-                    style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
-                  >
-                    <View style={styles.m3uAccessIcon}><Ionicons name="server-outline" size={18} color={Colors.blueBright} /></View>
-                    <View style={styles.m3uAccessCopy}><AppText numberOfLines={1} style={styles.m3uAccessTitle}>Xtream por Host</AppText><AppText numberOfLines={1} style={styles.m3uAccessMeta}>Host, usuário e senha diretamente</AppText></View>
-                    <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
-                  </TVFocusable>
-
-                  <TVFocusable
-                    ref={savedListsButtonRef}
-                    accessibilityRole="button"
-                    accessibilityLabel="Ver listas salvas"
-                    // Quem já tem listas costuma voltar a uma delas: na TV o
-                    // foco inicial vai direto para Listas Salvas.
-                    hasTVPreferredFocus={tvMode && servers.length > 0}
-                    disabled={loading}
-                    onPress={openSavedLists}
-                    style={({ pressed }) => [styles.m3uAccess, compactTv && styles.tvCompactM3uAccess, pressed && styles.pressed]}
-                  >
-                    <View style={styles.m3uAccessIcon}><Ionicons name="list-outline" size={18} color={Colors.blueBright} /></View>
-                    <View style={styles.m3uAccessCopy}>
-                      <AppText style={styles.m3uAccessTitle}>Listas Salvas</AppText>
-                      <AppText style={styles.m3uAccessMeta}>{servers.length > 0 ? `${servers.length} lista${servers.length === 1 ? "" : "s"} disponível${servers.length === 1 ? "" : "is"}` : "Acesse uma lista já cadastrada"}</AppText>
-                    </View>
-                    {servers.length > 0 ? <View style={styles.secondaryBadge}><AppText style={styles.secondaryBadgeText}>{servers.length}</AppText></View> : null}
-                    <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
-                  </TVFocusable>
-
-                  {/* Reconexão de uma lista salva acontece nesta tela: sem este
-                      retorno, o carregamento e os erros ficavam invisíveis. */}
-                  {loading ? (
-                    <View style={styles.chooserStatus} accessibilityLiveRegion="polite">
-                      <ActivityIndicator size="small" color={Colors.blueBright} />
-                      <AppText style={styles.chooserStatusText}>Conectando à lista salva…</AppText>
-                    </View>
-                  ) : null}
-                  {error ? (
-                    <View style={styles.errorBox} accessibilityLiveRegion="polite">
-                      <Ionicons name="alert-circle" size={17} color="#FF8B91" />
-                      <AppText style={styles.errorText} selectable>{error}</AppText>
-                    </View>
-                  ) : null}
-                </>
-              ) : (
+              {(
                 <>
                   <TVFocusable
                     accessibilityRole="button"
@@ -1102,10 +1064,12 @@ export default function LoginScreen() {
               ELVANOQ · Versão {APP_VERSION} · Build {APP_BUILD}
             </AppText>
           </View>
+          </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {tvMode ? <View pointerEvents="none" style={[styles.tvDeviceIdentity, { right: Math.max(28, insets.right + 22), bottom: Math.max(22, insets.bottom + 16) }]}><DeviceIdentityPanel identity={deviceIdentity} status={portalDeviceStatus} compact /></View> : null}
+      {tvMode && accessMethod !== "chooser" ? <View pointerEvents="none" style={[styles.tvDeviceIdentity, { right: Math.max(28, insets.right + 22), bottom: Math.max(22, insets.bottom + 16) }]}><DeviceIdentityPanel identity={deviceIdentity} status={portalDeviceStatus} compact /></View> : null}
 
       {/* Saved Lists Modal */}
       <Modal
@@ -1204,6 +1168,8 @@ function DeviceIdentityPanel({ identity, status, compact = false }: { identity: 
 }
 
 const styles = StyleSheet.create({
+  activationContentWide: { width: "100%", maxWidth: 1400, alignSelf: "center", marginLeft: 0, alignItems: "stretch", justifyContent: "center", paddingHorizontal: 64 },
+  activationShade: { ...StyleSheet.absoluteFill },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -1214,8 +1180,6 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  chooserStatus: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, minHeight: 40 },
-  chooserStatusText: { fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.blueBright },
   content: {
     flexGrow: 1,
     justifyContent: "center",
@@ -1252,8 +1216,6 @@ const styles = StyleSheet.create({
   deviceCardHint: { fontSize: 10, lineHeight: 13, color: Colors.subtle },
   tvDeviceIdentity: { position: "absolute", alignItems: "flex-end" },
   tvDeviceIdentityPanel: { alignSelf: "flex-end", marginBottom: 0 },
-  deviceIdentityCopy: { gap: 1, alignItems: "center" },
-  deviceIdentityText: { fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.3, color: Colors.white },
   logoArea: {
     alignItems: "center",
     gap: 8,
@@ -1307,25 +1269,6 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     marginTop: -8,
   },
-  m3uAccess: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1, borderColor: "rgba(147,197,253,0.20)", backgroundColor: "rgba(255,255,255,0.045)" },
-  xtreamAccess: { minHeight: 86, flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 15, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.96)", backgroundColor: Colors.white },
-  tvCompactM3uAccess: { minHeight: 52, paddingHorizontal: 10 },
-  tvCompactXtreamAccess: { minHeight: 72, paddingHorizontal: 13, gap: 11, borderRadius: 16 },
-  xtreamAccessFocused: {
-    // Override TVFocusable's generic blue surface: focused Xtream stays white.
-    backgroundColor: Colors.white,
-    borderWidth: 2,
-    borderColor: Colors.blueBright,
-    opacity: 1,
-    transform: [{ scale: 1 }],
-  },
-  xtreamAccessIcon: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "rgba(15,23,42,0.10)", borderWidth: 1, borderColor: "rgba(15,23,42,0.12)" },
-  xtreamAccessTitle: { fontFamily: "Inter_700Bold", fontSize: 16, lineHeight: 20, letterSpacing: -0.2, color: Colors.background },
-  xtreamAccessMeta: { fontSize: 12, lineHeight: 16, color: "rgba(10,18,34,0.64)" },
-  m3uAccessIcon: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "rgba(59,130,246,0.14)" },
-  m3uAccessCopy: { flex: 1, gap: 2 },
-  m3uAccessTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18, color: Colors.text },
-  m3uAccessMeta: { fontSize: 11, lineHeight: 15, color: Colors.muted },
   methodBackButton: { alignSelf: "flex-start", minHeight: 30, flexDirection: "row", alignItems: "center", gap: 4, marginBottom: -5, paddingHorizontal: 4, borderRadius: 9 },
   methodBackText: { fontFamily: "Inter_500Medium", fontSize: 11, color: Colors.blueBright },
   fieldGroup: {
@@ -1437,51 +1380,6 @@ const styles = StyleSheet.create({
   securityText: {
     fontSize: 10,
     color: Colors.subtle,
-  },
-  secondaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 0,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(191,219,254,0.15)",
-    backgroundColor: "rgba(15,20,31,0.55)",
-    overflow: "hidden",
-  },
-  secondaryBtn: {
-    flex: 1,
-    minHeight: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    paddingHorizontal: 14,
-  },
-  tvCompactSecondaryRow: { borderRadius: 15 },
-  tvCompactSecondaryBtn: { minHeight: 46 },
-  secondaryDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: Colors.border,
-  },
-  secondaryBtnText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: Colors.text,
-  },
-  secondaryBadge: {
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 5,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.blue,
-  },
-  secondaryBadgeText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 10,
-    color: Colors.white,
   },
   modalOverlay: {
     flex: 1,

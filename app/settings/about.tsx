@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.22",
+    version: "v2.17.23",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Login no padrão do Roku e da LG: Ative sua TV em três passos, MAC e chave em destaque, QR do Portal e relógio na TV." },
+      { tag: "Melhoria", text: "Nova logo ELVANOQ Play com o slogan Sua mídia. Sua experiência." },
+    ],
+  },
+  {
+    version: "v2.17.22",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Novo ícone do ELVANOQ no aparelho e novo banner na tela inicial do Android TV e do Fire TV." },

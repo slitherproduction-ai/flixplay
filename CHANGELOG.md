@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.23] — 2026-11-06
+
+- Login (todas as versões): tela inicial no padrão da ativação do Roku e da LG (`features/login/activation-chooser.tsx`). Título "Ative sua TV" / "Ative este aparelho", três passos, MAC e chave do aparelho em destaque, "Entrar com código do servidor" como ação principal e atalhos "Xtream por Host" e "Listas salvas (N)". Status do vínculo com o Portal e versão no rodapé.
+- TV e tablet deitado: QR code do Portal (`elvanoqplay.app/adicionar-lista/`, mesmo do Roku), relógio no canto superior direito no formato do Roku/LG ("10:42" e "Sexta, 6 nov") e sombra lateral sobre o fundo. Foco inicial em "Entrar com código do servidor" ou em "Listas salvas" quando há listas.
+- Smartphone e tablet em pé: botão "Abrir o Portal" no lugar do QR, sem relógio.
+- Nova logo `ELVANOQ_play_logo_tagline.png` (ELVANOQ Play — Sua mídia. Sua experiência.). Os formulários de código, Xtream e as Listas salvas não mudaram. Build Android elevado para `20261041`.
+
 ## [2.17.22] — 2026-11-06
 
 - Ícone: novo ícone do ELVANOQ, o mesmo da edição Amazon (`elvanoq-play-amazon` 186a799). `ELVANOQ_app_icon_v4.png`, `ELVANOQ_adaptive_foreground_v4.png` e `ELVANOQ_adaptive_background_v3.png`; mipmaps do Android regenerados em todas as densidades e fundo do ícone adaptativo `#02070D`. A tela Sobre usa o mesmo ícone.

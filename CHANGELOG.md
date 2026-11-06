@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.26] — 2026-11-06
+
+- Login (TV e tablet deitado): a tela de ativação estava dimensionada para 1920 px, mas a TV Android trabalha com cerca de 960×540 dp, então a tela ficava grande demais e cortada. As medidas agora partem de 960×540 dp e escalam pelo tamanho real da janela (de 0,82× a 1,8×): logo, relógio, título, passos, MAC e chave, botões, QR e rodapé cabem inteiros, sem rolagem. Margens laterais em 5% da largura. Celular sem mudança. Build Android elevado para `20261044`.
+
 ## [2.17.25] — 2026-11-06
 
 Correção de travamentos relatados em TV TCL (Android TV) no ao vivo e em filmes; vale para todos os aparelhos fracos.

@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.25",
+    version: "v2.17.26",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Na TV, a tela de login cabe inteira e se ajusta ao tamanho da tela." },
+    ],
+  },
+  {
+    version: "v2.17.25",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Menos travamentos em TVs e aparelhos mais simples: o player usa menos memória e a prévia de canais libera o vídeo ao abrir o player." },

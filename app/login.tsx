@@ -742,7 +742,6 @@ export default function LoginScreen() {
           {accessMethod === "chooser" ? (
             <ActivationChooser
               layout={tvMode || isTabletLandscape ? "tv" : "phone"}
-              compact={compactTv}
               identity={deviceIdentity}
               status={portalDeviceStatus}
               savedListsCount={servers.length}
@@ -1169,7 +1168,7 @@ function DeviceIdentityPanel({ identity, status, compact = false }: { identity: 
 }
 
 const styles = StyleSheet.create({
-  activationContentWide: { width: "100%", maxWidth: 1400, alignSelf: "center", marginLeft: 0, alignItems: "stretch", justifyContent: "center", paddingHorizontal: 64 },
+  activationContentWide: { width: "100%", maxWidth: "100%", alignSelf: "stretch", marginLeft: 0, alignItems: "stretch", justifyContent: "center", paddingHorizontal: "5%", gap: 0 },
   activationShade: { ...StyleSheet.absoluteFill },
   screen: {
     flex: 1,

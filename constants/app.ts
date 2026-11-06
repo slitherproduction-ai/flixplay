@@ -1,6 +1,6 @@
 export const APP_INFO = {
   name: "ELVANOQ",
-  version: "2.17.25",
-  build: "20261043",
-  versionLabel: "v2.17.25 • Build 20261043",
+  version: "2.17.26",
+  build: "20261044",
+  versionLabel: "v2.17.26 • Build 20261044",
 } as const;

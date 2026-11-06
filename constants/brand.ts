@@ -21,7 +21,7 @@ export const BRAND = {
 } as const;
 
 export const BrandAssets: Record<"icon" | "foreground" | "background" | "logo" | "wordmark" | "loginWordmark" | "symbol" | "splash", ImageSourcePropType> = {
-  icon: require("@/assets/images/brand/ELVANOQ_app_icon_v2.png"),
+  icon: require("@/assets/images/brand/ELVANOQ_app_icon_v4.png"),
   foreground: require("@/assets/images/brand/ELVANOQ_adaptive_foreground_v2.png"),
   background: require("@/assets/images/brand/ELVANOQ_adaptive_background_v2.png"),
   logo: require("@/assets/images/brand/ELVANOQ_logo_transparent.png"),

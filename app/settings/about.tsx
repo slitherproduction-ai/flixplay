@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.21",
+    version: "v2.17.22",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Novo ícone do ELVANOQ no aparelho e novo banner na tela inicial do Android TV e do Fire TV." },
+    ],
+  },
+  {
+    version: "v2.17.21",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Quando o sinal para de chegar, o player reabre sozinho no mesmo ponto, até três vezes, antes de mostrar o erro." },

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.22] — 2026-11-06
+
+- Ícone: novo ícone do ELVANOQ, o mesmo da edição Amazon (`elvanoq-play-amazon` 186a799). `ELVANOQ_app_icon_v4.png`, `ELVANOQ_adaptive_foreground_v4.png` e `ELVANOQ_adaptive_background_v3.png`; mipmaps do Android regenerados em todas as densidades e fundo do ícone adaptativo `#02070D`. A tela Sobre usa o mesmo ícone.
+- Android TV/Fire TV: banner 320×180 (`drawable-xhdpi/banner.png`) declarado no manifest, mostrado na linha de apps da tela inicial da TV.
+- Removidos os ícones antigos sem uso (`ELVANOQ_app_icon_v2/v3`, `ELVANOQ_adaptive_foreground_v3`). Build Android elevado para `20261040`.
+
 ## [Manutenção do repositório] — 2026-11-06
 
 - Sem mudança no app (continua 2.17.21, build 20261039).

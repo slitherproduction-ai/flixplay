@@ -76,6 +76,10 @@ export const catalogDatabase = {
   supportsFilteredPage(): boolean {
     return Boolean(database()?.filteredPage);
   },
+  /** O módulo nativo pode não oferecer a busca: a tela de busca usa a memória nesse caso. */
+  supportsSearch(): boolean {
+    return typeof database()?.searchPage === "function";
+  },
   async replaceAll<T>(serverId: string, kind: CatalogKind, items: T[]): Promise<void> {
     if (items.length === 0) return;
     await database()?.replaceAll(
@@ -140,7 +144,9 @@ export const catalogDatabase = {
   },
 
   async count(serverId: string, kind: CatalogKind): Promise<number> {
-    return (await database()?.count(serverId, kind)) ?? 0;
+    const db = database();
+    if (typeof db?.count !== "function") return 0;
+    return (await db.count(serverId, kind)) ?? 0;
   },
 
   async clearServer(serverId: string): Promise<void> {

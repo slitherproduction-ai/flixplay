@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.27] — 2026-11-06
+
+- Busca geral (`app/search.tsx`): sem o banco local nativo (o `CatalogDatabasePackage` não é registrado desde a 2.17.13), a busca consultava um banco inexistente e nunca mostrava resultados. Agora, sem o banco, procura nos canais, filmes e séries já carregados, sem acentos e sem diferenciar maiúsculas, parando ao juntar a página pedida; o texto normalizado de cada item fica em cache.
+- Sincronização (`hooks/useXtreamSync.ts`): as respostas brutas do servidor de ao vivo, filmes e séries ficam restritas ao trecho que as converte e são liberadas antes das gravações e da atualização da tela, reduzindo o pico de memória em listas grandes (Fire TV Lite, TVs de 1 GB).
+- `catalogDatabase.count` não chama mais um método ausente do módulo nativo. Build Android elevado para `20261045`.
+
 ## [2.17.26] — 2026-11-06
 
 - Login (TV e tablet deitado): a tela de ativação estava dimensionada para 1920 px, mas a TV Android trabalha com cerca de 960×540 dp, então a tela ficava grande demais e cortada. As medidas agora partem de 960×540 dp e escalam pelo tamanho real da janela (de 0,82× a 1,8×): logo, relógio, título, passos, MAC e chave, botões, QR e rodapé cabem inteiros, sem rolagem. Margens laterais em 5% da largura. Celular sem mudança. Build Android elevado para `20261044`.

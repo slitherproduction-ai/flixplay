@@ -108,11 +108,15 @@ async function fetchAndCacheContent(
     // ── Live channels ────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Sincronizando canais ao vivo..." });
     setSyncState({ stages: { live: "running", movies: "pending", series: "pending" }, progressPercent: 0 });
+    // A resposta bruta do servidor (dezenas de MB em listas grandes) só vive
+    // dentro desta função: ao mapear, ela pode ser liberada antes das gravações
+    // e da atualização da tela, reduzindo o pico de memória em aparelhos de 1 GB.
+    const live = await (async () => {
     const [liveCategories, liveStreams] = await Promise.all([
       getLiveCategories(profile, signal),
       getLiveStreams(profile, undefined, signal),
     ]);
-    if (!isCurrent()) return;
+    if (!isCurrent()) return null;
     const liveCatMap = indexBy(liveCategories);
     const mappedLiveCategories = deduplicateCatalogItems(
       liveCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
@@ -132,6 +136,10 @@ async function fetchAndCacheContent(
       ),
       (item) => item.id,
     );
+    return { mappedLiveCategories, mappedLiveChannels };
+    })();
+    if (!live) return;
+    const { mappedLiveCategories, mappedLiveChannels } = live;
     const [storedLiveCategories, storedLiveChannels] = await Promise.all([
       catalogDatabase.count(profile.id, "liveCategories"),
       catalogDatabase.count(profile.id, "liveChannels"),
@@ -185,10 +193,11 @@ async function fetchAndCacheContent(
     // A number of Xtream panels serialize requests per account or allow only
     // one active connection. Fetch metadata and the large payload sequentially
     // so the VOD call is not rejected while categories are still in flight.
+    const vod = await (async () => {
     const vodCategories = await getVodCategories(profile, signal);
-    if (!isCurrent()) return;
+    if (!isCurrent()) return null;
     const vodStreams = await getVodStreams(profile, undefined, signal);
-    if (!isCurrent()) return;
+    if (!isCurrent()) return null;
     const vodCatMap = indexBy(vodCategories);
     const mappedVodCategories = deduplicateCatalogItems(
       vodCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
@@ -200,6 +209,10 @@ async function fetchAndCacheContent(
       ),
       (item) => item.id,
     );
+    return { mappedVodCategories, mappedVodMovies };
+    })();
+    if (!vod) return;
+    const { mappedVodCategories, mappedVodMovies } = vod;
     const [storedVodCategories, storedVodMovies] = await Promise.all([
       catalogDatabase.count(profile.id, "vodCategories"),
       catalogDatabase.count(profile.id, "vodMovies"),
@@ -235,10 +248,11 @@ async function fetchAndCacheContent(
       stages: { ...stagesBeforeSeries, series: "running" },
       progressPercent: 0,
     });
+    const series = await (async () => {
     const seriesCategories = await getSeriesCategories(profile, signal);
-    if (!isCurrent()) return;
+    if (!isCurrent()) return null;
     const seriesList = await getSeries(profile, undefined, signal);
-    if (!isCurrent()) return;
+    if (!isCurrent()) return null;
     const seriesCatMap = indexBy(seriesCategories);
     const mappedSeriesCategories = deduplicateCatalogItems(
       seriesCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
@@ -250,6 +264,10 @@ async function fetchAndCacheContent(
       ),
       (item) => item.id,
     );
+    return { mappedSeriesCategories, mappedSeriesList };
+    })();
+    if (!series) return;
+    const { mappedSeriesCategories, mappedSeriesList } = series;
     const [storedSeriesCategories, storedSeries] = await Promise.all([
       catalogDatabase.count(profile.id, "seriesCategories"),
       catalogDatabase.count(profile.id, "seriesList"),

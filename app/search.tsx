@@ -44,6 +44,52 @@ function mapIndexedResult(kind: CatalogKind, item: IndexedItem): SearchResult | 
   return null;
 }
 
+function normalizeSearchText(value: string): string {
+  try {
+    return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  } catch {
+    return value.toLowerCase();
+  }
+}
+
+// Cache do texto normalizado por item: a busca roda a cada letra digitada e
+// não pode renormalizar dezenas de milhares de títulos toda vez.
+const normalizedTitleCache = new WeakMap<object, string>();
+function normalizedTitle(item: object, title: string): string {
+  let value = normalizedTitleCache.get(item);
+  if (value === undefined) {
+    value = normalizeSearchText(title);
+    normalizedTitleCache.set(item, value);
+  }
+  return value;
+}
+
+/**
+ * Busca na memória quando o banco local não está disponível: canais, filmes e
+ * séries já carregados. Para ao juntar a página pedida, sem percorrer o resto.
+ */
+function searchInMemory(term: string, offset: number, limit: number): { kind: CatalogKind; item: IndexedItem }[] {
+  const needle = normalizeSearchText(term.trim());
+  if (!needle) return [];
+  const cache = useAppStore.getState().contentCache;
+  const wanted = offset + limit;
+  const matches: { kind: CatalogKind; item: IndexedItem }[] = [];
+  const sources: [CatalogKind, IndexedItem[], (item: IndexedItem) => string][] = [
+    ["liveChannels", cache.liveChannels, (item) => (item as ChannelItem).name],
+    ["vodMovies", cache.vodMovies, (item) => (item as VodMovie).title],
+    ["seriesList", cache.seriesList, (item) => (item as SeriesItem).title],
+  ];
+  for (const [kind, items, titleOf] of sources) {
+    for (const item of items) {
+      if (normalizedTitle(item, titleOf(item) ?? "").includes(needle)) {
+        matches.push({ kind, item });
+        if (matches.length >= wanted) return matches.slice(offset);
+      }
+    }
+  }
+  return matches.slice(offset);
+}
+
 export default function GlobalSearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -67,7 +113,9 @@ export default function GlobalSearchScreen() {
     setLoading(true);
     if (offset === 0) setSearchError(null);
     try {
-      const page = await catalogDatabase.searchPage<IndexedItem>(activeServerId, term, SEARCH_KINDS, { offset, limit: PAGE_SIZE });
+      const page = catalogDatabase.supportsSearch()
+        ? await catalogDatabase.searchPage<IndexedItem>(activeServerId, term, SEARCH_KINDS, { offset, limit: PAGE_SIZE })
+        : searchInMemory(term, offset, PAGE_SIZE);
       if (generation !== requestGeneration.current) return;
       const mapped = page.map(({ kind, item }) => mapIndexedResult(kind, item)).filter((item): item is SearchResult => item !== null);
       setResults((current) => (offset === 0 ? mapped : [...current, ...mapped]));

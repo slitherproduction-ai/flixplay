@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.26",
+    version: "v2.17.27",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "A busca geral voltou a encontrar canais, filmes e séries." },
+      { tag: "Melhoria", text: "A sincronização de listas grandes usa menos memória, o que ajuda TVs e Fire Sticks de 1 GB." },
+    ],
+  },
+  {
+    version: "v2.17.26",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Na TV, a tela de login cabe inteira e se ajusta ao tamanho da tela." },

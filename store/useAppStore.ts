@@ -502,9 +502,14 @@ export const useAppStore = create<AppStore>()(
 
       clearContentCache: () => set({ contentCache: EMPTY_CACHE }),
 
+      // "Atualizar" sempre baixa a lista do servidor: descarta a validade do
+      // catálogo salvo da lista ativa antes de disparar a sincronização.
       forceResync: () =>
         set((state) => ({
           syncState: { ...state.syncState, lastSyncedServerId: null, syncError: null },
+          preferences: state.activeServerId
+            ? { ...state.preferences, [`catalogSyncedAt:${state.activeServerId}`]: null }
+            : state.preferences,
         })),
 
       activatePip: (streamUrl, title, type, contentId = '', thumbnail = '', subtitle = '') =>

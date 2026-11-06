@@ -13,6 +13,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 
 import com.fastshot.slitherproduction.flixplay.security.SecureStoragePackage
 import com.fastshot.slitherproduction.flixplay.update.UpdateIntegrityPackage
+import com.fastshot.slitherproduction.flixplay.data.CatalogDatabasePackage
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
@@ -29,6 +30,9 @@ class MainApplication : Application(), ReactApplication {
           add(SecureStoragePackage())
           // Streams update APK checksums off the JS heap on low-memory TV devices.
           add(UpdateIntegrityPackage())
+          // Cache local do catálogo (SQLite): o app abre com a lista salva sem
+          // baixar tudo de novo a cada inicialização.
+          add(CatalogDatabasePackage())
         }
     )
   }

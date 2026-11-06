@@ -11,8 +11,10 @@ import com.facebook.react.bridge.ReactMethod
 import org.json.JSONArray
 import org.json.JSONObject
 
+private const val CATALOG_DB_VERSION = 3
+
 private class CatalogDatabase(context: Context) :
-  SQLiteOpenHelper(context, "flixplay_catalog.db", null, 1) {
+  SQLiteOpenHelper(context, "flixplay_catalog.db", null, CATALOG_DB_VERSION) {
   override fun onCreate(db: SQLiteDatabase) {
     db.execSQL(
       """
@@ -29,7 +31,21 @@ private class CatalogDatabase(context: Context) :
     db.execSQL("CREATE INDEX catalog_page_idx ON catalog_items(server_id, kind, item_id)")
   }
 
-  override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+  // O banco é só um cache do catálogo: em qualquer troca de versão (inclusive
+  // arquivos de versões antigas com outro esquema) ele é recriado e a próxima
+  // sincronização o preenche de novo.
+  override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = recreate(db)
+
+  override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = recreate(db)
+
+  private fun recreate(db: SQLiteDatabase) {
+    val tables = mutableListOf<String>()
+    db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'android_metadata'", null).use { cursor ->
+      while (cursor.moveToNext()) tables.add(cursor.getString(0))
+    }
+    for (table in tables) db.execSQL("DROP TABLE IF EXISTS \"$table\"")
+    onCreate(db)
+  }
 }
 
 /** Persistent, server-scoped catalog cache using Android's built-in SQLite. */
@@ -58,7 +74,7 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
             put("payload", item.toString())
             put("updated_at", now)
           }
-          db.insertOrThrow("catalog_items", null, values)
+          db.insertWithOnConflict("catalog_items", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         }
         db.setTransactionSuccessful()
       } finally {
@@ -67,6 +83,50 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
       promise.resolve(items.length())
     } catch (_: Exception) {
       promise.reject("CATALOG_WRITE_FAILED", "Não foi possível persistir o catálogo local.")
+    }
+  }
+
+  /** Acrescenta itens sem apagar os existentes: permite gravar listas grandes em partes. */
+  @ReactMethod
+  fun append(serverId: String, kind: String, json: String, promise: Promise) {
+    try {
+      val items = JSONArray(json)
+      val db = database.writableDatabase
+      db.beginTransaction()
+      try {
+        val now = System.currentTimeMillis()
+        for (index in 0 until items.length()) {
+          val item = items.getJSONObject(index)
+          val values = ContentValues().apply {
+            put("server_id", serverId)
+            put("kind", kind)
+            put("item_id", resolveId(item, index))
+            put("payload", item.toString())
+            put("updated_at", now)
+          }
+          db.insertWithOnConflict("catalog_items", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        }
+        db.setTransactionSuccessful()
+      } finally {
+        db.endTransaction()
+      }
+      promise.resolve(items.length())
+    } catch (_: Exception) {
+      promise.reject("CATALOG_WRITE_FAILED", "Não foi possível persistir o catálogo local.")
+    }
+  }
+
+  @ReactMethod
+  fun count(serverId: String, kind: String, promise: Promise) {
+    try {
+      database.readableDatabase.rawQuery(
+        "SELECT COUNT(*) FROM catalog_items WHERE server_id = ? AND kind = ?",
+        arrayOf(serverId, kind),
+      ).use { cursor ->
+        promise.resolve(if (cursor.moveToFirst()) cursor.getInt(0).toDouble() else 0.0)
+      }
+    } catch (_: Exception) {
+      promise.resolve(0.0)
     }
   }
 
@@ -89,7 +149,8 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
         arrayOf(serverId, kind),
         null,
         null,
-        "item_id ASC",
+        // Ordem de gravação = ordem do servidor (numeração dos canais).
+        "rowid ASC",
         "$safeOffset,$safeLimit",
       ).use { cursor ->
         while (cursor.moveToNext()) result.put(JSONObject(cursor.getString(0)))

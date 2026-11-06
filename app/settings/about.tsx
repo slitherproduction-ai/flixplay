@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.27",
+    version: "v2.17.28",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "O app abre bem mais rápido: o catálogo fica salvo no aparelho e só é baixado de novo a cada 6 horas ou quando você toca em Atualizar." },
+      { tag: "Melhoria", text: "Listas grandes são salvas em partes, sem pesar a memória de TVs e Fire Sticks mais simples." },
+    ],
+  },
+  {
+    version: "v2.17.27",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "A busca geral voltou a encontrar canais, filmes e séries." },

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.28] — 2026-11-06
+
+Cache local do catálogo religado (desligado desde a 2.17.13, quando o registro do módulo nativo saiu do `MainApplication.kt`).
+
+- Android: `CatalogDatabasePackage` registrado de novo. Módulo nativo completado com `append` (grava em partes) e `count`; leitura em ordem de gravação (`rowid`), que preserva a ordem do servidor e a numeração dos canais; IDs repetidos não derrubam a gravação. Banco na versão 3: qualquer arquivo de esquema antigo (de versões anteriores) é recriado, porque é só cache.
+- Abertura rápida: com o catálogo completo salvo há menos de 6 horas, o app restaura canais, filmes e séries do banco local em vez de baixar a lista inteira. Depois de 6 horas, ou em "Atualizar" (Home, Diagnóstico), baixa do servidor como antes. Listas M3U continuam sempre pela rede.
+- Gravação em partes de 1.500 itens, com pausa entre elas para a tela continuar respondendo; a falha ao salvar no banco nunca derruba a sincronização (o catálogo baixado continua na tela). A validade (`catalogSyncedAt:<id>`) só é gravada depois de ao vivo, filmes e séries salvos sem erro.
+- Wrapper JS tolera qualquer versão do módulo nativo (métodos opcionais checados antes de chamar). Build Android elevado para `20261046`.
+
 ## [2.17.27] — 2026-11-06
 
 - Busca geral (`app/search.tsx`): sem o banco local nativo (o `CatalogDatabasePackage` não é registrado desde a 2.17.13), a busca consultava um banco inexistente e nunca mostrava resultados. Agora, sem o banco, procura nos canais, filmes e séries já carregados, sem acentos e sem diferenciar maiúsculas, parando ao juntar a página pedida; o texto normalizado de cada item fica em cache.

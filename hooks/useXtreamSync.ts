@@ -40,6 +40,24 @@ function indexBy<T extends { category_id: string | number }>(
 
 type CachedCategory = { id: string; name: string };
 
+/** Quanto tempo o catálogo salvo vale antes de baixar a lista de novo ao abrir o app. */
+export const CATALOG_FRESH_MS = 6 * 60 * 60 * 1000;
+export const catalogSyncedAtKey = (serverId: string) => `catalogSyncedAt:${serverId}`;
+
+/**
+ * Grava no banco local sem nunca derrubar a sincronização: se o cache falhar,
+ * o catálogo baixado continua na tela e só a próxima abertura usa a rede.
+ */
+async function persistCatalog(label: string, writes: Promise<void>[]): Promise<boolean> {
+  try {
+    await Promise.all(writes);
+    return true;
+  } catch (error) {
+    logTechnicalError(`Sync/persist-${label}`, error);
+    return false;
+  }
+}
+
 async function readAllPages<T>(serverId: string, kind: Parameters<typeof catalogDatabase.queryPage>[1]): Promise<T[]> {
   const result: T[] = [];
   const pageSize = 1000;
@@ -88,6 +106,7 @@ async function fetchAndCacheContent(
   const isCurrent = () =>
     !signal.aborted && useAppStore.getState().activeServerId === profile.id;
   const failures: string[] = [];
+  let persisted = true;
 
   if (profile.sourceType === "m3u") {
     setSyncState({ syncProgress: "Importando lista M3U...", stages: { live: "running", movies: "complete", series: "complete" } });
@@ -146,10 +165,10 @@ async function fetchAndCacheContent(
     ]);
     assertSafeCatalogReplacement("liveCategories", mappedLiveCategories.length, storedLiveCategories);
     assertSafeCatalogReplacement("liveChannels", mappedLiveChannels.length, storedLiveChannels);
-    await Promise.all([
+    persisted = (await persistCatalog("live", [
       catalogDatabase.replaceAll(profile.id, "liveCategories", mappedLiveCategories),
       catalogDatabase.replaceAll(profile.id, "liveChannels", mappedLiveChannels),
-    ]);
+    ])) && persisted;
     if (!isCurrent()) return;
     setContentCache({ liveCategories: mappedLiveCategories, liveChannels: mappedLiveChannels });
     setSyncState({
@@ -219,10 +238,10 @@ async function fetchAndCacheContent(
     ]);
     assertSafeCatalogReplacement("vodCategories", mappedVodCategories.length, storedVodCategories);
     assertSafeCatalogReplacement("vodMovies", mappedVodMovies.length, storedVodMovies);
-    await Promise.all([
+    persisted = (await persistCatalog("movies", [
       catalogDatabase.replaceAll(profile.id, "vodCategories", mappedVodCategories),
       catalogDatabase.replaceAll(profile.id, "vodMovies", mappedVodMovies),
-    ]);
+    ])) && persisted;
     if (!isCurrent()) return;
     setContentCache({ vodCategories: mappedVodCategories, vodMovies: mappedVodMovies });
     setSyncState({
@@ -274,16 +293,21 @@ async function fetchAndCacheContent(
     ]);
     assertSafeCatalogReplacement("seriesCategories", mappedSeriesCategories.length, storedSeriesCategories);
     assertSafeCatalogReplacement("seriesList", mappedSeriesList.length, storedSeries);
-    await Promise.all([
+    persisted = (await persistCatalog("series", [
       catalogDatabase.replaceAll(profile.id, "seriesCategories", mappedSeriesCategories),
       catalogDatabase.replaceAll(profile.id, "seriesList", mappedSeriesList),
-    ]);
+    ])) && persisted;
     if (!isCurrent()) return;
     setContentCache({
       seriesCategories: mappedSeriesCategories,
       seriesList: mappedSeriesList,
       lastSyncedAt: new Date().toISOString(),
     });
+    // Catálogo completo baixado e salvo: as próximas aberturas, dentro de
+    // CATALOG_FRESH_MS, usam o banco local em vez de baixar tudo de novo.
+    if (failures.length === 0 && persisted && catalogDatabase.isAvailable()) {
+      useAppStore.getState().setPreference(catalogSyncedAtKey(profile.id), Date.now());
+    }
     const currentStages = useAppStore.getState().syncState.stages;
     setSyncState({
       isSyncing: false,
@@ -353,10 +377,52 @@ export function useXtreamSync() {
     if (syncState.lastSyncedServerId === activeServerId) return;
 
     // Read servers without subscribing to avoid extra renders
-    const server = useAppStore.getState().servers.find((s) => s.id === activeServerId);
+    const state = useAppStore.getState();
+    const server = state.servers.find((s) => s.id === activeServerId);
     if (!server) return;
 
-    void doSync(server);
+    // Abertura rápida: com um catálogo salvo há menos de CATALOG_FRESH_MS, o
+    // app mostra a lista do banco local sem baixar tudo de novo. Listas M3U
+    // ficam de fora (o endereço de cada canal não é salvo no banco).
+    const syncedAt = Number(state.preferences[catalogSyncedAtKey(server.id)] ?? 0);
+    const fresh = server.sourceType !== "m3u"
+      && catalogDatabase.isAvailable()
+      && syncedAt > 0
+      && Date.now() - syncedAt < CATALOG_FRESH_MS;
+    if (!fresh) {
+      void doSync(server);
+      return;
+    }
+    setSyncState({
+      isSyncing: true,
+      lastSyncedServerId: server.id,
+      syncError: null,
+      syncProgress: "Abrindo catálogo salvo...",
+      progressPercent: 0,
+      stages: { live: "running", movies: "pending", series: "pending" },
+      stageErrors: {},
+    });
+    void (async () => {
+      let restored = false;
+      try {
+        restored = await restoreOfflineCache(server);
+      } catch (error) {
+        logTechnicalError("Sync/restore", error);
+      }
+      if (useAppStore.getState().activeServerId !== server.id) return;
+      if (!restored) {
+        void doSync(server);
+        return;
+      }
+      useAppStore.getState().setContentCache({ lastSyncedAt: new Date(syncedAt).toISOString() });
+      setSyncState({
+        isSyncing: false,
+        syncError: null,
+        syncProgress: null,
+        progressPercent: 0,
+        stages: { live: "complete", movies: "complete", series: "complete" },
+      });
+    })();
   }, [activeServerId, syncState.isSyncing, syncState.lastSyncedServerId, doSync]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);

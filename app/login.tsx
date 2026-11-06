@@ -707,10 +707,11 @@ export default function LoginScreen() {
           <LinearGradient
             colors={tvMode || isTabletLandscape
               ? ["rgba(7,11,20,0.94)", "rgba(7,11,20,0.78)", "rgba(7,11,20,0.12)"]
-              : ["rgba(7,11,20,0.25)", "rgba(7,11,20,0.82)", "rgba(7,11,20,0.97)"]}
-            locations={[0, 0.45, 1]}
+              // Celular: só escurece de leve para a arte (ondas e play) continuar visível.
+              : ["rgba(7,11,20,0.05)", "rgba(7,11,20,0.35)", "rgba(7,11,20,0.80)"]}
+            locations={[0, 0.5, 1]}
             start={tvMode || isTabletLandscape ? { x: 0, y: 0.5 } : { x: 0.5, y: 0 }}
-            end={tvMode || isTabletLandscape ? { x: 1, y: 0.5 } : { x: 0.5, y: 0.6 }}
+            end={tvMode || isTabletLandscape ? { x: 1, y: 0.5 } : { x: 0.5, y: 1 }}
             style={styles.activationShade}
           />
         ) : null}

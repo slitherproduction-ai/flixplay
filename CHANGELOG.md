@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.24] — 2026-11-06
+
+- Login (smartphone e tablet em pé): a sombra da tela de ativação cobria quase toda a arte de fundo. Agora escurece de leve no topo (5%), 35% no meio e 80% só no rodapé, e as ondas e o play voltam a aparecer. Build Android elevado para `20261042`.
+
 ## [2.17.23] — 2026-11-06
 
 - Login (todas as versões): tela inicial no padrão da ativação do Roku e da LG (`features/login/activation-chooser.tsx`). Título "Ative sua TV" / "Ative este aparelho", três passos, MAC e chave do aparelho em destaque, "Entrar com código do servidor" como ação principal e atalhos "Xtream por Host" e "Listas salvas (N)". Status do vínculo com o Portal e versão no rodapé.

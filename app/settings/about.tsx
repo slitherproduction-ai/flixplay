@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.23",
+    version: "v2.17.24",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "No celular, a arte de fundo do login voltou a aparecer atrás da tela de ativação." },
+    ],
+  },
+  {
+    version: "v2.17.23",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Login no padrão do Roku e da LG: Ative sua TV em três passos, MAC e chave em destaque, QR do Portal e relógio na TV." },

@@ -8,12 +8,12 @@ Aplicativo Android de streaming para listas próprias e autorizadas, com suporte
 
 | Item | Valor |
 | --- | --- |
-| Versão | `2.17.16` |
-| Build / versionCode | `20261032` |
+| Versão | `2.17.21` |
+| Build / versionCode | `20261039` |
 | Pacote Android | `com.fastshot.slitherproduction.flixplay` |
 | Android mínimo | API 24 |
 | Arquiteturas do APK universal | `armeabi-v7a`, `arm64-v8a` |
-| Último APK validado | `ELVANOQ-v2.17.14-universal.apk` — compilação 2.17.16 pendente |
+| Build de release | GitHub Actions (`.github/workflows/android-release.yml`), APK assinado e verificado |
 
 O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e o rodapé de login exibem a versão e o build instalados.
 
@@ -24,11 +24,13 @@ O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e 
 - Guia de TV ao vivo responsivo: lista de canais à esquerda e preview/EPG à direita no modo TV.
 - Preview com áudio apenas enquanto a guia TV ao vivo está ativa; ao sair da tela, a reprodução é pausada.
 - Player com HLS/TS, áudio e legendas, OSD, troca rápida de canais, escolha de proporção, PiP no Android e preferência de formato de stream.
+- Reprodução resiliente: retomada automática quando o vídeo para de chegar, formato do ao vivo (HLS/TS) lembrado por lista, formatos alternativos para rever programas e atalho para abrir em outro player.
+- Home no formato hub do Roku, catálogo e detalhes no layout do Roku na TV e no tablet deitado, e agrupamento de versões Dublado/Legendado.
 - Séries com avanço controlado para o próximo episódio, contagem cancelável e pulo de abertura somente quando o provedor informar um marcador explícito.
 - Metadados complementares do TMDB quando configurado para o build.
-- Controle parental, diagnóstico de conexão, cache local por servidor e relatório técnico sanitizado.
+- Controle parental com PIN e proteção automática de categorias adultas, categorias visíveis (ocultar sem apagar), diagnóstico de conexão, cache local por servidor e relatório técnico sanitizado.
 - Interface responsiva: navegação inferior para toque e menu lateral retrátil com D-pad para TV.
-- Tratamento visual premium com imagens full-bleed, degradês cinematográficos e Glass Blur apenas nas superfícies de vidro.
+- Visual premium compartilhado (`components/premium-screen.tsx`) nas telas secundárias: brilho de marca, barra com Voltar, grupos e foco de controle remoto.
 
 ## Estrutura do projeto
 
@@ -36,13 +38,18 @@ O histórico completo está em [CHANGELOG.md](CHANGELOG.md). A tela **Sobre** e 
 | --- | --- |
 | `app/` | Rotas, telas e fluxos da aplicação (Expo Router) |
 | `components/` | Componentes reutilizáveis, foco de TV e menu lateral |
-| `services/` | Xtream, M3U, XMLTV, TMDB, player externo e atualizador |
+| `features/` | Módulos por domínio: catálogo, detalhes, login, player e controle parental |
+| `services/` | Xtream, M3U, XMLTV, TMDB, catch-up, Portal, player externo e atualizador |
+| `core/` | Navegação de TV, recuperação de inicialização e utilitários do ao vivo |
+| `data/` | Banco local do catálogo e política de sincronização |
 | `hooks/` | Sincronização de catálogo, EPG, paginação e controle remoto |
 | `store/` | Estado persistente da aplicação com Zustand |
 | `plugins/` | Configuração nativa Android, TV e arquiteturas ARM |
 | `tools/` | Preparação/verificação do ambiente e build universal |
 | `__tests__/` | Testes automatizados Jest |
 | `android/` | Projeto Android nativo gerado/configurado para release |
+| `docs/` | Ambiente de build, assinatura, proteções de release e validação em Fire Stick |
+| `release/` | Saída local do APK (não versionada) |
 
 ## Requisitos de desenvolvimento
 
@@ -138,7 +145,7 @@ Para validar fluidez em catálogo grande, preview e retorno do player em Fire TV
 
 O projeto possui um script de build que confere os pré-requisitos, exige a configuração TMDB, utiliza caches locais e gera um APK ARM universal.
 
-1. Prepare o SDK, NDK, JDK e cache local conforme [ANDROID_COMPILER_ENVIRONMENT.md](ANDROID_COMPILER_ENVIRONMENT.md).
+1. Prepare o SDK, NDK, JDK e cache local conforme [docs/ANDROID_COMPILER_ENVIRONMENT.md](docs/ANDROID_COMPILER_ENVIRONMENT.md).
 2. Opcionalmente, carregue o ambiente persistente local:
 
    ```bash
@@ -155,10 +162,12 @@ O projeto possui um script de build que confere os pré-requisitos, exige a conf
 O resultado da versão atual é gravado em:
 
 ```text
-release/ELVANOQ-v2.17.13-universal.apk
+release/ELVANOQ-v<versão>-universal.apk
 ```
 
-O script executa o Gradle em modo offline e usa, por padrão, `android-sdk/` e `.build-cache/` ao lado do código-fonte. Para reutilizar cache em outro local persistente, defina `ELVANOQ_BUILD_CACHE` antes do build. Detalhes adicionais estão em [BUILD_APK_UNIVERSAL.md](BUILD_APK_UNIVERSAL.md).
+O script executa o Gradle em modo offline e usa, por padrão, `android-sdk/` e `.build-cache/` ao lado do código-fonte. Para reutilizar cache em outro local persistente, defina `ELVANOQ_BUILD_CACHE` antes do build. Detalhes adicionais estão em [docs/BUILD_APK_UNIVERSAL.md](docs/BUILD_APK_UNIVERSAL.md).
+
+A release oficial é gerada pelo workflow **Android release** do GitHub Actions, que valida a baseline de versão, compila, assina com a chave original, confere o certificado e publica o APK como artefato.
 
 ### Assinatura e atualização
 
@@ -167,20 +176,9 @@ O build local usa a configuração de assinatura disponível no ambiente Android
 Antes de distribuir, valide pelo menos:
 
 ```bash
-unzip -t release/ELVANOQ-v2.17.13-universal.apk
-apksigner verify --verbose release/ELVANOQ-v2.17.13-universal.apk
+unzip -t release/ELVANOQ-v<versão>-universal.apk
+apksigner verify --verbose release/ELVANOQ-v<versão>-universal.apk
 ```
-
-## Atualização dentro do aplicativo
-
-O verificador consulta a [última GitHub Release](https://github.com/slitherproduction-ai/flixplay/releases/latest) e procura um APK anexado. Apenas enviar código ao repositório não disponibiliza uma atualização.
-
-Para publicar uma versão:
-
-1. Gere e valide o APK assinado.
-2. Crie uma GitHub Release com tag compatível com a versão publicada.
-3. Anexe o APK da release.
-4. Preserve a chave de assinatura já usada pelos dispositivos instalados.
 
 ## Testes físicos recomendados
 
@@ -192,11 +190,16 @@ Em cada release, valide em aparelho real:
 - Guia TV ao vivo, áudio do preview e interrupção do áudio ao sair da tela.
 - Player, OSD, áudio, legendas, PiP e retorno da reprodução.
 - Atualização sobre uma instalação anterior com a mesma assinatura.
+- Retomada automática: desligar a internet por ~15 s com um canal e um filme abertos.
 
 ## Documentação relacionada
 
-- [Changelog](CHANGELOG.md)
-- [Ambiente de compilação Android](ANDROID_COMPILER_ENVIRONMENT.md)
-- [Build universal](BUILD_APK_UNIVERSAL.md)
-- [Validação da v2.17.13](ELVANOQ-v2.17.13-VALIDACAO.md)
-- [Changelog da v2.17.13](ELVANOQ-v2.17.13-CHANGELOG.md)
+- [Changelog](CHANGELOG.md): histórico de todas as versões.
+- [Proteções de release](docs/RELEASE_GUARDRAILS.md)
+- [Ambiente de compilação Android](docs/ANDROID_COMPILER_ENVIRONMENT.md)
+- [Build universal](docs/BUILD_APK_UNIVERSAL.md)
+- [Cache offline do Node/Expo](docs/NODE_EXPO_OFFLINE_CACHE.md)
+- [Assinatura de release](docs/ANDROID_RELEASE_SIGNING_SETUP.md)
+- [Validação de desempenho no Fire Stick](docs/FIRE_STICK_PERFORMANCE_VALIDATION.md)
+
+Os antigos arquivos `CHECKPOINT_*`, notas de versão avulsas e relatórios de homologação foram removidos em 2026-11-06; o conteúdo continua no histórico do Git e no CHANGELOG. Novas mudanças são registradas só no `CHANGELOG.md`.

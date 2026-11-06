@@ -1,6 +1,6 @@
 # Validação de performance — Fire TV / Fire Stick
 
-Versão alvo: ELVANOQ Play 2.17.16 (CP213).
+Versão alvo: ELVANOQ Play 2.17.21 e posteriores.
 
 Esta validação é física: não pode ser substituída por uma verificação estática. Execute em um Fire Stick representativo, com o aplicativo atualizado sobre uma instalação existente e uma lista autorizada de catálogo grande.
 

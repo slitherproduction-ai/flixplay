@@ -1,5 +1,12 @@
 # Changelog
 
+## [Manutenção do repositório] — 2026-11-06
+
+- Sem mudança no app (continua 2.17.21, build 20261039).
+- Removidos ~150 arquivos `CHECKPOINT_*`, notas de versão e relatórios avulsos (2.10–2.17.13), a pasta `release/` de documentos da 2.15.0 e o `SYNC_GITHUB.sh` (sincronização de branch antiga). O histórico continua no Git e neste CHANGELOG, que passa a ser o único registro de mudanças.
+- Removidos 13 imagens sem uso (splash, ícones e logos antigos do FlixPlay, versões v3/v4 do splash nativo), o `bun.lock` (o projeto usa npm), o `starter-subsets.json`, o `tools/patch_binary_manifest.py` e os módulos sem uso `services/githubUpdater.ts` (atualizações agora só pelo Portal) e `hooks/useScreenLoad.ts`.
+- Documentos de build movidos para `docs/` (`ANDROID_COMPILER_ENVIRONMENT.md`, `BUILD_APK_UNIVERSAL.md`, `NODE_EXPO_OFFLINE_CACHE.md`, `RELEASE_GUARDRAILS.md`). README atualizado para a 2.17.21 (recursos, estrutura, build pelo GitHub Actions) e sem a seção obsoleta de atualização por GitHub Releases. APKs locais em `release/` ficam fora do Git.
+
 ## [2.17.21] — 2026-11-04
 
 - Player (todas as versões): retomada automática. Se o vídeo para de avançar por 12 s no ao vivo ou 20 s em filmes/séries, a mesma fonte é reaberta no mesmo ponto, até 3 vezes seguidas; depois aparece o erro com "Tentar". Pausa do usuário e app em segundo plano não contam. Aviso "O sinal parou de chegar. Reconectando…".

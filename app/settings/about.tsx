@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.24",
+    version: "v2.17.25",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Menos travamentos em TVs e aparelhos mais simples: o player usa menos memória e a prévia de canais libera o vídeo ao abrir o player." },
+      { tag: "Melhoria", text: "A reconexão automática só age depois que o vídeo começou a tocar, sem reiniciar canais que demoram para abrir." },
+    ],
+  },
+  {
+    version: "v2.17.24",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "No celular, a arte de fundo do login voltou a aparecer atrás da tela de ativação." },

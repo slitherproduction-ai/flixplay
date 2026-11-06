@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.25] — 2026-11-06
+
+Correção de travamentos relatados em TV TCL (Android TV) no ao vivo e em filmes; vale para todos os aparelhos fracos.
+
+- Player: buffer limitado (`bufferOptions`: 15 s à frente no ao vivo, 30 s em filmes/séries, até 48 MB na TV e 64 MB no celular, tamanho prevalece sobre tempo). O padrão do ExoPlayer chegava a ~128 MB só para vídeo, o que forçava coletas de memória e engasgos em TVs com 1–1,5 GB de RAM.
+- Prévia de canais (guia da TV): ao abrir o player ou sair da aba, a fonte da prévia é liberada (`replace(null)`) em vez de só pausada. Antes ficavam dois decodificadores ativos ao mesmo tempo, e muitas TVs têm um só por hardware. Buffer da prévia limitado a 6 s / 12 MB.
+- Retomada automática (2.17.21) só é armada depois que o vídeo começou a avançar e com limites maiores (20 s ao vivo, 30 s filmes/séries). Um servidor lento na abertura não é mais reiniciado em ciclo.
+- Menos trabalho por segundo no player: com os controles ocultos, o tempo na tela é atualizado a cada 30 s no ao vivo e 5 s em filmes (episódios seguem a cada 1 s por causa de "Pular abertura" e da contagem do próximo episódio). Progresso salvo a cada 30 s (antes 10 s), cada gravação passa pelo armazenamento criptografado. Busca do canal atual memorizada. Build Android elevado para `20261043`.
+
 ## [2.17.24] — 2026-11-06
 
 - Login (smartphone e tablet em pé): a sombra da tela de ativação cobria quase toda a arte de fundo. Agora escurece de leve no topo (5%), 35% no meio e 80% só no rodapé, e as ondas e o play voltam a aparecer. Build Android elevado para `20261042`.

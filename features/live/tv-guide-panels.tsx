@@ -76,11 +76,30 @@ export function TvChannelPreview({ channel, width, active }: ChannelPreviewProps
     videoPlayer.muted = true;
     videoPlayer.volume = 0;
     videoPlayer.audioMixingMode = "doNotMix";
+    // A prévia é pequena e muda a cada canal: buffer mínimo para não disputar
+    // memória com o player principal em TVs fracas.
+    try {
+      videoPlayer.bufferOptions = {
+        preferredForwardBufferDuration: 6,
+        minBufferForPlayback: 1,
+        maxBufferBytes: 12 * 1024 * 1024,
+        prioritizeTimeOverSizeThreshold: false,
+      };
+    } catch { /* opções de buffer indisponíveis: segue com o padrão */ }
   });
 
   useEffect(() => {
     if (!active || !streamUrl) {
-      try { player.pause(); } catch { /* native player may already be disposed */ }
+      // Ao abrir o player principal (ou sair da aba), libera a fonte da prévia:
+      // só pausar manteria o decodificador e o buffer ocupados, e muitas TVs
+      // (TCL, Fire TV Lite) têm um único decodificador de vídeo por hardware.
+      try {
+        player.pause();
+        if (loadedStreamUrl.current) {
+          player.replace(null);
+          loadedStreamUrl.current = undefined;
+        }
+      } catch { /* native player may already be disposed */ }
       return;
     }
     const timer = setTimeout(() => {

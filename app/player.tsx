@@ -409,13 +409,33 @@ export default function PlayerScreen() {
   const lastObservedTimeRef = useRef(-1);
   const stallRecoveriesRef = useRef(0);
   const pendingSeekRef = useRef<number | null>(null);
+  // A retomada só é armada depois que o vídeo começou a andar: um servidor
+  // lento na abertura não pode ser reiniciado em loop.
+  const playbackStartedRef = useRef(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const controlsVisibleRef = useRef(controlsVisible);
+  controlsVisibleRef.current = controlsVisible;
+  const lastUiTimeUpdateRef = useRef(0);
 
   const player = useVideoPlayer(
     { uri: fallbackUrls[0] ?? "", headers: requestHeaders },
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
+      // Buffer limitado: o padrão do ExoPlayer reserva até ~128 MB para vídeo,
+      // o que em TVs com 1–1,5 GB de RAM (TCL, Fire TV Lite, boxes) causa
+      // coletas de memória e engasgos. Ao vivo guarda menos à frente.
+      try {
+        videoPlayer.bufferOptions = {
+          preferredForwardBufferDuration: contentType === "live" ? 15 : 30,
+          minBufferForPlayback: 2,
+          maxBufferBytes: (tvMode ? 48 : 64) * 1024 * 1024,
+          prioritizeTimeOverSizeThreshold: false,
+          waitsToMinimizeStalling: true,
+        };
+      } catch (bufferError) {
+        logTechnicalError("Player/bufferOptions", bufferError);
+      }
       if (!directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) videoPlayer.play();
     },
   );
@@ -426,7 +446,7 @@ export default function PlayerScreen() {
     playerRef.current = player;
   }, [player]);
 
-  const currentChannel = allChannels.find((ch) => ch.id === id);
+  const currentChannel = useMemo(() => allChannels.find((ch) => ch.id === id), [allChannels, id]);
   const currentSeries = sourceSeriesId
     ? cachedSeries.find((series) => series.id === sourceSeriesId)
     : undefined;
@@ -654,6 +674,7 @@ export default function PlayerScreen() {
         const tp = payload as { currentTime?: number };
         if (typeof tp.currentTime === "number") {
           if (tp.currentTime !== lastObservedTimeRef.current) {
+            if (lastObservedTimeRef.current >= 0) playbackStartedRef.current = true;
             lastObservedTimeRef.current = tp.currentTime;
             lastProgressAtRef.current = Date.now();
             if (stallRecoveriesRef.current > 0) {
@@ -661,7 +682,16 @@ export default function PlayerScreen() {
               setReconnecting(false);
             }
           }
-          if (!isDraggingRef.current) setCurrentTime(tp.currentTime);
+          // Menos renderizações por segundo: com os controles ocultos, o ao
+          // vivo não precisa do tempo na tela e o filme atualiza a cada 5 s
+          // (episódios seguem a cada 1 s por causa de "Pular abertura" e da
+          // contagem para o próximo episódio).
+          const nowMs = Date.now();
+          const uiInterval = controlsVisibleRef.current || contentType === "episode" ? 0 : contentType === "live" ? 30_000 : 5_000;
+          if (!isDraggingRef.current && nowMs - lastUiTimeUpdateRef.current >= uiInterval) {
+            lastUiTimeUpdateRef.current = nowMs;
+            setCurrentTime(tp.currentTime);
+          }
           setIsBuffering(false);
           latestPositionRef.current = tp.currentTime;
           const mediaDuration = player.duration;
@@ -673,7 +703,7 @@ export default function PlayerScreen() {
           if (
             contentType !== "live" &&
             mediaDuration > 0 &&
-            wholeSecond - lastSavedSecondRef.current >= 10
+            wholeSecond - lastSavedSecondRef.current >= 30
           ) {
             lastSavedSecondRef.current = wholeSecond;
             persistProgress(tp.currentTime, mediaDuration);
@@ -718,12 +748,15 @@ export default function PlayerScreen() {
       if (AppState.currentState !== "active" || playerError) return;
       const current = playerRef.current;
       const status = current.status;
-      if (status === "idle" || status === "error") return;
+      if (status === "idle" || status === "error" || !playbackStartedRef.current) {
+        lastProgressAtRef.current = Date.now();
+        return;
+      }
       if (status === "readyToPlay" && !current.playing) {
         lastProgressAtRef.current = Date.now();
         return;
       }
-      const limit = contentType === "live" ? 12_000 : 20_000;
+      const limit = contentType === "live" ? 20_000 : 30_000;
       if (Date.now() - lastProgressAtRef.current < limit) return;
       if (stallRecoveriesRef.current >= 3) {
         setReconnecting(false);
@@ -1040,6 +1073,8 @@ export default function PlayerScreen() {
         catchupActiveRef.current = false;
         catchupQueueRef.current = [];
         stallRecoveriesRef.current = 0;
+        playbackStartedRef.current = false;
+        lastObservedTimeRef.current = -1;
         setReconnecting(false);
         urlAttemptRef.current = 0;
         durationSetRef.current = false;

@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.31",
+    version: "v2.17.32",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Em TV ao Vivo, Filmes, Séries e Ajustes, Voltar retorna à Início em vez de perguntar se deseja sair do aplicativo." },
+    ],
+  },
+  {
+    version: "v2.17.31",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Na TV, a navegação ficou igual à do Roku, da LG e do Samsung: sem menu lateral, tudo parte da Início e Voltar retorna a ela." },

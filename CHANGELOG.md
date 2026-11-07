@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.32] — 2026-11-07
+
+- Voltar nas seções principais (TV ao Vivo, Filmes, Séries e Ajustes): o protetor de saída (`RootExitGuard`, `app/_layout.tsx`) tratava essas rotas como raiz e mostrava "Deseja sair do aplicativo?". Agora leva à Início; só na Início o Voltar oferece sair (toque duplo + confirmação). Com o fim do menu lateral na 2.17.31, era o único caminho de volta na TV. Build Android elevado para `20261050`.
+
 ## [2.17.31] — 2026-11-07
 
 - TV: removido o menu lateral (`components/tv-side-navigation.tsx`), como no Roku, na LG e no Samsung. A Início é o hub (TV ao Vivo, Filmes, Séries, Busca, Minha Lista, Ajustes) e Voltar em qualquer seção retorna a ela. As seções passam a usar a largura inteira da tela; some o foco que escapava para o menu ao apertar para a esquerda.

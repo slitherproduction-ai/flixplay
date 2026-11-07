@@ -109,6 +109,7 @@ function isRootRoute(pathname: string) {
 /** Prevents accidental exit while keeping Back available to stacked screens. */
 function RootExitGuard() {
   const pathname = usePathname();
+  const router = useRouter();
   const [visible, setVisible] = useState(false);
   const lastBackAt = React.useRef(0);
 
@@ -120,6 +121,12 @@ function RootExitGuard() {
         return true;
       }
       if (!isRootRoute(pathname)) return false;
+      // Ao vivo, Filmes, Séries e Ajustes: Voltar leva à Início (como no
+      // Roku, na LG e no Samsung). Só na Início o Voltar oferece sair.
+      if (pathname !== "/" && pathname !== "/index") {
+        router.navigate("/");
+        return true;
+      }
 
       const now = Date.now();
       if (now - lastBackAt.current > 1800) {
@@ -132,7 +139,7 @@ function RootExitGuard() {
       return true;
     });
     return () => subscription.remove();
-  }, [pathname, visible]);
+  }, [pathname, router, visible]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>

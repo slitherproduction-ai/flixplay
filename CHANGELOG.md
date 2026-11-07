@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.29] — 2026-11-07
+
+- Ao vivo (TV): a tela cheia usa o mesmo player da prévia do guia (`features/live/live-preview-handoff.ts`). Com a prévia já tocando o canal escolhido, o canal abre sem recarregar e com um só decodificador ativo; ao apertar Voltar, a prévia continua no mesmo canal, do ponto em que está, sem recarregar. Depois de canal +/- em tela cheia, a lista volta com o canal que estava tocando selecionado. Se o canal for aberto antes de a prévia carregar, o comportamento é o de antes (player próprio).
+- A seleção da prévia não é mais apagada ao sair da aba; a superfície de vídeo da prévia é recriada na volta para o player voltar a desenhar nela.
+- Ao vivo (todas as versões): Voltar sai direto para a lista de canais, sem a confirmação de saída; com o guia aberto, Voltar só fecha o guia. Filmes e séries mantêm a confirmação.
+- Player: removida a grade de canais (QuickSwitcher) e o botão "Abrir grade de canais", que pesavam na reprodução e não funcionavam bem; canal +/- e o guia continuam. Estilos sem uso removidos. Build Android elevado para `20261047`.
+
 ## [2.17.28] — 2026-11-06
 
 Cache local do catálogo religado (desligado desde a 2.17.13, quando o registro do módulo nativo saiu do `MainApplication.kt`).

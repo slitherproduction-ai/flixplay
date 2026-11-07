@@ -28,6 +28,7 @@ import { ParentalGate } from "@/components/parental-gate";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels";
 import { TvCategoryPanel, TvChannelPreview } from "@/features/live/tv-guide-panels";
+import { claimPreviewFor, consumeReturnedChannel } from "@/features/live/live-preview-handoff";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const LIVE_FOCUS_SCOPE = "live-channels";
@@ -430,13 +431,15 @@ export default function LiveScreen() {
   // Use Expo Router's focus hook rather than importing React Navigation
   // directly: the router owns the navigation integration in the release bundle.
   useFocusEffect(useCallback(() => {
+    // Voltando da tela cheia: mantém a seleção no canal que estava tocando lá
+    // (inclusive depois de canal +/-), para a prévia seguir sem recarregar.
+    const returnedChannelId = consumeReturnedChannel();
+    if (returnedChannelId) setPreviewChannelId(returnedChannelId);
     setIsScreenFocused(true);
     return () => {
-      // The preview component is unmounted below when this route loses focus.
-      // useVideoPlayer releases its native decoder, stream buffers and audio
-      // session on unmount; clearing the selection prevents a stale source
-      // from surviving in the screen state on low-memory Fire TV devices.
-      setPreviewChannelId(null);
+      // A seleção é mantida: ao voltar, a prévia continua no mesmo canal. O
+      // decodificador é liberado pela própria prévia quando ela não foi
+      // emprestada à tela cheia.
       if (previewFocusTimer.current) clearTimeout(previewFocusTimer.current);
       setIsScreenFocused(false);
     };
@@ -548,6 +551,8 @@ export default function LiveScreen() {
         setPendingChannelId(channel.id);
         return;
       }
+      // Na TV, se a prévia já toca este canal, a tela cheia usa o mesmo player.
+      if (tvMode) claimPreviewFor(channel.id);
       router.push({
         pathname: "/player",
         params: {
@@ -560,7 +565,7 @@ export default function LiveScreen() {
         },
       });
     },
-    [channels, isCategoryBlocked, isContentBlocked, router],
+    [channels, isCategoryBlocked, isContentBlocked, router, tvMode],
   );
 
   const openAuthorizedChannel = useCallback(() => {
@@ -568,8 +573,9 @@ export default function LiveScreen() {
     const channel = channels.find((item) => item.id === pendingChannelId);
     setPendingChannelId(null);
     if (!channel) return;
+    if (tvMode) claimPreviewFor(channel.id);
     router.push({ pathname: "/player", params: { id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl, parentalCategoryKind: "live", parentalCategoryId: channel.categoryId } });
-  }, [channels, pendingChannelId, router]);
+  }, [channels, pendingChannelId, router, tvMode]);
 
   const handleGuide = useCallback(
     (channelId: string) => {

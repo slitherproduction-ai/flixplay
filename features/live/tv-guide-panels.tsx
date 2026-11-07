@@ -1,12 +1,13 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { Colors } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, SearchField } from "@/components/ui";
 import type { ChannelItem } from "@/store/types";
+import { isPreviewClaimed, previewStillPlaying, registerPreview } from "@/features/live/live-preview-handoff";
 
 const PREVIEW_SOURCE_DELAY_MS = 180;
 
@@ -88,7 +89,28 @@ export function TvChannelPreview({ channel, width, active }: ChannelPreviewProps
     } catch { /* opções de buffer indisponíveis: segue com o padrão */ }
   });
 
+  // Ao voltar da tela cheia, a superfície de vídeo é recriada para o player
+  // (que estava desenhando na tela cheia) voltar a desenhar na prévia.
+  const [surfaceKey, setSurfaceKey] = useState(0);
+  const wasClaimedRef = useRef(false);
+
   useEffect(() => {
+    if (!active && isPreviewClaimed()) {
+      // O player desta prévia está tocando em tela cheia: não pausar nem soltar.
+      wasClaimedRef.current = true;
+      return;
+    }
+    if (active && wasClaimedRef.current) {
+      wasClaimedRef.current = false;
+      // Devolvido pela tela cheia: se ainda toca o canal da prévia, segue sem
+      // recarregar; senão (trocou de canal lá), carrega o canal da prévia.
+      if (channel?.id && previewStillPlaying(player, channel.id)) {
+        loadedStreamUrl.current = streamUrl;
+      } else {
+        loadedStreamUrl.current = undefined;
+      }
+      setSurfaceKey((value) => value + 1);
+    }
     if (!active || !streamUrl) {
       // Ao abrir o player principal (ou sair da aba), libera a fonte da prévia:
       // só pausar manteria o decodificador e o buffer ocupados, e muitas TVs
@@ -98,25 +120,30 @@ export function TvChannelPreview({ channel, width, active }: ChannelPreviewProps
         if (loadedStreamUrl.current) {
           player.replace(null);
           loadedStreamUrl.current = undefined;
+          registerPreview(null);
         }
       } catch { /* native player may already be disposed */ }
       return;
     }
+    const alreadyPlaying = loadedStreamUrl.current === streamUrl;
     const timer = setTimeout(() => {
       try {
         if (loadedStreamUrl.current !== streamUrl) {
           player.replace({ uri: streamUrl });
           loadedStreamUrl.current = streamUrl;
         }
+        if (channel?.id) registerPreview({ player, channelId: channel.id, streamUrl });
         player.muted = true;
         player.volume = 0;
         player.play();
       } catch {
         // The native player retries while a live endpoint is becoming available.
       }
-    }, PREVIEW_SOURCE_DELAY_MS);
+    }, alreadyPlaying ? 0 : PREVIEW_SOURCE_DELAY_MS);
     return () => {
       clearTimeout(timer);
+      // Emprestado à tela cheia: quem controla a reprodução agora é o player.
+      if (isPreviewClaimed()) return;
       try { player.pause(); } catch { /* native player may already be disposed */ }
     };
   }, [active, channel?.id, streamUrl, player]);
@@ -141,7 +168,7 @@ export function TvChannelPreview({ channel, width, active }: ChannelPreviewProps
   return (
     <View style={[styles.preview, { width }]}>
       <View style={styles.previewStage}>
-        <VideoView player={player} contentFit="cover" nativeControls={false} surfaceType="textureView" style={StyleSheet.absoluteFill} />
+        <VideoView key={surfaceKey} player={player} contentFit="cover" nativeControls={false} surfaceType="textureView" style={StyleSheet.absoluteFill} />
         {channel.logo ? <Image source={{ uri: channel.logo }} contentFit="contain" style={styles.previewWatermark} /> : null}
         <LinearGradient colors={["rgba(3,8,16,0.06)", "rgba(3,8,16,0.66)"]} style={StyleSheet.absoluteFill} />
         <View style={styles.previewLiveBadge}><View style={styles.liveDot} /><AppText style={styles.previewLiveText}>AO VIVO</AppText></View>

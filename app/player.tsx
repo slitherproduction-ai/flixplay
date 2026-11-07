@@ -23,7 +23,6 @@ import {
   Animated,
   AppState,
   BackHandler,
-  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -35,7 +34,7 @@ import {
 } from "react-native";
 import { Colors, Shadows } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
-import { AppText, ChannelLogo, GlassCard, IconButton } from "@/components/ui";
+import { AppText, ChannelLogo, GlassCard } from "@/components/ui";
 import { ParentalGate } from "@/components/parental-gate";
 import {
   getTVRemoteEvent,
@@ -48,7 +47,8 @@ import { useChannelEpg } from "@/hooks/useChannelEpg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppStore } from "@/store/useAppStore";
 import { reducePlayerUi, type PlayerUiLayer } from "@/store/playerUiState";
-import type { ChannelItem, ContentType, EpgProgram, ServerProfile } from "@/store/types";
+import type { ContentType, EpgProgram, ServerProfile } from "@/store/types";
+import { notifyFullscreenChannel, releasePreview, takeClaimedPreview } from "@/features/live/live-preview-handoff";
 import { logTechnicalError } from "@/services/security/sanitize";
 import {
   buildFallbackUrls,
@@ -156,7 +156,6 @@ type RemoteHandlerParams = {
   handleBackPress: () => void;
   handleSeek: (s: number) => void;
   handleTogglePlayback: () => void;
-  openQuickSwitcher: () => void;
   zapPrevious: () => void;
   zapNext: () => void;
   seekStepSeconds: number;
@@ -219,31 +218,6 @@ function usePlayerRemote(p: RemoteHandlerParams) {
     // eslint dependencies mirror RemoteHandlerParams fields used inside
     [p],
   );
-}
-
-function handleSelectEvent(p: RemoteHandlerParams) {
-  if (p.panel) {
-    p.setPanel(null);
-  } else if (p.contentType === "live") {
-    p.openQuickSwitcher();
-  } else {
-    p.handleTogglePlayback();
-  }
-}
-
-function handleUpEvent(p: RemoteHandlerParams) {
-  if (p.contentType === "live") {
-    p.zapPrevious();
-  }
-}
-
-function handleDownEvent(p: RemoteHandlerParams) {
-  if (p.contentType === "live") p.zapNext();
-  else {
-    p.showControlsWithTimer();
-    p.setPanel(null);
-    setTimeout(() => p.playButtonRef.current?.focus(), 0);
-  }
 }
 
 // ─── Pure helpers extracted to keep PlayerScreen under complexity budget ──────
@@ -417,8 +391,11 @@ export default function PlayerScreen() {
   controlsVisibleRef.current = controlsVisible;
   const lastUiTimeUpdateRef = useRef(0);
 
-  const player = useVideoPlayer(
-    { uri: fallbackUrls[0] ?? "", headers: requestHeaders },
+  // TV: aberto a partir da prévia do guia, usa o mesmo player que já toca o
+  // canal (sem recarregar) e o devolve ao sair, para a prévia seguir tocando.
+  const [sharedPreviewPlayer] = useState(() => (contentType === "live" && tvMode ? takeClaimedPreview(id) : null));
+  const ownPlayer = useVideoPlayer(
+    sharedPreviewPlayer ? null : { uri: fallbackUrls[0] ?? "", headers: requestHeaders },
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
@@ -436,9 +413,26 @@ export default function PlayerScreen() {
       } catch (bufferError) {
         logTechnicalError("Player/bufferOptions", bufferError);
       }
-      if (!directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) videoPlayer.play();
+      if (!sharedPreviewPlayer && !directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) videoPlayer.play();
     },
   );
+  const player = sharedPreviewPlayer ?? ownPlayer;
+  useEffect(() => {
+    if (!sharedPreviewPlayer) return undefined;
+    try {
+      sharedPreviewPlayer.loop = false;
+      sharedPreviewPlayer.timeUpdateEventInterval = 1;
+      sharedPreviewPlayer.muted = false;
+      sharedPreviewPlayer.volume = 1;
+      if (!directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) sharedPreviewPlayer.play();
+    } catch (sharedError) {
+      logTechnicalError("Player/shared-preview", sharedError);
+    }
+    // Ao sair, a prévia volta a controlar o player (mudo, na tela de canais).
+    return () => releasePreview();
+    // Só na montagem: o player emprestado é o mesmo durante toda a tela.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Ref gives mutable access to the player without triggering the
   // react-hooks/immutability rule, which blocks direct mutation of hook values.
   const playerRef = useRef(player);
@@ -957,8 +951,18 @@ export default function PlayerScreen() {
       return;
     }
     clearHideTimer();
+    // Ao vivo: Voltar retorna direto à lista de canais (sem confirmação),
+    // fechando antes o guia ou a confirmação, se estiverem abertos.
+    if (contentType === "live") {
+      if (uiLayer === "epg" || uiLayer === "exit-confirmation") {
+        dispatchUi({ type: "HIDE" });
+        return;
+      }
+      handleConfirmExit();
+      return;
+    }
     dispatchUi({ type: "BACK" });
-  }, [clearHideTimer, panel, showControlsWithTimer]);
+  }, [clearHideTimer, contentType, handleConfirmExit, panel, showControlsWithTimer, uiLayer]);
 
   const handleRequestExit = useCallback(() => {
     clearHideTimer();
@@ -1080,6 +1084,7 @@ export default function PlayerScreen() {
         durationSetRef.current = false;
         setIsBuffering(true);
         player.replace({ uri: preferredUrl, headers: requestHeaders });
+        if (sharedPreviewPlayer) notifyFullscreenChannel(channel.id, preferredUrl);
         player.play();
         setPlayerError(null);
         setIsPlaying(true);
@@ -1280,16 +1285,6 @@ export default function PlayerScreen() {
   }, [fallbackUrls, player, streamUrl]);
 
   // ─── TV remote ───────────────────────────────────────────────────────────
-  const handleOpenQuickSwitcher = useCallback(() => {
-    clearHideTimer();
-    setPanel(null);
-    dispatchUi({ type: "OPEN_QUICK_ZAPPING" });
-  }, [clearHideTimer]);
-
-  const handleCloseQuickSwitcher = useCallback(() => {
-    showControlsWithTimer();
-  }, [showControlsWithTimer]);
-
   const handleOpenEpg = useCallback(() => {
     clearHideTimer();
     setPanel(null);
@@ -1330,7 +1325,6 @@ export default function PlayerScreen() {
       handleBackPress,
       handleSeek,
       handleTogglePlayback,
-      openQuickSwitcher: handleOpenQuickSwitcher,
       zapPrevious,
       zapNext,
       seekStepSeconds: playerPreferences.seekStepSeconds,
@@ -1351,7 +1345,6 @@ export default function PlayerScreen() {
       handleBackPress,
       handleSeek,
       handleTogglePlayback,
-      handleOpenQuickSwitcher,
       handleOpenEpg,
       handleChannelDigit,
       handleCycleRatio,
@@ -1486,7 +1479,6 @@ export default function PlayerScreen() {
             topControlsRef={topControlsRef}
             contentType={contentType}
             onBack={handleRequestExit}
-            onToggleQuickSwitcher={handleOpenQuickSwitcher}
             onTogglePip={handleTogglePip}
             onOpenTracks={handleOpenTracks}
             onCycleRatio={handleCycleRatio}
@@ -1549,15 +1541,6 @@ export default function PlayerScreen() {
             onSelectRatio={handleSelectRatio}
           />
         </Animated.View>
-
-        <QuickSwitcher
-          visible={uiLayer === "quick-zapping"}
-          channels={allChannels}
-          favoriteChannelIds={favoriteChannelIds}
-          currentId={id}
-          onSwitch={handleSwitchChannel}
-          onClose={handleCloseQuickSwitcher}
-        />
 
         <PlayerStatus
           loading={!playerError && player.status === "loading"}
@@ -1622,7 +1605,6 @@ function PlayerTopBar({
   topControlsRef,
   contentType,
   onBack,
-  onToggleQuickSwitcher,
   onTogglePip,
   onOpenTracks,
   onCycleRatio,
@@ -1635,7 +1617,6 @@ function PlayerTopBar({
   topControlsRef: Ref<TVFocusableHandle>;
   contentType: ContentType;
   onBack: () => void;
-  onToggleQuickSwitcher: () => void;
   onTogglePip: () => void;
   onOpenTracks: () => void;
   onCycleRatio: () => void;
@@ -1651,9 +1632,6 @@ function PlayerTopBar({
       <View style={styles.topSpacer} />
       <View style={styles.topActions}>
         <PlayerTopAction ref={topControlsRef} icon="musical-note" label="Faixas de áudio e legendas" onPress={onOpenTracks} />
-        {contentType === "live" ? (
-          <PlayerTopAction icon="list" label="Abrir grade de canais" onPress={onToggleQuickSwitcher} />
-        ) : null}
         <PlayerTopAction
           icon="phone-portrait-outline"
           label="Picture-in-Picture"
@@ -1843,138 +1821,6 @@ function VerticalAdjustment({
         <View style={[styles.adjustmentKnob, { bottom: `${Math.round(value * 100)}%` }]} />
       </View>
     </View>
-  );
-}
-
-// ─── Quick Switcher ───────────────────────────────────────────────────────────
-
-function QuickSwitcher({
-  visible,
-  channels: channelList,
-  favoriteChannelIds,
-  currentId,
-  onSwitch,
-  onClose,
-}: {
-  visible: boolean;
-  channels: ChannelItem[];
-  favoriteChannelIds: string[];
-  currentId: string;
-  onSwitch: (channelId: string) => void;
-  onClose: () => void;
-}) {
-  const [category, setCategory] = useState("Todos");
-  const categories = useMemo(
-    () => ["Todos", "Favoritos", ...Array.from(new Set(channelList.map((channel) => channel.categoryName)))],
-    [channelList],
-  );
-  const visibleChannels = useMemo(() => {
-    const filtered = category === "Todos"
-      ? channelList
-      : category === "Favoritos"
-        ? channelList.filter((channel) => favoriteChannelIds.includes(channel.id))
-        : channelList.filter((channel) => channel.categoryName === category);
-    const current = filtered.find((channel) => channel.id === currentId);
-    const others = filtered.filter((channel) => channel.id !== currentId);
-    return current ? [current, ...others] : others;
-  }, [category, channelList, currentId, favoriteChannelIds]);
-
-  if (!visible) return null;
-  return (
-    <GlassCard style={styles.quickSwitcher} intensity={32}>
-      <View style={styles.quickHeader}>
-        <View>
-          <AppText style={styles.quickKicker}>ZAPPING RÁPIDO</AppText>
-          <AppText style={styles.quickTitle}>Escolha a grade de canais</AppText>
-        </View>
-        <IconButton
-          icon="close"
-          label="Fechar canais recentes"
-          size={34}
-          onPress={onClose}
-        />
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickCategoryScroll} contentContainerStyle={styles.quickCategories}>
-        {categories.map((item) => (
-          <TVFocusable key={item} onPress={() => setCategory(item)} style={[styles.quickCategory, category === item && styles.quickCategoryActive]}>
-            <AppText style={[styles.quickCategoryText, category === item && styles.quickCategoryTextActive]}>{item}</AppText>
-          </TVFocusable>
-        ))}
-      </ScrollView>
-      <FlatList
-        data={visibleChannels}
-        keyExtractor={(channel) => channel.id}
-        numColumns={2}
-        initialNumToRender={20}
-        maxToRenderPerBatch={25}
-        windowSize={7}
-        removeClippedSubviews={Platform.OS === "android"}
-        showsVerticalScrollIndicator={false}
-        style={styles.quickChannelScroll}
-        contentContainerStyle={styles.quickGrid}
-        columnWrapperStyle={styles.quickGridRow}
-        renderItem={({ item: channel }) => (
-          <QuickChannel
-            channelId={channel.id}
-            name={channel.name}
-            logo={channel.logo}
-            program={channel.currentEpg.title}
-            progress={channel.currentEpg.progress}
-            active={channel.id === currentId}
-            onSwitch={onSwitch}
-          />
-        )}
-        ListEmptyComponent={<AppText style={styles.quickEmpty}>Nenhum canal disponível nesta grade.</AppText>}
-      />
-    </GlassCard>
-  );
-}
-
-function QuickChannel({
-  channelId,
-  name,
-  logo,
-  program,
-  progress,
-  active,
-  onSwitch,
-}: {
-  channelId: string;
-  name: string;
-  logo: string;
-  program: string;
-  progress: number;
-  active: boolean;
-  onSwitch: (channelId: string) => void;
-}) {
-  const handlePress = useCallback(() => {
-    onSwitch(channelId);
-  }, [channelId, onSwitch]);
-
-  return (
-    <TVFocusable
-      accessibilityRole="button"
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.quickChannel,
-        active && styles.quickChannelActive,
-        pressed && styles.pressed,
-      ]}
-    >
-      <ChannelLogo image={logo} name={name} size={36} />
-      <View style={styles.quickCopy}>
-        <AppText style={styles.quickChannelName}>{name}</AppText>
-        <AppText numberOfLines={1} style={styles.quickProgram}>
-          {program}
-        </AppText>
-        <View style={styles.quickProgress}>
-          <View style={[styles.quickProgressFill, { width: `${progress}%` }]} />
-        </View>
-      </View>
-      {active ? (
-        <Ionicons name="radio" size={16} color={Colors.blueBright} />
-      ) : null}
-    </TVFocusable>
   );
 }
 
@@ -2709,79 +2555,6 @@ const styles = StyleSheet.create({
   },
 
   // Quick switcher
-  quickSwitcher: {
-    position: "absolute",
-    top: 75,
-    right: 18,
-    left: 18,
-    padding: 12,
-    borderColor: "rgba(255,255,255,0.2)",
-    backgroundColor: "rgba(17,23,36,0.82)",
-    ...Shadows.card,
-  },
-  quickHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  quickKicker: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 8,
-    letterSpacing: 1,
-    color: Colors.blueBright,
-  },
-  quickTitle: {
-    marginTop: 3,
-    fontFamily: "Inter_700Bold",
-    fontSize: 17,
-    color: Colors.white,
-  },
-  quickCategoryScroll: { flexGrow: 0, marginBottom: 8 },
-  quickCategories: { gap: 6, paddingRight: 8 },
-  quickCategory: {
-    minHeight: 32,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  quickCategoryActive: {
-    borderColor: "rgba(96,165,250,0.6)",
-    backgroundColor: "rgba(59,130,246,0.22)",
-  },
-  quickCategoryText: { fontSize: 10, color: Colors.muted },
-  quickCategoryTextActive: { color: Colors.white },
-  quickChannelScroll: { maxHeight: 230 },
-  quickGrid: { gap: 6 },
-  quickGridRow: { gap: 6 },
-  quickEmpty: { paddingVertical: 20, textAlign: "center", color: Colors.subtle },
-  quickChannel: {
-    flex: 1,
-    minHeight: 60,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 7,
-    borderRadius: 12,
-  },
-  quickChannelActive: { backgroundColor: "rgba(59,130,246,0.15)" },
-  quickCopy: { flex: 1, gap: 3 },
-  quickChannelName: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    color: Colors.white,
-  },
-  quickProgram: { fontSize: 10, color: "rgba(255,255,255,0.68)" },
-  quickProgress: {
-    height: 3,
-    overflow: "hidden",
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  quickProgressFill: { height: "100%", backgroundColor: Colors.blueBright },
 
   // Loading / Error
   loadingOverlay: {
@@ -2871,19 +2644,6 @@ const styles = StyleSheet.create({
   },
   whiteActionFocused: { backgroundColor: Colors.white, borderWidth: 2, borderColor: Colors.blueBright, opacity: 1, transform: [{ scale: 1.025 }] },
   episodeActionPrimaryText: { fontFamily: "Inter_700Bold", fontSize: 11, color: Colors.black },
-  episodeActionSecondary: {
-    minHeight: 34,
-    maxWidth: 180,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 13,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.45)",
-    backgroundColor: "rgba(7,9,14,0.48)",
-  },
-  episodeActionSecondaryText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.white },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -2895,29 +2655,6 @@ const styles = StyleSheet.create({
   },
   liveBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.red },
   liveBadgeText: { fontFamily: "Inter_700Bold", fontSize: 11, color: Colors.white },
-  liveEpgBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.12)",
-  },
-  liveEpgNow: { flex: 1.25, flexDirection: "row", alignItems: "center", gap: 6 },
-  liveEpgNext: { flex: 1, gap: 2 },
-  liveEpgDivider: { width: 1, alignSelf: "stretch", backgroundColor: "rgba(255,255,255,0.12)" },
-  liveEpgLabel: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 11,
-    letterSpacing: 0.8,
-    color: Colors.blueBright,
-  },
-  liveEpgCopy: { flex: 1, gap: 2 },
-  liveEpgTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, lineHeight: 18, color: Colors.white },
-  liveEpgNextTitle: { fontFamily: "Inter_500Medium", fontSize: 13, lineHeight: 17, color: Colors.text },
-  liveEpgTime: { fontSize: 12, color: Colors.subtle },
 
   // Timeline / seek bar
   timelineRow: {
@@ -2960,11 +2697,6 @@ const styles = StyleSheet.create({
   },
 
   // Option row
-  optionRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
   optionButton: {
     minWidth: 58,
     minHeight: 36,

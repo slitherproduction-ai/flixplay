@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.28",
+    version: "v2.17.29",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Na TV, o canal abre em tela cheia direto da prévia, sem recarregar, e ao apertar Voltar a prévia continua tocando o mesmo canal." },
+      { tag: "Melhoria", text: "No ao vivo, Voltar retorna direto à lista de canais." },
+      { tag: "Correção", text: "Removida a grade de canais de dentro do player, que deixava a reprodução pesada." },
+    ],
+  },
+  {
+    version: "v2.17.28",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "O app abre bem mais rápido: o catálogo fica salvo no aparelho e só é baixado de novo a cada 6 horas ou quando você toca em Atualizar." },

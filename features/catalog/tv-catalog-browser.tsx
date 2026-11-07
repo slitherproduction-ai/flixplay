@@ -8,7 +8,6 @@ import { BRAND } from "@/constants/brand";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { CatalogBackground } from "@/components/catalog-background";
-import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useTVMode } from "@/hooks/use-tv-mode";
@@ -263,7 +262,7 @@ export function TvCatalogBrowser({
   const searchGeneration = useRef(0);
 
   // Layout derivado do Roku (painel 400 px + grade de 6 colunas a 1920 px).
-  const contentWidth = width - (touch ? insets.left + insets.right : TV_NAV_WIDTH);
+  const contentWidth = width - (touch ? insets.left + insets.right : 0);
   const sidePadding = touch ? 32 : 28;
   const panelWidth = Math.round(touch ? Math.min(280, Math.max(220, contentWidth * 0.22)) : Math.min(220, Math.max(180, contentWidth * 0.22)));
   const panelGap = touch ? 24 : 20;

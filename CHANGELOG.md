@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.31] — 2026-11-07
+
+- TV: removido o menu lateral (`components/tv-side-navigation.tsx`), como no Roku, na LG e no Samsung. A Início é o hub (TV ao Vivo, Filmes, Séries, Busca, Minha Lista, Ajustes) e Voltar em qualquer seção retorna a ela. As seções passam a usar a largura inteira da tela; some o foco que escapava para o menu ao apertar para a esquerda.
+- TV: Ao vivo, Filmes e Séries são descarregados ao voltar à Início ou ir a outra seção (`components/tv-tab-eviction.tsx`), liberando grades, imagens e a prévia de canais da memória. Telas abertas por cima (player, detalhes, busca) não descarregam a seção, então Voltar encontra tudo como estava e a prévia do ao vivo continua (2.17.29). O catálogo segue na memória do app: a seção volta a montar sem baixar nada. Essas três seções deixam de ser congeladas na TV (o congelamento impediria o descarregamento); Início e Ajustes seguem congeladas.
+- A prévia sai do registro de passagem para a tela cheia quando a seção é descarregada. Verificação de release atualizada para o novo comportamento. Build Android elevado para `20261049`.
+
 ## [2.17.30] — 2026-11-07
 
 - Player ao vivo: com o OSD (controles) aberto, Voltar fecha o OSD; o guia e a confirmação também fecham primeiro. Com a tela limpa, Voltar retorna à lista de canais. Filmes e séries já fechavam o OSD com Voltar. Build Android elevado para `20261048`.

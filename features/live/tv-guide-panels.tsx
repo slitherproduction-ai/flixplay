@@ -89,6 +89,12 @@ export function TvChannelPreview({ channel, width, active }: ChannelPreviewProps
     } catch { /* opções de buffer indisponíveis: segue com o padrão */ }
   });
 
+  // Seção descarregada (volta à Início): o player desta prévia é liberado
+  // junto, então ele sai do registro de passagem para a tela cheia.
+  useEffect(() => () => {
+    if (!isPreviewClaimed()) registerPreview(null);
+  }, []);
+
   // Ao voltar da tela cheia, a superfície de vídeo é recriada para o player
   // (que estava desenhando na tela cheia) voltar a desenhar na prévia.
   const [surfaceKey, setSurfaceKey] = useState(0);

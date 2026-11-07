@@ -22,7 +22,7 @@ import { EPG_LIVE_PRELOAD_LIMIT, useEpgPreload, useEpgPreloader } from "@/hooks/
 import { useAppStore } from "@/store/useAppStore";
 import type { ChannelItem } from "@/store/types";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
-import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
+import { withTvTabEviction } from "@/components/tv-tab-eviction";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { ParentalGate } from "@/components/parental-gate";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
@@ -421,7 +421,7 @@ function TvLiveUtility() {
 // Main screen
 // ---------------------------------------------------------------------------
 
-export default function LiveScreen() {
+function LiveScreen() {
   const router = useRouter();
   const tvMode = useTVMode();
   const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
@@ -596,7 +596,8 @@ export default function LiveScreen() {
   // on 720p and 1080p televisions.  Previous fixed dimensions made the two
   // panes compete on smaller TV panels.
   const horizontalPadding = tvMode ? Math.max(20, Math.min(32, Math.round(width * 0.018))) : isTablet ? contentPadding : 20;
-  const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
+  // Sem menu lateral na TV: a seção usa a largura inteira.
+  const availableWidth = width;
   const tvGuideWidth = Math.min(1640, availableWidth - horizontalPadding * 2);
   const tvPreviewWidth = Math.round(Math.min(620, Math.max(350, tvGuideWidth * 0.43)));
   // Compact gaps recover horizontal room for long category and channel names
@@ -1076,3 +1077,5 @@ const styles = StyleSheet.create({
   tvUtility: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 13, paddingHorizontal: 10, borderRadius: 10, backgroundColor: "rgba(12,23,40,0.54)" },
   tvUtilityTime: { color: Colors.text, fontFamily: "Inter_600SemiBold", fontSize: 15, fontVariant: ["tabular-nums"] },
 });
+
+export default withTvTabEviction(LiveScreen, "/live");

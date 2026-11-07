@@ -18,7 +18,7 @@ import { useSyncStatus } from "@/hooks/useXtreamSync";
 import { AppText, EmptyState, PosterCard } from "@/components/ui";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem } from "@/store/types";
-import { TV_NAV_WIDTH } from "@/components/tv-side-navigation";
+import { withTvTabEviction } from "@/components/tv-tab-eviction";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
@@ -45,7 +45,7 @@ const FAVORITES_LABEL = "Favoritos";
 // Main screen
 // ---------------------------------------------------------------------------
 
-export default function SeriesScreen() {
+function SeriesScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const tvMode = useTVMode();
@@ -54,7 +54,8 @@ export default function SeriesScreen() {
   const [query, setQuery] = useState("");
 
   const hPad = tvMode ? 46 : isTablet ? contentPadding : 16;
-  const availableWidth = width - (tvMode ? TV_NAV_WIDTH : 0);
+  // Sem menu lateral na TV: a seção usa a largura inteira.
+  const availableWidth = width;
   const numColumns = tvMode
     ? (width >= 1500 ? 9 : width >= 1100 ? 7 : 6)
     : (isTabletLandscape ? 6 : isTablet ? 4 : width >= 1000 ? 5 : width >= 700 ? 4 : 3);
@@ -354,3 +355,5 @@ const styles = StyleSheet.create({
   },
   syncBtnText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.white },
 });
+
+export default withTvTabEviction(SeriesScreen, "/series");

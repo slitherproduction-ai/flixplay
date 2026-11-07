@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Tabs, usePathname } from "expo-router";
+import { Tabs } from "expo-router";
 import type React from "react";
 import { Platform, StyleSheet, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
@@ -8,9 +8,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { useXtreamSync } from "@/hooks/useXtreamSync";
 import { useTVMode } from "@/hooks/use-tv-mode";
-import { TvSideNavigation } from "@/components/tv-side-navigation";
-import { isTvRouteActive } from "@/core/navigation/tv-routes";
-import { View } from "react-native";
 
 // ---------------------------------------------------------------------------
 // Tab bar button
@@ -68,7 +65,6 @@ const tabBarButton: ((props: TabButtonProps) => React.ReactNode) | undefined = P
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const tvMode = useTVMode();
-  const pathname = usePathname();
   // Trigger real server sync as soon as tabs are mounted
   useXtreamSync();
 
@@ -128,6 +124,9 @@ export default function TabsLayout() {
         name="live"
         options={{
           title: "TV ao Vivo",
+          // Sem congelar: na TV a seção é descarregada ao voltar à Início
+          // (withTvTabEviction), o que um congelamento impediria.
+          freezeOnBlur: false,
           tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "radio" : "radio-outline"} color={color} size={size - 1} />,
         }}
       />
@@ -135,6 +134,9 @@ export default function TabsLayout() {
         name="movies"
         options={{
           title: "Filmes",
+          // Sem congelar: na TV a seção é descarregada ao voltar à Início
+          // (withTvTabEviction), o que um congelamento impediria.
+          freezeOnBlur: false,
           tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "film" : "film-outline"} color={color} size={size - 1} />,
         }}
       />
@@ -142,6 +144,9 @@ export default function TabsLayout() {
         name="series"
         options={{
           title: "Séries",
+          // Sem congelar: na TV a seção é descarregada ao voltar à Início
+          // (withTvTabEviction), o que um congelamento impediria.
+          freezeOnBlur: false,
           tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "albums" : "albums-outline"} color={color} size={size - 1} />,
         }}
       />
@@ -155,29 +160,9 @@ export default function TabsLayout() {
     </Tabs>
   );
 
-  if (!tvMode) return navigator;
-
-  return (
-    <View style={styles.tvRoot}>
-      {/*
-       * Keep the rail in the normal flex layout. Fire OS can re-compose the
-       * React Navigation scene above an absolutely positioned sibling and
-       * intermittently hide its labels/icons, regardless of zIndex/elevation.
-       * An in-flow sibling has its own reserved surface and cannot be painted
-       * over by the active tab scene.
-       */}
-      {/*
-       * Como no Roku, a Início é um hub: seus blocos de navegação substituem
-       * o menu lateral. Nas demais seções o menu permanece, e Voltar retorna
-       * à Início (backBehavior padrão do Tabs: firstRoute).
-       */}
-      {isTvRouteActive(pathname, "/") ? null : <TvSideNavigation />}
-      <View style={styles.tvNavigator}>{navigator}</View>
-    </View>
-  );
+  // Como no Roku, na LG e no Samsung, a navegação da TV parte da Início:
+  // seus blocos levam às seções e Voltar retorna a ela (backBehavior padrão
+  // do Tabs: firstRoute). Sem menu lateral.
+  return navigator;
 }
 
-const styles = StyleSheet.create({
-  tvRoot: { flex: 1, flexDirection: "row", backgroundColor: Colors.background },
-  tvNavigator: { flex: 1, minWidth: 0 },
-});

@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.30",
+    version: "v2.17.31",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Na TV, a navegação ficou igual à do Roku, da LG e do Samsung: sem menu lateral, tudo parte da Início e Voltar retorna a ela." },
+      { tag: "Melhoria", text: "Ao voltar à Início, Ao vivo, Filmes e Séries liberam memória, deixando TVs e Fire Sticks mais simples mais leves." },
+    ],
+  },
+  {
+    version: "v2.17.30",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "No ao vivo, com os controles abertos, Voltar fecha os controles; com a tela limpa, volta à lista de canais." },

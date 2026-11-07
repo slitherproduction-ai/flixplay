@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.30] — 2026-11-07
+
+- Player ao vivo: com o OSD (controles) aberto, Voltar fecha o OSD; o guia e a confirmação também fecham primeiro. Com a tela limpa, Voltar retorna à lista de canais. Filmes e séries já fechavam o OSD com Voltar. Build Android elevado para `20261048`.
+
 ## [2.17.29] — 2026-11-07
 
 - Ao vivo (TV): a tela cheia usa o mesmo player da prévia do guia (`features/live/live-preview-handoff.ts`). Com a prévia já tocando o canal escolhido, o canal abre sem recarregar e com um só decodificador ativo; ao apertar Voltar, a prévia continua no mesmo canal, do ponto em que está, sem recarregar. Depois de canal +/- em tela cheia, a lista volta com o canal que estava tocando selecionado. Se o canal for aberto antes de a prévia carregar, o comportamento é o de antes (player próprio).

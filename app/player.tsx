@@ -951,10 +951,10 @@ export default function PlayerScreen() {
       return;
     }
     clearHideTimer();
-    // Ao vivo: Voltar retorna direto à lista de canais (sem confirmação),
-    // fechando antes o guia ou a confirmação, se estiverem abertos.
+    // Ao vivo: Voltar primeiro fecha o que estiver aberto (controles, guia ou
+    // confirmação); com a tela limpa, retorna direto à lista de canais.
     if (contentType === "live") {
-      if (uiLayer === "epg" || uiLayer === "exit-confirmation") {
+      if (uiLayer === "osd" || uiLayer === "epg" || uiLayer === "exit-confirmation") {
         dispatchUi({ type: "HIDE" });
         return;
       }

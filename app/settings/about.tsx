@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.29",
+    version: "v2.17.30",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "No ao vivo, com os controles abertos, Voltar fecha os controles; com a tela limpa, volta à lista de canais." },
+    ],
+  },
+  {
+    version: "v2.17.29",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Na TV, o canal abre em tela cheia direto da prévia, sem recarregar, e ao apertar Voltar a prévia continua tocando o mesmo canal." },

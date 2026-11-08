@@ -14,6 +14,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.fastshot.slitherproduction.flixplay.security.SecureStoragePackage
 import com.fastshot.slitherproduction.flixplay.update.UpdateIntegrityPackage
 import com.fastshot.slitherproduction.flixplay.data.CatalogDatabasePackage
+import com.fastshot.slitherproduction.flixplay.device.DeviceProfilePackage
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
@@ -33,6 +34,8 @@ class MainApplication : Application(), ReactApplication {
           // Cache local do catálogo (SQLite): o app abre com a lista salva sem
           // baixar tudo de novo a cada inicialização.
           add(CatalogDatabasePackage())
+          // Perfil do aparelho (RAM/TV) e tela ligada só durante a reprodução.
+          add(DeviceProfilePackage())
         }
     )
   }

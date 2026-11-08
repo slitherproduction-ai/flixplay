@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useDeferredValue, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -24,6 +24,7 @@ import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
 import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
 import { displayCategory } from "@/features/catalog/display";
+import { parseAddedAt } from "@/features/catalog/addedAt";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
 
@@ -47,6 +48,9 @@ function MoviesScreen() {
   const [genre, setGenre] = useState("Todos");
   const [sort, setSort] = useState<SortOption>("Mais recentes");
   const [query, setQuery] = useState("");
+  // A digitação continua fluida: o filtro de milhares de itens roda com o
+  // valor "atrasado" e o React descarta os cálculos que ficaram velhos.
+  const deferredQuery = useDeferredValue(query);
 
   const allMovies = useAppStore((state) => state.contentCache.vodMovies);
   const hiddenCategories = useHiddenCategoryNames("movies");
@@ -73,7 +77,7 @@ function MoviesScreen() {
   );
 
   const filteredMovies = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return movies
       .filter((movie) => {
         const matchGenre = genre === FAVORITES_LABEL
@@ -88,11 +92,11 @@ function MoviesScreen() {
         if (sort === "Z-A") return b.title.localeCompare(a.title);
         // Xtream returns `added` for catalog insertion. Release year is not a
         // substitute: old films may be inserted today and must appear first.
-        const addedA = Date.parse(a.addedAt ?? "") || 0;
-        const addedB = Date.parse(b.addedAt ?? "") || 0;
+        const addedA = parseAddedAt(a.addedAt);
+        const addedB = parseAddedAt(b.addedAt);
         return addedB - addedA || a.title.localeCompare(b.title);
       });
-  }, [movies, genre, query, sort, favoriteMovieIds]);
+  }, [movies, genre, deferredQuery, sort, favoriteMovieIds]);
   const pager = useCatalogPagination<VodMovie>(activeServerId, "vodMovies", {
     categoryName: genre === FAVORITES_LABEL || genre === "Todos" ? "" : genre,
     query: genre === FAVORITES_LABEL ? "" : query.trim(),

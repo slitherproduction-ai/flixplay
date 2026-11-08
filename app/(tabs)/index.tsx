@@ -20,6 +20,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { PlayHistory, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 import { dedupeTitleVariants, displayCategory, displayTitle } from "@/features/catalog/display";
+import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
 
 // ---------------------------------------------------------------------------
 // Home em formato de hub, alinhada ao ELVANOQ Play para Roku (0.1.88):
@@ -152,13 +153,6 @@ function toHeroSeries(series: SeriesItem): HeroContent {
   };
 }
 
-function parseAddedAt(value?: string): number {
-  if (!value) return 0;
-  const numeric = Number(value);
-  if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function weeklyFeaturedMovie(movies: VodMovie[], previousId?: string): VodMovie | null {
   if (movies.length === 0) return null;
@@ -167,9 +161,12 @@ function weeklyFeaturedMovie(movies: VodMovie[], previousId?: string): VodMovie 
     const addedAt = parseAddedAt(movie.addedAt);
     return addedAt > 0 && now - addedAt <= FEATURED_RECENT_WINDOW_MS;
   });
-  const ranked = (recent.length ? recent : movies)
-    .slice()
-    .sort((a, b) => b.rating - a.rating || parseAddedAt(b.addedAt) - parseAddedAt(a.addedAt) || b.year - a.year);
+  // Só os dois melhores importam (o 2º substitui o destaque da semana anterior).
+  const ranked = topItems(
+    recent.length ? recent : movies,
+    2,
+    (a, b) => b.rating - a.rating || parseAddedAt(b.addedAt) - parseAddedAt(a.addedAt) || b.year - a.year,
+  );
   return ranked.find((movie) => movie.id !== previousId) ?? ranked[0] ?? null;
 }
 
@@ -797,15 +794,16 @@ export default function HomeScreen() {
 
   // Filmes e séries do mais recente para o mais antigo (`recentTitles` do Roku).
   const recentTitles = useMemo<HeroContent[]>(() => {
-    const entries = [
-      ...movies.map((movie) => ({ added: parseAddedAt(movie.addedAt), content: toHeroMovie(movie) })),
-      ...seriesList.map((item) => ({ added: 0, content: toHeroSeries(item) })),
-    ];
-    return dedupeTitleVariants(entries
-      .sort((a, b) => b.added - a.added)
-      .slice(0, PRIMARY_RAIL_LIMIT * 2)
-      .map((entry) => entry.content))
-      .slice(0, PRIMARY_RAIL_LIMIT);
+    // Mesmo resultado de ordenar filmes + séries por data (séries sem data vêm
+    // depois), mas sem criar e ordenar um objeto por título do catálogo inteiro.
+    const wanted = PRIMARY_RAIL_LIMIT * 2;
+    const newestMovies = topItems(
+      movies.map((movie, index) => ({ index, added: parseAddedAt(movie.addedAt) })),
+      wanted,
+      (a, b) => b.added - a.added,
+    ).map((entry) => toHeroMovie(movies[entry.index]));
+    const fillSeries = seriesList.slice(0, Math.max(0, wanted - newestMovies.length)).map(toHeroSeries);
+    return dedupeTitleVariants([...newestMovies, ...fillSeries]).slice(0, PRIMARY_RAIL_LIMIT);
   }, [movies, seriesList]);
 
   const heroSlides = useMemo(() => {
@@ -942,7 +940,7 @@ export default function HomeScreen() {
     [recentTitles],
   );
   const topSeries = useMemo(
-    () => seriesList.slice().sort((a, b) => b.rating - a.rating).slice(0, SECONDARY_RAIL_LIMIT),
+    () => topItems(seriesList, SECONDARY_RAIL_LIMIT, (a, b) => b.rating - a.rating),
     [seriesList],
   );
   const showFavoritesRail = favoriteTitles.length > 0 && primaryRail?.title !== "Seus favoritos";

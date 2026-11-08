@@ -11,7 +11,7 @@ import com.facebook.react.bridge.ReactMethod
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val CATALOG_DB_VERSION = 3
+private const val CATALOG_DB_VERSION = 4
 
 private class CatalogDatabase(context: Context) :
   SQLiteOpenHelper(context, "flixplay_catalog.db", null, CATALOG_DB_VERSION) {
@@ -28,7 +28,10 @@ private class CatalogDatabase(context: Context) :
       )
       """.trimIndent(),
     )
-    db.execSQL("CREATE INDEX catalog_page_idx ON catalog_items(server_id, kind, item_id)")
+    // Índice por (server_id, kind): dentro dele as linhas ficam em ordem de rowid,
+    // então "ORDER BY rowid" das páginas não precisa ordenar a tabela inteira a
+    // cada página. A chave primária já cobre buscas por item_id.
+    db.execSQL("CREATE INDEX catalog_kind_idx ON catalog_items(server_id, kind)")
   }
 
   // O banco é só um cache do catálogo: em qualquer troca de versão (inclusive
@@ -111,6 +114,30 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
         db.endTransaction()
       }
       promise.resolve(items.length())
+    } catch (_: Exception) {
+      promise.reject("CATALOG_WRITE_FAILED", "Não foi possível persistir o catálogo local.")
+    }
+  }
+
+  /**
+   * Troca a lista gravada em partes (kind "<kind>::staging") pela lista atual numa
+   * única transação: se o app fechar no meio da gravação, o catálogo anterior
+   * continua inteiro.
+   */
+  @ReactMethod
+  fun commitStaging(serverId: String, kind: String, promise: Promise) {
+    try {
+      val db = database.writableDatabase
+      db.beginTransaction()
+      try {
+        db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, kind))
+        val values = ContentValues().apply { put("kind", kind) }
+        val moved = db.update("catalog_items", values, "server_id = ? AND kind = ?", arrayOf(serverId, "$kind::staging"))
+        db.setTransactionSuccessful()
+        promise.resolve(moved.toDouble())
+      } finally {
+        db.endTransaction()
+      }
     } catch (_: Exception) {
       promise.reject("CATALOG_WRITE_FAILED", "Não foi possível persistir o catálogo local.")
     }

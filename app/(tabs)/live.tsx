@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useDeferredValue, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -448,6 +448,9 @@ function LiveScreen() {
   const [category, setCategory] = useState("Todos");
   const [categoryQuery, setCategoryQuery] = useState("");
   const [query, setQuery] = useState("");
+  // A digitação continua fluida: o filtro de milhares de itens roda com o
+  // valor "atrasado" e o React descarta os cálculos que ficaram velhos.
+  const deferredQuery = useDeferredValue(query);
   const [viewMode, toggleViewMode] = useViewMode();
   const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
 
@@ -483,14 +486,14 @@ function LiveScreen() {
   }, [channels, favoriteChannelIds.length]);
 
   const filteredChannels = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return channels.filter((ch) => {
       if (category === FAVORITES_LABEL) return favoriteChannelIds.includes(ch.id);
       const matchCat = category === "Todos" || ch.categoryName === category;
       const matchQ = !q || `${ch.name} ${ch.currentEpg.title}`.toLowerCase().includes(q);
       return matchCat && matchQ;
     });
-  }, [channels, category, query, favoriteChannelIds]);
+  }, [channels, category, deferredQuery, favoriteChannelIds]);
   const pager = useCatalogPagination<ChannelItem>(activeServerId, "liveChannels", {
     categoryName: category === FAVORITES_LABEL || category === "Todos" ? "" : category,
     query: category === FAVORITES_LABEL ? "" : query.trim(),

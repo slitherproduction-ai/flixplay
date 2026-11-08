@@ -47,8 +47,20 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.32",
+    version: "v2.17.33",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Número do canal igual ao do painel: digitar o número no controle abre o canal certo." },
+      { tag: "Correção", text: "Filmes: a ordem Recentes volta a mostrar os títulos adicionados por último." },
+      { tag: "Correção", text: "Listas M3U: canais com opções extras antes do link não somem mais, e favoritos não trocam de canal quando a lista muda." },
+      { tag: "Melhoria", text: "Ao vivo reconecta sozinho até 3 vezes quando a internet cai." },
+      { tag: "Melhoria", text: "Mais leve em aparelhos com pouca memória e com mais folga de buffer nos aparelhos potentes." },
+      { tag: "Melhoria", text: "No celular, a tela apaga normalmente nos menus e fica ligada só durante o vídeo." },
+    ],
+  },
+  {
+    version: "v2.17.32",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Em TV ao Vivo, Filmes, Séries e Ajustes, Voltar retorna à Início em vez de perguntar se deseja sair do aplicativo." },

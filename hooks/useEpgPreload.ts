@@ -17,6 +17,13 @@ type UpdateChannelEpg = ReturnType<typeof useAppStore.getState>["updateChannelEp
 type UpdateChannelEpgBatch = ReturnType<typeof useAppStore.getState>["updateChannelEpgBatch"];
 type EpgJob = { key: string; profile: ServerProfile; channel: ChannelItem; update: UpdateChannelEpg };
 
+// Fila curta: ao rolar rápido, pedidos de canais que já saíram da tela são
+// descartados (os mais antigos) em vez de ocupar a rede por minutos.
+const EPG_QUEUE_LIMIT = 48;
+// Cada lote recria a lista de canais no store: juntar mais respostas por lote
+// reduz as re-renderizações em listas de 8–30 mil canais.
+const EPG_BATCH_WINDOW_MS = 500;
+
 const queuedKeys = new Set<string>();
 const epgQueue: EpgJob[] = [];
 let activeJobs = 0;
@@ -76,8 +83,12 @@ export function useEpgPreloader() {
             const batch = pendingBatch.current.splice(0);
             batchTimer.current = null;
             updateChannelEpgBatch(batch);
-          }, 120);
+          }, EPG_BATCH_WINDOW_MS);
         } });
+      }
+      while (epgQueue.length > EPG_QUEUE_LIMIT) {
+        const stale = epgQueue.shift();
+        if (stale) queuedKeys.delete(stale.key);
       }
       drainEpgQueue();
     },

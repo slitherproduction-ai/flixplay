@@ -16,6 +16,7 @@ import { TVFocusable } from "@/components/tv-focusable";
 import { UpdateAvailableNotice } from "@/components/update-available-notice";
 import { CodeAccessGate } from "@/components/code-access-gate";
 import { LegacyPortalMigration } from "@/components/legacy-portal-migration";
+import { applyStartupKeepAwake } from "@/services/deviceProfile";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -522,6 +523,11 @@ const pipStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 export default function RootLayout() {
   const [loaded, error] = useFonts(FontMap);
+
+  // Na TV a tela fica sempre ligada (como antes); no celular só no player.
+  useEffect(() => {
+    applyStartupKeepAwake();
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {

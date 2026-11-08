@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useDeferredValue, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -52,6 +52,9 @@ function SeriesScreen() {
   const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
   const [genre, setGenre] = useState("Todas");
   const [query, setQuery] = useState("");
+  // A digitação continua fluida: o filtro de milhares de itens roda com o
+  // valor "atrasado" e o React descarta os cálculos que ficaram velhos.
+  const deferredQuery = useDeferredValue(query);
 
   const hPad = tvMode ? 46 : isTablet ? contentPadding : 16;
   // Sem menu lateral na TV: a seção usa a largura inteira.
@@ -81,13 +84,13 @@ function SeriesScreen() {
     if (genre === FAVORITES_LABEL) {
       return seriesList.filter((item) => favoriteSeriesIds.includes(item.id));
     }
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return seriesList.filter((item) => {
       const matchGenre = genre === "Todas" || item.genre === genre;
       const matchQ = !q || `${item.title} ${item.genre}`.toLowerCase().includes(q);
       return matchGenre && matchQ;
     });
-  }, [seriesList, genre, query, favoriteSeriesIds]);
+  }, [seriesList, genre, deferredQuery, favoriteSeriesIds]);
   const pager = useCatalogPagination<SeriesItem>(activeServerId, "seriesList", {
     categoryName: genre === FAVORITES_LABEL || genre === "Todas" ? "" : genre,
     query: genre === FAVORITES_LABEL ? "" : query.trim(),

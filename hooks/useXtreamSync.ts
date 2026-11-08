@@ -85,7 +85,8 @@ async function restoreOfflineCache(profile: ServerProfile): Promise<boolean> {
     ...movie,
     streamUrl: createVodUrl(profile, movie.streamId, movie.containerExtension ?? "mp4"),
   }));
-  if (liveChannels.length === 0) return false;
+  // Provedores só de filmes/séries também abrem com o catálogo salvo.
+  if (liveChannels.length === 0 && vodMovies.length === 0 && seriesList.length === 0) return false;
   useAppStore.getState().setContentCache({
     liveCategories,
     liveChannels,
@@ -142,7 +143,7 @@ async function fetchAndCacheContent(
       (item) => item.id,
     );
     const mappedLiveChannels = deduplicateCatalogItems(
-      liveStreams.map((stream) =>
+      liveStreams.map((stream, index) =>
         mapLiveStreamToChannel(
           stream,
           liveCatMap.get(String(stream.category_id)) ?? {
@@ -151,6 +152,7 @@ async function fetchAndCacheContent(
             parent_id: 0,
           },
           profile,
+          index + 1,
         ),
       ),
       (item) => item.id,

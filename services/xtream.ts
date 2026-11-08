@@ -32,6 +32,8 @@ export interface XtreamAuthResponse {
 }
 
 export interface XtreamLiveStream {
+  /** Posição do canal no painel (o número que o usuário digita no controle). */
+  num?: number | string;
   stream_id: number;
   name: string;
   stream_icon: string;
@@ -681,25 +683,55 @@ export function mapSeriesStreamToItem(
   };
 }
 
+/**
+ * Título do #EXTINF: o texto depois da primeira vírgula FORA de aspas, para que
+ * atributos como group-title="Filmes, Ação" não cortem o nome do canal.
+ */
+export function extinfTitle(metadata: string): string {
+  let inQuotes = false;
+  for (let index = 0; index < metadata.length; index += 1) {
+    const char = metadata[index];
+    if (char === '"') inQuotes = !inQuotes;
+    else if (char === "," && !inQuotes) return metadata.slice(index + 1).trim();
+  }
+  return "";
+}
+
 export function parseM3uPlaylist(text: string): M3uEntry[] {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
   const entries: M3uEntry[] = [];
   const seen = new Set<string>();
-  for (let index = 0; index < lines.length; index += 1) {
-    const metadata = lines[index];
-    if (!metadata.startsWith("#EXTINF")) continue;
-    const url = lines[index + 1];
-    if (!url || url.startsWith("#")) continue;
-    const title =
-      metadata.split(",").slice(1).join(",").trim() || "Canal sem nome";
+  // Uma linha por vez, sem montar um segundo array com a lista inteira.
+  let pending: string | null = null;
+  let pendingGroup = "";
+  let start = 0;
+  const length = text.length;
+  while (start <= length) {
+    let end = text.indexOf("\n", start);
+    if (end === -1) end = length;
+    const line = text.slice(start, end).trim();
+    start = end + 1;
+    if (!line) continue;
+    if (line.startsWith("#EXTINF")) {
+      pending = line;
+      pendingGroup = "";
+      continue;
+    }
+    if (line.startsWith("#")) {
+      // #EXTVLCOPT, #KODIPROP etc. podem ficar entre o #EXTINF e o link: o
+      // canal continua pendente. #EXTGRP vale como grupo quando falta group-title.
+      if (pending && line.startsWith("#EXTGRP:")) pendingGroup = line.slice(8).trim();
+      continue;
+    }
+    if (!pending) continue;
+    const metadata = pending;
+    const url = line;
+    pending = null;
+    const title = extinfTitle(metadata) || "Canal sem nome";
     // M3U attributes use quoted values. `tvg-chno` and `channel-number` are
     // both seen in the wild, so preserve either without inventing a number.
     const attribute = (name: string) => metadata.match(new RegExp(`${name}="([^"]*)"`, "i"))?.[1]?.trim() ?? "";
     const tvgId = attribute("tvg-id");
-    const group = attribute("group-title") || "Geral";
+    const group = attribute("group-title") || pendingGroup || "Geral";
     const logo = attribute("tvg-logo");
     const number = attribute("tvg-chno") || attribute("channel-number") || null;
     const catchupMode = attribute("catchup").toLowerCase();
@@ -709,15 +741,13 @@ export function parseM3uPlaylist(text: string): M3uEntry[] {
     // A playlist often repeats a channel under more than one group. The stream
     // URL is the only reliable deduplication key when tvg-id is absent.
     const dedupeKey = `${tvgId || id}\u0000${url}`;
-    if (!seen.has(dedupeKey)) {
-      seen.add(dedupeKey);
-      entries.push({
-        id, tvgId, name: title, logo, group, number, url,
-        catchupDays: catchupMode && catchupMode !== "none" && Number.isFinite(catchupDays) && catchupDays > 0 ? catchupDays : undefined,
-        catchupSource: catchupMode && catchupMode !== "none" && catchupSource ? catchupSource : undefined,
-      });
-    }
-    index += 1;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    entries.push({
+      id, tvgId, name: title, logo, group, number, url,
+      catchupDays: catchupMode && catchupMode !== "none" && Number.isFinite(catchupDays) && catchupDays > 0 ? catchupDays : undefined,
+      catchupSource: catchupMode && catchupMode !== "none" && catchupSource ? catchupSource : undefined,
+    });
   }
   return entries;
 }
@@ -726,11 +756,19 @@ export function mapLiveStreamToChannel(
   stream: XtreamLiveStream,
   category: XtreamCategory,
   profile: ServerProfile,
+  /** Posição na lista (1, 2, 3…), usada quando o painel não envia `num`. */
+  position?: number,
 ): ChannelItem {
+  const panelNumber = Number(stream.num);
+  const number = Number.isFinite(panelNumber) && panelNumber > 0
+    ? String(Math.trunc(panelNumber))
+    : position && position > 0
+      ? String(position)
+      : String(stream.stream_id);
   return {
     id: `channel-${stream.stream_id}`,
     name: stream.name,
-    number: String(stream.stream_id),
+    number,
     streamId: String(stream.stream_id),
     logo: stream.stream_icon,
     categoryId: category.category_id,

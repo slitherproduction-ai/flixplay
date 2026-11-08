@@ -660,9 +660,10 @@ export default function PlayerScreen() {
           logTechnicalError("Player/fallback", replaceErr);
           setPlayerError(mapPlayerError(status).message);
         }
-      } else if (contentType === "live" && liveErrorRetriesRef.current < LIVE_ERROR_RETRIES) {
-        // Ao vivo: uma queda de rede vira "error". Reconecta sozinho 3 vezes,
-        // com espera crescente (3, 6 e 9 s), como Roku, LG e Samsung.
+      } else if (contentType === "live" && playbackStartedRef.current && liveErrorRetriesRef.current < LIVE_ERROR_RETRIES) {
+        // Ao vivo que já estava tocando: uma queda de rede vira "error".
+        // Reconecta sozinho 3 vezes, com espera crescente (3, 6 e 9 s), como
+        // Roku, LG e Samsung. Canal que nunca abriu mostra o erro na hora.
         liveErrorRetriesRef.current += 1;
         const attempt = liveErrorRetriesRef.current;
         logTechnicalError("Player/live-reconnect", status);

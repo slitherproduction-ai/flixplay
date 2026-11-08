@@ -34,6 +34,8 @@ export type TvCatalogEntry = {
   rating: number;
   year: number;
   category: string;
+  /** ID estável do grupo no painel, quando disponível. */
+  categoryId?: string;
   /** Duração (filme) ou temporadas (série). */
   detail: string;
   quality?: string;
@@ -45,6 +47,9 @@ type CategoryRow = {
   total: number | null;
   icon?: "search" | "star" | "grid-outline";
   special?: boolean;
+  categoryId?: string;
+  /** Nome original do provedor, sem a limpeza exclusiva de apresentação. */
+  categoryName?: string;
 };
 
 const SEARCH_KEY = "__search";
@@ -57,8 +62,8 @@ const SEARCH_LIMIT = 120;
 type Props = {
   kind: "movies" | "series";
   entries: TvCatalogEntry[];
-  /** Ordem das categorias como chegam da lista (painel do provedor). */
-  categoryNames: string[];
+  /** Ordem e IDs das categorias como chegam da lista (painel do provedor). */
+  categories: { id: string; name: string }[];
   favoriteIds: string[];
   isSyncing: boolean;
   syncProgress: string | null;
@@ -233,7 +238,7 @@ const CategoryRowItem = memo(function CategoryRowItem({
 export function TvCatalogBrowser({
   kind,
   entries,
-  categoryNames,
+  categories: providerCategories,
   favoriteIds,
   isSyncing,
   syncProgress,
@@ -275,13 +280,19 @@ export function TvCatalogBrowser({
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<TvCatalogEntry>(focusScope, !touch, columns);
 
   const counts = useMemo(() => {
-    const map = new Map<string, number>();
+    const byName = new Map<string, number>();
+    const byId = new Map<string, number>();
     for (const entry of entries) {
       const name = entry.category || "Sem categoria";
-      map.set(name, (map.get(name) ?? 0) + 1);
+      byName.set(name, (byName.get(name) ?? 0) + 1);
+      if (entry.categoryId) byId.set(entry.categoryId, (byId.get(entry.categoryId) ?? 0) + 1);
     }
-    return map;
+    return { byName, byId };
   }, [entries]);
+  const providerCategoryNames = useMemo(
+    () => new Map(providerCategories.map((category) => [category.id, category.name])),
+    [providerCategories],
+  );
 
   const categories = useMemo<CategoryRow[]>(() => {
     const ordered: CategoryRow[] = [
@@ -290,19 +301,22 @@ export function TvCatalogBrowser({
       { key: ALL_KEY, name: "Todas", total: entries.length, icon: "grid-outline" },
     ];
     const seen = new Set<string>();
-    for (const name of categoryNames) {
-      if (seen.has(name)) continue;
-      seen.add(name);
-      ordered.push({ key: name, name: displayCategory(name), total: counts.get(name) ?? 0 });
+    for (const category of providerCategories) {
+      if (seen.has(category.id)) continue;
+      seen.add(category.id);
+      const total = counts.byId.get(category.id) ?? counts.byName.get(category.name) ?? 0;
+      ordered.push({ key: `category:${category.id}`, name: displayCategory(category.name), total, categoryId: category.id, categoryName: category.name });
     }
     // Categorias presentes nos títulos mas ausentes da lista de categorias.
-    for (const [name, total] of counts) {
-      if (!seen.has(name)) ordered.push({ key: name, name: displayCategory(name), total });
+    for (const [name, total] of counts.byName) {
+      if (![...providerCategoryNames.values()].includes(name)) ordered.push({ key: `category-name:${name}`, name: displayCategory(name), total, categoryName: name });
     }
     return ordered;
-  }, [categoryNames, counts, entries.length, favoriteIds.length]);
+  }, [providerCategories, providerCategoryNames, counts, entries.length, favoriteIds.length]);
 
   const realCategoryCount = categories.length - 3;
+
+  const selectedCategory = categories.find((category) => category.key === selectedKey) ?? categories[2];
 
   const visibleEntries = useMemo(() => {
     if (selectedKey === SEARCH_KEY) return searchResults;
@@ -311,10 +325,11 @@ export function TvCatalogBrowser({
       const ids = new Set(favoriteIds);
       return entries.filter((entry) => ids.has(entry.id));
     }
-    return entries.filter((entry) => (entry.category || "Sem categoria") === selectedKey);
-  }, [entries, favoriteIds, searchResults, selectedKey]);
-
-  const selectedCategory = categories.find((category) => category.key === selectedKey) ?? categories[2];
+    return entries.filter((entry) => selectedCategory?.categoryId
+      ? entry.categoryId === selectedCategory.categoryId
+        || (!entry.categoryId && entry.category === providerCategoryNames.get(selectedCategory.categoryId))
+      : (entry.category || "Sem categoria") === selectedCategory?.categoryName);
+  }, [entries, favoriteIds, providerCategoryNames, searchResults, selectedCategory, selectedKey]);
 
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 

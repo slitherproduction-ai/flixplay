@@ -15,6 +15,13 @@ import { displayCategory, formatNumber } from "@/features/catalog/display";
 //   lista para baixo.
 // ---------------------------------------------------------------------------
 
+export type CatalogCategoryOption = {
+  /** Stable provider ID (or one of the screen's special filter keys). */
+  key: string;
+  /** Text shown to the viewer. */
+  label: string;
+};
+
 type Props<S extends string> = {
   title: string;
   noun: { singular: string; plural: string };
@@ -27,10 +34,10 @@ type Props<S extends string> = {
   query: string;
   setQuery: (value: string) => void;
   searchPlaceholder: string;
-  categories: string[];
+  categories: CatalogCategoryOption[];
   category: string;
   setCategory: (value: string) => void;
-  favoritesLabel: string;
+  favoritesKey: string;
   sortOptions?: readonly S[];
   sort?: S;
   setSort?: (value: S) => void;
@@ -51,14 +58,14 @@ export function MobileCatalogHeader<S extends string>({
   categories,
   category,
   setCategory,
-  favoritesLabel,
+  favoritesKey,
   sortOptions,
   sort,
   setSort,
 }: Props<S>) {
   const insets = useSafeAreaInsets();
   const [sortOpen, setSortOpen] = useState(false);
-  const onFavorites = category === favoritesLabel;
+  const onFavorites = category === favoritesKey;
 
   return (
     <View style={[styles.block, { paddingTop: insets.top + 14 }]}>
@@ -93,11 +100,11 @@ export function MobileCatalogHeader<S extends string>({
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroller} contentContainerStyle={styles.chipContent}>
         {categories.map((item) => (
           <Chip
-            key={item}
-            label={item === favoritesLabel ? "Minha Lista" : displayCategory(item)}
-            selected={category === item}
-            onPress={() => setCategory(item)}
-            icon={item === favoritesLabel ? (category === item ? "bookmark" : "bookmark-outline") : undefined}
+            key={item.key}
+            label={item.key === favoritesKey ? "Minha Lista" : displayCategory(item.label)}
+            selected={category === item.key}
+            onPress={() => setCategory(item.key)}
+            icon={item.key === favoritesKey ? (category === item.key ? "bookmark" : "bookmark-outline") : undefined}
           />
         ))}
       </ScrollView>

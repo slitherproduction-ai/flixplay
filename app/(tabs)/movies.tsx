@@ -22,7 +22,7 @@ import { withTvTabEviction } from "@/components/tv-tab-eviction";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
-import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
+import { MobileCatalogHeader, type CatalogCategoryOption } from "@/features/catalog/mobile-catalog-header";
 import { displayCategory } from "@/features/catalog/display";
 import { parseAddedAt } from "@/features/catalog/addedAt";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
@@ -34,7 +34,8 @@ const MOVIES_FOCUS_SCOPE = "movies-grid";
 const SORT_OPTIONS = ["Mais recentes", "Melhor avaliados", "A-Z", "Z-A"] as const;
 type SortOption = typeof SORT_OPTIONS[number];
 
-const FAVORITES_LABEL = "Favoritos";
+const FAVORITES_KEY = "__favorites__";
+const ALL_KEY = "__all__";
 
 // ---------------------------------------------------------------------------
 // Main screen
@@ -45,7 +46,10 @@ function MoviesScreen() {
   const { width } = useWindowDimensions();
   const tvMode = useTVMode();
   const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
-  const [genre, setGenre] = useState("Todos");
+  // A categoria é selecionada pelo ID do provedor, não pelo nome. Alguns
+  // painéis devolvem nomes visualmente iguais com espaços/prefixos diferentes
+  // (notadamente em "Lançamentos"), enquanto o category_id permanece estável.
+  const [genre, setGenre] = useState(ALL_KEY);
   const [sort, setSort] = useState<SortOption>("Mais recentes");
   const [query, setQuery] = useState("");
   // A digitação continua fluida: o filtro de milhares de itens roda com o
@@ -71,18 +75,32 @@ function MoviesScreen() {
   const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<VodMovie>(MOVIES_FOCUS_SCOPE, tvMode, numColumns);
 
-  const genres = useMemo(
-    () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
+  const genres = useMemo<CatalogCategoryOption[]>(
+    () => [
+      { key: FAVORITES_KEY, label: "Favoritos" },
+      { key: ALL_KEY, label: "Todos" },
+      ...cachedCategories.map((category) => ({ key: category.id, label: category.name })),
+    ],
     [cachedCategories],
+  );
+  const selectedCategory = useMemo(
+    () => cachedCategories.find((category) => category.id === genre),
+    [cachedCategories, genre],
   );
 
   const filteredMovies = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
     return movies
       .filter((movie) => {
-        const matchGenre = genre === FAVORITES_LABEL
+        const matchGenre = genre === FAVORITES_KEY
           ? favoriteMovieIds.includes(movie.id)
-          : genre === "Todos" || movie.genre === genre;
+          : genre === ALL_KEY
+            || (selectedCategory
+              ? movie.categoryId === selectedCategory.id
+                // Cache de versões anteriores pode não ter categoryId. O
+                // fallback preserva essas listas até a próxima sincronização.
+                || (!movie.categoryId && movie.genre === selectedCategory.name)
+              : false);
         const matchQ = !q || `${movie.title} ${movie.genre}`.toLowerCase().includes(q);
         return matchGenre && matchQ;
       })
@@ -96,17 +114,17 @@ function MoviesScreen() {
         const addedB = parseAddedAt(b.addedAt);
         return addedB - addedA || a.title.localeCompare(b.title);
       });
-  }, [movies, genre, deferredQuery, sort, favoriteMovieIds]);
+  }, [movies, genre, deferredQuery, sort, favoriteMovieIds, selectedCategory]);
   const pager = useCatalogPagination<VodMovie>(activeServerId, "vodMovies", {
-    categoryName: genre === FAVORITES_LABEL || genre === "Todos" ? "" : genre,
-    query: genre === FAVORITES_LABEL ? "" : query.trim(),
+    categoryName: selectedCategory?.name ?? "",
+    query: genre === FAVORITES_KEY ? "" : query.trim(),
     sort: sort === "Melhor avaliados" ? "rating_desc" : sort === "A-Z" ? "name_asc" : sort === "Z-A" ? "name_desc" : "added_desc",
   });
   // Versões do mesmo filme (dublado/legendado) viram um único cartão; a
   // versão é escolhida nos Detalhes.
   // O agrupamento é preparado em segundo plano para não travar a tela.
   const pagedMovies = useMemo(() => withoutHidden(pager.items, hiddenCategories, (movie) => movie.genre), [pager.items, hiddenCategories]);
-  const visibleMovies = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pagedMovies : filteredMovies);
+  const visibleMovies = useDedupedTitles(pager.enabled && genre !== FAVORITES_KEY ? pagedMovies : filteredMovies);
 
   const handleMovie = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -159,7 +177,7 @@ function MoviesScreen() {
         categories={genres}
         category={genre}
         setCategory={handleSetGenre}
-        favoritesLabel={FAVORITES_LABEL}
+        favoritesKey={FAVORITES_KEY}
         sortOptions={SORT_OPTIONS}
         sort={sort}
         setSort={handleSetSort}
@@ -186,7 +204,7 @@ function MoviesScreen() {
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
-      ) : genre === FAVORITES_LABEL ? (
+      ) : genre === FAVORITES_KEY ? (
         <View style={styles.empty}>
           <Ionicons name="star-outline" size={32} color={Colors.subtle} />
           <AppText style={styles.emptyTitle}>Sem filmes favoritos</AppText>
@@ -225,19 +243,20 @@ function MoviesScreen() {
         rating: movie.rating,
         year: movie.year,
         category: movie.genre,
+        categoryId: movie.categoryId,
         detail: movie.duration,
         quality: movie.quality,
       }));
   }, [catalogBrowserMode, movies]);
   const tvEntries = useDedupedTitles(tvEntriesRaw);
-  const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
+  const tvCategories = cachedCategories;
 
   if (catalogBrowserMode) {
     return (
       <TvCatalogBrowser
         kind="movies"
         entries={tvEntries}
-        categoryNames={tvCategoryNames}
+        categories={tvCategories}
         favoriteIds={favoriteMovieIds}
         isSyncing={isSyncing}
         syncProgress={syncProgress}

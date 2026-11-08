@@ -22,7 +22,7 @@ import { withTvTabEviction } from "@/components/tv-tab-eviction";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { CatalogBackground } from "@/components/catalog-background";
-import { MobileCatalogHeader } from "@/features/catalog/mobile-catalog-header";
+import { MobileCatalogHeader, type CatalogCategoryOption } from "@/features/catalog/mobile-catalog-header";
 import { displayCategory } from "@/features/catalog/display";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
@@ -39,7 +39,8 @@ function seasonsMeta(count: number, year: number, genre: string): string {
   return parts.filter(Boolean).join(" · ");
 }
 
-const FAVORITES_LABEL = "Favoritos";
+const FAVORITES_KEY = "__favorites__";
+const ALL_KEY = "__all__";
 
 // ---------------------------------------------------------------------------
 // Main screen
@@ -50,7 +51,7 @@ function SeriesScreen() {
   const { width } = useWindowDimensions();
   const tvMode = useTVMode();
   const { isTablet, isTabletLandscape, contentPadding } = useResponsiveLayout();
-  const [genre, setGenre] = useState("Todas");
+  const [genre, setGenre] = useState(ALL_KEY);
   const [query, setQuery] = useState("");
   // A digitação continua fluida: o filtro de milhares de itens roda com o
   // valor "atrasado" e o React descarta os cálculos que ficaram velhos.
@@ -75,31 +76,41 @@ function SeriesScreen() {
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
 
-  const genres = useMemo(
-    () => [FAVORITES_LABEL, "Todas", ...cachedCategories.map((c) => c.name)],
+  const genres = useMemo<CatalogCategoryOption[]>(
+    () => [
+      { key: FAVORITES_KEY, label: "Favoritos" },
+      { key: ALL_KEY, label: "Todas" },
+      ...cachedCategories.map((category) => ({ key: category.id, label: category.name })),
+    ],
     [cachedCategories],
+  );
+  const selectedCategory = useMemo(
+    () => cachedCategories.find((category) => category.id === genre),
+    [cachedCategories, genre],
   );
 
   const filteredSeries = useMemo(() => {
-    if (genre === FAVORITES_LABEL) {
+    if (genre === FAVORITES_KEY) {
       return seriesList.filter((item) => favoriteSeriesIds.includes(item.id));
     }
     const q = deferredQuery.trim().toLowerCase();
     return seriesList.filter((item) => {
-      const matchGenre = genre === "Todas" || item.genre === genre;
+      const matchGenre = genre === ALL_KEY || (selectedCategory
+        ? item.categoryId === selectedCategory.id || (!item.categoryId && item.genre === selectedCategory.name)
+        : false);
       const matchQ = !q || `${item.title} ${item.genre}`.toLowerCase().includes(q);
       return matchGenre && matchQ;
     });
-  }, [seriesList, genre, deferredQuery, favoriteSeriesIds]);
+  }, [seriesList, genre, deferredQuery, favoriteSeriesIds, selectedCategory]);
   const pager = useCatalogPagination<SeriesItem>(activeServerId, "seriesList", {
-    categoryName: genre === FAVORITES_LABEL || genre === "Todas" ? "" : genre,
-    query: genre === FAVORITES_LABEL ? "" : query.trim(),
+    categoryName: selectedCategory?.name ?? "",
+    query: genre === FAVORITES_KEY ? "" : query.trim(),
     sort: "name_asc",
   });
   // Versões da mesma série (dublada/legendada) viram um único cartão.
   // O agrupamento é preparado em segundo plano para não travar a tela.
   const pagedSeries = useMemo(() => withoutHidden(pager.items, hiddenCategories, (item) => item.genre), [pager.items, hiddenCategories]);
-  const visibleSeries = useDedupedTitles(pager.enabled && genre !== FAVORITES_LABEL ? pagedSeries : filteredSeries);
+  const visibleSeries = useDedupedTitles(pager.enabled && genre !== FAVORITES_KEY ? pagedSeries : filteredSeries);
 
   const handleSeries = useCallback(
     (id: string) => { router.push(`/details/${id}`); },
@@ -148,7 +159,7 @@ function SeriesScreen() {
         categories={genres}
         category={genre}
         setCategory={handleSetGenre}
-        favoritesLabel={FAVORITES_LABEL}
+        favoritesKey={FAVORITES_KEY}
       />
     ),
     [isSyncing, syncError, syncProgress, genres, genre, visibleSeries.length, seriesList.length, refresh, handleSetGenre, query],
@@ -172,7 +183,7 @@ function SeriesScreen() {
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
-      ) : genre === FAVORITES_LABEL ? (
+      ) : genre === FAVORITES_KEY ? (
         <View style={styles.empty}>
           <Ionicons name="star-outline" size={32} color={Colors.subtle} />
           <AppText style={styles.emptyTitle}>Sem séries favoritas</AppText>
@@ -202,18 +213,19 @@ function SeriesScreen() {
       rating: item.rating,
       year: item.year,
       category: item.genre,
+      categoryId: item.categoryId,
       detail: item.seasonsCount > 0 ? `${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""}` : "",
     }));
   }, [catalogBrowserMode, seriesList]);
   const tvEntries = useDedupedTitles(tvEntriesRaw);
-  const tvCategoryNames = useMemo(() => cachedCategories.map((category) => category.name), [cachedCategories]);
+  const tvCategories = cachedCategories;
 
   if (catalogBrowserMode) {
     return (
       <TvCatalogBrowser
         kind="series"
         entries={tvEntries}
-        categoryNames={tvCategoryNames}
+        categories={tvCategories}
         favoriteIds={favoriteSeriesIds}
         isSyncing={isSyncing}
         syncProgress={syncProgress}

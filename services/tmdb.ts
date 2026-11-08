@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { deviceTier } from "@/services/deviceProfile";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
@@ -93,7 +94,7 @@ function cacheKey(title: string, mediaType: "movie" | "tv", year?: number) {
   return `${CACHE_PREFIX}${mediaType}_${normalizeCatalogTitle(title)}${suffix}`;
 }
 
-function imageUrl(path: unknown, size: "w780" | "w1280") {
+function imageUrl(path: unknown, size: "w342" | "w780" | "w1280") {
   return typeof path === "string" && path.startsWith("/") ? `${TMDB_IMAGE_BASE_URL}/${size}${path}` : null;
 }
 
@@ -152,8 +153,9 @@ function toMetadata(detail: Record<string, unknown>, confidentMatch: boolean): T
     tmdbId: typeof detail.id === "number" ? detail.id : undefined,
     title: typeof title === "string" ? title : null,
     releaseDate: typeof releaseDate === "string" && releaseDate ? releaseDate : null,
-    posterUrl: imageUrl(detail.poster_path, "w780"),
-    backdropUrl: imageUrl(detail.backdrop_path, "w1280"),
+    // Aparelho fraco: imagens menores decodificam mais rápido e ocupam menos memória.
+    posterUrl: imageUrl(detail.poster_path, deviceTier === "low" ? "w342" : "w780"),
+    backdropUrl: imageUrl(detail.backdrop_path, deviceTier === "low" ? "w780" : "w1280"),
     recommendations,
     confidentMatch,
   };

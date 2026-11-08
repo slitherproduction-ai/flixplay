@@ -24,6 +24,30 @@ function replaceLiveExtension(url: string, extension: "m3u8" | "ts"): string {
   return `${base}.${extension}${suffix}`;
 }
 
+function encodeSegment(value: string): string {
+  let decoded = value;
+  try { decoded = decodeURIComponent(value); } catch { /* já era texto puro */ }
+  return encodeURIComponent(decoded);
+}
+
+/**
+ * Xtream: usuário e senha vão no caminho do vídeo. Alguns painéis só aceitam o
+ * texto puro (padrão do Android), outros só o codificado (padrão da Roku e da
+ * LG). Quando a senha tem @, +, #, espaço etc., a versão codificada entra como
+ * última tentativa.
+ */
+export function withEncodedCredentialVariant(urls: string[]): string[] {
+  const variants: string[] = [];
+  for (const url of urls) {
+    const { path, suffix } = splitUrlSuffix(url);
+    const match = /^(.*\/(?:live|movie|series|timeshift)\/)([^/]+)\/([^/]+)(\/.+)$/i.exec(path);
+    if (!match) continue;
+    const encoded = `${match[1]}${encodeSegment(match[2])}/${encodeSegment(match[3])}${match[4]}${suffix}`;
+    if (encoded !== url) variants.push(encoded);
+  }
+  return [...new Set([...urls, ...variants])];
+}
+
 export function buildFallbackUrls(
   url: string,
   contentType: ContentType,
@@ -31,7 +55,7 @@ export function buildFallbackUrls(
 ): string[] {
   const cleanUrl = url.trim();
   if (!cleanUrl) return [];
-  if (contentType !== "live") return [cleanUrl];
+  if (contentType !== "live") return withEncodedCredentialVariant([cleanUrl]);
 
   const { path } = splitUrlSuffix(cleanUrl);
   const hls = replaceLiveExtension(cleanUrl, "m3u8");
@@ -46,6 +70,6 @@ export function buildFallbackUrls(
           ? [cleanUrl, hls]
           : [hls, ts, cleanUrl];
 
-  return [...new Set(ordered)];
+  return withEncodedCredentialVariant([...new Set(ordered)]);
 }
 

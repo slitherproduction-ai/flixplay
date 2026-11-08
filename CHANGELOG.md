@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.17.33] — 2026-11-08
+
+Correções e desempenho da auditoria técnica de 08/11/2026.
+
+- Ao vivo: o número do canal vem do campo `num` do painel Xtream (antes era o `stream_id`, ex.: 18452). Sem `num`, usa a posição na lista. Digitar o número no controle volta a abrir o canal certo.
+- Filmes (celular): a ordem "Recentes" entende a data do Xtream em segundos Unix (`features/catalog/addedAt.ts`, compartilhado com a Início).
+- M3U: linhas `#EXTVLCOPT`/`#KODIPROP` entre o `#EXTINF` e o link não descartam mais o canal; `#EXTGRP` vale como grupo; o nome não é cortado por vírgulas dentro de atributos. O id do canal M3U passa a ser `tvg-id`/nome + hash do grupo e do link, e não muda quando o provedor reordena a lista (favoritos M3U salvos antes desta versão precisam ser marcados de novo uma vez). Download de M3U e XMLTV com tempo limite.
+- XMLTV: leitura linear (antes recriava a lista do canal a cada programa), só 7 dias para trás e 2 à frente, hora formatada sem Intl e entidades numéricas (`&#233;`) decodificadas.
+- Estado salvo: gravações no Keystore (SecureStore) agrupadas a cada 800 ms, ignoradas quando nada mudou e feitas em fila, sem terminar fora de ordem; descarregadas ao ir para segundo plano.
+- EPG: lotes de 500 ms e fila limitada a 48 pedidos, descartando os canais que já saíram da tela.
+- Cache do catálogo (SQLite, banco versão 4): índice `(server_id, kind)` para as páginas não ordenarem a tabela inteira; listas grandes gravadas numa área temporária e trocadas numa transação (`commitStaging`), sem meia lista se o app fechar no meio. Provedor só de filmes/séries também abre com o catálogo salvo.
+- Player: buffer pelo perfil do aparelho (`services/deviceProfile.ts`, módulo nativo `ElvanoqDeviceProfile`): 32 MB em aparelhos de até 1,5 GB, 96–128 MB em aparelhos de 3 GB ou mais, o resto como antes. Ao vivo reconecta sozinho 3 vezes (3, 6 e 9 s) depois de erro de rede. O salvamento do progresso não recria mais os ouvintes do player. Credenciais com `@`, `+` etc. ganham uma última tentativa com o usuário/senha codificados na URL.
+- Tela ligada: sempre na TV (como antes); no celular só enquanto o vídeo toca (removido `keepScreenOn` da activity).
+- Início: destaques e trilhos calculados sem ordenar o catálogo inteiro; busca de Filmes, Séries e Ao vivo com `useDeferredValue`. Imagens do TMDB menores em aparelhos fracos.
+- Removida a permissão sem uso `RECEIVE_BOOT_COMPLETED`. Build Android elevado para `20261051`.
+
 ## [2.17.32] — 2026-11-07
 
 - Voltar nas seções principais (TV ao Vivo, Filmes, Séries e Ajustes): o protetor de saída (`RootExitGuard`, `app/_layout.tsx`) tratava essas rotas como raiz e mostrava "Deseja sair do aplicativo?". Agora leva à Início; só na Início o Voltar oferece sair (toque duplo + confirmação). Com o fim do menu lateral na 2.17.31, era o único caminho de volta na TV. Build Android elevado para `20261050`.

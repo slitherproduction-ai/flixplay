@@ -127,8 +127,9 @@ function withAndroidTV(config) {
           "keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode|navigation";
         // Allow multi-window and PiP mode
         mainActivity.$["android:resizeableActivity"] = "true";
-        // Prevent screen from sleeping during media playback
-        mainActivity.$["android:keepScreenOn"] = "true";
+        // Tela ligada: controlada em tempo de execução (services/deviceProfile):
+        // sempre na TV, e no celular só enquanto o vídeo toca.
+        delete mainActivity.$["android:keepScreenOn"];
         // Required so TV launchers can start the activity
         mainActivity.$["android:exported"] = "true";
 

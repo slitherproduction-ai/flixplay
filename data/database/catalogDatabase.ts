@@ -14,6 +14,7 @@ export type CatalogKind =
 type NativeCatalogDatabase = {
   replaceAll(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   append?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
+  commitStaging?(serverId: string, kind: CatalogKind): Promise<number>;
   upsert?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   getPage?(serverId: string, kind: CatalogKind, offset: number, limit: number): Promise<string>;
   queryPage?(serverId: string, kind: CatalogKind, offset: number, limit: number): Promise<string>;
@@ -104,11 +105,16 @@ export const catalogDatabase = {
       await db.replaceAll(serverId, kind, JSON.stringify(prepareCatalogItemsForPersistence(items)));
       return;
     }
-    await db.replaceAll(serverId, kind, JSON.stringify(prepareCatalogItemsForPersistence(items.slice(0, WRITE_CHUNK_SIZE))));
+    // Com commitStaging, as partes vão para uma área temporária e só substituem
+    // o catálogo salvo no fim: uma gravação interrompida não deixa meia lista.
+    const staged = typeof db.commitStaging === "function";
+    const target = (staged ? `${kind}::staging` : kind) as CatalogKind;
+    await db.replaceAll(serverId, target, JSON.stringify(prepareCatalogItemsForPersistence(items.slice(0, WRITE_CHUNK_SIZE))));
     for (let start = WRITE_CHUNK_SIZE; start < items.length; start += WRITE_CHUNK_SIZE) {
       await yieldToUi();
-      await db.append(serverId, kind, JSON.stringify(prepareCatalogItemsForPersistence(items.slice(start, start + WRITE_CHUNK_SIZE))));
+      await db.append(serverId, target, JSON.stringify(prepareCatalogItemsForPersistence(items.slice(start, start + WRITE_CHUNK_SIZE))));
     }
+    if (staged) await db.commitStaging?.(serverId, kind);
   },
 
   async upsert<T>(serverId: string, kind: CatalogKind, items: T[]): Promise<void> {

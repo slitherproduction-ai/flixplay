@@ -67,6 +67,7 @@ import { openInExternalPlayer } from "@/services/externalPlayer";
 import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
 import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
+import { playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
 import {
   getIntroSkipTarget,
   getNextEpisodeCountdown,
@@ -96,6 +97,9 @@ function formatRemaining(current: number, total: number): string {
 type Panel = "audio" | "subtitles" | "speed" | "ratio" | null;
 type ActivePanel = Exclude<Panel, null>;
 
+
+/** Reconexões automáticas do ao vivo depois de erro de rede. */
+const LIVE_ERROR_RETRIES = 3;
 
 const SPEED_OPTIONS = [
   { label: "0.5x", value: 0.5 },
@@ -382,6 +386,9 @@ export default function PlayerScreen() {
   const lastProgressAtRef = useRef(Date.now());
   const lastObservedTimeRef = useRef(-1);
   const stallRecoveriesRef = useRef(0);
+  // Reconexões do ao vivo depois de "error" (rede caiu): até 3, com espera crescente.
+  const liveErrorRetriesRef = useRef(0);
+  const liveRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSeekRef = useRef<number | null>(null);
   // A retomada só é armada depois que o vídeo começou a andar: um servidor
   // lento na abertura não pode ser reiniciado em loop.
@@ -399,14 +406,13 @@ export default function PlayerScreen() {
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
-      // Buffer limitado: o padrão do ExoPlayer reserva até ~128 MB para vídeo,
-      // o que em TVs com 1–1,5 GB de RAM (TCL, Fire TV Lite, boxes) causa
-      // coletas de memória e engasgos. Ao vivo guarda menos à frente.
+      // Buffer por perfil do aparelho: o padrão do ExoPlayer reserva até
+      // ~128 MB, o que em TVs com 1–1,5 GB de RAM (TCL, Fire TV Lite, boxes)
+      // causa coletas de memória e engasgos; aparelhos com 3 GB+ ganham folga
+      // para redes instáveis. Ao vivo guarda menos à frente.
       try {
         videoPlayer.bufferOptions = {
-          preferredForwardBufferDuration: contentType === "live" ? 15 : 30,
-          minBufferForPlayback: 2,
-          maxBufferBytes: (tvMode ? 48 : 64) * 1024 * 1024,
+          ...playerBufferProfile(contentType === "live", tvMode),
           prioritizeTimeOverSizeThreshold: false,
           waitsToMinimizeStalling: true,
         };
@@ -515,6 +521,11 @@ export default function PlayerScreen() {
     recordContentPlay(rankedContentId);
   }, [contentType, directPlaybackBlocked, id, recordContentPlay, sourceSeriesId, streamUrl]);
 
+  // Dados exibidos no histórico ficam num ref: assim persistProgress não muda
+  // quando o catálogo termina de sincronizar durante o filme, e os ouvintes do
+  // player não são recriados (o que zerava a tentativa de URL em uso).
+  const historyMetaRef = useRef({ title, sourceSubtitle, backdrop, streamUrl, sourceSeriesId });
+  historyMetaRef.current = { title, sourceSubtitle, backdrop, streamUrl, sourceSeriesId };
   const persistProgress = useCallback(
     (positionSeconds: number, durationSeconds: number) => {
       if (contentType === "live") return;
@@ -524,20 +535,21 @@ export default function PlayerScreen() {
         removeHistoryItem(id);
         return;
       }
+      const meta = historyMetaRef.current;
       saveHistory({
         contentId: id,
         type: contentType,
-        title,
-        subtitle: sourceSubtitle,
-        thumbnail: backdrop,
-        streamUrl,
-        seriesId: sourceSeriesId,
+        title: meta.title,
+        subtitle: meta.sourceSubtitle,
+        thumbnail: meta.backdrop,
+        streamUrl: meta.streamUrl,
+        seriesId: meta.sourceSeriesId,
         positionMs: decision.positionMs,
         durationMs: decision.durationMs,
         updatedAt: new Date().toISOString(),
       });
     },
-    [backdrop, contentType, id, removeHistoryItem, saveHistory, sourceSeriesId, sourceSubtitle, streamUrl, title],
+    [contentType, id, removeHistoryItem, saveHistory],
   );
 
   useEffect(() => {
@@ -582,6 +594,7 @@ export default function PlayerScreen() {
     const sessionGuard = sessionGuardRef.current;
     const sessionToken = sessionGuard.begin();
     urlAttemptRef.current = 0;
+    liveErrorRetriesRef.current = 0;
     durationSetRef.current = false;
 
     const durationRefs = { durationSetRef };
@@ -647,8 +660,31 @@ export default function PlayerScreen() {
           logTechnicalError("Player/fallback", replaceErr);
           setPlayerError(mapPlayerError(status).message);
         }
+      } else if (contentType === "live" && liveErrorRetriesRef.current < LIVE_ERROR_RETRIES) {
+        // Ao vivo: uma queda de rede vira "error". Reconecta sozinho 3 vezes,
+        // com espera crescente (3, 6 e 9 s), como Roku, LG e Samsung.
+        liveErrorRetriesRef.current += 1;
+        const attempt = liveErrorRetriesRef.current;
+        logTechnicalError("Player/live-reconnect", status);
+        setReconnecting(true);
+        setIsBuffering(true);
+        if (liveRetryTimerRef.current) clearTimeout(liveRetryTimerRef.current);
+        liveRetryTimerRef.current = setTimeout(() => {
+          liveRetryTimerRef.current = null;
+          if (!sessionGuard.isCurrent(sessionToken)) return;
+          urlAttemptRef.current = 0;
+          try {
+            player.replace({ uri: fallbackUrls[0], headers: requestHeaders });
+            player.play();
+          } catch (reconnectErr) {
+            logTechnicalError("Player/live-reconnect", reconnectErr);
+            setReconnecting(false);
+            setPlayerError(mapPlayerError(status).message);
+          }
+        }, 3_000 * attempt);
       } else {
         logTechnicalError("Player/playback", status);
+        setReconnecting(false);
         setPlayerError(mapPlayerError(status).message);
       }
     });
@@ -671,8 +707,9 @@ export default function PlayerScreen() {
             if (lastObservedTimeRef.current >= 0) playbackStartedRef.current = true;
             lastObservedTimeRef.current = tp.currentTime;
             lastProgressAtRef.current = Date.now();
-            if (stallRecoveriesRef.current > 0) {
+            if (stallRecoveriesRef.current > 0 || liveErrorRetriesRef.current > 0) {
               stallRecoveriesRef.current = 0;
+              liveErrorRetriesRef.current = 0;
               setReconnecting(false);
             }
           }
@@ -722,6 +759,10 @@ export default function PlayerScreen() {
 
     return () => {
       sessionGuard.end(sessionToken);
+      if (liveRetryTimerRef.current) {
+        clearTimeout(liveRetryTimerRef.current);
+        liveRetryTimerRef.current = null;
+      }
       statusSub.remove();
       timeSub.remove();
       sourceSub.remove();
@@ -782,6 +823,12 @@ export default function PlayerScreen() {
     });
     return () => subscription.remove();
   }, [persistProgress]);
+
+  // Celular: tela ligada só enquanto o vídeo toca (na TV fica sempre ligada).
+  useEffect(() => {
+    setPlaybackKeepAwake(isPlaying);
+  }, [isPlaying]);
+  useEffect(() => () => setPlaybackKeepAwake(false), []);
 
   // Apply playback rate whenever it changes.
   // Uses playerRef to satisfy react-hooks/immutability (the hook value itself
@@ -1169,6 +1216,7 @@ export default function PlayerScreen() {
   }, [clearHideTimer, showControlsWithTimer, uiLayer]);
 
   const handleRetry = useCallback(() => {
+    liveErrorRetriesRef.current = 0;
     if (!fallbackUrls[0]) {
       setPlayerError("Endereço do stream não informado.");
       return;

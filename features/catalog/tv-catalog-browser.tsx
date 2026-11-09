@@ -70,6 +70,8 @@ type Props = {
   syncError: string | null;
   onOpen: (id: string) => void;
   onRefresh: () => void;
+  /** Recupera sob demanda categorias que o catálogo global do provedor trouxe vazias. */
+  onCategoryDemand?: (category: { id: string; name: string }) => void;
 };
 
 function formatCount(value: number) {
@@ -245,6 +247,7 @@ export function TvCatalogBrowser({
   syncError,
   onOpen,
   onRefresh,
+  onCategoryDemand,
 }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -335,16 +338,22 @@ export function TvCatalogBrowser({
 
   const handleCategoryFocus = useCallback((category: CategoryRow) => {
     footerStore.set({ kind: "category", category });
+    if (category.categoryId && category.total === 0 && category.categoryName) {
+      onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
+    }
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => setSelectedKey(category.key), CATEGORY_SETTLE_MS);
-  }, []);
+  }, [onCategoryDemand]);
 
   const handleCategoryPress = useCallback((category: CategoryRow) => {
+    if (category.categoryId && category.total === 0 && category.categoryName) {
+      onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
+    }
     if (settleTimer.current) clearTimeout(settleTimer.current);
     setSelectedKey(category.key);
     // "Buscar": OK abre o teclado, como no Roku.
     if (category.key === SEARCH_KEY) requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+  }, [onCategoryDemand]);
 
   const handleEntryFocus = useCallback((entry: TvCatalogEntry) => {
     footerStore.set({ kind: "entry", entry });

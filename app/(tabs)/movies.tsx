@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useDeferredValue, useState } from "react";
+import { useCallback, useEffect, useMemo, useDeferredValue, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -27,6 +27,7 @@ import { displayCategory } from "@/features/catalog/display";
 import { parseAddedAt } from "@/features/catalog/addedAt";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
+import { useVodCategoryFallback } from "@/features/catalog/use-vod-category-fallback";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const MOVIES_FOCUS_SCOPE = "movies-grid";
@@ -64,6 +65,7 @@ function MoviesScreen() {
   const cachedCategories = useMemo(() => withoutHidden(allCategories, hiddenCategories, (item) => item.name), [allCategories, hiddenCategories]);
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
+  const { loadingCategoryId, loadCategory } = useVodCategoryFallback();
 
   const hPad = tvMode ? 46 : isTablet ? contentPadding : 16;
   // Sem menu lateral na TV: a seção usa a largura inteira.
@@ -87,6 +89,17 @@ function MoviesScreen() {
     () => cachedCategories.find((category) => category.id === genre),
     [cachedCategories, genre],
   );
+  const categoryHasMovies = useMemo(
+    () => !selectedCategory || allMovies.some((movie) => movie.categoryId === selectedCategory.id),
+    [allMovies, selectedCategory],
+  );
+
+  // Recupera somente a categoria solicitada quando o endpoint global do
+  // provedor não trouxe sua associação. Não bloqueia a sincronização normal.
+  useEffect(() => {
+    if (!selectedCategory || categoryHasMovies || isSyncing) return;
+    void loadCategory(selectedCategory);
+  }, [categoryHasMovies, isSyncing, loadCategory, selectedCategory]);
 
   const filteredMovies = useMemo(() => {
     const q = deferredQuery.trim().toLowerCase();
@@ -152,6 +165,7 @@ function MoviesScreen() {
 
   const keyExtractor = useCallback((item: VodMovie) => item.id, []);
   const isEmpty = !isSyncing && movies.length === 0;
+  const isLoadingSelectedCategory = Boolean(selectedCategory && loadingCategoryId === selectedCategory.id);
 
   const handleSetGenre = useCallback((g: string) => setGenre(g), []);
   const handleSetSort = useCallback((s: SortOption) => setSort(s), []);
@@ -188,7 +202,13 @@ function MoviesScreen() {
 
   const listEmptyElement = useMemo(
     () =>
-      isEmpty ? (
+      isLoadingSelectedCategory ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={Colors.blueBright} />
+          <AppText style={styles.emptyTitle}>Carregando categoria…</AppText>
+          <AppText style={styles.emptyBody}>Buscando os filmes disponíveis nesta categoria.</AppText>
+        </View>
+      ) : isEmpty ? (
         <View style={styles.empty}>
           <Ionicons name="film-outline" size={32} color={Colors.subtle} />
           <AppText style={styles.emptyTitle}>Nenhum filme disponível</AppText>
@@ -218,7 +238,7 @@ function MoviesScreen() {
           body="Experimente outro título ou limpe os filtros para ver todo o catálogo."
         />
       ),
-    [isEmpty, refresh, genre],
+    [isEmpty, isLoadingSelectedCategory, refresh, genre],
   );
 
   // TV: navegação no formato do ELVANOQ Play para Roku (painel de categorias
@@ -263,6 +283,7 @@ function MoviesScreen() {
         syncError={syncError}
         onOpen={handleMovie}
         onRefresh={refresh}
+        onCategoryDemand={loadCategory}
       />
     );
   }

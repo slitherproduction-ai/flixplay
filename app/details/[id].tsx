@@ -1,3 +1,4 @@
+import { useTvVideo } from "@/hooks/use-tv-video";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -40,6 +41,7 @@ export default function DetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
+  const loadingLocalVideo = useTvVideo(id);
   const tvMode = useTVMode();
   const { isTabletLandscape } = useResponsiveLayout();
   // Layout do Roku na TV e no tablet na horizontal.
@@ -266,7 +268,7 @@ export default function DetailsScreen() {
     router.replace(`/details/${variantId}`);
   }, [router]);
 
-  const missingError = !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;
+  const missingError = !loadingLocalVideo && !movie && !show ? "Este conteúdo não está disponível no catálogo." : null;
 
   const performPlay = useCallback(
     (episodeId?: string) => {
@@ -397,6 +399,7 @@ export default function DetailsScreen() {
           </View>
         </View>
       </Modal>
+      {loadingLocalVideo && !movie && !show ? <ActivityIndicator color={Colors.blueBright} /> : null}
       {missingError ? <ErrorState message={missingError} onRetry={handleRetry} /> : null}
         {(movie || show) && roku ? (
           <TvDetailsContent

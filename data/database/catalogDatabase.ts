@@ -1,4 +1,8 @@
+import { waitForCatalogIdle } from "@/core/navigation/tv-catalog-activity";
 import { NativeModules, Platform } from "react-native";
+
+
+export type TvQuery = { category?: string; categoryId?: string; hidden?: string[]; ids?: string[]; titles?: string[]; query?: string; sort?: "added_desc" | "rating_desc" | "name_desc" | "name_asc"; counts?: boolean };
 
 export type CatalogKind =
   | "liveCategories"
@@ -12,6 +16,8 @@ export type CatalogKind =
 // Métodos opcionais: o app precisa continuar funcionando com qualquer versão
 // do módulo nativo, inclusive sem ele (sem cache, só a rede).
 type NativeCatalogDatabase = {
+  searchTvCatalog?(server: string, query: string, kinds: string, offset: number, limit: number): Promise<string>;
+  catalogPage?(serverId: string, kind: CatalogKind, options: string, offset: number, limit: number): Promise<string>;
   replaceAll(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   append?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   commitStaging?(serverId: string, kind: CatalogKind): Promise<number>;
@@ -77,10 +83,55 @@ export function prepareCatalogItemsForPersistence<T>(items: T[]): T[] {
 export type IndexedCatalogItem<T> = { kind: CatalogKind; item: T };
 
 /** Itens por gravação: cada parte vira um JSON de ~1–2 MB em vez de um único de dezenas de MB. */
-const WRITE_CHUNK_SIZE = 1500;
+const WRITE_CHUNK_SIZE = 400;
 const yieldToUi = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
+function encodeChunk<T>(items: T[]): string {
+  return JSON.stringify(prepareCatalogItemsForPersistence(items));
+}
+
+const pendingSnapshots = new Map<string, Promise<void>>();
+
 export const catalogDatabase = {
+  async writeTvSnapshot<Raw, Item extends { id: string }>(
+    server: string, kind: "vodMovies" | "seriesList", rows: Raw[],
+    mapItem: (row: Raw) => Item, current: () => boolean,
+  ): Promise<void> {
+    const db = database();
+    if (!db?.append || !db.commitStaging) throw new Error("Gravação por páginas indisponível");
+    const key = JSON.stringify([server, kind]);
+    const previous = pendingSnapshots.get(key);
+    const write = async () => {
+      if (!current()) return;
+      const stage = `${kind}::staging` as CatalogKind;
+      await db.replaceAll(server, stage, "[]");
+      for (let i = 0; i < rows.length; i += WRITE_CHUNK_SIZE) {
+        await waitForCatalogIdle(current);
+        if (!current()) return;
+        const chunk = rows.slice(i, i + WRITE_CHUNK_SIZE).map(mapItem).filter(item => item.id.trim());
+        await db.append!(server, stage, encodeChunk(chunk));
+        await yieldToUi();
+      }
+      if (current()) await db.commitStaging!(server, kind);
+    };
+    const job = (previous ?? Promise.resolve()).then(write, write);
+    pendingSnapshots.set(key, job);
+    try { await job; }
+    finally { if (pendingSnapshots.get(key) === job) pendingSnapshots.delete(key); }
+  },
+
+  async searchTv<T>(server: string, query: string, kinds: CatalogKind[], offset: number, limit: number): Promise<IndexedCatalogItem<T>[]> {
+    const raw = await database()?.searchTvCatalog?.(server, query, JSON.stringify(kinds), offset, limit);
+    return raw ? JSON.parse(raw) : [];
+  },
+  supportsTvPages(): boolean { return !!database()?.catalogPage && Platform.isTV; },
+
+  async tvPage<T>(serverId: string, kind: CatalogKind, options: TvQuery, offset = 0, limit = 80): Promise<T[]> {
+    const db = database();
+    if (!db?.catalogPage) throw new Error("Consulta ao catálogo indisponível");
+    return JSON.parse(await db.catalogPage(serverId, kind, JSON.stringify(options), offset, limit)) as T[];
+  },
+
   supportsFilteredPage(): boolean {
     return Boolean(database()?.filteredPage);
   },
@@ -102,17 +153,17 @@ export const catalogDatabase = {
     // tela continuar respondendo: evita montar um único texto enorme na memória
     // do JavaScript e outro no Android ao mesmo tempo.
     if (typeof db.append !== "function" || items.length <= WRITE_CHUNK_SIZE) {
-      await db.replaceAll(serverId, kind, JSON.stringify(prepareCatalogItemsForPersistence(items)));
+      await db.replaceAll(serverId, kind, encodeChunk(items));
       return;
     }
     // Com commitStaging, as partes vão para uma área temporária e só substituem
     // o catálogo salvo no fim: uma gravação interrompida não deixa meia lista.
     const staged = typeof db.commitStaging === "function";
     const target = (staged ? `${kind}::staging` : kind) as CatalogKind;
-    await db.replaceAll(serverId, target, JSON.stringify(prepareCatalogItemsForPersistence(items.slice(0, WRITE_CHUNK_SIZE))));
+    await db.replaceAll(serverId, target, encodeChunk(items.slice(0, WRITE_CHUNK_SIZE)));
     for (let start = WRITE_CHUNK_SIZE; start < items.length; start += WRITE_CHUNK_SIZE) {
       await yieldToUi();
-      await db.append(serverId, target, JSON.stringify(prepareCatalogItemsForPersistence(items.slice(start, start + WRITE_CHUNK_SIZE))));
+      await db.append(serverId, target, encodeChunk(items.slice(start, start + WRITE_CHUNK_SIZE)));
     }
     if (staged) await db.commitStaging?.(serverId, kind);
   },
@@ -120,11 +171,18 @@ export const catalogDatabase = {
   async upsert<T>(serverId: string, kind: CatalogKind, items: T[]): Promise<void> {
     if (items.length === 0) return;
     const db = database();
+    if (db?.append && db.catalogPage) {
+      for (let i = 0; i < items.length; i += WRITE_CHUNK_SIZE) {
+        await db.append(serverId, kind, encodeChunk(items.slice(i, i + WRITE_CHUNK_SIZE)));
+        await yieldToUi();
+      }
+      return;
+    }
     if (typeof db?.upsert !== "function") return;
     await db.upsert(
       serverId,
       kind,
-      JSON.stringify(prepareCatalogItemsForPersistence(items)),
+      encodeChunk(items),
     );
   },
 

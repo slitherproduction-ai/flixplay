@@ -1,3 +1,4 @@
+import { useTvVideo } from "@/hooks/use-tv-video";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -286,6 +287,7 @@ export default function PlayerScreen() {
   const toggleFavoriteChannel = useAppStore((state) => state.toggleFavoriteChannel);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const isCategoryBlocked = useAppStore((state) => state.isCategoryBlocked);
+  const loadingLocalVideo = useTvVideo(sourceSeriesId || id);
   const cachedMovies = useAppStore((state) => state.contentCache.vodMovies);
   const cachedSeries = useAppStore((state) => state.contentCache.seriesList);
   const activatePip = useAppStore((state) => state.activatePip);
@@ -402,7 +404,7 @@ export default function PlayerScreen() {
   // canal (sem recarregar) e o devolve ao sair, para a prévia seguir tocando.
   const [sharedPreviewPlayer] = useState(() => (contentType === "live" && tvMode ? takeClaimedPreview(id) : null));
   const ownPlayer = useVideoPlayer(
-    sharedPreviewPlayer ? null : { uri: fallbackUrls[0] ?? "", headers: requestHeaders },
+    sharedPreviewPlayer || loadingLocalVideo ? null : { uri: fallbackUrls[0] ?? "", headers: requestHeaders },
     (videoPlayer) => {
       videoPlayer.loop = false;
       videoPlayer.timeUpdateEventInterval = 1;
@@ -419,7 +421,7 @@ export default function PlayerScreen() {
       } catch (bufferError) {
         logTechnicalError("Player/bufferOptions", bufferError);
       }
-      if (!sharedPreviewPlayer && !directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) videoPlayer.play();
+      if (!loadingLocalVideo && !sharedPreviewPlayer && !directPlaybackBlocked && !codeAccessBlocked && portalAccessGranted) videoPlayer.play();
     },
   );
   const player = sharedPreviewPlayer ?? ownPlayer;
@@ -573,7 +575,7 @@ export default function PlayerScreen() {
   }, [directPlaybackBlocked, id, player]);
 
   useEffect(() => {
-    if (!requiresPortalAccess) return;
+    if (!requiresPortalAccess || loadingLocalVideo) return;
     if (codeAccessBlocked) {
       try { player.pause(); } catch { /* The global gate still prevents interaction. */ }
       const timer = setTimeout(() => router.replace("/(tabs)"), 0);
@@ -582,7 +584,7 @@ export default function PlayerScreen() {
     if (!directPlaybackBlocked && portalAccessGranted) {
       try { player.play(); setIsPlaying(true); } catch { /* The native player may still be preparing. */ }
     }
-  }, [codeAccessBlocked, directPlaybackBlocked, player, portalAccessGranted, requiresPortalAccess, router]);
+  }, [codeAccessBlocked, directPlaybackBlocked, player, portalAccessGranted, loadingLocalVideo, requiresPortalAccess, router]);
 
   const authorizeDirectPlayback = useCallback(() => {
     setPendingDirectPlayback(false);

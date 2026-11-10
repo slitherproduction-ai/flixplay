@@ -212,8 +212,15 @@ const VARIANT_PRIORITY: Record<TitleVariantKind, number> = { dub: 0, default: 1,
  * da primeira ocorrência; o representante é a versão dublada/padrão.
  */
 export function dedupeTitleVariants<T extends { title: string; year: number }>(items: T[]): T[] {
-  const indexByKey = new Map<string, number>();
   const result: T[] = [];
+  mergeTitlePage(result, new Map(), items);
+  return result;
+}
+
+// O índice acompanha a consulta atual. Uma nova página só classifica seus itens.
+export function mergeTitlePage<T extends { title: string; year: number }>(
+  result: T[], indexByKey: Map<string, number>, items: T[],
+): void {
   for (const item of items) {
     const key = groupKey(item.title, item.year);
     const existingIndex = indexByKey.get(key);
@@ -227,7 +234,6 @@ export function dedupeTitleVariants<T extends { title: string; year: number }>(i
       result[existingIndex] = item;
     }
   }
-  return result;
 }
 
 const variantIndexCache = new WeakMap<object, Map<string, { id: string; title: string; year: number }[]>>();

@@ -11,7 +11,7 @@ import com.facebook.react.bridge.ReactMethod
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val CATALOG_DB_VERSION = 4
+private const val CATALOG_DB_VERSION = 5
 
 private class CatalogDatabase(context: Context) :
   SQLiteOpenHelper(context, "flixplay_catalog.db", null, CATALOG_DB_VERSION) {
@@ -28,6 +28,7 @@ private class CatalogDatabase(context: Context) :
       )
       """.trimIndent(),
     )
+    CatalogQueries.install(db, false)
     // Índice por (server_id, kind): dentro dele as linhas ficam em ordem de rowid,
     // então "ORDER BY rowid" das páginas não precisa ordenar a tabela inteira a
     // cada página. A chave primária já cobre buscas por item_id.
@@ -37,7 +38,9 @@ private class CatalogDatabase(context: Context) :
   // O banco é só um cache do catálogo: em qualquer troca de versão (inclusive
   // arquivos de versões antigas com outro esquema) ele é recriado e a próxima
   // sincronização o preenche de novo.
-  override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = recreate(db)
+  override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+    if (oldVersion == 4) CatalogQueries.install(db, true) else recreate(db)
+  }
 
   override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = recreate(db)
 
@@ -70,7 +73,7 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
         for (index in 0 until items.length()) {
           val item = items.getJSONObject(index)
           val id = resolveId(item, index)
-          val values = ContentValues().apply {
+          val values = CatalogQueries.fields(item).apply {
             put("server_id", serverId)
             put("kind", kind)
             put("item_id", id)
@@ -100,7 +103,7 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
         val now = System.currentTimeMillis()
         for (index in 0 until items.length()) {
           val item = items.getJSONObject(index)
-          val values = ContentValues().apply {
+          val values = CatalogQueries.fields(item).apply {
             put("server_id", serverId)
             put("kind", kind)
             put("item_id", resolveId(item, index))
@@ -185,6 +188,34 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
       promise.resolve(result.toString())
     } catch (_: Exception) {
       promise.reject("CATALOG_READ_FAILED", "Não foi possível ler o catálogo local.")
+    }
+  }
+
+  @ReactMethod
+  fun catalogPage(serverId: String, kind: String, options: String, offset: Double, limit: Double, promise: Promise) {
+    try {
+      promise.resolve(CatalogQueries.read(database.readableDatabase, serverId, kind, JSONObject(options), offset.toInt(), limit.toInt()))
+    } catch (error: Exception) {
+      promise.reject("CATALOG_READ_FAILED", error)
+    }
+  }
+
+  @ReactMethod
+  fun searchTvCatalog(server: String, term: String, kindsJson: String, offset: Double, limit: Double, promise: Promise) {
+    try {
+      val rows = JSONArray()
+      val requested = JSONArray(kindsJson)
+      val allowed = setOf("liveChannels", "vodMovies", "seriesList")
+      val kinds = (0 until requested.length()).map { requested.getString(it) }.filter(allowed::contains).distinct()
+      val placeholders = kinds.joinToString(",") { "?" }
+      val needle = CatalogQueries.normalize(term)
+      val args = (listOf(server) + kinds + listOf(needle, limit.toInt().coerceIn(1, 500).toString(), offset.toInt().coerceAtLeast(0).toString())).toTypedArray()
+      database.readableDatabase.rawQuery("SELECT kind,payload FROM catalog_items WHERE server_id=? AND kind IN ($placeholders) AND instr(title_key,?)>0 ORDER BY kind,title_key,item_id LIMIT ? OFFSET ?", args).use { c ->
+        while (c.moveToNext()) rows.put(JSONObject().put("kind", c.getString(0)).put("item", JSONObject(c.getString(1))))
+      }
+      promise.resolve(rows.toString())
+    } catch (error: Exception) {
+      promise.reject("CATALOG_READ_FAILED", error)
     }
   }
 

@@ -68,7 +68,7 @@ function normalizedTitle(item: object, title: string): string {
  * Busca na memória quando o banco local não está disponível: canais, filmes e
  * séries já carregados. Para ao juntar a página pedida, sem percorrer o resto.
  */
-function searchInMemory(term: string, offset: number, limit: number): { kind: CatalogKind; item: IndexedItem }[] {
+function searchInMemory(term: string, offset: number, limit: number, kinds: CatalogKind[] = SEARCH_KINDS): { kind: CatalogKind; item: IndexedItem }[] {
   const needle = normalizeSearchText(term.trim());
   if (!needle) return [];
   const cache = useAppStore.getState().contentCache;
@@ -80,6 +80,7 @@ function searchInMemory(term: string, offset: number, limit: number): { kind: Ca
     ["seriesList", cache.seriesList, (item) => (item as SeriesItem).title],
   ];
   for (const [kind, items, titleOf] of sources) {
+    if (!kinds.includes(kind)) continue;
     for (const item of items) {
       if (normalizedTitle(item, titleOf(item) ?? "").includes(needle)) {
         matches.push({ kind, item });
@@ -106,6 +107,8 @@ export default function GlobalSearchScreen() {
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const activeServer = useAppStore((state) => state.servers.find((server) => server.id === state.activeServerId));
   const liveChannels = useAppStore((state) => state.contentCache.liveChannels);
+  const vodRevision = useAppStore(s => s.contentCache.vodRevision);
+  const seriesRevision = useAppStore(s => s.contentCache.seriesRevision);
   const requestGeneration = useRef(0);
 
   const loadPage = useCallback(async (term: string, offset: number, generation: number) => {
@@ -113,9 +116,23 @@ export default function GlobalSearchScreen() {
     setLoading(true);
     if (offset === 0) setSearchError(null);
     try {
-      const page = catalogDatabase.supportsSearch()
-        ? await catalogDatabase.searchPage<IndexedItem>(activeServerId, term, SEARCH_KINDS, { offset, limit: PAGE_SIZE })
-        : searchInMemory(term, offset, PAGE_SIZE);
+      let page: { kind: CatalogKind; item: IndexedItem }[];
+      if (vodRevision || seriesRevision) {
+        const nativeKinds: CatalogKind[] = [];
+        if (vodRevision) nativeKinds.push("vodMovies");
+        if (seriesRevision) nativeKinds.push("seriesList");
+        const memoryKinds = SEARCH_KINDS.filter(kind => !nativeKinds.includes(kind));
+        const memory = searchInMemory(term, 0, offset + PAGE_SIZE, memoryKinds);
+        page = memory.slice(offset);
+        if (page.length < PAGE_SIZE) {
+          page.push(...await catalogDatabase.searchTv<IndexedItem>(activeServerId, term, nativeKinds,
+            Math.max(0, offset - memory.length), PAGE_SIZE - page.length));
+        }
+      } else {
+        page = catalogDatabase.supportsSearch()
+          ? await catalogDatabase.searchPage<IndexedItem>(activeServerId, term, SEARCH_KINDS, { offset, limit: PAGE_SIZE })
+          : searchInMemory(term, offset, PAGE_SIZE);
+      }
       if (generation !== requestGeneration.current) return;
       const mapped = page.map(({ kind, item }) => mapIndexedResult(kind, item)).filter((item): item is SearchResult => item !== null);
       setResults((current) => (offset === 0 ? mapped : [...current, ...mapped]));
@@ -128,7 +145,7 @@ export default function GlobalSearchScreen() {
     } finally {
       if (generation === requestGeneration.current) setLoading(false);
     }
-  }, [activeServerId]);
+  }, [activeServerId, vodRevision, seriesRevision]);
 
   useEffect(() => {
     const term = query.trim();

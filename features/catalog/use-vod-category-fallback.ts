@@ -32,6 +32,10 @@ export function useVodCategoryFallback() {
     setLoadingCategoryId(category.id);
 
     try {
+      if (useAppStore.getState().contentCache.vodRevision) {
+        const existing = await catalogDatabase.tvPage(profile.id, "vodMovies", { categoryId: category.id, category: category.name }, 0, 1);
+        if (existing.length || useAppStore.getState().activeServerId !== profile.id) return;
+      }
       const streams = await getVodStreams(profile, category.id);
       // A lista ativa pode mudar enquanto a categoria é buscada.
       if (useAppStore.getState().activeServerId !== profile.id) return;
@@ -50,6 +54,11 @@ export function useVodCategoryFallback() {
       }));
       if (fetched.length === 0) return;
 
+      if (useAppStore.getState().contentCache.vodRevision) {
+        await catalogDatabase.upsert(profile.id, "vodMovies", fetched);
+        if (useAppStore.getState().activeServerId === profile.id) setContentCache({ vodRevision: Date.now() });
+        return;
+      }
       const byId = new Map(useAppStore.getState().contentCache.vodMovies.map((movie) => [movie.id, movie]));
       for (const movie of fetched) byId.set(movie.id, movie);
       setContentCache({ vodMovies: Array.from(byId.values()) });

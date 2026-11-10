@@ -67,6 +67,7 @@ function SeriesScreen() {
   const cardWidth = Math.floor((availableWidth - hPad * 2 - colGap * (numColumns - 1)) / numColumns);
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<SeriesItem>(SERIES_FOCUS_SCOPE, tvMode, numColumns);
 
+  const pagedTv = useAppStore(state => Boolean(state.contentCache.seriesRevision));
   const allSeries = useAppStore((state) => state.contentCache.seriesList);
   const hiddenCategories = useHiddenCategoryNames("series");
   const seriesList = useMemo(() => withoutHidden(allSeries, hiddenCategories, (item) => item.genre), [allSeries, hiddenCategories]);
@@ -90,6 +91,7 @@ function SeriesScreen() {
   );
 
   const filteredSeries = useMemo(() => {
+    if (pagedTv) return [];
     if (genre === FAVORITES_KEY) {
       return seriesList.filter((item) => favoriteSeriesIds.includes(item.id));
     }
@@ -101,7 +103,7 @@ function SeriesScreen() {
       const matchQ = !q || `${item.title} ${item.genre}`.toLowerCase().includes(q);
       return matchGenre && matchQ;
     });
-  }, [seriesList, genre, deferredQuery, favoriteSeriesIds, selectedCategory]);
+  }, [pagedTv, seriesList, genre, deferredQuery, favoriteSeriesIds, selectedCategory]);
   const pager = useCatalogPagination<SeriesItem>(activeServerId, "seriesList", {
     categoryName: selectedCategory?.name ?? "",
     query: genre === FAVORITES_KEY ? "" : query.trim(),
@@ -205,7 +207,7 @@ function SeriesScreen() {
   // O mesmo navegador atende o tablet na horizontal (toque).
   const catalogBrowserMode = tvMode || isTabletLandscape;
   const tvEntriesRaw = useMemo<TvCatalogEntry[]>(() => {
-    if (!catalogBrowserMode) return [];
+    if (!catalogBrowserMode || pagedTv) return [];
     return seriesList.map((item) => ({
       id: item.id,
       title: item.title,
@@ -216,7 +218,7 @@ function SeriesScreen() {
       categoryId: item.categoryId,
       detail: item.seasonsCount > 0 ? `${item.seasonsCount} temporada${item.seasonsCount !== 1 ? "s" : ""}` : "",
     }));
-  }, [catalogBrowserMode, seriesList]);
+  }, [catalogBrowserMode, pagedTv, seriesList]);
   const tvEntries = useDedupedTitles(tvEntriesRaw);
   const tvCategories = cachedCategories;
 
@@ -266,7 +268,7 @@ function SeriesScreen() {
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
         onScrollToIndexFailed={onScrollToIndexFailed}
-        onEndReached={pager.enabled && genre !== FAVORITES_LABEL ? pager.loadMore : undefined}
+        onEndReached={pager.enabled && genre !== FAVORITES_KEY ? pager.loadMore : undefined}
         onEndReachedThreshold={0.5}
         ListFooterComponent={pager.loading && visibleSeries.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
       />

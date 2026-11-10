@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.34] — 2026-11-10
+
+- Android TV e Fire TV passam a consultar o catálogo de filmes e séries no SQLite em páginas de 80 títulos. Build Android `20261052`.
+
 ## [2.17.33] — 2026-11-08
 
 Correções e desempenho da auditoria técnica de 08/11/2026.

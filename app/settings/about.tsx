@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.33",
+    version: "v2.17.34",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "No Fire TV e Android TV, Filmes e Séries carregam por páginas ao navegar pelo catálogo." },
+    ],
+  },
+  {
+    version: "v2.17.33",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Número do canal igual ao do painel: digitar o número no controle abre o canal certo." },

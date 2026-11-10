@@ -417,15 +417,23 @@ async function parseXtreamResponse<T>(response: Response, action?: string): Prom
 
   // Read raw text first — some servers prepend a BOM or extra whitespace
   const text = await response.text();
-  const cleanText = text.replace(/^﻿/, "").trim();
+  // Sem `replace`/`trim`: em listas de dezenas de MB, cada um criaria uma
+  // segunda cópia do texto inteiro (pico de memória em Fire TV de 1 GB).
+  // JSON.parse já aceita espaços nas pontas; só o BOM precisa ser pulado.
+  let start = 0;
+  while (start < text.length) {
+    const code = text.charCodeAt(start);
+    if (code !== 0xfeff && code > 32) break;
+    start += 1;
+  }
 
-  if (!cleanText) {
+  if (start >= text.length) {
     throw new XtreamApiError("Servidor retornou resposta vazia.");
   }
 
   let body: unknown;
   try {
-    body = JSON.parse(cleanText);
+    body = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(start) : text);
   } catch {
     throw new XtreamApiError(
       "Servidor retornou resposta inválida (não é JSON). Verifique o endereço do servidor.",

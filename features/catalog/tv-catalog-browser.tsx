@@ -8,7 +8,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExterna
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { Colors } from "@/constants/theme";
 import { BRAND } from "@/constants/brand";
-import { TVFocusable } from "@/components/tv-focusable";
+import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { CatalogBackground } from "@/components/catalog-background";
 import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
@@ -87,6 +87,8 @@ const PosterTile = memo(function PosterTile({
   index,
   focusScope,
   preferred,
+  restore,
+  nextFocusLeft,
   touch,
   onOpen,
   onFocusEntry,
@@ -96,6 +98,10 @@ const PosterTile = memo(function PosterTile({
   index: number;
   focusScope: string;
   preferred: boolean;
+  /** Pode retomar o foco lembrado (falso enquanto o foco está nas categorias). */
+  restore: boolean;
+  /** Primeira coluna: ← volta à categoria selecionada, não à mais próxima na tela. */
+  nextFocusLeft?: number;
   touch: boolean;
   onOpen: (id: string) => void;
   onFocusEntry: (entry: TvCatalogEntry) => void;
@@ -107,8 +113,9 @@ const PosterTile = memo(function PosterTile({
       focusId={entry.id}
       focusScope={focusScope}
       focusIndex={index}
-      restoreFocus
+      restoreFocus={restore}
       hasTVPreferredFocus={preferred}
+      nextFocusLeft={nextFocusLeft}
       onFocus={() => onFocusEntry(entry)}
       onPress={() => onOpen(entry.id)}
       focusStyle={styles.posterFocused}
@@ -200,25 +207,35 @@ const CategoryRowItem = memo(function CategoryRowItem({
   index,
   kind,
   selected,
+  preferred,
   touch,
   onFocusRow,
   onPressRow,
+  onSelectedTag,
 }: {
   item: CategoryRow;
   index: number;
   kind: string;
   selected: boolean;
+  preferred: boolean;
   touch: boolean;
   onFocusRow: (item: CategoryRow) => void;
   onPressRow: (item: CategoryRow) => void;
+  onSelectedTag: (tag: number | null) => void;
 }) {
   const [focused, setFocused] = useState(false);
+  const rowRef = useRef<TVFocusableHandle>(null);
+  useEffect(() => {
+    if (selected) onSelectedTag(rowRef.current?.getNodeHandle() ?? null);
+  }, [onSelectedTag, selected]);
   const highlight = selected || item.special;
   return (
     <TVFocusable
+      ref={rowRef}
       accessibilityRole="button"
       accessibilityLabel={item.total !== null ? `${item.name}, ${item.total} títulos` : item.name}
       accessibilityState={{ selected }}
+      hasTVPreferredFocus={preferred}
       focusId={`${kind}-category-${item.key}`}
       focusScope={`${kind}-categories`}
       focusIndex={index}
@@ -269,6 +286,14 @@ export function TvCatalogBrowser({
   const [searchPerson, setSearchPerson] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A grade só pode puxar o foco (primeiro pôster ou pôster lembrado) enquanto
+  // o usuário está nela ou ainda não saiu dela. Com o foco nas categorias, a
+  // grade que remonta ao trocar de categoria ("Todas") não rouba mais o foco.
+  const [gridMayFocus, setGridMayFocus] = useState(true);
+  const gridHadFocus = useRef(false);
+  const visibleCountRef = useRef(0);
+  const selectedKeyRef = useRef<string>(ALL_KEY);
+  const [selectedRowTag, setSelectedRowTag] = useState<number | null>(null);
   const inputRef = useRef<TextInput>(null);
   const searchGeneration = useRef(0);
 
@@ -362,6 +387,9 @@ export function TvCatalogBrowser({
       : (entry.category || "Sem categoria") === selectedCategory?.categoryName);
   }, [revision, pages.entries, entries, favoriteIds, providerCategoryNames, searchResults, selectedCategory, selectedKey]);
 
+  visibleCountRef.current = visibleEntries.length;
+  selectedKeyRef.current = selectedKey;
+
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
   const selectCategory = useCallback((category: CategoryRow) => {
@@ -373,6 +401,10 @@ export function TvCatalogBrowser({
 
   const handleCategoryFocus = useCallback((category: CategoryRow) => {
     footerStore.set({ kind: "category", category });
+    // Foco inicial em "Todas" enquanto os títulos carregam não desliga o foco
+    // automático da grade; qualquer outro movimento nas categorias desliga.
+    const initialAll = !gridHadFocus.current && visibleCountRef.current === 0 && category.key === selectedKeyRef.current;
+    if (!initialAll) setGridMayFocus(false);
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => selectCategory(category), CATEGORY_SETTLE_MS);
   }, [footerStore, selectCategory]);
@@ -386,7 +418,9 @@ export function TvCatalogBrowser({
 
   const handleEntryFocus = useCallback((entry: TvCatalogEntry) => {
     footerStore.set({ kind: "entry", entry });
-  }, []);
+    gridHadFocus.current = true;
+    setGridMayFocus(true);
+  }, [footerStore]);
 
   // Busca: primeiro pergunta ao TMDB se o texto é um ator; depois procura na
   // lista pelo título e pela filmografia encontrada.
@@ -459,12 +493,14 @@ export function TvCatalogBrowser({
       kind={kind}
       touch={touch}
       selected={item.key === selectedKey}
+      preferred={!touch && item.key === ALL_KEY && selectedKey === ALL_KEY && gridMayFocus && !gridHadFocus.current && visibleEntries.length === 0}
       onFocusRow={handleCategoryFocus}
       onPressRow={handleCategoryPress}
+      onSelectedTag={setSelectedRowTag}
     />
-  ), [handleCategoryFocus, handleCategoryPress, kind, selectedKey, touch]);
+  ), [gridMayFocus, handleCategoryFocus, handleCategoryPress, kind, selectedKey, touch, visibleEntries.length]);
 
-  const preferFirstPoster = !hasRememberedTvFocus(focusScope);
+  const preferFirstPoster = gridMayFocus && !hasRememberedTvFocus(focusScope);
   const renderPoster = useCallback(({ item, index }: { item: TvCatalogEntry; index: number }) => (
     <PosterTile
       entry={item}
@@ -472,11 +508,13 @@ export function TvCatalogBrowser({
       index={index}
       focusScope={focusScope}
       preferred={!touch && preferFirstPoster && index === 0}
+      restore={!touch && gridMayFocus}
+      nextFocusLeft={!touch && index % columns === 0 ? selectedRowTag ?? undefined : undefined}
       touch={touch}
       onOpen={onOpen}
       onFocusEntry={handleEntryFocus}
     />
-  ), [focusScope, handleEntryFocus, onOpen, posterWidth, preferFirstPoster, touch]);
+  ), [columns, focusScope, gridMayFocus, handleEntryFocus, onOpen, posterWidth, preferFirstPoster, selectedRowTag, touch]);
 
   const emptyMessage = pages.loading ? "Carregando catálogo…" : selectedKey === SEARCH_KEY
     ? (searchLoading

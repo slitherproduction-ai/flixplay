@@ -12,7 +12,11 @@ import {
   mapSeriesStreamToItem,
   createStreamUrl,
   createVodUrl,
+  type XtreamCategory,
+  type XtreamSeriesStream,
+  type XtreamVodStream,
 } from "@/services/xtream";
+import { deviceTier } from "@/services/deviceProfile";
 import { logTechnicalError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import type { SyncState } from "@/store/useAppStore";
@@ -121,6 +125,84 @@ async function saveVideoCatalog<R, T extends VideoItem>(
   const items = deduplicateCatalogItems(rows.map(map), item => item.id);
   const saved = await persistCatalog(kind, [catalogDatabase.replaceAll(profile.id, kind, items)]);
   return { items, saved };
+}
+
+/**
+ * Aparelhos de pouca memória (Fire TV Stick HD/Lite/4K de 1ª geração, TVs de
+ * 1–1,5 GB): a lista completa de filmes ou séries chega como um único JSON de
+ * dezenas de MB, copiado no Java, na ponte e no JS — o sistema encerra o app.
+ * Aqui cada categoria é baixada e gravada separadamente; o pico de memória
+ * passa a ser o da maior categoria, não o do catálogo inteiro.
+ */
+const LOW_MEMORY_CATEGORY_SYNC = deviceTier === "low";
+
+type CategorizedRow = { category_id?: string | number | null };
+
+/** O painel ignorou `category_id` e devolveu a lista inteira? */
+function ignoresCategoryFilter(rows: CategorizedRow[], categoryId: string): boolean {
+  if (rows.length < 20) return false;
+  let other = 0;
+  for (const row of rows) {
+    if (row.category_id !== undefined && row.category_id !== null && String(row.category_id) !== categoryId) other += 1;
+  }
+  return other > rows.length / 2;
+}
+
+type CategorySyncResult<R, T> =
+  | { kind: "done"; items: T[]; revision: number }
+  | { kind: "full"; rows: R[] };
+
+async function syncVideoByCategory<R extends CategorizedRow, T extends VideoItem>(
+  profile: ServerProfile,
+  kind: VideoKind,
+  categories: XtreamCategory[],
+  fetchRows: (categoryId: string) => Promise<R[]>,
+  map: (row: R, category: XtreamCategory) => T,
+  current: () => boolean,
+  onProgress: (done: number, total: number) => void,
+): Promise<CategorySyncResult<R, T>> {
+  const existing = await catalogDatabase.count(profile.id, kind);
+  const byId = indexBy(categories);
+  let failed = 0;
+  let checked = false;
+  let fullRows: R[] | null = null;
+  const maxFailures = Math.max(3, Math.floor(categories.length * 0.2));
+  const total = await catalogDatabase.writeTvSnapshotParts<T>(profile.id, kind, async (append) => {
+    for (let index = 0; index < categories.length; index += 1) {
+      if (!current()) return;
+      await waitForCatalogIdle(current);
+      if (!current()) return;
+      const category = categories[index];
+      const id = String(category.category_id);
+      let rows: R[] | null = null;
+      for (let attempt = 0; attempt < 2 && rows === null && current(); attempt += 1) {
+        try { rows = await fetchRows(id); } catch (error) {
+          if (attempt === 1) logTechnicalError(`Sync/${kind}-category`, error);
+        }
+      }
+      if (!current()) return;
+      if (rows === null) {
+        failed += 1;
+        if (failed > maxFailures) return;
+        continue;
+      }
+      if (!checked && rows.length > 0) {
+        checked = true;
+        if (ignoresCategoryFilter(rows, id)) { fullRows = rows; return; }
+      }
+      if (rows.length > 0) {
+        const items = rows.map((row) => map(row, byId.get(String(row.category_id)) ?? category));
+        rows = null;
+        await append(items);
+      }
+      onProgress(index + 1, categories.length);
+    }
+  }, current, (count) => fullRows === null && failed <= maxFailures && (count > 0 || existing === 0));
+  if (fullRows) return { kind: "full", rows: fullRows };
+  if (!current()) return { kind: "done", items: [], revision: 0 };
+  if (failed > maxFailures) throw new Error("O servidor não respondeu a várias categorias. O catálogo salvo foi mantido.");
+  assertSafeCatalogReplacement(kind, total, existing);
+  return { kind: "done", items: await homeVideos<T>(profile, kind), revision: Date.now() };
 }
 
 async function fetchAndCacheContent(
@@ -245,15 +327,27 @@ async function fetchAndCacheContent(
     // so the VOD call is not rejected while categories are still in flight.
     const categories = await getVodCategories(profile, signal);
     if (!isCurrent()) return;
-    const rows = await getVodStreams(profile, undefined, signal);
-    if (!isCurrent()) return;
     const byId = indexBy(categories);
     const mapped = deduplicateCatalogItems(
       categories.map(c => ({ id: String(c.category_id), name: c.category_name })), item => item.id,
     );
     assertSafeCatalogReplacement("vodCategories", mapped.length, await catalogDatabase.count(profile.id, "vodCategories"));
-    const result = await saveVideoCatalog(profile, "vodMovies", rows,
-      row => mapVodStreamToMovie(row, byId.get(String(row.category_id)), profile), isCurrent);
+    let result: { items: VodMovie[]; revision?: number; saved: boolean };
+    const byCategory = LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
+      ? await syncVideoByCategory<XtreamVodStream, VodMovie>(profile, "vodMovies", categories,
+        id => getVodStreams(profile, id, signal),
+        (row, category) => mapVodStreamToMovie(row, category, profile), isCurrent,
+        (done, total) => setSyncState({ syncProgress: `Baixando filmes: categoria ${done} de ${total}...` }))
+      : null;
+    if (!isCurrent()) return;
+    if (byCategory?.kind === "done") {
+      result = { items: byCategory.items, revision: byCategory.revision, saved: true };
+    } else {
+      const rows: XtreamVodStream[] = byCategory?.kind === "full" ? byCategory.rows : await getVodStreams(profile, undefined, signal);
+      if (!isCurrent()) return;
+      result = await saveVideoCatalog(profile, "vodMovies", rows,
+        row => mapVodStreamToMovie(row, byId.get(String(row.category_id)), profile), isCurrent);
+    }
     if (!isCurrent()) return;
     const savedCategories = await persistCatalog("vodCategories", [catalogDatabase.replaceAll(profile.id, "vodCategories", mapped)]);
     if (!isCurrent()) return;
@@ -288,15 +382,27 @@ async function fetchAndCacheContent(
     });
     const categories = await getSeriesCategories(profile, signal);
     if (!isCurrent()) return;
-    const rows = await getSeries(profile, undefined, signal);
-    if (!isCurrent()) return;
     const byId = indexBy(categories);
     const mapped = deduplicateCatalogItems(
       categories.map(c => ({ id: String(c.category_id), name: c.category_name })), item => item.id,
     );
     assertSafeCatalogReplacement("seriesCategories", mapped.length, await catalogDatabase.count(profile.id, "seriesCategories"));
-    const result = await saveVideoCatalog(profile, "seriesList", rows,
-      row => mapSeriesStreamToItem(row, byId.get(String(row.category_id))), isCurrent);
+    let result: { items: SeriesItem[]; revision?: number; saved: boolean };
+    const byCategory = LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
+      ? await syncVideoByCategory<XtreamSeriesStream, SeriesItem>(profile, "seriesList", categories,
+        id => getSeries(profile, id, signal),
+        (row, category) => mapSeriesStreamToItem(row, category), isCurrent,
+        (done, total) => setSyncState({ syncProgress: `Baixando séries: categoria ${done} de ${total}...` }))
+      : null;
+    if (!isCurrent()) return;
+    if (byCategory?.kind === "done") {
+      result = { items: byCategory.items, revision: byCategory.revision, saved: true };
+    } else {
+      const rows: XtreamSeriesStream[] = byCategory?.kind === "full" ? byCategory.rows : await getSeries(profile, undefined, signal);
+      if (!isCurrent()) return;
+      result = await saveVideoCatalog(profile, "seriesList", rows,
+        row => mapSeriesStreamToItem(row, byId.get(String(row.category_id))), isCurrent);
+    }
     if (!isCurrent()) return;
     const savedCategories = await persistCatalog("seriesCategories", [catalogDatabase.replaceAll(profile.id, "seriesCategories", mapped)]);
     if (!isCurrent()) return;

@@ -182,6 +182,16 @@ const IPTV_HEADERS = { "User-Agent": "IPTVSmartersPro/3.1.5" };
 const PIP_VIDEO_W = 124;
 const PIP_VIDEO_H = Math.round(PIP_VIDEO_W * (9 / 16));
 
+/**
+ * O mini player só existe enquanto está ativo. Antes ficava sempre montado
+ * com um player de vídeo vazio — uma instância a mais do ExoPlayer (threads e
+ * memória) durante todo o uso do app, pesado em Fire TV Stick de 1 GB.
+ */
+function PiPOverlayHost() {
+  const active = useAppStore((state) => state.pip.isActive);
+  return active ? <PiPOverlayHost /> : null;
+}
+
 function PiPOverlay() {
   const insets = useSafeAreaInsets();
   const router = useRouter();

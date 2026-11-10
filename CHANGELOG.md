@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.17.35] — 2026-11-10
+
+- Filmes e Séries (TV): ao passar por "Todas" no painel de categorias, a grade que remontava com o novo conteúdo puxava o foco (primeiro pôster ou o pôster lembrado via `hasTVPreferredFocus`) e o usuário era jogado para os títulos. A grade só pode pegar o foco enquanto o usuário está nela ou na abertura da seção (`gridMayFocus`); na abertura, o foco inicial fica em "Todas" e não em "Buscar".
+- Filmes e Séries (TV): ← na primeira coluna da grade leva à categoria selecionada (`nextFocusLeft`), em vez da linha mais próxima na tela, que muitas vezes era "Buscar título ou ator" e trocava a grade para a busca.
+- Aparelhos de pouca memória (`deviceTier` "low": Fire TV Stick HD, Fire TV Stick 4K 1ª geração, TVs de até 1,5 GB): filmes e séries são baixados categoria por categoria e gravados direto no SQLite (`writeTvSnapshotParts`), sem nunca ter a lista inteira na memória. A troca só acontece no fim, numa transação; se o servidor falhar em mais de 20% das categorias, o catálogo salvo é mantido. Painel que ignora `category_id` cai no modo antigo sem baixar de novo.
+- Leitura das respostas Xtream sem as cópias de `replace`/`trim` do texto inteiro (pico de memória menor em listas grandes).
+- Mini player (PiP) montado só quando ativo: antes havia um ExoPlayer vazio vivo o tempo todo. Build Android `20261053`.
+
 ## [2.17.34] — 2026-11-10
 
 - Android TV e Fire TV passam a consultar o catálogo de filmes e séries no SQLite em páginas de 80 títulos. Build Android `20261052`.

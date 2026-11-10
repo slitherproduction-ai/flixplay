@@ -120,6 +120,46 @@ export const catalogDatabase = {
     finally { if (pendingSnapshots.get(key) === job) pendingSnapshots.delete(key); }
   },
 
+  /**
+   * Igual a `writeTvSnapshot`, mas a lista chega em partes (uma por categoria):
+   * o catálogo inteiro nunca fica na memória de uma vez. `produce` chama
+   * `append` a cada parte; ao final, a área temporária só substitui a lista
+   * gravada se `shouldCommit(total)` aprovar. Devolve o total gravado.
+   */
+  async writeTvSnapshotParts<Item extends { id: string }>(
+    server: string, kind: "vodMovies" | "seriesList",
+    produce: (append: (items: Item[]) => Promise<void>) => Promise<void>,
+    current: () => boolean, shouldCommit: (total: number) => boolean,
+  ): Promise<number> {
+    const db = database();
+    if (!db?.append || !db.commitStaging) throw new Error("Gravação por páginas indisponível");
+    const key = JSON.stringify([server, kind]);
+    const previous = pendingSnapshots.get(key);
+    let total = 0;
+    const write = async () => {
+      if (!current()) return;
+      const stage = `${kind}::staging` as CatalogKind;
+      await db.replaceAll(server, stage, "[]");
+      await produce(async (items) => {
+        for (let i = 0; i < items.length; i += WRITE_CHUNK_SIZE) {
+          await waitForCatalogIdle(current);
+          if (!current()) return;
+          const chunk = items.slice(i, i + WRITE_CHUNK_SIZE).filter(item => item.id.trim());
+          await db.append!(server, stage, encodeChunk(chunk));
+          total += chunk.length;
+          await yieldToUi();
+        }
+      });
+      if (current() && shouldCommit(total)) await db.commitStaging!(server, kind);
+      else await db.replaceAll(server, stage, "[]").catch(() => 0);
+    };
+    const job = (previous ?? Promise.resolve()).then(write, write);
+    pendingSnapshots.set(key, job);
+    try { await job; }
+    finally { if (pendingSnapshots.get(key) === job) pendingSnapshots.delete(key); }
+    return total;
+  },
+
   async searchTv<T>(server: string, query: string, kinds: CatalogKind[], offset: number, limit: number): Promise<IndexedCatalogItem<T>[]> {
     const raw = await database()?.searchTvCatalog?.(server, query, JSON.stringify(kinds), offset, limit);
     return raw ? JSON.parse(raw) : [];

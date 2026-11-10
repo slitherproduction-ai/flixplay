@@ -47,8 +47,18 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.34",
+    version: "v2.17.35",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Filmes e Séries na TV: ao passar pela categoria Todas, o foco não pula mais sozinho para os títulos." },
+      { tag: "Correção", text: "Ao voltar dos títulos para as categorias, o foco vai para a categoria aberta, e não para a Busca." },
+      { tag: "Melhoria", text: "Fire TV Stick e aparelhos com pouca memória baixam filmes e séries por categoria, sem fechar o app em listas grandes." },
+      { tag: "Melhoria", text: "Menos memória em uso durante a navegação." },
+    ],
+  },
+  {
+    version: "v2.17.34",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "No Fire TV e Android TV, Filmes e Séries carregam por páginas ao navegar pelo catálogo." },

@@ -126,6 +126,8 @@ export interface EpisodeItem {
 }
 
 export interface ContentCache {
+  vodRevision?: number;
+  seriesRevision?: number;
   liveCategories: { id: string; name: string }[];
   liveChannels: ChannelItem[];
   vodCategories: { id: string; name: string }[];

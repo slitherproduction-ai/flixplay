@@ -57,6 +57,7 @@ function MoviesScreen() {
   // valor "atrasado" e o React descarta os cálculos que ficaram velhos.
   const deferredQuery = useDeferredValue(query);
 
+  const pagedTv = useAppStore(state => Boolean(state.contentCache.vodRevision));
   const allMovies = useAppStore((state) => state.contentCache.vodMovies);
   const hiddenCategories = useHiddenCategoryNames("movies");
   const movies = useMemo(() => withoutHidden(allMovies, hiddenCategories, (movie) => movie.genre), [allMovies, hiddenCategories]);
@@ -102,6 +103,7 @@ function MoviesScreen() {
   }, [categoryHasMovies, isSyncing, loadCategory, selectedCategory]);
 
   const filteredMovies = useMemo(() => {
+    if (pagedTv) return [];
     const q = deferredQuery.trim().toLowerCase();
     return movies
       .filter((movie) => {
@@ -127,7 +129,7 @@ function MoviesScreen() {
         const addedB = parseAddedAt(b.addedAt);
         return addedB - addedA || a.title.localeCompare(b.title);
       });
-  }, [movies, genre, deferredQuery, sort, favoriteMovieIds, selectedCategory]);
+  }, [pagedTv, movies, genre, deferredQuery, sort, favoriteMovieIds, selectedCategory]);
   const pager = useCatalogPagination<VodMovie>(activeServerId, "vodMovies", {
     categoryName: selectedCategory?.name ?? "",
     query: genre === FAVORITES_KEY ? "" : query.trim(),
@@ -247,7 +249,7 @@ function MoviesScreen() {
   // O mesmo navegador atende o tablet na horizontal (toque).
   const catalogBrowserMode = tvMode || isTabletLandscape;
   const tvEntriesRaw = useMemo<TvCatalogEntry[]>(() => {
-    if (!catalogBrowserMode) return [];
+    if (!catalogBrowserMode || pagedTv) return [];
     const addedValue = (value?: string) => {
       const numeric = Number(value);
       if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
@@ -267,7 +269,7 @@ function MoviesScreen() {
         detail: movie.duration,
         quality: movie.quality,
       }));
-  }, [catalogBrowserMode, movies]);
+  }, [catalogBrowserMode, pagedTv, movies]);
   const tvEntries = useDedupedTitles(tvEntriesRaw);
   const tvCategories = cachedCategories;
 
@@ -318,7 +320,7 @@ function MoviesScreen() {
         windowSize={7}
         removeClippedSubviews={Platform.OS === "android"}
         onScrollToIndexFailed={onScrollToIndexFailed}
-        onEndReached={pager.enabled && genre !== FAVORITES_LABEL ? pager.loadMore : undefined}
+        onEndReached={pager.enabled && genre !== FAVORITES_KEY ? pager.loadMore : undefined}
         onEndReachedThreshold={0.5}
         ListFooterComponent={pager.loading && visibleMovies.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
       />

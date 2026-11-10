@@ -1,3 +1,6 @@
+import { useTvPages } from "./use-tv-pages";
+import { useHiddenCategoryNames } from "./hidden-categories";
+import { useAppStore } from "@/store/useAppStore";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -282,16 +285,39 @@ export function TvCatalogBrowser({
   const posterWidth = Math.floor((gridWidth - gridInset * 2 - gridGap * (columns - 1)) / columns);
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<TvCatalogEntry>(focusScope, !touch, columns);
 
+  const server = useAppStore(state => state.activeServerId);
+  const revision = useAppStore(state => kind === "movies" ? state.contentCache.vodRevision : state.contentCache.seriesRevision);
+  const hidden = useHiddenCategoryNames(kind);
+  const [actorTitles, setActorTitles] = useState<string[]>([]);
+  const categoryId = selectedKey.startsWith("category:") ? selectedKey.slice(9) : undefined;
+  const category = categoryId ? providerCategories.find(row => row.id === categoryId)?.name
+    : selectedKey.startsWith("category-name:") ? selectedKey.slice(14) : undefined;
+  const pages = useTvPages(server ?? "", kind === "movies" ? "vodMovies" : "seriesList", revision, {
+    categoryId, category, hidden: [...hidden],
+    sort: kind === "movies" ? "added_desc" : "name_asc",
+    ids: selectedKey === FAVORITES_KEY ? favoriteIds : undefined,
+    query: selectedKey === SEARCH_KEY ? submittedQuery : undefined,
+    titles: selectedKey === SEARCH_KEY ? actorTitles : undefined,
+  }, selectedKey !== SEARCH_KEY || submittedQuery.length >= 2);
+  const totalEntries = revision ? pages.counts.reduce((n, row) => n + row.total, 0) : entries.length;
+
   const counts = useMemo(() => {
     const byName = new Map<string, number>();
     const byId = new Map<string, number>();
+    if (revision) {
+      for (const row of pages.counts) {
+        byName.set(row.name, (byName.get(row.name) ?? 0) + row.total);
+        if (row.id) byId.set(row.id, (byId.get(row.id) ?? 0) + row.total);
+      }
+      return { byName, byId };
+    }
     for (const entry of entries) {
       const name = entry.category || "Sem categoria";
       byName.set(name, (byName.get(name) ?? 0) + 1);
       if (entry.categoryId) byId.set(entry.categoryId, (byId.get(entry.categoryId) ?? 0) + 1);
     }
     return { byName, byId };
-  }, [entries]);
+  }, [entries, revision, pages.counts]);
   const providerCategoryNames = useMemo(
     () => new Map(providerCategories.map((category) => [category.id, category.name])),
     [providerCategories],
@@ -301,7 +327,7 @@ export function TvCatalogBrowser({
     const ordered: CategoryRow[] = [
       { key: SEARCH_KEY, name: "Buscar título ou ator", total: null, icon: "search", special: true },
       { key: FAVORITES_KEY, name: "Minha Lista", total: favoriteIds.length, icon: "star" },
-      { key: ALL_KEY, name: "Todas", total: entries.length, icon: "grid-outline" },
+      { key: ALL_KEY, name: "Todas", total: totalEntries, icon: "grid-outline" },
     ];
     const seen = new Set<string>();
     for (const category of providerCategories) {
@@ -311,17 +337,19 @@ export function TvCatalogBrowser({
       ordered.push({ key: `category:${category.id}`, name: displayCategory(category.name), total, categoryId: category.id, categoryName: category.name });
     }
     // Categorias presentes nos títulos mas ausentes da lista de categorias.
+    const knownNames = new Set(providerCategoryNames.values());
     for (const [name, total] of counts.byName) {
-      if (![...providerCategoryNames.values()].includes(name)) ordered.push({ key: `category-name:${name}`, name: displayCategory(name), total, categoryName: name });
+      if (!knownNames.has(name)) ordered.push({ key: `category-name:${name}`, name: displayCategory(name), total, categoryName: name });
     }
     return ordered;
-  }, [providerCategories, providerCategoryNames, counts, entries.length, favoriteIds.length]);
+  }, [providerCategories, providerCategoryNames, counts, totalEntries, favoriteIds.length]);
 
   const realCategoryCount = categories.length - 3;
 
   const selectedCategory = categories.find((category) => category.key === selectedKey) ?? categories[2];
 
   const visibleEntries = useMemo(() => {
+    if (revision) return pages.entries;
     if (selectedKey === SEARCH_KEY) return searchResults;
     if (selectedKey === ALL_KEY) return entries;
     if (selectedKey === FAVORITES_KEY) {
@@ -332,28 +360,29 @@ export function TvCatalogBrowser({
       ? entry.categoryId === selectedCategory.categoryId
         || (!entry.categoryId && entry.category === providerCategoryNames.get(selectedCategory.categoryId))
       : (entry.category || "Sem categoria") === selectedCategory?.categoryName);
-  }, [entries, favoriteIds, providerCategoryNames, searchResults, selectedCategory, selectedKey]);
+  }, [revision, pages.entries, entries, favoriteIds, providerCategoryNames, searchResults, selectedCategory, selectedKey]);
 
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
-  const handleCategoryFocus = useCallback((category: CategoryRow) => {
-    footerStore.set({ kind: "category", category });
+  const selectCategory = useCallback((category: CategoryRow) => {
+    setSelectedKey(category.key);
     if (category.categoryId && category.total === 0 && category.categoryName) {
       onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
     }
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(() => setSelectedKey(category.key), CATEGORY_SETTLE_MS);
   }, [onCategoryDemand]);
 
-  const handleCategoryPress = useCallback((category: CategoryRow) => {
-    if (category.categoryId && category.total === 0 && category.categoryName) {
-      onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
-    }
+  const handleCategoryFocus = useCallback((category: CategoryRow) => {
+    footerStore.set({ kind: "category", category });
     if (settleTimer.current) clearTimeout(settleTimer.current);
-    setSelectedKey(category.key);
+    settleTimer.current = setTimeout(() => selectCategory(category), CATEGORY_SETTLE_MS);
+  }, [footerStore, selectCategory]);
+
+  const handleCategoryPress = useCallback((category: CategoryRow) => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    selectCategory(category);
     // "Buscar": OK abre o teclado, como no Roku.
     if (category.key === SEARCH_KEY) requestAnimationFrame(() => inputRef.current?.focus());
-  }, [onCategoryDemand]);
+  }, [selectCategory]);
 
   const handleEntryFocus = useCallback((entry: TvCatalogEntry) => {
     footerStore.set({ kind: "entry", entry });
@@ -366,6 +395,7 @@ export function TvCatalogBrowser({
     const generation = searchGeneration.current + 1;
     searchGeneration.current = generation;
     setSubmittedQuery(trimmed);
+    setActorTitles([]);
     setSearchPerson("");
     if (trimmed.length < 2) {
       setSearchResults([]);
@@ -373,6 +403,18 @@ export function TvCatalogBrowser({
       return;
     }
     setSearchLoading(true);
+    if (revision) {
+      try {
+        const result = await fetchTmdbPersonFilmography(trimmed, kind === "movies" ? "movie" : "tv");
+        if (generation === searchGeneration.current && result) {
+          setActorTitles(result.titles.map(catalogTitleKey).filter(Boolean));
+          setSearchPerson(result.person);
+        }
+      } catch { /* resultados por título seguem disponíveis */ } finally {
+        if (generation === searchGeneration.current) setSearchLoading(false);
+      }
+      return;
+    }
     // Prepara as chaves em lotes antes de filtrar (não trava o controle remoto).
     await warmTitleKeys(entries.map((entry) => entry.title)).promise;
     if (generation !== searchGeneration.current) return;
@@ -396,7 +438,7 @@ export function TvCatalogBrowser({
     setSearchPerson(person);
     setSearchResults(results.slice(0, SEARCH_LIMIT));
     setSearchLoading(false);
-  }, [entries, kind]);
+  }, [entries, kind, revision]);
 
   useEffect(() => {
     if (selectedKey !== SEARCH_KEY) return;
@@ -436,7 +478,7 @@ export function TvCatalogBrowser({
     />
   ), [focusScope, handleEntryFocus, onOpen, posterWidth, preferFirstPoster, touch]);
 
-  const emptyMessage = selectedKey === SEARCH_KEY
+  const emptyMessage = pages.loading ? "Carregando catálogo…" : selectedKey === SEARCH_KEY
     ? (searchLoading
       ? "Buscando em todo o catálogo…"
       : submittedQuery.length >= 2
@@ -465,15 +507,15 @@ export function TvCatalogBrowser({
           <AppText style={[styles.count, touch && styles.touchCount]}>
             {isSyncing && entries.length === 0
               ? (syncProgress ?? "Carregando…")
-              : `${formatCount(entries.length)} títulos   •   ${formatCount(realCategoryCount)} categorias`}
+              : `${formatCount(totalEntries)} títulos   •   ${formatCount(realCategoryCount)} categorias`}
           </AppText>
         </View>
         <View style={styles.headerRight}>
           {touch ? null : <AppText style={styles.hint}>
             {kind === "series" ? "←  Categorias e Busca   •   OK  Temporadas e episódios" : "←  Categorias e Busca   •   OK  Detalhes e assistir"}
           </AppText>}
-          {syncError ? (
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Tentar sincronizar novamente" onPress={onRefresh} style={styles.retry} focusStyle={styles.retryFocused}>
+          {syncError || pages.error ? (
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Tentar sincronizar novamente" onPress={pages.error ? pages.retry : onRefresh} style={styles.retry} focusStyle={styles.retryFocused}>
               <Ionicons name="refresh" size={12} color={Colors.background} />
               <AppText style={styles.retryText}>Tentar novamente</AppText>
             </TVFocusable>
@@ -520,6 +562,8 @@ export function TvCatalogBrowser({
             ref={listRef}
             key={`${kind}-grid-${columns}-${selectedKey}`}
             data={visibleEntries}
+            onEndReached={revision ? pages.loadMore : undefined}
+            onEndReachedThreshold={0.6}
             numColumns={columns}
             keyExtractor={(item) => item.id}
             renderItem={renderPoster}

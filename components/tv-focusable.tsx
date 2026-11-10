@@ -1,3 +1,4 @@
+import { recordCatalogNavigation } from "@/core/navigation/tv-catalog-activity";
 import type React from "react";
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { findNodeHandle, Platform, Pressable, StyleSheet, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
@@ -67,6 +68,7 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
     // screen is mounting.  This must not replace the visual treatment of
     // primary mobile actions with the TV focus ring.
     if (Platform.isTV) {
+      recordCatalogNavigation();
       setFocused(true);
       if (focusScope && focusId) rememberTvFocus(focusScope, focusId, focusIndex);
     }

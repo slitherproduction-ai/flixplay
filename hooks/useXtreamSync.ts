@@ -1,3 +1,4 @@
+import { waitForCatalogIdle } from "@/core/navigation/tv-catalog-activity";
 import { useCallback, useEffect, useRef } from "react";
 import {
   getLiveCategories,
@@ -21,6 +22,7 @@ import {
   assertSafeCatalogReplacement,
   deduplicateCatalogItems,
 } from "@/data/sync/catalogSyncPolicy";
+import { homeVideos, type VideoItem, type VideoKind } from "@/data/database/tvCatalog";
 import { fetchM3uChannels } from "@/services/m3uImport";
 
 /**
@@ -69,19 +71,21 @@ async function readAllPages<T>(serverId: string, kind: Parameters<typeof catalog
 }
 
 async function restoreOfflineCache(profile: ServerProfile): Promise<boolean> {
-  const [liveCategories, storedLiveChannels, vodCategories, storedVodMovies, seriesCategories, seriesList] = await Promise.all([
-    readAllPages<CachedCategory>(profile.id, "liveCategories"),
-    readAllPages<ChannelItem>(profile.id, "liveChannels"),
-    readAllPages<CachedCategory>(profile.id, "vodCategories"),
-    readAllPages<VodMovie>(profile.id, "vodMovies"),
-    readAllPages<CachedCategory>(profile.id, "seriesCategories"),
-    readAllPages<SeriesItem>(profile.id, "seriesList"),
-  ]);
+  const liveCategories = await readAllPages<CachedCategory>(profile.id, "liveCategories");
+  const storedLiveChannels = await readAllPages<ChannelItem>(profile.id, "liveChannels");
+  if (useAppStore.getState().activeServerId !== profile.id) return false;
   const liveChannels = storedLiveChannels.map((channel) => ({
     ...channel,
     streamUrl: createStreamUrl(profile, channel.streamId),
   }));
-  const vodMovies = storedVodMovies.map((movie) => ({
+  useAppStore.getState().setContentCache({ liveCategories, liveChannels });
+  const paged = catalogDatabase.supportsTvPages();
+  const vodCategories = await readAllPages<CachedCategory>(profile.id, "vodCategories");
+  const storedVodMovies = paged ? await homeVideos<VodMovie>(profile, "vodMovies") : await readAllPages<VodMovie>(profile.id, "vodMovies");
+  const seriesCategories = await readAllPages<CachedCategory>(profile.id, "seriesCategories");
+  const seriesList = paged ? await homeVideos<SeriesItem>(profile, "seriesList") : await readAllPages<SeriesItem>(profile.id, "seriesList");
+  if (useAppStore.getState().activeServerId !== profile.id) return false;
+  const vodMovies = paged ? storedVodMovies : storedVodMovies.map((movie) => ({
     ...movie,
     streamUrl: createVodUrl(profile, movie.streamId, movie.containerExtension ?? "mp4"),
   }));
@@ -92,10 +96,31 @@ async function restoreOfflineCache(profile: ServerProfile): Promise<boolean> {
     liveChannels,
     vodCategories,
     vodMovies,
+    vodRevision: paged ? Date.now() : undefined,
+    seriesRevision: paged ? Date.now() : undefined,
     seriesCategories,
     seriesList,
   });
   return true;
+}
+
+async function saveVideoCatalog<R, T extends VideoItem>(
+  profile: ServerProfile, kind: VideoKind, rows: R[], map: (row: R) => T, current: () => boolean,
+): Promise<{ items: T[]; revision?: number; saved: boolean }> {
+  assertSafeCatalogReplacement(kind, rows.length, await catalogDatabase.count(profile.id, kind));
+  if (catalogDatabase.supportsTvPages()) {
+    try {
+      await catalogDatabase.writeTvSnapshot(profile.id, kind, rows, map, current);
+      if (!current()) return { items: [], saved: false };
+      return { items: await homeVideos<T>(profile, kind), revision: Date.now(), saved: true };
+    } catch (error) {
+      logTechnicalError("Sync/paged-cache", error);
+      return { items: deduplicateCatalogItems(rows.map(map), item => item.id), saved: false };
+    }
+  }
+  const items = deduplicateCatalogItems(rows.map(map), item => item.id);
+  const saved = await persistCatalog(kind, [catalogDatabase.replaceAll(profile.id, kind, items)]);
+  return { items, saved };
 }
 
 async function fetchAndCacheContent(
@@ -136,6 +161,8 @@ async function fetchAndCacheContent(
       getLiveCategories(profile, signal),
       getLiveStreams(profile, undefined, signal),
     ]);
+    if (!isCurrent()) return null;
+    if (catalogDatabase.supportsTvPages()) await waitForCatalogIdle(isCurrent);
     if (!isCurrent()) return null;
     const liveCatMap = indexBy(liveCategories);
     const mappedLiveCategories = deduplicateCatalogItems(
@@ -205,6 +232,8 @@ async function fetchAndCacheContent(
   }
 
   try {
+    if (catalogDatabase.supportsTvPages()) await waitForCatalogIdle(isCurrent);
+    if (!isCurrent()) return;
     // ── VOD movies ───────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Baixando catálogo de filmes..." });
     setSyncState({
@@ -214,38 +243,24 @@ async function fetchAndCacheContent(
     // A number of Xtream panels serialize requests per account or allow only
     // one active connection. Fetch metadata and the large payload sequentially
     // so the VOD call is not rejected while categories are still in flight.
-    const vod = await (async () => {
-    const vodCategories = await getVodCategories(profile, signal);
-    if (!isCurrent()) return null;
-    const vodStreams = await getVodStreams(profile, undefined, signal);
-    if (!isCurrent()) return null;
-    const vodCatMap = indexBy(vodCategories);
-    const mappedVodCategories = deduplicateCatalogItems(
-      vodCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
-      (item) => item.id,
-    );
-    const mappedVodMovies = deduplicateCatalogItems(
-      vodStreams.map((stream) =>
-        mapVodStreamToMovie(stream, vodCatMap.get(String(stream.category_id)), profile),
-      ),
-      (item) => item.id,
-    );
-    return { mappedVodCategories, mappedVodMovies };
-    })();
-    if (!vod) return;
-    const { mappedVodCategories, mappedVodMovies } = vod;
-    const [storedVodCategories, storedVodMovies] = await Promise.all([
-      catalogDatabase.count(profile.id, "vodCategories"),
-      catalogDatabase.count(profile.id, "vodMovies"),
-    ]);
-    assertSafeCatalogReplacement("vodCategories", mappedVodCategories.length, storedVodCategories);
-    assertSafeCatalogReplacement("vodMovies", mappedVodMovies.length, storedVodMovies);
-    persisted = (await persistCatalog("movies", [
-      catalogDatabase.replaceAll(profile.id, "vodCategories", mappedVodCategories),
-      catalogDatabase.replaceAll(profile.id, "vodMovies", mappedVodMovies),
-    ])) && persisted;
+    const categories = await getVodCategories(profile, signal);
     if (!isCurrent()) return;
-    setContentCache({ vodCategories: mappedVodCategories, vodMovies: mappedVodMovies });
+    const rows = await getVodStreams(profile, undefined, signal);
+    if (!isCurrent()) return;
+    const byId = indexBy(categories);
+    const mapped = deduplicateCatalogItems(
+      categories.map(c => ({ id: String(c.category_id), name: c.category_name })), item => item.id,
+    );
+    assertSafeCatalogReplacement("vodCategories", mapped.length, await catalogDatabase.count(profile.id, "vodCategories"));
+    const result = await saveVideoCatalog(profile, "vodMovies", rows,
+      row => mapVodStreamToMovie(row, byId.get(String(row.category_id)), profile), isCurrent);
+    if (!isCurrent()) return;
+    const savedCategories = await persistCatalog("vodCategories", [catalogDatabase.replaceAll(profile.id, "vodCategories", mapped)]);
+    if (!isCurrent()) return;
+    persisted = persisted && result.saved && savedCategories;
+    setContentCache({
+      vodCategories: mapped, vodMovies: result.items, vodRevision: result.revision,
+    });
     setSyncState({
       stages: { ...useAppStore.getState().syncState.stages, movies: "complete", series: "pending" },
       progressPercent: 0,
@@ -262,6 +277,8 @@ async function fetchAndCacheContent(
   }
 
   try {
+    if (catalogDatabase.supportsTvPages()) await waitForCatalogIdle(isCurrent);
+    if (!isCurrent()) return;
     // ── Series ───────────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Baixando catálogo de séries..." });
     const stagesBeforeSeries = useAppStore.getState().syncState.stages;
@@ -269,40 +286,23 @@ async function fetchAndCacheContent(
       stages: { ...stagesBeforeSeries, series: "running" },
       progressPercent: 0,
     });
-    const series = await (async () => {
-    const seriesCategories = await getSeriesCategories(profile, signal);
-    if (!isCurrent()) return null;
-    const seriesList = await getSeries(profile, undefined, signal);
-    if (!isCurrent()) return null;
-    const seriesCatMap = indexBy(seriesCategories);
-    const mappedSeriesCategories = deduplicateCatalogItems(
-      seriesCategories.map((c) => ({ id: String(c.category_id), name: c.category_name })),
-      (item) => item.id,
-    );
-    const mappedSeriesList = deduplicateCatalogItems(
-      seriesList.map((stream) =>
-        mapSeriesStreamToItem(stream, seriesCatMap.get(String(stream.category_id))),
-      ),
-      (item) => item.id,
-    );
-    return { mappedSeriesCategories, mappedSeriesList };
-    })();
-    if (!series) return;
-    const { mappedSeriesCategories, mappedSeriesList } = series;
-    const [storedSeriesCategories, storedSeries] = await Promise.all([
-      catalogDatabase.count(profile.id, "seriesCategories"),
-      catalogDatabase.count(profile.id, "seriesList"),
-    ]);
-    assertSafeCatalogReplacement("seriesCategories", mappedSeriesCategories.length, storedSeriesCategories);
-    assertSafeCatalogReplacement("seriesList", mappedSeriesList.length, storedSeries);
-    persisted = (await persistCatalog("series", [
-      catalogDatabase.replaceAll(profile.id, "seriesCategories", mappedSeriesCategories),
-      catalogDatabase.replaceAll(profile.id, "seriesList", mappedSeriesList),
-    ])) && persisted;
+    const categories = await getSeriesCategories(profile, signal);
     if (!isCurrent()) return;
+    const rows = await getSeries(profile, undefined, signal);
+    if (!isCurrent()) return;
+    const byId = indexBy(categories);
+    const mapped = deduplicateCatalogItems(
+      categories.map(c => ({ id: String(c.category_id), name: c.category_name })), item => item.id,
+    );
+    assertSafeCatalogReplacement("seriesCategories", mapped.length, await catalogDatabase.count(profile.id, "seriesCategories"));
+    const result = await saveVideoCatalog(profile, "seriesList", rows,
+      row => mapSeriesStreamToItem(row, byId.get(String(row.category_id))), isCurrent);
+    if (!isCurrent()) return;
+    const savedCategories = await persistCatalog("seriesCategories", [catalogDatabase.replaceAll(profile.id, "seriesCategories", mapped)]);
+    if (!isCurrent()) return;
+    persisted = persisted && result.saved && savedCategories;
     setContentCache({
-      seriesCategories: mappedSeriesCategories,
-      seriesList: mappedSeriesList,
+      seriesCategories: mapped, seriesList: result.items, seriesRevision: result.revision,
       lastSyncedAt: new Date().toISOString(),
     });
     // Catálogo completo baixado e salvo: as próximas aberturas, dentro de
@@ -349,6 +349,7 @@ export function useXtreamSync() {
   const setContentCache = useAppStore((state) => state.setContentCache);
   const setSyncState = useAppStore((state) => state.setSyncState);
   const forceResync = useAppStore((state) => state.forceResync);
+  const mounted = useRef(true);
   const controllerRef = useRef<AbortController | null>(null);
 
   const doSync = useCallback(
@@ -391,7 +392,8 @@ export function useXtreamSync() {
       && catalogDatabase.isAvailable()
       && syncedAt > 0
       && Date.now() - syncedAt < CATALOG_FRESH_MS;
-    if (!fresh) {
+    const restoreStale = catalogDatabase.supportsTvPages() && syncedAt > 0 && server.sourceType !== "m3u";
+    if (!fresh && !restoreStale) {
       void doSync(server);
       return;
     }
@@ -416,6 +418,12 @@ export function useXtreamSync() {
         void doSync(server);
         return;
       }
+      if (!fresh) {
+        const current = () => mounted.current && useAppStore.getState().activeServerId === server.id;
+        await waitForCatalogIdle(current, 3000);
+        if (current()) void doSync(server);
+        return;
+      }
       useAppStore.getState().setContentCache({ lastSyncedAt: new Date(syncedAt).toISOString() });
       setSyncState({
         isSyncing: false,
@@ -427,7 +435,10 @@ export function useXtreamSync() {
     })();
   }, [activeServerId, syncState.isSyncing, syncState.lastSyncedServerId, doSync]);
 
-  useEffect(() => () => controllerRef.current?.abort(), []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; controllerRef.current?.abort(); };
+  }, []);
 
   const refresh = useCallback(() => {
     if (syncState.isSyncing) return;

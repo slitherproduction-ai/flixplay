@@ -311,8 +311,9 @@ export function TvCatalogBrowser({
       ordered.push({ key: `category:${category.id}`, name: displayCategory(category.name), total, categoryId: category.id, categoryName: category.name });
     }
     // Categorias presentes nos títulos mas ausentes da lista de categorias.
+    const knownNames = new Set(providerCategoryNames.values());
     for (const [name, total] of counts.byName) {
-      if (![...providerCategoryNames.values()].includes(name)) ordered.push({ key: `category-name:${name}`, name: displayCategory(name), total, categoryName: name });
+      if (!knownNames.has(name)) ordered.push({ key: `category-name:${name}`, name: displayCategory(name), total, categoryName: name });
     }
     return ordered;
   }, [providerCategories, providerCategoryNames, counts, entries.length, favoriteIds.length]);
@@ -336,24 +337,25 @@ export function TvCatalogBrowser({
 
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
-  const handleCategoryFocus = useCallback((category: CategoryRow) => {
-    footerStore.set({ kind: "category", category });
+  const selectCategory = useCallback((category: CategoryRow) => {
+    setSelectedKey(category.key);
     if (category.categoryId && category.total === 0 && category.categoryName) {
       onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
     }
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(() => setSelectedKey(category.key), CATEGORY_SETTLE_MS);
   }, [onCategoryDemand]);
 
-  const handleCategoryPress = useCallback((category: CategoryRow) => {
-    if (category.categoryId && category.total === 0 && category.categoryName) {
-      onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
-    }
+  const handleCategoryFocus = useCallback((category: CategoryRow) => {
+    footerStore.set({ kind: "category", category });
     if (settleTimer.current) clearTimeout(settleTimer.current);
-    setSelectedKey(category.key);
+    settleTimer.current = setTimeout(() => selectCategory(category), CATEGORY_SETTLE_MS);
+  }, [footerStore, selectCategory]);
+
+  const handleCategoryPress = useCallback((category: CategoryRow) => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    selectCategory(category);
     // "Buscar": OK abre o teclado, como no Roku.
     if (category.key === SEARCH_KEY) requestAnimationFrame(() => inputRef.current?.focus());
-  }, [onCategoryDemand]);
+  }, [selectCategory]);
 
   const handleEntryFocus = useCallback((entry: TvCatalogEntry) => {
     footerStore.set({ kind: "entry", entry });

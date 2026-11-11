@@ -17,6 +17,9 @@ import { UpdateAvailableNotice } from "@/components/update-available-notice";
 import { CodeAccessGate } from "@/components/code-access-gate";
 import { LegacyPortalMigration } from "@/components/legacy-portal-migration";
 import { applyStartupKeepAwake } from "@/services/deviceProfile";
+import { markCleanExit, setPerformanceRoute, startPerformanceMonitor } from "@/services/performanceMonitor";
+
+startPerformanceMonitor();
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -114,6 +117,8 @@ function RootExitGuard() {
   const [visible, setVisible] = useState(false);
   const lastBackAt = React.useRef(0);
 
+  useEffect(() => { setPerformanceRoute(pathname); }, [pathname]);
+
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -152,7 +157,7 @@ function RootExitGuard() {
             <TVFocusable hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Não, continuar no aplicativo" onPress={() => setVisible(false)} style={exitStyles.secondary}>
               <Text style={exitStyles.secondaryText}>Não</Text>
             </TVFocusable>
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Sim, sair do aplicativo" onPress={() => BackHandler.exitApp()} style={exitStyles.primary}>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Sim, sair do aplicativo" onPress={() => { markCleanExit(); BackHandler.exitApp(); }} style={exitStyles.primary}>
               <Text style={exitStyles.primaryText}>Sim</Text>
             </TVFocusable>
           </View>

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.36] — 2026-11-11
+
+- APK de release com R8 (`android.enableMinifyInReleaseBuilds=true`, `proguard-android-optimize.txt`): remove código não usado e otimiza o restante, para abertura mais rápida e menos memória. Sem ofuscação (`-dontobfuscate`) e com `keep` para o código do app, Expo e bibliotecas registradas por reflexão. `shrinkResources` segue desligado (imagens buscadas pelo nome). Memória do Gradle no CI subiu para 3 GB por causa do R8.
+- Diagnóstico → Desempenho (TV e celular), via `services/performanceMonitor.ts`: perfil do aparelho, tempo de abertura (início do processo até Início/login), memória livre do aparelho e do app, avisos de pouca memória do sistema (`onTrimMemory`), pausas da interface acima de 0,4 s com a tela em que ocorreram, duração de cada etapa da sincronização e encerramentos inesperados da sessão anterior (app sumiu com a tela aberta, com a rota, a versão e a memória livre do último registro). Tudo entra no "Compartilhar relatório", sem dados da conta.
+- `ElvanoqDeviceProfile.getMemorySnapshot()` no módulo nativo, sem leitura de PSS (barata).
+- Diagnóstico: totais de filmes e séries lidos do banco local (na TV a memória só tem uma amostra). Build Android `20261054`.
+
 ## [2.17.35] — 2026-11-10
 
 - Filmes e Séries (TV): ao passar por "Todas" no painel de categorias, a grade que remontava com o novo conteúdo puxava o foco (primeiro pôster ou o pôster lembrado via `hasTVPreferredFocus`) e o usuário era jogado para os títulos. A grade só pode pegar o foco enquanto o usuário está nela ou na abertura da seção (`gridMayFocus`); na abertura, o foco inicial fica em "Todas" e não em "Buscar".

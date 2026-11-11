@@ -2,9 +2,16 @@ package com.fastshot.slitherproduction.flixplay.device
 
 import android.app.ActivityManager
 import android.app.UiModeManager
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
+import android.os.Debug
+import android.os.Process
+import android.os.SystemClock
 import android.view.WindowManager
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -19,6 +26,69 @@ class DeviceProfileModule(private val context: ReactApplicationContext) :
   ReactContextBaseJavaModule(context) {
 
   override fun getName(): String = "ElvanoqDeviceProfile"
+
+  // Avisos do sistema de pouca memória com o app aberto (Diagnóstico → Desempenho).
+  @Volatile private var trimCount = 0
+  @Volatile private var lastTrimLevel = 0
+  @Volatile private var lastTrimAt = 0L
+
+  private val trimCallbacks = object : ComponentCallbacks2 {
+    override fun onTrimMemory(level: Int) {
+      // Só os níveis "RUNNING_*": o app está na tela e o sistema já está apertado.
+      if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE &&
+        level <= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+        record(level)
+      }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) = Unit
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onLowMemory() = record(ComponentCallbacks2.TRIM_MEMORY_COMPLETE)
+  }
+
+  private fun record(level: Int) {
+    trimCount += 1
+    lastTrimLevel = level
+    lastTrimAt = System.currentTimeMillis()
+  }
+
+  // O módulo vive enquanto o app vive (release não recarrega o JS), então o
+  // registro único no contexto da aplicação não vaza.
+  init {
+    try { context.applicationContext.registerComponentCallbacks(trimCallbacks) } catch (_: Exception) {}
+  }
+
+  private fun mb(bytes: Long): Double = bytes / (1024.0 * 1024.0)
+
+  /** Memória do aparelho e do app agora (leitura barata, sem PSS). */
+  @ReactMethod
+  fun getMemorySnapshot(promise: Promise) {
+    try {
+      val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+      val memory = ActivityManager.MemoryInfo()
+      activityManager?.getMemoryInfo(memory)
+      val runtime = Runtime.getRuntime()
+      val result = Arguments.createMap()
+      result.putDouble("availMemMb", mb(memory.availMem))
+      result.putDouble("totalMemMb", mb(memory.totalMem))
+      result.putDouble("thresholdMb", mb(memory.threshold))
+      result.putBoolean("lowMemory", memory.lowMemory)
+      result.putDouble("javaHeapUsedMb", mb(runtime.totalMemory() - runtime.freeMemory()))
+      result.putDouble("javaHeapMaxMb", mb(runtime.maxMemory()))
+      result.putDouble("nativeHeapMb", mb(Debug.getNativeHeapAllocatedSize()))
+      val uptime = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
+      } else -1L
+      result.putDouble("processUptimeMs", uptime.toDouble())
+      result.putInt("trimCount", trimCount)
+      result.putInt("lastTrimLevel", lastTrimLevel)
+      result.putDouble("lastTrimAt", lastTrimAt.toDouble())
+      promise.resolve(result)
+    } catch (error: Exception) {
+      promise.reject("memory_snapshot", error)
+    }
+  }
 
   override fun getConstants(): Map<String, Any> {
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager

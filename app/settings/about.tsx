@@ -47,8 +47,18 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.35",
+    version: "v2.17.36",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Aplicativo otimizado na instalação: abre mais rápido e usa menos memória na TV e no celular." },
+      { tag: "Novo", text: "Diagnóstico com área de Desempenho: memória livre, pausas da tela, tempo de abertura e de sincronização." },
+      { tag: "Novo", text: "O Diagnóstico mostra quando o app foi fechado de forma inesperada, para ajudar o suporte." },
+      { tag: "Correção", text: "Diagnóstico mostra o total real de filmes e séries na TV." },
+    ],
+  },
+  {
+    version: "v2.17.35",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Filmes e Séries na TV: ao passar pela categoria Todas, o foco não pula mais sozinho para os títulos." },

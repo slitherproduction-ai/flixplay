@@ -17,6 +17,7 @@ import {
   type XtreamVodStream,
 } from "@/services/xtream";
 import { deviceTier } from "@/services/deviceProfile";
+import { recordSyncTiming } from "@/services/performanceMonitor";
 import { logTechnicalError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import type { SyncState } from "@/store/useAppStore";
@@ -234,6 +235,7 @@ async function fetchAndCacheContent(
   try {
     // ── Live channels ────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Sincronizando canais ao vivo..." });
+    const liveStartedAt = Date.now();
     setSyncState({ stages: { live: "running", movies: "pending", series: "pending" }, progressPercent: 0 });
     // A resposta bruta do servidor (dezenas de MB em listas grandes) só vive
     // dentro desta função: ao mapear, ela pode ser liberada antes das gravações
@@ -282,6 +284,7 @@ async function fetchAndCacheContent(
     ])) && persisted;
     if (!isCurrent()) return;
     setContentCache({ liveCategories: mappedLiveCategories, liveChannels: mappedLiveChannels });
+    recordSyncTiming("de canais", liveStartedAt, mappedLiveChannels.length, "lista completa");
     setSyncState({
       stages: { live: "complete", movies: "pending", series: "pending" },
       progressPercent: 0,
@@ -318,6 +321,7 @@ async function fetchAndCacheContent(
     if (!isCurrent()) return;
     // ── VOD movies ───────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Baixando catálogo de filmes..." });
+    const moviesStartedAt = Date.now();
     setSyncState({
       stages: { ...useAppStore.getState().syncState.stages, movies: "running", series: "pending" },
       progressPercent: 0,
@@ -355,6 +359,9 @@ async function fetchAndCacheContent(
     setContentCache({
       vodCategories: mapped, vodMovies: result.items, vodRevision: result.revision,
     });
+    recordSyncTiming("de filmes", moviesStartedAt,
+      catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "vodMovies") : result.items.length,
+      byCategory?.kind === "done" ? "por categoria" : "lista completa");
     setSyncState({
       stages: { ...useAppStore.getState().syncState.stages, movies: "complete", series: "pending" },
       progressPercent: 0,
@@ -375,6 +382,7 @@ async function fetchAndCacheContent(
     if (!isCurrent()) return;
     // ── Series ───────────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Baixando catálogo de séries..." });
+    const seriesStartedAt = Date.now();
     const stagesBeforeSeries = useAppStore.getState().syncState.stages;
     setSyncState({
       stages: { ...stagesBeforeSeries, series: "running" },
@@ -411,6 +419,9 @@ async function fetchAndCacheContent(
       seriesCategories: mapped, seriesList: result.items, seriesRevision: result.revision,
       lastSyncedAt: new Date().toISOString(),
     });
+    recordSyncTiming("de séries", seriesStartedAt,
+      catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "seriesList") : result.items.length,
+      byCategory?.kind === "done" ? "por categoria" : "lista completa");
     // Catálogo completo baixado e salvo: as próximas aberturas, dentro de
     // CATALOG_FRESH_MS, usam o banco local em vez de baixar tudo de novo.
     if (failures.length === 0 && persisted && catalogDatabase.isAvailable()) {

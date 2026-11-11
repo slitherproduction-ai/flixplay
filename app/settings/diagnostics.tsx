@@ -10,6 +10,17 @@ import { catalogDatabase } from "@/data/database/catalogDatabase";
 import { authenticateXtream } from "@/services/xtream";
 import { sanitizeError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
+import {
+  clearPerformanceHistory,
+  describeExit,
+  describePause,
+  describeSync,
+  describeTrim,
+  formatPerformanceReport,
+  getPerformanceReport,
+  seconds,
+  type PerformanceReport,
+} from "@/services/performanceMonitor";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 
 function formatBytes(bytes: number): string {
@@ -30,6 +41,41 @@ export default function DiagnosticsScreen() {
   const [cacheBytes, setCacheBytes] = useState(0);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
+  const [perf, setPerf] = useState<PerformanceReport | null>(null);
+  const [totals, setTotals] = useState<{ live: number; movies: number; series: number } | null>(null);
+
+  const refreshPerformance = useCallback(async () => {
+    setPerf(await getPerformanceReport());
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => void refreshPerformance(), 0);
+    return () => clearTimeout(timer);
+  }, [refreshPerformance]);
+
+  // Na TV, filmes e séries ficam no banco local (páginas); a memória só tem
+  // uma amostra. O total certo vem do banco.
+  useEffect(() => {
+    if (!activeServerId || !catalogDatabase.isAvailable()) return;
+    let cancelled = false;
+    void Promise.all([
+      catalogDatabase.count(activeServerId, "liveChannels"),
+      catalogDatabase.count(activeServerId, "vodMovies"),
+      catalogDatabase.count(activeServerId, "seriesList"),
+    ]).then(([live, movies, series]) => {
+      if (!cancelled) setTotals({ live, movies, series });
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [activeServerId, cache.lastSyncedAt]);
+
+  const liveTotal = Math.max(totals?.live ?? 0, cache.liveChannels.length);
+  const moviesTotal = Math.max(totals?.movies ?? 0, cache.vodMovies.length);
+  const seriesTotal = Math.max(totals?.series ?? 0, cache.seriesList.length);
+
+  const clearPerformance = useCallback(async () => {
+    await clearPerformanceHistory();
+    await refreshPerformance();
+  }, [refreshPerformance]);
 
   const refreshCacheSize = useCallback(async () => {
     setCacheBytes(await catalogDatabase.getApproximateSize());
@@ -78,14 +124,16 @@ export default function DiagnosticsScreen() {
     `Status do servidor: ${activeServer?.status ?? "Não informado"}`,
     `Latência: ${latencyMs === null ? "Não medida" : `${latencyMs} ms`}`,
     `Última sincronização: ${cache.lastSyncedAt ?? "Não informado"}`,
-    `Canais: ${cache.liveChannels.length}`,
-    `Filmes: ${cache.vodMovies.length}`,
-    `Séries: ${cache.seriesList.length}`,
+    `Canais: ${liveTotal}`,
+    `Filmes: ${moviesTotal}`,
+    `Séries: ${seriesTotal}`,
     `Cache: ${formatBytes(cacheBytes)}`,
     `Último erro: ${syncState.syncError ? sanitizeError(syncState.syncError) : "Nenhum"}`,
-  ].join("\n"), [activeServer?.status, cache, cacheBytes, latencyMs, syncState.syncError]);
+    ...(perf ? formatPerformanceReport(perf) : []),
+  ].join("\n"), [activeServer?.status, cache.lastSyncedAt, cacheBytes, latencyMs, liveTotal, moviesTotal, perf, seriesTotal, syncState.syncError]);
 
   const shareReport = useCallback(async () => {
+    await refreshPerformance();
     await Share.share({ title: "Diagnóstico ELVANOQ", message: report });
   }, [report]);
 
@@ -101,9 +149,9 @@ export default function DiagnosticsScreen() {
         <PremiumHeading icon="pulse-outline" title="Diagnóstico" subtitle="Estado da conexão, do catálogo e do armazenamento local." />
 
         <View style={styles.summary}>
-          <Metric label="Canais" value={cache.liveChannels.length} />
-          <Metric label="Filmes" value={cache.vodMovies.length} />
-          <Metric label="Séries" value={cache.seriesList.length} />
+          <Metric label="Canais" value={liveTotal} />
+          <Metric label="Filmes" value={moviesTotal} />
+          <Metric label="Séries" value={seriesTotal} />
         </View>
 
         <GroupLabel title="CONEXÃO" />
@@ -133,6 +181,28 @@ export default function DiagnosticsScreen() {
         <Group>
           <GroupRow icon="trash-outline" title="Limpar cache" subtitle="Remove os dados locais desta lista" onPress={clearCache} />
           <GroupRow divider destructive icon="construct-outline" title="Reconstruir banco local" subtitle="Apaga e baixa o catálogo de novo" onPress={rebuild} />
+        </Group>
+
+        <GroupLabel title="DESEMPENHO" />
+        <Group>
+          <GroupRow icon="refresh-outline" title="Atualizar medições" subtitle="Lê de novo a memória e as pausas" onPress={() => void refreshPerformance()} />
+          <GroupRow divider title="Perfil do aparelho" value={perf?.tier ?? "…"} />
+          <GroupRow divider title="Abertura do app" value={perf?.startupMs != null ? seconds(perf.startupMs) : "Não medida"} />
+          <GroupRow divider title="Memória livre do aparelho" value={perf?.memory ? `${Math.round(perf.memory.availMemMb)} de ${Math.round(perf.memory.totalMemMb)} MB` : "Não disponível"} icon={perf?.memory?.lowMemory ? "alert-circle-outline" : undefined} iconColor="#FF8B91" />
+          <GroupRow divider title="Memória do app" value={perf?.memory ? `${Math.round(perf.memory.javaHeapUsedMb + perf.memory.nativeHeapMb)} MB` : "Não disponível"} />
+          <GroupRow divider title="Avisos de pouca memória" value={describeTrim(perf?.memory ?? null)} />
+          <GroupRow divider title="Pausas da interface" subtitle="Momentos em que a tela parou de responder" value={perf ? (perf.pauses === 0 ? "Nenhuma" : `${perf.pauses} · maior ${seconds(perf.maxPauseMs)}`) : "…"} />
+          {perf?.recentPauses.slice(0, 3).map((pause) => (
+            <GroupRow key={`p${pause.at}`} divider title="Pausa" value={describePause(pause)} />
+          ))}
+          {perf?.syncTimings.map((timing) => (
+            <GroupRow key={`s${timing.at}${timing.stage}`} divider title={`Sincronização ${timing.stage}`} value={describeSync(timing)} />
+          ))}
+          <GroupRow divider title="Encerramentos inesperados" value={perf && perf.previousExits.length === 0 ? "Nenhum" : perf ? String(perf.previousExits.length) : "…"} icon={perf?.previousExits.length ? "alert-circle-outline" : undefined} iconColor="#FF8B91" />
+          {perf?.previousExits.slice(0, 3).map((exit) => (
+            <GroupRow key={`e${exit.at}`} divider title="Encerrado" subtitle={describeExit(exit)} />
+          ))}
+          <GroupRow divider icon="close-circle-outline" title="Limpar histórico de desempenho" onPress={() => void clearPerformance()} />
         </Group>
 
         <AppText style={premium.footnote}>O relatório não inclui usuário, senha, token ou URL do servidor.</AppText>

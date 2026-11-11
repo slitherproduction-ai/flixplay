@@ -21,6 +21,7 @@ import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { PlayHistory, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 import { dedupeTitleVariants, displayCategory, displayTitle } from "@/features/catalog/display";
 import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
+import { markAppReady } from "@/services/performanceMonitor";
 
 // ---------------------------------------------------------------------------
 // Home em formato de hub, alinhada ao ELVANOQ Play para Roku (0.1.88):
@@ -697,6 +698,7 @@ type PrimaryRail =
   | { kind: "titles"; title: string; subtitle: string; items: HeroContent[] };
 
 export default function HomeScreen() {
+  useEffect(() => { markAppReady(); }, []);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();

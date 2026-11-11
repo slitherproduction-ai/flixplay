@@ -52,6 +52,7 @@ import {
   validateLoginFields,
   type DiagInfo,
 } from "@/features/login/loginValidation";
+import { markAppReady } from "@/services/performanceMonitor";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -223,6 +224,7 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
 }
 
 export default function LoginScreen() {
+  useEffect(() => { markAppReady(); }, []);
   const router = useRouter();
   // Android intentionally keeps the login surface independent from a native
   // blur target, so opening the IME cannot trigger a blur re-capture.

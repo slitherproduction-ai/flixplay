@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.37] — 2026-11-11
+
+- Sincronização nativa de filmes e séries na TV (`CatalogStreamJob.kt`): o Android baixa a lista (com redirecionamento http↔https e o mesmo User-Agent), lê o JSON em fluxo com `JsonReader` e grava direto na área temporária do SQLite em lotes de 400, numa thread própria. O JS só acompanha o progresso (`catalogStreamProgress`, a cada 1 s) e decide a troca (`commitStaging`) com as mesmas verificações de segurança. O mapeamento repete `mapVodStreamToMovie`/`mapSeriesStreamToItem`, sem URL de reprodução nem credenciais no payload; formatos de clones (`data`/`results`/`streams`, objeto por id) são aceitos. Resposta que o leitor nativo não entende cai no caminho em JS de antes (inclusive por categoria nos aparelhos fracos). Celular segue com o catálogo em memória.
+- Banco local em modo WAL: a grade continua lendo páginas enquanto a sincronização grava.
+- Baseline Profile (`src/main/baseline-prof.txt`) + `androidx.profileinstaller`: React Native, Hermes, Expo, Media3, OkHttp, Glide e o código do app pré-compilados na instalação, inclusive em APK instalado fora da loja.
+- Build Android `20261055`.
+
 ## [2.17.36] — 2026-11-11
 
 - APK de release com R8 (`android.enableMinifyInReleaseBuilds=true`, `proguard-android-optimize.txt`): remove código não usado e otimiza o restante, para abertura mais rápida e menos memória. Sem ofuscação (`-dontobfuscate`) e com `keep` para o código do app, Expo e bibliotecas registradas por reflexão. `shrinkResources` segue desligado (imagens buscadas pelo nome). Memória do Gradle no CI subiu para 3 GB por causa do R8.

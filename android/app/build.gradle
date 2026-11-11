@@ -92,8 +92,8 @@ android {
         applicationId 'com.fastshot.slitherproduction.flixplay'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 20261054
-        versionName "2.17.36"
+        versionCode 20261055
+        versionName "2.17.37"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -155,6 +155,11 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+
+    // Instala o perfil de pré-compilação (src/main/baseline-prof.txt) no
+    // primeiro uso, também em APK instalado fora da loja (Fire TV, TV box):
+    // o Android deixa o código mais usado já compilado.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

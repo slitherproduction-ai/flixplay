@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.36",
+    version: "v2.17.37",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Na TV, filmes e séries passam a ser baixados pelo próprio Android: a tela continua respondendo ao controle durante a atualização da lista." },
+      { tag: "Melhoria", text: "Menos memória durante a sincronização em Fire TV Stick e TVs com pouca memória." },
+      { tag: "Melhoria", text: "As partes mais usadas do app ficam prontas já na instalação: abertura e primeiras telas mais rápidas." },
+    ],
+  },
+  {
+    version: "v2.17.36",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Aplicativo otimizado na instalação: abre mais rápido e usa menos memória na TV e no celular." },

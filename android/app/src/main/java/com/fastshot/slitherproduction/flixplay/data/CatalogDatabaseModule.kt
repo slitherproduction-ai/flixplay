@@ -8,13 +8,24 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import android.util.MalformedJsonException
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 private const val CATALOG_DB_VERSION = 5
 
 private class CatalogDatabase(context: Context) :
   SQLiteOpenHelper(context, "flixplay_catalog.db", null, CATALOG_DB_VERSION) {
+  init {
+    // WAL: a grade de filmes/séries continua lendo páginas enquanto a
+    // sincronização nativa grava em outra thread.
+    setWriteAheadLoggingEnabled(true)
+  }
+
   override fun onCreate(db: SQLiteDatabase) {
     db.execSQL(
       """
@@ -60,6 +71,76 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
   private val database by lazy { CatalogDatabase(context) }
 
   override fun getName(): String = "FlixPlayCatalogDatabase"
+
+  // Sincronização nativa de filmes/séries (CatalogStreamJob): uma por vez,
+  // fora da thread dos módulos, para não travar as consultas da tela.
+  private val streamExecutor = Executors.newSingleThreadExecutor()
+  private val streamJobs = ConcurrentHashMap<String, CatalogStreamJob>()
+
+  @ReactMethod
+  fun streamCatalog(
+    requestId: String,
+    serverId: String,
+    kind: String,
+    url: String,
+    timeoutMs: Double,
+    categoriesJson: String,
+    promise: Promise,
+  ) {
+    if (kind != "vodMovies" && kind != "seriesList") {
+      promise.reject("INVALID_KIND", "Tipo de catálogo inválido")
+      return
+    }
+    val categories = HashMap<String, String>()
+    try {
+      val json = JSONObject(categoriesJson)
+      val keys = json.keys()
+      while (keys.hasNext()) {
+        val key = keys.next()
+        categories[key] = json.optString(key)
+      }
+    } catch (_: Exception) {
+    }
+    val job = try {
+      CatalogStreamJob(database.writableDatabase, serverId, kind, categories)
+    } catch (_: Exception) {
+      promise.reject("DB_UNAVAILABLE", "Banco local indisponível")
+      return
+    }
+    streamJobs[requestId] = job
+    streamExecutor.execute {
+      try {
+        promise.resolve(job.run(url, timeoutMs.toInt().coerceAtLeast(10_000)).toDouble())
+      } catch (error: CatalogStreamException) {
+        job.discard()
+        promise.reject(error.code, error.message)
+      } catch (_: MalformedJsonException) {
+        job.discard()
+        promise.reject("INVALID_JSON", "Resposta do servidor em formato inesperado")
+      } catch (_: SocketTimeoutException) {
+        job.discard()
+        promise.reject("TIMEOUT", "O servidor demorou demais para responder")
+      } catch (_: IOException) {
+        job.discard()
+        promise.reject("NETWORK", "Falha de rede ao baixar o catálogo")
+      } catch (_: Exception) {
+        job.discard()
+        promise.reject("INVALID_JSON", "Resposta do servidor em formato inesperado")
+      } finally {
+        streamJobs.remove(requestId)
+      }
+    }
+  }
+
+  @ReactMethod
+  fun catalogStreamProgress(requestId: String, promise: Promise) {
+    promise.resolve((streamJobs[requestId]?.progress?.get() ?: -1).toDouble())
+  }
+
+  @ReactMethod
+  fun cancelCatalogStream(requestId: String) {
+    streamJobs[requestId]?.cancelled?.set(true)
+  }
 
   @ReactMethod
   fun replaceAll(serverId: String, kind: String, json: String, promise: Promise) {

@@ -1,0 +1,35 @@
+# Perfil de pré-compilação (Baseline Profile) do ELVANOQ Play.
+# O Android compila estas classes e métodos com antecedência, em vez de
+# interpretá-los na abertura e nas primeiras navegações — o que mais pesa em
+# Fire TV Stick e TVs fracas. Regras amplas por pacote: abertura, ponte com o
+# JavaScript, telas nativas, player de vídeo, rede, imagens e o banco local.
+HSPLcom/facebook/react/**->**(**)**
+Lcom/facebook/react/**;
+HSPLcom/facebook/hermes/**->**(**)**
+Lcom/facebook/hermes/**;
+HSPLcom/facebook/jni/**->**(**)**
+Lcom/facebook/jni/**;
+HSPLcom/facebook/soloader/**->**(**)**
+Lcom/facebook/soloader/**;
+HSPLcom/facebook/yoga/**->**(**)**
+Lcom/facebook/yoga/**;
+HSPLexpo/modules/**->**(**)**
+Lexpo/modules/**;
+HSPLcom/swmansion/**->**(**)**
+Lcom/swmansion/**;
+HSPLcom/th3rdwave/safeareacontext/**->**(**)**
+Lcom/th3rdwave/safeareacontext/**;
+HSPLandroidx/media3/**->**(**)**
+Landroidx/media3/**;
+HSPLokhttp3/**->**(**)**
+Lokhttp3/**;
+HSPLokio/**->**(**)**
+Lokio/**;
+HSPLcom/bumptech/glide/**->**(**)**
+Lcom/bumptech/glide/**;
+HSPLcom/fastshot/slitherproduction/flixplay/**->**(**)**
+Lcom/fastshot/slitherproduction/flixplay/**;
+HSPLkotlin/**->**(**)**
+Lkotlin/**;
+HSPLandroidx/core/**->**(**)**
+Landroidx/core/**;

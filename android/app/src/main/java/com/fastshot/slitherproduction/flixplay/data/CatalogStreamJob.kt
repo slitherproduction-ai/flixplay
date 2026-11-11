@@ -1,0 +1,261 @@
+package com.fastshot.slitherproduction.flixplay.data
+
+import android.database.sqlite.SQLiteDatabase
+import android.util.JsonReader
+import android.util.JsonToken
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+
+/** Falha com código estável para o JS; a mensagem nunca leva a URL (tem usuário e senha). */
+class CatalogStreamException(val code: String, message: String) : Exception(message)
+
+/**
+ * Baixa a lista de filmes ou séries do Xtream e grava direto na área temporária
+ * (`<kind>::staging`) do banco, item por item, numa thread própria:
+ * - o JSON é lido em fluxo (JsonReader), sem nunca ter a lista inteira na memória;
+ * - o JavaScript fica livre — a tela segue respondendo ao controle durante a sincronização;
+ * - o mapeamento repete o de `mapVodStreamToMovie`/`mapSeriesStreamToItem`
+ *   (services/xtream.ts), sem URL de reprodução nem credenciais no payload.
+ * A troca da lista gravada pela nova continua sendo do JS (`commitStaging`),
+ * depois das verificações de segurança.
+ */
+internal class CatalogStreamJob(
+  private val db: SQLiteDatabase,
+  private val serverId: String,
+  private val kind: String,
+  private val categories: Map<String, String>,
+) {
+  val cancelled = AtomicBoolean(false)
+  val progress = AtomicInteger(0)
+
+  private val stage = "$kind::staging"
+  private val movies = kind == "vodMovies"
+  private val batch = ArrayList<JSONObject>(BATCH_SIZE)
+
+  fun run(url: String, timeoutMs: Int): Int {
+    db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, stage))
+    val connection = open(url, timeoutMs)
+    try {
+      val input = BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8), 64 * 1024)
+      // BOM no início (alguns painéis mandam): o JsonReader não aceita.
+      input.mark(1)
+      if (input.read() != 0xFEFF) input.reset()
+      JsonReader(input).use { reader ->
+        reader.isLenient = true
+        readRoot(reader)
+      }
+      flush()
+    } finally {
+      connection.disconnect()
+    }
+    checkCancelled()
+    return db.rawQuery("SELECT COUNT(*) FROM catalog_items WHERE server_id = ? AND kind = ?", arrayOf(serverId, stage)).use { cursor ->
+      if (cursor.moveToFirst()) cursor.getInt(0) else 0
+    }
+  }
+
+  /** Apaga o que foi gravado na área temporária (falha ou cancelamento). */
+  fun discard() {
+    try {
+      db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, stage))
+    } catch (_: Exception) {
+    }
+  }
+
+  private fun checkCancelled() {
+    if (cancelled.get()) throw CatalogStreamException("CANCELLED", "Sincronização cancelada")
+  }
+
+  /** Segue redirecionamentos, inclusive http ↔ https (o HttpURLConnection sozinho não segue). */
+  private fun open(start: String, timeoutMs: Int): HttpURLConnection {
+    var target = start
+    repeat(MAX_REDIRECTS) {
+      checkCancelled()
+      val connection = (URL(target).openConnection() as HttpURLConnection).apply {
+        connectTimeout = minOf(timeoutMs, CONNECT_TIMEOUT_MS)
+        readTimeout = timeoutMs
+        instanceFollowRedirects = false
+        setRequestProperty("User-Agent", USER_AGENT)
+        setRequestProperty("Accept", "application/json, text/plain, */*")
+      }
+      val status = connection.responseCode
+      if (status in 300..399) {
+        val location = connection.getHeaderField("Location")
+        connection.disconnect()
+        if (location.isNullOrBlank()) throw CatalogStreamException("HTTP_$status", "Redirecionamento sem destino")
+        target = URL(URL(target), location).toString()
+        return@repeat
+      }
+      if (status !in 200..299) {
+        connection.disconnect()
+        throw CatalogStreamException("HTTP_$status", "Servidor respondeu HTTP $status")
+      }
+      return connection
+    }
+    throw CatalogStreamException("HTTP_REDIRECT", "Redirecionamentos demais")
+  }
+
+  private fun readRoot(reader: JsonReader) {
+    when (reader.peek()) {
+      JsonToken.BEGIN_ARRAY -> readArray(reader)
+      JsonToken.BEGIN_OBJECT -> readObjectRoot(reader)
+      else -> throw CatalogStreamException("INVALID_JSON", "Resposta não é uma lista")
+    }
+  }
+
+  private fun readArray(reader: JsonReader) {
+    reader.beginArray()
+    while (reader.hasNext()) {
+      checkCancelled()
+      if (reader.peek() == JsonToken.BEGIN_OBJECT) readItem(reader) else reader.skipValue()
+    }
+    reader.endArray()
+  }
+
+  /** Formatos de clones: `{ "data": [...] }` ou `{ "1": {...}, "2": {...} }` (ver normalizeXtreamList). */
+  private fun readObjectRoot(reader: JsonReader) {
+    reader.beginObject()
+    while (reader.hasNext()) {
+      checkCancelled()
+      val name = reader.nextName()
+      val token = reader.peek()
+      when {
+        name in WRAPPER_KEYS && token == JsonToken.BEGIN_ARRAY -> readArray(reader)
+        token == JsonToken.BEGIN_OBJECT && name.isNotEmpty() && name.all { it.isDigit() } -> readItem(reader)
+        else -> reader.skipValue()
+      }
+    }
+    reader.endObject()
+  }
+
+  private fun text(reader: JsonReader): String? = when (reader.peek()) {
+    JsonToken.STRING, JsonToken.NUMBER -> reader.nextString()
+    JsonToken.BOOLEAN -> reader.nextBoolean().toString()
+    JsonToken.NULL -> { reader.nextNull(); null }
+    else -> { reader.skipValue(); null }
+  }
+
+  private fun readItem(reader: JsonReader) {
+    var id: String? = null
+    var name = ""
+    var icon = ""
+    var rating = ""
+    var added = ""
+    var category: String? = null
+    var extension = ""
+    var plot = ""
+    var year = ""
+    var releaseDate = ""
+    reader.beginObject()
+    while (reader.hasNext()) {
+      when (reader.nextName()) {
+        "stream_id" -> if (movies) id = text(reader) else reader.skipValue()
+        "series_id" -> if (!movies) id = text(reader) else reader.skipValue()
+        "name" -> name = text(reader) ?: ""
+        "stream_icon" -> if (movies) icon = text(reader) ?: "" else reader.skipValue()
+        "cover" -> if (!movies) icon = text(reader) ?: "" else reader.skipValue()
+        "rating" -> rating = text(reader) ?: ""
+        "added" -> added = text(reader) ?: ""
+        "category_id" -> category = text(reader)
+        "container_extension" -> extension = text(reader) ?: ""
+        "plot" -> plot = text(reader) ?: ""
+        "year" -> year = text(reader) ?: ""
+        "releaseDate" -> releaseDate = text(reader) ?: ""
+        else -> reader.skipValue()
+      }
+    }
+    reader.endObject()
+    val rawId = id?.trim().orEmpty()
+    if (rawId.isEmpty()) return
+
+    val item = JSONObject()
+    val score = (leadingNumber(rating) ?: 0.0).coerceIn(0.0, 10.0)
+    if (movies) {
+      item.put("id", "movie-$rawId")
+      item.put("title", name)
+      item.put("streamId", rawId)
+      item.put("poster", icon)
+      item.put("backdrop", icon)
+      item.put("rating", score)
+      item.put("year", leadingInt(year))
+      item.put("duration", "N/A")
+      item.put("genre", categories[category ?: ""] ?: "Geral")
+      item.put("categoryId", category ?: "")
+      item.put("plot", plot)
+      item.put("containerExtension", extension.ifEmpty { "mp4" })
+      quality(name)?.let { item.put("quality", it) }
+      if (added.isNotEmpty() && added != "0") item.put("addedAt", added)
+    } else {
+      item.put("id", "series-$rawId")
+      item.put("title", name)
+      item.put("seriesId", rawId)
+      item.put("poster", icon)
+      item.put("backdrop", icon)
+      item.put("rating", score)
+      item.put("year", if (releaseDate.isNotEmpty()) leadingInt(releaseDate.take(4)) else 0)
+      item.put("seasonsCount", 0)
+      item.put("genre", categories[category ?: ""] ?: "Geral")
+      item.put("categoryId", category ?: "")
+      item.put("plot", plot)
+    }
+    batch.add(item)
+    if (batch.size >= BATCH_SIZE) flush()
+  }
+
+  private fun flush() {
+    if (batch.isEmpty()) return
+    checkCancelled()
+    val now = System.currentTimeMillis()
+    db.beginTransaction()
+    try {
+      for (item in batch) {
+        val values = CatalogQueries.fields(item).apply {
+          put("server_id", serverId)
+          put("kind", stage)
+          put("item_id", item.getString("id"))
+          put("payload", item.toString())
+          put("updated_at", now)
+        }
+        db.insertWithOnConflict("catalog_items", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+      }
+      db.setTransactionSuccessful()
+    } finally {
+      db.endTransaction()
+    }
+    progress.addAndGet(batch.size)
+    batch.clear()
+  }
+
+  companion object {
+    private const val BATCH_SIZE = 400
+    private const val MAX_REDIRECTS = 6
+    private const val CONNECT_TIMEOUT_MS = 20_000
+    private const val USER_AGENT = "IPTVSmartersPro/3.1.5"
+    private val WRAPPER_KEYS = setOf("data", "results", "streams", "categories", "series")
+    private val UHD = Regex("\\b(4K|UHD)\\b", RegexOption.IGNORE_CASE)
+    private val FHD = Regex("\\bFHD\\b|1080P", RegexOption.IGNORE_CASE)
+    private val HD = Regex("\\bHD\\b|720P", RegexOption.IGNORE_CASE)
+    private val NUMBER = Regex("^\\s*[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?")
+    private val INTEGER = Regex("^\\s*[+-]?\\d+")
+
+    private fun quality(name: String): String? = when {
+      UHD.containsMatchIn(name) -> "4K"
+      FHD.containsMatchIn(name) -> "FHD"
+      HD.containsMatchIn(name) -> "HD"
+      else -> null
+    }
+
+    /** Como `parseFloat` do JS: lê o número do começo do texto. */
+    private fun leadingNumber(value: String): Double? =
+      NUMBER.find(value)?.value?.trim()?.toDoubleOrNull()?.takeIf { !it.isNaN() && !it.isInfinite() }
+
+    /** Como `parseInt(valor, 10) || 0` do JS. */
+    private fun leadingInt(value: String): Int =
+      INTEGER.find(value)?.value?.trim()?.toLongOrNull()?.toInt() ?: 0
+  }
+}

@@ -36,3 +36,6 @@
 -dontwarn org.openjsse.**
 -dontwarn kotlinx.coroutines.debug.**
 -dontwarn com.facebook.react.**
+
+# Instalador do perfil de pré-compilação.
+-keep class androidx.profileinstaller.** { *; }

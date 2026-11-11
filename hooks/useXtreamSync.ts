@@ -12,6 +12,8 @@ import {
   mapSeriesStreamToItem,
   createStreamUrl,
   createVodUrl,
+  buildXtreamApiUrl,
+  getXtreamRequestTimeoutMs,
   type XtreamCategory,
   type XtreamSeriesStream,
   type XtreamVodStream,
@@ -22,7 +24,7 @@ import { logTechnicalError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import type { SyncState } from "@/store/useAppStore";
 import type { ChannelItem, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
-import { catalogDatabase } from "@/data/database/catalogDatabase";
+import { NativeStreamUnsupportedError, catalogDatabase } from "@/data/database/catalogDatabase";
 import {
   assertSafeCatalogReplacement,
   deduplicateCatalogItems,
@@ -206,6 +208,42 @@ async function syncVideoByCategory<R extends CategorizedRow, T extends VideoItem
   return { kind: "done", items: await homeVideos<T>(profile, kind), revision: Date.now() };
 }
 
+/**
+ * TV com o banco por páginas: o Android baixa e grava a lista (CatalogStreamJob),
+ * sem passar o JSON pelo JavaScript. Vale para todos os aparelhos de TV — nos
+ * fracos acaba com o pico de memória, nos demais deixa a tela fluida durante a
+ * sincronização. `null` = usar o caminho em JS (módulo antigo ou resposta que
+ * o leitor nativo não entende).
+ */
+async function syncVideoNative<T extends VideoItem>(
+  profile: ServerProfile,
+  kind: VideoKind,
+  categories: XtreamCategory[],
+  current: () => boolean,
+  onProgress: (count: number) => void,
+): Promise<{ items: T[]; revision: number } | null> {
+  if (!catalogDatabase.supportsNativeStream()) return null;
+  const action = kind === "vodMovies" ? "get_vod_streams" : "get_series";
+  const existing = await catalogDatabase.count(profile.id, kind);
+  const names: Record<string, string> = {};
+  for (const category of categories) names[String(category.category_id)] = category.category_name;
+  try {
+    const total = await catalogDatabase.streamTvCatalog(
+      profile.id, kind, buildXtreamApiUrl(profile, action), getXtreamRequestTimeoutMs(action),
+      names, current, onProgress, (count) => count > 0 || existing === 0,
+    );
+    if (!current()) return { items: [], revision: 0 };
+    assertSafeCatalogReplacement(kind, total, existing);
+    return { items: await homeVideos<T>(profile, kind), revision: Date.now() };
+  } catch (error) {
+    if (error instanceof NativeStreamUnsupportedError) {
+      logTechnicalError(`Sync/${kind}-native`, error);
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function fetchAndCacheContent(
   profile: ServerProfile,
   setContentCache: ReturnType<typeof useAppStore.getState>["setContentCache"],
@@ -337,14 +375,19 @@ async function fetchAndCacheContent(
     );
     assertSafeCatalogReplacement("vodCategories", mapped.length, await catalogDatabase.count(profile.id, "vodCategories"));
     let result: { items: VodMovie[]; revision?: number; saved: boolean };
-    const byCategory = LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
+    const native = await syncVideoNative<VodMovie>(profile, "vodMovies", categories, isCurrent,
+      (count) => setSyncState({ syncProgress: `Baixando filmes: ${count.toLocaleString("pt-BR")} títulos...` }));
+    if (!isCurrent()) return;
+    const byCategory = native ? null : LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
       ? await syncVideoByCategory<XtreamVodStream, VodMovie>(profile, "vodMovies", categories,
         id => getVodStreams(profile, id, signal),
         (row, category) => mapVodStreamToMovie(row, category, profile), isCurrent,
         (done, total) => setSyncState({ syncProgress: `Baixando filmes: categoria ${done} de ${total}...` }))
       : null;
     if (!isCurrent()) return;
-    if (byCategory?.kind === "done") {
+    if (native) {
+      result = { items: native.items, revision: native.revision, saved: true };
+    } else if (byCategory?.kind === "done") {
       result = { items: byCategory.items, revision: byCategory.revision, saved: true };
     } else {
       const rows: XtreamVodStream[] = byCategory?.kind === "full" ? byCategory.rows : await getVodStreams(profile, undefined, signal);
@@ -361,7 +404,7 @@ async function fetchAndCacheContent(
     });
     recordSyncTiming("de filmes", moviesStartedAt,
       catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "vodMovies") : result.items.length,
-      byCategory?.kind === "done" ? "por categoria" : "lista completa");
+      native ? "Android" : byCategory?.kind === "done" ? "por categoria" : "lista completa");
     setSyncState({
       stages: { ...useAppStore.getState().syncState.stages, movies: "complete", series: "pending" },
       progressPercent: 0,
@@ -396,14 +439,19 @@ async function fetchAndCacheContent(
     );
     assertSafeCatalogReplacement("seriesCategories", mapped.length, await catalogDatabase.count(profile.id, "seriesCategories"));
     let result: { items: SeriesItem[]; revision?: number; saved: boolean };
-    const byCategory = LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
+    const native = await syncVideoNative<SeriesItem>(profile, "seriesList", categories, isCurrent,
+      (count) => setSyncState({ syncProgress: `Baixando séries: ${count.toLocaleString("pt-BR")} títulos...` }));
+    if (!isCurrent()) return;
+    const byCategory = native ? null : LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
       ? await syncVideoByCategory<XtreamSeriesStream, SeriesItem>(profile, "seriesList", categories,
         id => getSeries(profile, id, signal),
         (row, category) => mapSeriesStreamToItem(row, category), isCurrent,
         (done, total) => setSyncState({ syncProgress: `Baixando séries: categoria ${done} de ${total}...` }))
       : null;
     if (!isCurrent()) return;
-    if (byCategory?.kind === "done") {
+    if (native) {
+      result = { items: native.items, revision: native.revision, saved: true };
+    } else if (byCategory?.kind === "done") {
       result = { items: byCategory.items, revision: byCategory.revision, saved: true };
     } else {
       const rows: XtreamSeriesStream[] = byCategory?.kind === "full" ? byCategory.rows : await getSeries(profile, undefined, signal);
@@ -421,7 +469,7 @@ async function fetchAndCacheContent(
     });
     recordSyncTiming("de séries", seriesStartedAt,
       catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "seriesList") : result.items.length,
-      byCategory?.kind === "done" ? "por categoria" : "lista completa");
+      native ? "Android" : byCategory?.kind === "done" ? "por categoria" : "lista completa");
     // Catálogo completo baixado e salvo: as próximas aberturas, dentro de
     // CATALOG_FRESH_MS, usam o banco local em vez de baixar tudo de novo.
     if (failures.length === 0 && persisted && catalogDatabase.isAvailable()) {

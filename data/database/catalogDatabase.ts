@@ -21,6 +21,9 @@ type NativeCatalogDatabase = {
   replaceAll(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   append?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   commitStaging?(serverId: string, kind: CatalogKind): Promise<number>;
+  streamCatalog?(requestId: string, serverId: string, kind: CatalogKind, url: string, timeoutMs: number, categories: string): Promise<number>;
+  catalogStreamProgress?(requestId: string): Promise<number>;
+  cancelCatalogStream?(requestId: string): void;
   upsert?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   getPage?(serverId: string, kind: CatalogKind, offset: number, limit: number): Promise<string>;
   queryPage?(serverId: string, kind: CatalogKind, offset: number, limit: number): Promise<string>;
@@ -92,6 +95,28 @@ function encodeChunk<T>(items: T[]): string {
 
 const pendingSnapshots = new Map<string, Promise<void>>();
 
+/** O servidor mandou algo que o leitor nativo não entende: vale tentar pelo caminho em JS. */
+export class NativeStreamUnsupportedError extends Error {
+  constructor(public readonly code: string) {
+    super(`Leitura nativa indisponível (${code})`);
+    this.name = "NativeStreamUnsupportedError";
+  }
+}
+
+const NATIVE_STREAM_MESSAGES: Record<string, string> = {
+  TIMEOUT: "O servidor demorou demais para responder. O catálogo salvo foi mantido.",
+  NETWORK: "Falha de rede ao baixar o catálogo. O catálogo salvo foi mantido.",
+};
+
+function nativeStreamError(error: unknown): Error {
+  const code = String((error as { code?: unknown })?.code ?? "");
+  if (code === "INVALID_JSON" || code === "INVALID_KIND" || code === "DB_UNAVAILABLE" || code === "") {
+    return new NativeStreamUnsupportedError(code || "UNKNOWN");
+  }
+  if (code.startsWith("HTTP_")) return new Error(`O servidor recusou a lista (HTTP ${code.slice(5)}). O catálogo salvo foi mantido.`);
+  return new Error(NATIVE_STREAM_MESSAGES[code] ?? "Não foi possível baixar o catálogo. O catálogo salvo foi mantido.");
+}
+
 export const catalogDatabase = {
   async writeTvSnapshot<Raw, Item extends { id: string }>(
     server: string, kind: "vodMovies" | "seriesList", rows: Raw[],
@@ -157,6 +182,58 @@ export const catalogDatabase = {
     pendingSnapshots.set(key, job);
     try { await job; }
     finally { if (pendingSnapshots.get(key) === job) pendingSnapshots.delete(key); }
+    return total;
+  },
+
+  /** Sincronização nativa disponível (TV com banco por páginas e módulo novo). */
+  supportsNativeStream(): boolean {
+    const db = database();
+    return !!db?.streamCatalog && !!db.catalogStreamProgress && !!db.commitStaging && this.supportsTvPages();
+  },
+
+  /**
+   * Baixa e grava filmes ou séries inteiramente no Android (CatalogStreamJob):
+   * o JS só acompanha o progresso. A lista gravada só é trocada se
+   * `shouldCommit(total)` aprovar. Devolve o total novo (0 se cancelado).
+   */
+  async streamTvCatalog(
+    server: string, kind: "vodMovies" | "seriesList", url: string, timeoutMs: number,
+    categories: Record<string, string>, current: () => boolean,
+    onProgress: (count: number) => void, shouldCommit: (total: number) => boolean,
+  ): Promise<number> {
+    const db = database();
+    if (!db?.streamCatalog || !db.catalogStreamProgress || !db.commitStaging) throw new NativeStreamUnsupportedError("MISSING");
+    const key = JSON.stringify([server, kind]);
+    const previous = pendingSnapshots.get(key);
+    let total = 0;
+    let failure = null as Error | null;
+    const write = async () => {
+      if (!current()) return;
+      const requestId = `${kind}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const poll = setInterval(() => {
+        if (!current()) { db.cancelCatalogStream?.(requestId); return; }
+        void db.catalogStreamProgress!(requestId).then((count) => { if (count >= 0) onProgress(count); }).catch(() => undefined);
+      }, 1_000);
+      try {
+        const count = await db.streamCatalog!(requestId, server, kind, url, timeoutMs, JSON.stringify(categories));
+        if (current() && shouldCommit(count)) {
+          await db.commitStaging!(server, kind);
+          total = count;
+        } else {
+          await db.replaceAll(server, `${kind}::staging` as CatalogKind, "[]").catch(() => 0);
+          total = count;
+        }
+      } catch (error) {
+        if (current() && String((error as { code?: unknown })?.code ?? "") !== "CANCELLED") failure = nativeStreamError(error);
+      } finally {
+        clearInterval(poll);
+      }
+    };
+    const job = (previous ?? Promise.resolve()).then(write, write);
+    pendingSnapshots.set(key, job);
+    try { await job; }
+    finally { if (pendingSnapshots.get(key) === job) pendingSnapshots.delete(key); }
+    if (failure) throw failure;
     return total;
   },
 

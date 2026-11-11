@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.38] — 2026-11-11
+
+- Sobre o app: a 2.17.36 usou a etiqueta "Novo" no histórico, que não existe em `TAG_COLORS` (`Novidade`/`Melhoria`/`Correção`), e a tela caía em "Cannot read property 'backgroundColor' of undefined". Etiquetas corrigidas para "Novidade" e `ChangeRow` passa a usar as cores de "Melhoria" para qualquer etiqueta desconhecida. Build Android `20261056`.
+
 ## [2.17.37] — 2026-11-11
 
 - Sincronização nativa de filmes e séries na TV (`CatalogStreamJob.kt`): o Android baixa a lista (com redirecionamento http↔https e o mesmo User-Agent), lê o JSON em fluxo com `JsonReader` e grava direto na área temporária do SQLite em lotes de 400, numa thread própria. O JS só acompanha o progresso (`catalogStreamProgress`, a cada 1 s) e decide a troca (`commitStaging`) com as mesmas verificações de segurança. O mapeamento repete `mapVodStreamToMovie`/`mapSeriesStreamToItem`, sem URL de reprodução nem credenciais no payload; formatos de clones (`data`/`results`/`streams`, objeto por id) são aceitos. Resposta que o leitor nativo não entende cai no caminho em JS de antes (inclusive por categoria nos aparelhos fracos). Celular segue com o catálogo em memória.

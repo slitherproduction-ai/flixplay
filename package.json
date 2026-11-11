@@ -1,7 +1,7 @@
 {
   "name": "fastshot-app",
   "main": "expo-router/entry",
-  "version": "2.17.37",
+  "version": "2.17.38",
   "scripts": {
     "lint": "expo lint",
     "test": "jest --no-cache --passWithNoTests",

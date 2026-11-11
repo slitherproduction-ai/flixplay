@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.37",
+    version: "v2.17.38",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "A tela Sobre o app voltou a abrir normalmente." },
+    ],
+  },
+  {
+    version: "v2.17.37",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Na TV, filmes e séries passam a ser baixados pelo próprio Android: a tela continua respondendo ao controle durante a atualização da lista." },
@@ -61,8 +68,8 @@ const VERSION_HISTORY: VersionEntry[] = [
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Aplicativo otimizado na instalação: abre mais rápido e usa menos memória na TV e no celular." },
-      { tag: "Novo", text: "Diagnóstico com área de Desempenho: memória livre, pausas da tela, tempo de abertura e de sincronização." },
-      { tag: "Novo", text: "O Diagnóstico mostra quando o app foi fechado de forma inesperada, para ajudar o suporte." },
+      { tag: "Novidade", text: "Diagnóstico com área de Desempenho: memória livre, pausas da tela, tempo de abertura e de sincronização." },
+      { tag: "Novidade", text: "O Diagnóstico mostra quando o app foi fechado de forma inesperada, para ajudar o suporte." },
       { tag: "Correção", text: "Diagnóstico mostra o total real de filmes e séries na TV." },
     ],
   },
@@ -842,7 +849,8 @@ function GroupLabel({ title }: { title: string }) {
 }
 
 function ChangeRow({ change, divider }: { change: ChangeItem; divider: boolean }) {
-  const colors = TAG_COLORS[change.tag];
+  // Etiqueta desconhecida não pode derrubar a tela Sobre.
+  const colors = TAG_COLORS[change.tag] ?? TAG_COLORS.Melhoria;
   return (
     <View style={[styles.changeRow, divider && styles.dividerTop]}>
       <View style={[styles.changeTag, { backgroundColor: colors.backgroundColor }]}>

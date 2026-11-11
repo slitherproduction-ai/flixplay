@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.38",
+    version: "v2.17.39",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Filmes, séries e canais novos do provedor aparecem sozinhos, mesmo com o app aberto há dias: a lista é atualizada em segundo plano a cada 6 horas." },
+      { tag: "Melhoria", text: "A atualização automática nunca acontece durante um vídeo; ela espera você fechar o player." },
+    ],
+  },
+  {
+    version: "v2.17.38",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "A tela Sobre o app voltou a abrir normalmente." },

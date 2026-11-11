@@ -69,6 +69,7 @@ import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
 import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
 import { playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
+import { setPlaybackActive } from "@/services/playbackActivity";
 import {
   getIntroSkipTarget,
   getNextEpisodeCountdown,
@@ -832,6 +833,10 @@ export default function PlayerScreen() {
     setPlaybackKeepAwake(isPlaying);
   }, [isPlaying]);
   useEffect(() => () => setPlaybackKeepAwake(false), []);
+  useEffect(() => {
+    setPlaybackActive(true);
+    return () => setPlaybackActive(false);
+  }, []);
 
   // Apply playback rate whenever it changes.
   // Uses playerRef to satisfy react-hooks/immutability (the hook value itself

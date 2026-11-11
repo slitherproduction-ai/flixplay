@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.39] — 2026-11-11
+
+- Atualização automática do catálogo com o app aberto (`useXtreamSync`): além da abertura, o app confere a idade do catálogo ao voltar do segundo plano (5 s depois), a cada 15 min e ao fechar o player; com mais de `CATALOG_FRESH_MS` (6 h) desde a última sincronização completa ou tentativa, sincroniza de novo em segundo plano, com a lista atual na tela até a nova ser trocada. Nunca com o player ou o mini player aberto (`services/playbackActivity.ts`). Build Android `20261057`.
+
 ## [2.17.38] — 2026-11-11
 
 - Sobre o app: a 2.17.36 usou a etiqueta "Novo" no histórico, que não existe em `TAG_COLORS` (`Novidade`/`Melhoria`/`Correção`), e a tela caía em "Cannot read property 'backgroundColor' of undefined". Etiquetas corrigidas para "Novidade" e `ChangeRow` passa a usar as cores de "Melhoria" para qualquer etiqueta desconhecida. Build Android `20261056`.

@@ -20,6 +20,8 @@ import {
 } from "@/services/xtream";
 import { deviceTier } from "@/services/deviceProfile";
 import { recordSyncTiming } from "@/services/performanceMonitor";
+import { isPlaybackActive, onPlaybackEnded } from "@/services/playbackActivity";
+import { AppState } from "react-native";
 import { logTechnicalError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import type { SyncState } from "@/store/useAppStore";
@@ -51,6 +53,10 @@ type CachedCategory = { id: string; name: string };
 
 /** Quanto tempo o catálogo salvo vale antes de baixar a lista de novo ao abrir o app. */
 export const CATALOG_FRESH_MS = 6 * 60 * 60 * 1000;
+/** Com o app aberto, de quanto em quanto tempo conferir se o catálogo ficou velho. */
+const AUTO_REFRESH_CHECK_MS = 15 * 60 * 1000;
+/** Espera ao voltar para o app ou fechar o vídeo antes de atualizar. */
+const AUTO_REFRESH_DELAY_MS = 5_000;
 export const catalogSyncedAtKey = (serverId: string) => `catalogSyncedAt:${serverId}`;
 
 /**
@@ -516,9 +522,11 @@ export function useXtreamSync() {
   const forceResync = useAppStore((state) => state.forceResync);
   const mounted = useRef(true);
   const controllerRef = useRef<AbortController | null>(null);
+  const lastAttemptAt = useRef(0);
 
   const doSync = useCallback(
     async (profile: ServerProfile) => {
+      lastAttemptAt.current = Date.now();
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
@@ -599,6 +607,41 @@ export function useXtreamSync() {
       });
     })();
   }, [activeServerId, syncState.isSyncing, syncState.lastSyncedServerId, doSync]);
+
+  // Atualização automática com o app já aberto: na TV quase ninguém fecha o
+  // app (Home/desligar só o deixa em segundo plano), então só a abertura não
+  // basta. Ao voltar para o app, a cada 15 min com ele aberto e ao fechar um
+  // vídeo, o catálogo com mais de CATALOG_FRESH_MS é baixado de novo em
+  // segundo plano — a lista atual continua na tela até a nova ficar pronta.
+  // Nunca durante um vídeo.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const maybeRefresh = () => {
+      if (!mounted.current || AppState.currentState !== "active") return;
+      const state = useAppStore.getState();
+      if (state.syncState.isSyncing || !state.activeServerId) return;
+      if (isPlaybackActive() || state.pip.isActive) return;
+      const server = state.servers.find((item) => item.id === state.activeServerId);
+      if (!server) return;
+      const completed = Date.parse(state.contentCache.lastSyncedAt ?? "") || 0;
+      const reference = Math.max(completed, lastAttemptAt.current);
+      if (reference === 0 || Date.now() - reference < CATALOG_FRESH_MS) return;
+      void doSync(server);
+    };
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(maybeRefresh, AUTO_REFRESH_DELAY_MS);
+    };
+    const appState = AppState.addEventListener("change", (status) => { if (status === "active") schedule(); });
+    const interval = setInterval(maybeRefresh, AUTO_REFRESH_CHECK_MS);
+    const offPlayback = onPlaybackEnded(schedule);
+    return () => {
+      appState.remove();
+      clearInterval(interval);
+      offPlayback();
+      if (timer) clearTimeout(timer);
+    };
+  }, [doSync]);
 
   useEffect(() => {
     mounted.current = true;

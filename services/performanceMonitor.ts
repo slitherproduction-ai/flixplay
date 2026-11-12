@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, NativeModules, Platform, type AppStateStatus } from "react-native";
 import { APP_INFO } from "@/constants/app";
 import { deviceTier } from "@/services/deviceProfile";
+import { onTechnicalLog, type TechnicalLogEntry } from "@/services/security/sanitize";
 
 /**
  * Painel de desempenho (Ajustes → Diagnóstico). Mede no aparelho real, para
@@ -21,6 +22,8 @@ const PAUSE_MS = 400;
 const HEARTBEAT_MS = 30_000;
 const SESSION_KEY = "elvanoq.perf.session";
 const EXITS_KEY = "elvanoq.perf.exits";
+const LOG_KEY = "elvanoq.perf.log";
+const MAX_LOG = 12;
 const MAX_RECENT = 6;
 
 export type MemorySnapshot = {
@@ -68,7 +71,31 @@ const state = {
   jsStartupMs: null as number | null,
   previousExits: [] as UnexpectedExit[],
   lastAvailMemMb: null as number | null,
+  log: [] as TechnicalLogEntry[],
 };
+
+let logSaveTimer: ReturnType<typeof setTimeout> | null = null;
+function saveLogSoon(): void {
+  if (logSaveTimer) return;
+  // Grava logo (o app pode ser fechado pelo sistema a qualquer momento), mas
+  // junta rajadas de erros numa gravação só.
+  logSaveTimer = setTimeout(() => {
+    logSaveTimer = null;
+    void AsyncStorage.setItem(LOG_KEY, JSON.stringify(state.log)).catch(() => undefined);
+  }, 500);
+}
+
+function pushLog(entry: TechnicalLogEntry): void {
+  const last = state.log[0];
+  if (last && last.scope === entry.scope && last.message === entry.message) {
+    last.count += 1;
+    last.at = entry.at;
+  } else {
+    state.log.unshift({ ...entry });
+    if (state.log.length > MAX_LOG) state.log.length = MAX_LOG;
+  }
+  saveLogSoon();
+}
 
 export async function getMemorySnapshot(): Promise<MemorySnapshot | null> {
   try {
@@ -131,6 +158,13 @@ async function readPreviousSession(): Promise<void> {
       await AsyncStorage.setItem(EXITS_KEY, JSON.stringify(exits));
     }
     state.previousExits = exits;
+    // Registro técnico das sessões anteriores (fica até ser limpo): é ele que
+    // mostra em que etapa o app estava quando o sistema o fechou.
+    const rawLog = await AsyncStorage.getItem(LOG_KEY);
+    const previous: TechnicalLogEntry[] = rawLog ? JSON.parse(rawLog) : [];
+    if (Array.isArray(previous)) {
+      state.log = [...state.log, ...previous].sort((a, b) => b.at - a.at).slice(0, MAX_LOG);
+    }
   } catch {
     state.previousExits = [];
   }
@@ -140,6 +174,7 @@ async function readPreviousSession(): Promise<void> {
 export function startPerformanceMonitor(): void {
   if (state.started) return;
   state.started = true;
+  onTechnicalLog(pushLog);
 
   void readPreviousSession().then(() => getMemorySnapshot()).then(() => writeBeat());
 
@@ -204,7 +239,8 @@ export async function clearPerformanceHistory(): Promise<void> {
   state.recentPauses = [];
   state.syncTimings = [];
   state.previousExits = [];
-  try { await AsyncStorage.removeItem(EXITS_KEY); } catch { /* opcional */ }
+  state.log = [];
+  try { await Promise.all([AsyncStorage.removeItem(EXITS_KEY), AsyncStorage.removeItem(LOG_KEY)]); } catch { /* opcional */ }
 }
 
 export type PerformanceReport = {
@@ -220,6 +256,7 @@ export type PerformanceReport = {
   previousExits: UnexpectedExit[];
   memory: MemorySnapshot | null;
   jsHeapMb: number | null;
+  log: TechnicalLogEntry[];
 };
 
 export async function getPerformanceReport(): Promise<PerformanceReport> {
@@ -237,6 +274,7 @@ export async function getPerformanceReport(): Promise<PerformanceReport> {
     previousExits: [...state.previousExits],
     memory,
     jsHeapMb: getJsHeapMb(),
+    log: state.log.map((entry) => ({ ...entry })),
   };
 }
 
@@ -260,6 +298,10 @@ export function describeTrim(memory: MemorySnapshot | null): string {
 export function describeExit(exit: UnexpectedExit): string {
   const memory = exit.availMemMb !== null ? `, ${exit.availMemMb} MB livres` : "";
   return `${clock(exit.at)} em ${exit.route} (v${exit.version}, ${exit.minutesOpen} min aberto${memory})`;
+}
+
+export function describeLog(entry: TechnicalLogEntry): string {
+  return `${clock(entry.at)} · ${entry.message}${entry.count > 1 ? ` (${entry.count}x)` : ""}`;
 }
 
 export function describePause(pause: UiPause): string {
@@ -291,5 +333,7 @@ export function formatPerformanceReport(report: PerformanceReport): string[] {
   report.recentPauses.forEach((pause) => lines.push(`Pausa: ${describePause(pause)}`));
   if (report.previousExits.length === 0) lines.push("Encerramentos inesperados: nenhum");
   report.previousExits.forEach((exit) => lines.push(`Encerramento inesperado: ${describeExit(exit)}`));
+  if (report.log.length) lines.push("— Registro técnico —");
+  report.log.forEach((entry) => lines.push(`${entry.scope}: ${describeLog(entry)}`));
   return lines;
 }

@@ -32,6 +32,29 @@ export function sanitizeError(error: unknown): string {
     .replace(/\bBasic\s+[A-Za-z0-9+/=]+/gi, "Basic ***");
 }
 
+export type TechnicalLogEntry = { at: number; scope: string; message: string; count: number };
+type TechnicalLogListener = (entry: TechnicalLogEntry) => void;
+const technicalLogListeners = new Set<TechnicalLogListener>();
+
+/** Registro técnico do aparelho (Diagnóstico → Desempenho): sempre sanitizado. */
+export function onTechnicalLog(listener: TechnicalLogListener): () => void {
+  technicalLogListeners.add(listener);
+  return () => { technicalLogListeners.delete(listener); };
+}
+
+function emitTechnicalLog(scope: string, message: string): void {
+  if (technicalLogListeners.size === 0) return;
+  const entry: TechnicalLogEntry = { at: Date.now(), scope, message: message.slice(0, 160), count: 1 };
+  technicalLogListeners.forEach((listener) => { try { listener(entry); } catch { /* opcional */ } });
+}
+
 export function logTechnicalError(scope: string, error: unknown): void {
-  if (__DEV__) console.error(`[${scope}] ${sanitizeError(error)}`);
+  const message = sanitizeError(error);
+  if (__DEV__) console.error(`[${scope}] ${message}`);
+  emitTechnicalLog(scope, message);
+}
+
+/** Marco técnico (início/fim de etapa), para saber onde o app parou. */
+export function logTechnicalEvent(scope: string, message: string): void {
+  emitTechnicalLog(scope, sanitizeError(message));
 }

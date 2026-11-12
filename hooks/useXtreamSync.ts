@@ -22,7 +22,7 @@ import { deviceTier } from "@/services/deviceProfile";
 import { recordSyncTiming } from "@/services/performanceMonitor";
 import { isPlaybackActive, onPlaybackEnded } from "@/services/playbackActivity";
 import { AppState } from "react-native";
-import { logTechnicalError } from "@/services/security/sanitize";
+import { logTechnicalEvent, logTechnicalError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import type { SyncState } from "@/store/useAppStore";
 import type { ChannelItem, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
@@ -298,6 +298,7 @@ async function fetchAndCacheContent(
     // ── Live channels ────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Sincronizando canais ao vivo..." });
     const liveStartedAt = Date.now();
+    logTechnicalEvent("Sync", "Canais: início");
     setSyncState({ stages: { live: "running", movies: "pending", series: "pending" }, progressPercent: 0 });
     // A resposta bruta do servidor (dezenas de MB em listas grandes) só vive
     // dentro desta função: ao mapear, ela pode ser liberada antes das gravações
@@ -347,6 +348,7 @@ async function fetchAndCacheContent(
     if (!isCurrent()) return;
     setContentCache({ liveCategories: mappedLiveCategories, liveChannels: mappedLiveChannels });
     recordSyncTiming("de canais", liveStartedAt, mappedLiveChannels.length, "lista completa");
+    logTechnicalEvent("Sync", `Canais: ${mappedLiveChannels.length} salvos`);
     setSyncState({
       stages: { live: "complete", movies: "pending", series: "pending" },
       progressPercent: 0,
@@ -386,6 +388,7 @@ async function fetchAndCacheContent(
     if (!isCurrent()) return;
     setSyncState({ syncProgress: "Baixando catálogo de filmes..." });
     const moviesStartedAt = Date.now();
+    logTechnicalEvent("Sync", "Filmes: início");
     setSyncState({
       stages: { ...useAppStore.getState().syncState.stages, movies: "running", series: "pending" },
       progressPercent: 0,
@@ -428,6 +431,7 @@ async function fetchAndCacheContent(
     setContentCache({
       vodCategories: mapped, vodMovies: result.items, vodRevision: result.revision,
     });
+    logTechnicalEvent("Sync", `Filmes: concluído em ${Math.round((Date.now() - moviesStartedAt) / 1000)} s`);
     recordSyncTiming("de filmes", moviesStartedAt,
       catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "vodMovies") : result.items.length,
       native ? nativeMode(native.writeMs) : byCategory?.kind === "done" ? "por categoria" : "lista completa");
@@ -454,6 +458,7 @@ async function fetchAndCacheContent(
     if (!isCurrent()) return;
     setSyncState({ syncProgress: "Baixando catálogo de séries..." });
     const seriesStartedAt = Date.now();
+    logTechnicalEvent("Sync", "Séries: início");
     const stagesBeforeSeries = useAppStore.getState().syncState.stages;
     setSyncState({
       stages: { ...stagesBeforeSeries, series: "running" },
@@ -495,6 +500,7 @@ async function fetchAndCacheContent(
       seriesCategories: mapped, seriesList: result.items, seriesRevision: result.revision,
       lastSyncedAt: new Date().toISOString(),
     });
+    logTechnicalEvent("Sync", `Séries: concluído em ${Math.round((Date.now() - seriesStartedAt) / 1000)} s`);
     recordSyncTiming("de séries", seriesStartedAt,
       catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "seriesList") : result.items.length,
       native ? nativeMode(native.writeMs) : byCategory?.kind === "done" ? "por categoria" : "lista completa");

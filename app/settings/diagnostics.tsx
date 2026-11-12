@@ -13,6 +13,7 @@ import { useAppStore } from "@/store/useAppStore";
 import {
   clearPerformanceHistory,
   describeExit,
+  describeLog,
   describePause,
   describeSync,
   describeTrim,
@@ -198,9 +199,13 @@ export default function DiagnosticsScreen() {
           {perf?.syncTimings.map((timing) => (
             <GroupRow key={`s${timing.at}${timing.stage}`} divider title={`Sincronização ${timing.stage}`} value={describeSync(timing)} />
           ))}
+          <GroupRow divider title="Sincronização agora" value={syncState.isSyncing ? (syncState.syncProgress ?? "Em andamento") : syncState.syncError ? "Parou com erro" : "Parada"} />
           <GroupRow divider title="Encerramentos inesperados" value={perf && perf.previousExits.length === 0 ? "Nenhum" : perf ? String(perf.previousExits.length) : "…"} icon={perf?.previousExits.length ? "alert-circle-outline" : undefined} iconColor="#FF8B91" />
           {perf?.previousExits.slice(0, 3).map((exit) => (
             <GroupRow key={`e${exit.at}`} divider title="Encerrado" subtitle={describeExit(exit)} />
+          ))}
+          {perf?.log.slice(0, 6).map((entry) => (
+            <GroupRow key={`l${entry.at}${entry.scope}`} divider title={entry.scope} subtitle={describeLog(entry)} />
           ))}
           <GroupRow divider icon="close-circle-outline" title="Limpar histórico de desempenho" onPress={() => void clearPerformance()} />
         </Group>

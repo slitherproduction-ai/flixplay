@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.45",
+    version: "v2.17.46",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Diagnóstico mostra a sincronização em andamento e um registro técnico das últimas etapas e erros, mesmo depois de o app ser fechado pelo sistema." },
+    ],
+  },
+  {
+    version: "v2.17.45",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Capas de filmes e séries baixadas no tamanho certo para a tela: menos memória e carregamento mais rápido, principalmente no Fire TV Stick." },

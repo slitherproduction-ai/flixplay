@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.46] — 2026-11-12
+
+- Fire TV Stick HD sem filmes e séries (0/0, "Última sincronização: Não informado") sem o usuário ter reconstruído o banco, e sem nenhuma linha de sincronização no Desempenho: a sincronização não está terminando, e o `logTechnicalError` só escrevia no console de desenvolvimento — no aparelho não ficava nada.
+- Registro técnico: `logTechnicalError` e o novo `logTechnicalEvent` (marcos "Canais/Filmes/Séries: início / concluído") vão para um registro de 12 entradas (repetições agrupadas), sanitizado e gravado no aparelho 0,5 s depois — sobrevive ao fechamento pelo sistema. Diagnóstico → Desempenho mostra as 6 últimas e "Sincronização agora"; o relatório compartilhado leva todas. "Limpar histórico" apaga o registro.
+- Build Android `20261064`.
+
 ## [2.17.45] — 2026-11-12
 
 - Diagnóstico do Fire TV Stick HD (AFTSS, 901 MB, perfil Básico, v2.17.40): 4 encerramentos inesperados em ~20 min (/series, /movies, /player), 6 avisos de pouca memória (último crítico), 221–250 MB livres no último registro, maior pausa 2,0 s.

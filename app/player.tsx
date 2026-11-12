@@ -182,6 +182,9 @@ type RemoteHandlerParams = {
   revealTvOsd: (target?: "transport" | "top") => void;
   focusTopControls: () => void;
   setPanel: React.Dispatch<React.SetStateAction<Panel>>;
+  /** Foco do controle na barra de tempo (filmes e episódios na TV). */
+  isTimelineFocused: () => boolean;
+  onTimelineStep: (direction: -1 | 1) => void;
 };
 
 function usePlayerRemote(p: RemoteHandlerParams) {
@@ -225,6 +228,11 @@ function usePlayerRemote(p: RemoteHandlerParams) {
       // is hidden, where no interactive control is focused.
       if (event === "up") {
         p.focusTopControls();
+        return;
+      }
+      // Barra de tempo com foco: ◀/▶ voltam e avançam o vídeo.
+      if ((event === "left" || event === "right") && p.contentType !== "live" && p.isTimelineFocused()) {
+        p.onTimelineStep(event === "left" ? -1 : 1);
         return;
       }
       if (event === "left" || event === "right" || event === "down") return;
@@ -1451,6 +1459,25 @@ export default function PlayerScreen() {
     dispatchUi({ type: "HIDE" });
   }, []);
 
+  // ◀/▶ na barra de tempo: passos maiores quando o usuário aperta seguido
+  // (10 s → 30 s → 60 s), como nos players de TV.
+  const timelineFocusedRef = useRef(false);
+  const timelineStepRef = useRef({ at: 0, streak: 0, direction: 0 });
+  const isTimelineFocused = useCallback(() => timelineFocusedRef.current, []);
+  const handleTimelineStep = useCallback((direction: -1 | 1) => {
+    const now = Date.now();
+    const last = timelineStepRef.current;
+    const streak = last.direction === direction && now - last.at < 700 ? last.streak + 1 : 0;
+    timelineStepRef.current = { at: now, streak, direction };
+    const base = Math.max(5, playerPreferences.seekStepSeconds || 10);
+    const step = streak >= 6 ? base * 6 : streak >= 3 ? base * 3 : base;
+    handleSeek(direction * step);
+  }, [handleSeek, playerPreferences.seekStepSeconds]);
+  const handleTimelineFocus = useCallback((focused: boolean) => {
+    timelineFocusedRef.current = focused;
+    if (focused) showControlsWithTimer();
+  }, [showControlsWithTimer]);
+
   const remoteParams: RemoteHandlerParams = useMemo(
     () => ({
       contentType,
@@ -1472,6 +1499,8 @@ export default function PlayerScreen() {
       revealTvOsd,
       focusTopControls,
       setPanel,
+      isTimelineFocused,
+      onTimelineStep: handleTimelineStep,
     }),
     [
       contentType,
@@ -1491,6 +1520,8 @@ export default function PlayerScreen() {
       showControlsWithTimer,
       revealTvOsd,
       focusTopControls,
+      isTimelineFocused,
+      handleTimelineStep,
     ],
   );
 
@@ -1678,6 +1709,7 @@ export default function PlayerScreen() {
             onSelectSubtitle={handleSelectSubtitle}
             onSelectSpeed={handleSelectSpeed}
             onSelectRatio={handleSelectRatio}
+            onTimelineFocus={handleTimelineFocus}
           />
         </Animated.View>
 
@@ -2033,6 +2065,7 @@ function PlayerBottomPanel({
   onSelectSubtitle,
   onSelectSpeed,
   onSelectRatio,
+  onTimelineFocus,
 }: {
   title: string;
   subtitle: string;
@@ -2065,8 +2098,18 @@ function PlayerBottomPanel({
   onSelectSubtitle: (option: SubtitleTrack | null) => void;
   onSelectSpeed: (value: number) => void;
   onSelectRatio: (option: RatioOption) => void;
+  onTimelineFocus: (focused: boolean) => void;
 }) {
   const isLive = contentType === "live";
+  // TV: a barra de tempo recebe foco (◀/▶ voltam e avançam). Ela aponta
+  // ◀/▶ para si mesma, para o foco não sair dela ao procurar vizinhos.
+  const timelineFocusRef = useRef<TVFocusableHandle>(null);
+  const [timelineHandle, setTimelineHandle] = useState<number | undefined>(undefined);
+  const [timelineFocused, setTimelineFocused] = useState(false);
+  const seekableOnTv = Platform.isTV && !isLive;
+  useEffect(() => {
+    if (seekableOnTv) setTimelineHandle(timelineFocusRef.current?.getNodeHandle() ?? undefined);
+  }, [seekableOnTv]);
   const liveProgressPct = Math.max(2, Math.min(100, currentEpg?.progress ?? 2));
 
   const leftLabel = isLive
@@ -2148,6 +2191,19 @@ function PlayerBottomPanel({
       {/* Progress / Timeline */}
       <View style={styles.timelineRow}>
         <AppText style={styles.timeText}>{leftLabel}</AppText>
+        <TVFocusable
+          ref={timelineFocusRef}
+          focusable={seekableOnTv}
+          disabled={!seekableOnTv}
+          accessibilityRole="adjustable"
+          accessibilityLabel="Barra de tempo: use esquerda e direita para voltar ou avançar"
+          nextFocusLeft={timelineHandle}
+          nextFocusRight={timelineHandle}
+          onFocus={() => { setTimelineFocused(true); onTimelineFocus(true); }}
+          onBlur={() => { setTimelineFocused(false); onTimelineFocus(false); }}
+          focusStyle={styles.timelineFocusRing}
+          style={styles.timelineFocusArea}
+        >
         <View
           ref={progressBarRef}
           onLayout={onProgressLayout}
@@ -2157,7 +2213,7 @@ function PlayerBottomPanel({
           onResponderMove={onProgressMove}
           onResponderRelease={onProgressRelease}
           onResponderTerminationRequest={() => true}
-          style={[styles.timeline, isLive && styles.timelineLive]}
+          style={[styles.timeline, styles.timelineInner, isLive && styles.timelineLive]}
         >
           <View
             style={[
@@ -2176,8 +2232,12 @@ function PlayerBottomPanel({
             />
           ) : null}
         </View>
+        </TVFocusable>
         <AppText style={styles.timeText}>{rightLabel}</AppText>
       </View>
+      {timelineFocused ? (
+        <AppText style={styles.timelineHint}>◀ voltar   ▶ avançar   (segure apertando para ir mais rápido)</AppText>
+      ) : null}
 
       {panel ? (
         <ActivePanelSection
@@ -2795,6 +2855,11 @@ const styles = StyleSheet.create({
   liveBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.red },
   liveBadgeText: { fontFamily: "Inter_700Bold", fontSize: 11, color: Colors.white },
 
+  timelineFocusArea: { flex: 1, paddingVertical: 8, borderRadius: 10, borderWidth: 0 },
+  timelineFocusRing: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "rgba(77,163,255,0.10)", paddingHorizontal: 6 },
+  // Dentro da área focável a barra ocupa a largura, não a altura.
+  timelineInner: { flex: 0, alignSelf: "stretch" },
+  timelineHint: { color: "rgba(244,248,255,0.78)", fontSize: 13, textAlign: "center", marginTop: 4 },
   // Timeline / seek bar
   timelineRow: {
     flexDirection: "row",

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.48] — 2026-11-12
+
+- Player (TV, filmes e episódios): a barra de tempo virou um `TVFocusable` (só com o OSD aberto). Com o foco nela, ◀/▶ voltam e avançam pelo `seekStepSeconds` (mín. 5 s), com aceleração ao apertar seguido (×3 a partir do 4º toque em até 0,7 s, ×6 a partir do 7º). ◀/▶ apontam para a própria barra (`nextFocusLeft/Right`) para o foco não sair dela; dica na tela enquanto ela está focada. A tecla chega pelo `ELVANOQ_REMOTE_KEY` (`usePlayerRemote` → `isTimelineFocused`/`onTimelineStep`).
+- Diagnóstico redesenhado: faixa de resumo (canais, filmes, séries, versão e perfil), ações em botões compactos no topo (foco inicial em "Testar conexão") e três painéis lado a lado na TV/tablet — Conexão e aparelho, Desempenho, Atividade recente (encerramentos, pausas e registro técnico). Linhas de 12 pt; painéis focáveis para a tela rolar com o controle. Celular: os mesmos painéis em coluna.
+- Build Android `20261066`.
+
 ## [2.17.47] — 2026-11-12
 
 - Catálogo instantâneo na TV (pedido: o app não pode depender de minutos de download). Como no Roku e na LG:

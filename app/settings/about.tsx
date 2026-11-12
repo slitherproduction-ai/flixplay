@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.47",
+    version: "v2.17.48",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Filmes e séries na TV: coloque o foco na barra de tempo e use ◀ ▶ para voltar ou avançar; apertando seguido, os saltos ficam maiores." },
+      { tag: "Melhoria", text: "Tela de Diagnóstico redesenhada: mais compacta, em três colunas na TV, com as ações no topo." },
+    ],
+  },
+  {
+    version: "v2.17.47",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Filmes e séries na TV aparecem em segundos, mesmo na primeira abertura: as categorias chegam primeiro e cada categoria é carregada na hora em que você abre." },

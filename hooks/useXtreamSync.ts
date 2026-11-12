@@ -221,26 +221,32 @@ async function syncVideoByCategory<R extends CategorizedRow, T extends VideoItem
  * sincronização. `null` = usar o caminho em JS (módulo antigo ou resposta que
  * o leitor nativo não entende).
  */
+/** "Android · gravação 12 s": quanto do tempo total foi gravar no banco. */
+function nativeMode(writeMs: number | null): string {
+  if (writeMs === null) return "Android";
+  return `Android · gravação ${Math.round(writeMs / 1000)} s`;
+}
+
 async function syncVideoNative<T extends VideoItem>(
   profile: ServerProfile,
   kind: VideoKind,
   categories: XtreamCategory[],
   current: () => boolean,
   onProgress: (count: number) => void,
-): Promise<{ items: T[]; revision: number } | null> {
+): Promise<{ items: T[]; revision: number; writeMs: number | null } | null> {
   if (!catalogDatabase.supportsNativeStream()) return null;
   const action = kind === "vodMovies" ? "get_vod_streams" : "get_series";
   const existing = await catalogDatabase.count(profile.id, kind);
   const names: Record<string, string> = {};
   for (const category of categories) names[String(category.category_id)] = category.category_name;
   try {
-    const total = await catalogDatabase.streamTvCatalog(
+    const { total, writeMs } = await catalogDatabase.streamTvCatalog(
       profile.id, kind, buildXtreamApiUrl(profile, action), getXtreamRequestTimeoutMs(action),
       names, current, onProgress, (count) => count > 0 || existing === 0,
     );
-    if (!current()) return { items: [], revision: 0 };
+    if (!current()) return { items: [], revision: 0, writeMs };
     assertSafeCatalogReplacement(kind, total, existing);
-    return { items: await homeVideos<T>(profile, kind), revision: Date.now() };
+    return { items: await homeVideos<T>(profile, kind), revision: Date.now(), writeMs };
   } catch (error) {
     if (error instanceof NativeStreamUnsupportedError) {
       logTechnicalError(`Sync/${kind}-native`, error);
@@ -410,7 +416,7 @@ async function fetchAndCacheContent(
     });
     recordSyncTiming("de filmes", moviesStartedAt,
       catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "vodMovies") : result.items.length,
-      native ? "Android" : byCategory?.kind === "done" ? "por categoria" : "lista completa");
+      native ? nativeMode(native.writeMs) : byCategory?.kind === "done" ? "por categoria" : "lista completa");
     setSyncState({
       stages: { ...useAppStore.getState().syncState.stages, movies: "complete", series: "pending" },
       progressPercent: 0,
@@ -475,7 +481,7 @@ async function fetchAndCacheContent(
     });
     recordSyncTiming("de séries", seriesStartedAt,
       catalogDatabase.supportsTvPages() ? await catalogDatabase.count(profile.id, "seriesList") : result.items.length,
-      native ? "Android" : byCategory?.kind === "done" ? "por categoria" : "lista completa");
+      native ? nativeMode(native.writeMs) : byCategory?.kind === "done" ? "por categoria" : "lista completa");
     // Catálogo completo baixado e salvo: as próximas aberturas, dentro de
     // CATALOG_FRESH_MS, usam o banco local em vez de baixar tudo de novo.
     if (failures.length === 0 && persisted && catalogDatabase.isAvailable()) {

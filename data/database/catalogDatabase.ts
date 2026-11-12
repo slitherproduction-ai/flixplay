@@ -21,7 +21,9 @@ type NativeCatalogDatabase = {
   replaceAll(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   append?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
   commitStaging?(serverId: string, kind: CatalogKind): Promise<number>;
-  streamCatalog?(requestId: string, serverId: string, kind: CatalogKind, url: string, timeoutMs: number, categories: string): Promise<number>;
+  streamCatalog?(
+    requestId: string, serverId: string, kind: CatalogKind, url: string, timeoutMs: number, categories: string, allowEmpty: boolean,
+  ): Promise<NativeStreamResult | number>;
   catalogStreamProgress?(requestId: string): Promise<number>;
   cancelCatalogStream?(requestId: string): void;
   upsert?(serverId: string, kind: CatalogKind, json: string): Promise<number>;
@@ -94,6 +96,11 @@ function encodeChunk<T>(items: T[]): string {
 }
 
 const pendingSnapshots = new Map<string, Promise<void>>();
+
+type NativeStreamResult = { count: number; committed: boolean; totalMs: number; writeMs: number; commitMs: number };
+
+/** Resultado da sincronização nativa, para o Diagnóstico → Desempenho. */
+export type TvStreamResult = { total: number; writeMs: number | null };
 
 /** O servidor mandou algo que o leitor nativo não entende: vale tentar pelo caminho em JS. */
 export class NativeStreamUnsupportedError extends Error {
@@ -200,12 +207,13 @@ export const catalogDatabase = {
     server: string, kind: "vodMovies" | "seriesList", url: string, timeoutMs: number,
     categories: Record<string, string>, current: () => boolean,
     onProgress: (count: number) => void, shouldCommit: (total: number) => boolean,
-  ): Promise<number> {
+  ): Promise<TvStreamResult> {
     const db = database();
     if (!db?.streamCatalog || !db.catalogStreamProgress || !db.commitStaging) throw new NativeStreamUnsupportedError("MISSING");
     const key = JSON.stringify([server, kind]);
     const previous = pendingSnapshots.get(key);
     let total = 0;
+    let writeMs: number | null = null;
     let failure = null as Error | null;
     const write = async () => {
       if (!current()) return;
@@ -215,13 +223,17 @@ export const catalogDatabase = {
         void db.catalogStreamProgress!(requestId).then((count) => { if (count >= 0) onProgress(count); }).catch(() => undefined);
       }, 1_000);
       try {
-        const count = await db.streamCatalog!(requestId, server, kind, url, timeoutMs, JSON.stringify(categories));
-        if (current() && shouldCommit(count)) {
-          await db.commitStaging!(server, kind);
-          total = count;
-        } else {
-          await db.replaceAll(server, `${kind}::staging` as CatalogKind, "[]").catch(() => 0);
-          total = count;
+        // A troca da lista (commit) agora acontece no próprio Android, na
+        // thread da sincronização: só com itens novos ou se a lista podia ficar vazia.
+        const raw = await db.streamCatalog!(requestId, server, kind, url, timeoutMs, JSON.stringify(categories), shouldCommit(0));
+        const result: NativeStreamResult = typeof raw === "number"
+          ? { count: raw, committed: false, totalMs: 0, writeMs: -1, commitMs: 0 }
+          : raw;
+        total = result.count;
+        writeMs = result.writeMs >= 0 ? result.writeMs + result.commitMs : null;
+        if (!result.committed) {
+          if (current() && shouldCommit(result.count) && typeof raw === "number") await db.commitStaging!(server, kind);
+          else await db.replaceAll(server, `${kind}::staging` as CatalogKind, "[]").catch(() => 0);
         }
       } catch (error) {
         if (current() && String((error as { code?: unknown })?.code ?? "") !== "CANCELLED") failure = nativeStreamError(error);
@@ -234,7 +246,7 @@ export const catalogDatabase = {
     try { await job; }
     finally { if (pendingSnapshots.get(key) === job) pendingSnapshots.delete(key); }
     if (failure) throw failure;
-    return total;
+    return { total, writeMs };
   },
 
   async searchTv<T>(server: string, query: string, kinds: CatalogKind[], offset: number, limit: number): Promise<IndexedCatalogItem<T>[]> {

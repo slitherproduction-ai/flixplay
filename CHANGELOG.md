@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.40] — 2026-11-11
+
+- Sincronização nativa mais rápida (medido na Philco de 1,6 GB: 32.292 filmes em 60 s): INSERT compilado e reaproveitado (`SQLiteStatement`) em vez de `ContentValues` + `insertWithOnConflict` por item; lotes de 2.000 itens por transação (antes 400); `PRAGMA synchronous=NORMAL` com WAL (o banco é só cache).
+- A troca da lista (DELETE da antiga + UPDATE do `kind` da área temporária) roda no `CatalogStreamJob`, na thread da sincronização. Antes rodava na thread dos módulos nativos e as consultas de página da grade ficavam na fila até ela terminar.
+- `streamCatalog` devolve `{ count, committed, totalMs, writeMs, commitMs }`; o Desempenho mostra "Android · gravação N s" para separar o tempo de gravação do de download.
+- Build Android `20261058`.
+
 ## [2.17.39] — 2026-11-11
 
 - Atualização automática do catálogo com o app aberto (`useXtreamSync`): além da abertura, o app confere a idade do catálogo ao voltar do segundo plano (5 s depois), a cada 15 min e ao fechar o player; com mais de `CATALOG_FRESH_MS` (6 h) desde a última sincronização completa ou tentativa, sincroniza de novo em segundo plano, com a lista atual na tela até a nova ser trocada. Nunca com o player ou o mini player aberto (`services/playbackActivity.ts`). Build Android `20261057`.

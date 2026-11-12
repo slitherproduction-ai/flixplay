@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.39",
+    version: "v2.17.40",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Na TV, a lista de filmes e séries é salva bem mais rápido durante a atualização." },
+      { tag: "Melhoria", text: "A troca para a lista nova não deixa mais a grade de títulos esperando." },
+    ],
+  },
+  {
+    version: "v2.17.39",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Filmes, séries e canais novos do provedor aparecem sozinhos, mesmo com o app aberto há dias: a lista é atualizada em segundo plano a cada 6 horas." },

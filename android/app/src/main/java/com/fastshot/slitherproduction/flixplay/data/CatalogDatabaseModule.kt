@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -24,6 +25,13 @@ private class CatalogDatabase(context: Context) :
     // WAL: a grade de filmes/séries continua lendo páginas enquanto a
     // sincronização nativa grava em outra thread.
     setWriteAheadLoggingEnabled(true)
+  }
+
+  // Com WAL, "NORMAL" é seguro (o banco é só cache) e evita esperar o disco a
+  // cada transação — a gravação de dezenas de milhares de títulos fica bem mais rápida.
+  override fun onConfigure(db: SQLiteDatabase) {
+    super.onConfigure(db)
+    try { db.execSQL("PRAGMA synchronous=NORMAL") } catch (_: Exception) {}
   }
 
   override fun onCreate(db: SQLiteDatabase) {
@@ -85,6 +93,7 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
     url: String,
     timeoutMs: Double,
     categoriesJson: String,
+    allowEmpty: Boolean,
     promise: Promise,
   ) {
     if (kind != "vodMovies" && kind != "seriesList") {
@@ -110,7 +119,15 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
     streamJobs[requestId] = job
     streamExecutor.execute {
       try {
-        promise.resolve(job.run(url, timeoutMs.toInt().coerceAtLeast(10_000)).toDouble())
+        val started = android.os.SystemClock.elapsedRealtime()
+        val total = job.run(url, timeoutMs.toInt().coerceAtLeast(10_000), allowEmpty)
+        val result = Arguments.createMap()
+        result.putDouble("count", total.toDouble())
+        result.putBoolean("committed", job.committed)
+        result.putDouble("totalMs", (android.os.SystemClock.elapsedRealtime() - started).toDouble())
+        result.putDouble("writeMs", job.writeMs.toDouble())
+        result.putDouble("commitMs", job.commitMs.toDouble())
+        promise.resolve(result)
       } catch (error: CatalogStreamException) {
         job.discard()
         promise.reject(error.code, error.message)

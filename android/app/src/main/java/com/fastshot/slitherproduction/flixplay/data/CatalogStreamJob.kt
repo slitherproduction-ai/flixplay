@@ -1,6 +1,8 @@
 package com.fastshot.slitherproduction.flixplay.data
 
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteStatement
+import android.os.SystemClock
 import android.util.JsonReader
 import android.util.JsonToken
 import org.json.JSONObject
@@ -36,9 +38,49 @@ internal class CatalogStreamJob(
   private val stage = "$kind::staging"
   private val movies = kind == "vodMovies"
   private val batch = ArrayList<JSONObject>(BATCH_SIZE)
+  private var insert: SQLiteStatement? = null
 
-  fun run(url: String, timeoutMs: Int): Int {
+  /** Tempos para o Diagnóstico → Desempenho. */
+  var writeMs = 0L
+    private set
+  var commitMs = 0L
+    private set
+  var committed = false
+    private set
+
+  /**
+   * Baixa, grava e — se `allowEmpty` ou vier algum item — troca a lista
+   * gravada pela nova aqui mesmo, nesta thread (antes a troca rodava na
+   * thread dos módulos e segurava as consultas da grade). Devolve o total.
+   */
+  fun run(url: String, timeoutMs: Int, allowEmpty: Boolean): Int {
     db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, stage))
+    val total = try {
+      download(url, timeoutMs)
+    } finally {
+      insert?.close()
+      insert = null
+    }
+    if (total > 0 || allowEmpty) commit()
+    return total
+  }
+
+  private fun commit() {
+    checkCancelled()
+    val started = SystemClock.elapsedRealtime()
+    db.beginTransaction()
+    try {
+      db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, kind))
+      db.execSQL("UPDATE catalog_items SET kind = ? WHERE server_id = ? AND kind = ?", arrayOf(kind, serverId, stage))
+      db.setTransactionSuccessful()
+      committed = true
+    } finally {
+      db.endTransaction()
+    }
+    commitMs = SystemClock.elapsedRealtime() - started
+  }
+
+  private fun download(url: String, timeoutMs: Int): Int {
     val connection = open(url, timeoutMs)
     try {
       val input = BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8), 64 * 1024)
@@ -210,18 +252,29 @@ internal class CatalogStreamJob(
   private fun flush() {
     if (batch.isEmpty()) return
     checkCancelled()
+    val started = SystemClock.elapsedRealtime()
     val now = System.currentTimeMillis()
+    // Uma instrução compilada reaproveitada em lotes grandes: sem montar
+    // ContentValues nem compilar o INSERT a cada item.
+    val statement = insert ?: db.compileStatement(INSERT_SQL).also { insert = it }
     db.beginTransaction()
     try {
       for (item in batch) {
-        val values = CatalogQueries.fields(item).apply {
-          put("server_id", serverId)
-          put("kind", stage)
-          put("item_id", item.getString("id"))
-          put("payload", item.toString())
-          put("updated_at", now)
-        }
-        db.insertWithOnConflict("catalog_items", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        val fields = CatalogQueries.fields(item)
+        statement.clearBindings()
+        statement.bindString(1, serverId)
+        statement.bindString(2, stage)
+        statement.bindString(3, item.getString("id"))
+        statement.bindString(4, item.toString())
+        statement.bindLong(5, now)
+        bindText(statement, 6, fields.getAsString("title_key"))
+        bindText(statement, 7, fields.getAsString("group_key"))
+        bindText(statement, 8, fields.getAsString("category"))
+        bindText(statement, 9, fields.getAsString("category_id"))
+        statement.bindDouble(10, fields.getAsDouble("rating_value") ?: 0.0)
+        val added = fields.getAsLong("added_value")
+        if (added == null) statement.bindNull(11) else statement.bindLong(11, added)
+        statement.executeInsert()
       }
       db.setTransactionSuccessful()
     } finally {
@@ -229,10 +282,18 @@ internal class CatalogStreamJob(
     }
     progress.addAndGet(batch.size)
     batch.clear()
+    writeMs += SystemClock.elapsedRealtime() - started
+  }
+
+  private fun bindText(statement: SQLiteStatement, index: Int, value: String?) {
+    if (value == null) statement.bindNull(index) else statement.bindString(index, value)
   }
 
   companion object {
-    private const val BATCH_SIZE = 400
+    private const val BATCH_SIZE = 2000
+    private const val INSERT_SQL = "INSERT OR REPLACE INTO catalog_items " +
+      "(server_id, kind, item_id, payload, updated_at, title_key, group_key, category, category_id, rating_value, added_value) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     private const val MAX_REDIRECTS = 6
     private const val CONNECT_TIMEOUT_MS = 20_000
     private const val USER_AGENT = "IPTVSmartersPro/3.1.5"

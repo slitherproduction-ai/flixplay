@@ -111,7 +111,7 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
     } catch (_: Exception) {
     }
     val job = try {
-      CatalogStreamJob(database.writableDatabase, serverId, kind, categories)
+      CatalogStreamJob(database.writableDatabase, serverId, kind, categories, streamBatchSize())
     } catch (_: Exception) {
       promise.reject("DB_UNAVAILABLE", "Banco local indisponível")
       return
@@ -146,6 +146,19 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
       } finally {
         streamJobs.remove(requestId)
       }
+    }
+  }
+
+  /** Aparelhos de até ~1,6 GB (Fire TV Stick, TVs simples): lotes menores, picos menores. */
+  private fun streamBatchSize(): Int {
+    return try {
+      val manager = reactApplicationContext.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+      val memory = android.app.ActivityManager.MemoryInfo()
+      manager?.getMemoryInfo(memory)
+      val low = manager?.isLowRamDevice == true || (memory.totalMem in 1..(1600L * 1024 * 1024))
+      if (low) CatalogStreamJob.LOW_MEMORY_BATCH_SIZE else CatalogStreamJob.DEFAULT_BATCH_SIZE
+    } catch (_: Exception) {
+      CatalogStreamJob.DEFAULT_BATCH_SIZE
     }
   }
 

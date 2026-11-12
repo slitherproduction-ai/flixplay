@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.49] — 2026-11-12
+
+- Diagnóstico do Fire TV Stick HD na 2.17.47: 2 encerramentos (16:44 na Início com 0 min de app aberto; 16:50 em /movies com 6 min), 2 avisos de pouca memória (último crítico), 183 de 901 MB livres, maior pausa 0,7 s (antes 2,0 s). O registro técnico só tinha "Player/ended-early: [object Object] (4x)" — nenhum marco de sincronização.
+- `sanitizeError` mostra objetos como JSON (antes "[object Object]").
+- Registro de sessão leva a atividade da sincronização (`setPerformanceActivity`, alimentado pelo `setSyncState`): o encerramento inesperado mostra "durante: Baixando filmes: …". Abertura registra a decisão (catálogo salvo recente / antigo / sem catálogo).
+- Catálogo salvo "recente" mas com 0 filmes ou 0 séries e categorias gravadas: sincroniza de novo na abertura (antes ficava vazio por até 6 h).
+- Sincronização nativa em lotes de 500 itens em aparelhos de até 1,6 GB ou `isLowRamDevice` (2.000 nos demais).
+- Build Android `20261067`.
+
 ## [2.17.48] — 2026-11-12
 
 - Player (TV, filmes e episódios): a barra de tempo virou um `TVFocusable` (só com o OSD aberto). Com o foco nela, ◀/▶ voltam e avançam pelo `seekStepSeconds` (mín. 5 s), com aceleração ao apertar seguido (×3 a partir do 4º toque em até 0,7 s, ×6 a partir do 7º). ◀/▶ apontam para a própria barra (`nextFocusLeft/Right`) para o foco não sair dela; dica na tela enquanto ela está focada. A tecla chega pelo `ELVANOQ_REMOTE_KEY` (`usePlayerRemote` → `isTimelineFocused`/`onTimelineStep`).

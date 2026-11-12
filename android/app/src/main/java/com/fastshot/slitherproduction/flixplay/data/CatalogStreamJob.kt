@@ -31,13 +31,15 @@ internal class CatalogStreamJob(
   private val serverId: String,
   private val kind: String,
   private val categories: Map<String, String>,
+  /** Lote por transação: menor em aparelhos de pouca memória (Fire TV Stick). */
+  private val batchSize: Int = DEFAULT_BATCH_SIZE,
 ) {
   val cancelled = AtomicBoolean(false)
   val progress = AtomicInteger(0)
 
   private val stage = "$kind::staging"
   private val movies = kind == "vodMovies"
-  private val batch = ArrayList<JSONObject>(BATCH_SIZE)
+  private val batch = ArrayList<JSONObject>(batchSize)
   private var insert: SQLiteStatement? = null
 
   /** Tempos para o Diagnóstico → Desempenho. */
@@ -246,7 +248,7 @@ internal class CatalogStreamJob(
       item.put("plot", plot)
     }
     batch.add(item)
-    if (batch.size >= BATCH_SIZE) flush()
+    if (batch.size >= batchSize) flush()
   }
 
   private fun flush() {
@@ -290,7 +292,8 @@ internal class CatalogStreamJob(
   }
 
   companion object {
-    private const val BATCH_SIZE = 2000
+    const val DEFAULT_BATCH_SIZE = 2000
+    const val LOW_MEMORY_BATCH_SIZE = 500
     private const val INSERT_SQL = "INSERT OR REPLACE INTO catalog_items " +
       "(server_id, kind, item_id, payload, updated_at, title_key, group_key, category, category_id, rating_value, added_value) " +
       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"

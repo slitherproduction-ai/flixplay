@@ -634,9 +634,13 @@ export function useXtreamSync() {
       && Date.now() - syncedAt < CATALOG_FRESH_MS;
     const restoreStale = catalogDatabase.supportsTvPages() && syncedAt > 0 && server.sourceType !== "m3u";
     if (!fresh && !restoreStale) {
+      logTechnicalEvent("Sync", "Abertura: sem catálogo salvo, baixando tudo");
       void doSync(server);
       return;
     }
+    logTechnicalEvent("Sync", fresh
+      ? `Abertura: catálogo salvo há ${Math.round((Date.now() - syncedAt) / 60_000)} min, sem baixar de novo`
+      : "Abertura: catálogo salvo antigo, atualizando em segundo plano");
     setSyncState({
       isSyncing: true,
       lastSyncedServerId: server.id,
@@ -650,6 +654,7 @@ export function useXtreamSync() {
       let restored = false;
       try {
         restored = await restoreOfflineCache(server);
+        if (!restored) logTechnicalEvent("Sync", "Catálogo salvo incompleto, baixando tudo");
       } catch (error) {
         logTechnicalError("Sync/restore", error);
       }
@@ -657,6 +662,23 @@ export function useXtreamSync() {
       if (!restored) {
         void doSync(server);
         return;
+      }
+      // Catálogo "recente" mas sem filmes ou séries gravados (sincronização
+      // anterior interrompida): baixa de novo em vez de abrir vazio por 6 h.
+      if (fresh && catalogDatabase.supportsTvPages()) {
+        try {
+          const [movies, movieCats, series, seriesCats] = await Promise.all([
+            catalogDatabase.count(server.id, "vodMovies"), catalogDatabase.count(server.id, "vodCategories"),
+            catalogDatabase.count(server.id, "seriesList"), catalogDatabase.count(server.id, "seriesCategories"),
+          ]);
+          if ((movies === 0 && movieCats > 0) || (series === 0 && seriesCats > 0)) {
+            logTechnicalEvent("Sync", "Catálogo salvo sem filmes ou séries, baixando de novo");
+            void doSync(server);
+            return;
+          }
+        } catch (error) {
+          logTechnicalError("Sync/restore-check", error);
+        }
       }
       if (!fresh) {
         const current = () => mounted.current && useAppStore.getState().activeServerId === server.id;

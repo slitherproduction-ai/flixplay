@@ -23,6 +23,7 @@ import type {
 } from './types';
 
 import { AUTO_ADULT_PREFERENCE, resolveCategoryBlocked, toggleBlockedList } from "@/features/parental/adult-categories";
+import { setPerformanceActivity } from "@/services/performanceMonitor";
 export interface SyncState {
   isSyncing: boolean;
   /** The server id that was last successfully started (set at sync-start, before any await). */
@@ -498,7 +499,11 @@ export const useAppStore = create<AppStore>()(
         }),
 
       setSyncState: (partial) =>
-        set((state) => ({ syncState: { ...state.syncState, ...partial } })),
+        set((state) => {
+          const syncState = { ...state.syncState, ...partial };
+          setPerformanceActivity(syncState.isSyncing ? (syncState.syncProgress ?? "Sincronizando") : null);
+          return { syncState };
+        }),
 
       clearContentCache: () => set({ contentCache: EMPTY_CACHE }),
 

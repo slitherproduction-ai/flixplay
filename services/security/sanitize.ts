@@ -22,8 +22,18 @@ export function sanitizeUrl(value: string): string {
   }
 }
 
+function describeUnknown(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    // Status do player e dados de diagnóstico chegam como objetos: sem isso o
+    // registro mostrava só "[object Object]".
+    try { return JSON.stringify(error); } catch { return String(error); }
+  }
+  return String(error);
+}
+
 export function sanitizeError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = describeUnknown(error);
   return message
     .replace(/https?:\/\/[^\s"']+/gi, (url) => sanitizeUrl(url))
     .replace(/\b(Authorization)\s*:\s*(?:Bearer|Basic)\s+[^\s,;]+/gi, "$1: ***")

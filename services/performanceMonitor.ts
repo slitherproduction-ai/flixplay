@@ -42,7 +42,7 @@ export type MemorySnapshot = {
 
 export type UiPause = { ms: number; route: string; at: number };
 export type SyncTiming = { stage: string; ms: number; items: number; mode: string; at: number };
-export type UnexpectedExit = { at: number; route: string; version: string; availMemMb: number | null; minutesOpen: number };
+export type UnexpectedExit = { at: number; route: string; version: string; availMemMb: number | null; minutesOpen: number; activity?: string | null };
 
 type SessionBeat = {
   version: string;
@@ -52,6 +52,8 @@ type SessionBeat = {
   active: boolean;
   clean: boolean;
   availMemMb: number | null;
+  /** O que a sincronização fazia no último registro (ex.: "Baixando filmes: 12.400 títulos"). */
+  activity?: string | null;
 };
 
 type NativeProfile = { getMemorySnapshot?: () => Promise<MemorySnapshot> };
@@ -71,6 +73,7 @@ const state = {
   jsStartupMs: null as number | null,
   previousExits: [] as UnexpectedExit[],
   lastAvailMemMb: null as number | null,
+  activity: null as string | null,
   log: [] as TechnicalLogEntry[],
 };
 
@@ -134,6 +137,7 @@ async function writeBeat(clean = false): Promise<void> {
     active: state.active,
     clean,
     availMemMb: state.lastAvailMemMb,
+    activity: state.activity,
   };
   try { await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(beat)); } catch { /* opcional */ }
 }
@@ -153,6 +157,7 @@ async function readPreviousSession(): Promise<void> {
         version: beat.version,
         availMemMb: beat.availMemMb,
         minutesOpen: Math.max(0, Math.round((beat.beatAt - beat.startedAt) / 60_000)),
+        activity: beat.activity ?? null,
       });
       if (exits.length > MAX_RECENT) exits.length = MAX_RECENT;
       await AsyncStorage.setItem(EXITS_KEY, JSON.stringify(exits));
@@ -211,6 +216,19 @@ export function setPerformanceRoute(route: string): void {
   if (state.route === route) return;
   state.route = route;
   if (state.started) void writeBeat();
+}
+
+/**
+ * Atividade pesada em andamento (sincronização). Vai no registro de sessão,
+ * gravado na hora: se o sistema fechar o app, o encerramento mostra em que
+ * etapa ele estava.
+ */
+export function setPerformanceActivity(activity: string | null): void {
+  const next = activity ? activity.slice(0, 80) : null;
+  if (state.activity === next) return;
+  const changedStage = (state.activity ?? "").split(":")[0] !== (next ?? "").split(":")[0];
+  state.activity = next;
+  if (state.started && changedStage) void writeBeat();
 }
 
 /** Saída pelo próprio app ("Sim, sair"): não conta como encerramento inesperado. */
@@ -297,7 +315,8 @@ export function describeTrim(memory: MemorySnapshot | null): string {
 
 export function describeExit(exit: UnexpectedExit): string {
   const memory = exit.availMemMb !== null ? `, ${exit.availMemMb} MB livres` : "";
-  return `${clock(exit.at)} em ${exit.route} (v${exit.version}, ${exit.minutesOpen} min aberto${memory})`;
+  const activity = exit.activity ? ` — durante: ${exit.activity}` : "";
+  return `${clock(exit.at)} em ${exit.route} (v${exit.version}, ${exit.minutesOpen} min aberto${memory})${activity}`;
 }
 
 export function describeLog(entry: TechnicalLogEntry): string {

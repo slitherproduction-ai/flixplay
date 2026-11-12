@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.48",
+    version: "v2.17.49",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Se uma atualização anterior foi interrompida e ficaram sem filmes ou séries, o app baixa de novo na abertura em vez de esperar 6 horas." },
+      { tag: "Melhoria", text: "Fire TV Stick e aparelhos com pouca memória salvam a lista em partes menores." },
+      { tag: "Melhoria", text: "Diagnóstico mais completo: mostra o que a atualização fazia quando o app foi fechado." },
+    ],
+  },
+  {
+    version: "v2.17.48",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Filmes e séries na TV: coloque o foco na barra de tempo e use ◀ ▶ para voltar ou avançar; apertando seguido, os saltos ficam maiores." },

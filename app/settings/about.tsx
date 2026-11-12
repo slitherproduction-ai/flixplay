@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.46",
+    version: "v2.17.47",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Filmes e séries na TV aparecem em segundos, mesmo na primeira abertura: as categorias chegam primeiro e cada categoria é carregada na hora em que você abre." },
+      { tag: "Melhoria", text: "A lista completa continua sendo baixada em segundo plano, sem você precisar esperar." },
+    ],
+  },
+  {
+    version: "v2.17.46",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Diagnóstico mostra a sincronização em andamento e um registro técnico das últimas etapas e erros, mesmo depois de o app ser fechado pelo sistema." },

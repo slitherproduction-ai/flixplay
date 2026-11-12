@@ -294,6 +294,45 @@ async function fetchAndCacheContent(
     return;
   }
 
+  // ── Catálogo instantâneo (TV) ──────────────────────────────────────────────
+  // Como no Roku e na LG: as categorias de filmes e séries (respostas
+  // pequenas, ~1 s) vêm antes de tudo e já vão para a tela. Cada categoria
+  // aberta é baixada na hora (useVodCategoryFallback/useSeriesCategoryFallback)
+  // enquanto a lista completa termina em segundo plano — ninguém precisa
+  // esperar minutos para ver filmes e séries na primeira abertura.
+  let earlyVodCategories: XtreamCategory[] | null = null;
+  let earlySeriesCategories: XtreamCategory[] | null = null;
+  if (catalogDatabase.supportsTvPages()) {
+    try {
+      setSyncState({ syncProgress: "Carregando categorias..." });
+      earlyVodCategories = await getVodCategories(profile, signal);
+      if (!isCurrent()) return;
+      earlySeriesCategories = await getSeriesCategories(profile, signal);
+      if (!isCurrent()) return;
+      const toRows = (list: XtreamCategory[]) => deduplicateCatalogItems(
+        list.map((c) => ({ id: String(c.category_id), name: c.category_name })), (item) => item.id,
+      );
+      const vodRows = toRows(earlyVodCategories);
+      const seriesRows = toRows(earlySeriesCategories);
+      const writes: Promise<void>[] = [];
+      if (vodRows.length) writes.push(catalogDatabase.replaceAll(profile.id, "vodCategories", vodRows));
+      if (seriesRows.length) writes.push(catalogDatabase.replaceAll(profile.id, "seriesCategories", seriesRows));
+      await persistCatalog("early-categories", writes);
+      if (!isCurrent()) return;
+      const cache = useAppStore.getState().contentCache;
+      setContentCache({
+        ...(vodRows.length ? { vodCategories: vodRows, vodRevision: cache.vodRevision ?? Date.now() } : {}),
+        ...(seriesRows.length ? { seriesCategories: seriesRows, seriesRevision: cache.seriesRevision ?? Date.now() } : {}),
+      });
+      logTechnicalEvent("Sync", `Categorias: ${vodRows.length} de filmes, ${seriesRows.length} de séries`);
+    } catch (error) {
+      if (signal.aborted || !isCurrent()) return;
+      logTechnicalError("Sync/categories", error);
+      earlyVodCategories = null;
+      earlySeriesCategories = null;
+    }
+  }
+
   try {
     // ── Live channels ────────────────────────────────────────────────────────
     setSyncState({ syncProgress: "Sincronizando canais ao vivo..." });
@@ -396,7 +435,7 @@ async function fetchAndCacheContent(
     // A number of Xtream panels serialize requests per account or allow only
     // one active connection. Fetch metadata and the large payload sequentially
     // so the VOD call is not rejected while categories are still in flight.
-    const categories = await getVodCategories(profile, signal);
+    const categories = earlyVodCategories ?? await getVodCategories(profile, signal);
     if (!isCurrent()) return;
     const byId = indexBy(categories);
     const mapped = deduplicateCatalogItems(
@@ -464,7 +503,7 @@ async function fetchAndCacheContent(
       stages: { ...stagesBeforeSeries, series: "running" },
       progressPercent: 0,
     });
-    const categories = await getSeriesCategories(profile, signal);
+    const categories = earlySeriesCategories ?? await getSeriesCategories(profile, signal);
     if (!isCurrent()) return;
     const byId = indexBy(categories);
     const mapped = deduplicateCatalogItems(

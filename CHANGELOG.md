@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.47] — 2026-11-12
+
+- Catálogo instantâneo na TV (pedido: o app não pode depender de minutos de download). Como no Roku e na LG:
+  - A sincronização começa pelas categorias de filmes e séries (antes dos canais), grava no banco e já publica `vodCategories`/`seriesCategories` com `vodRevision`/`seriesRevision`, então a grade da TV abre em modo de páginas do banco mesmo vazio.
+  - Categoria aberta e vazia no banco é baixada na hora (`get_vod_streams`/`get_series` com `category_id`) e gravada com `upsert`: filmes já tinham `useVodCategoryFallback`; séries ganharam `useSeriesCategoryFallback` ligado ao `onCategoryDemand` do `TvCatalogBrowser`.
+  - "Todas" vazia na primeira abertura carrega sozinha a primeira categoria, para a grade não abrir em branco.
+  - A lista completa (nativa) segue em segundo plano e, ao terminar, troca tudo de uma vez (inclui o que foi carregado sob demanda). As etapas de filmes/séries reaproveitam as categorias já baixadas.
+- Build Android `20261065`.
+
 ## [2.17.46] — 2026-11-12
 
 - Fire TV Stick HD sem filmes e séries (0/0, "Última sincronização: Não informado") sem o usuário ter reconstruído o banco, e sem nenhuma linha de sincronização no Desempenho: a sincronização não está terminando, e o `logTechnicalError` só escrevia no console de desenvolvimento — no aparelho não ficava nada.

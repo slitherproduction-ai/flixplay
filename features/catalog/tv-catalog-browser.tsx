@@ -374,6 +374,18 @@ export function TvCatalogBrowser({
 
   const selectedCategory = categories.find((category) => category.key === selectedKey) ?? categories[2];
 
+  // Primeira abertura (lista completa ainda baixando, "Todas" vazia): carrega
+  // sozinho as primeiras categorias, para a grade não abrir em branco.
+  const autoDemanded = useRef(false);
+  useEffect(() => {
+    if (autoDemanded.current || !onCategoryDemand || !revision || pages.loading) return;
+    if (selectedKey !== ALL_KEY || totalEntries > 0) return;
+    const firstEmpty = categories.filter((category) => category.categoryId && category.categoryName && category.total === 0).slice(0, 1);
+    if (firstEmpty.length === 0) return;
+    autoDemanded.current = true;
+    for (const category of firstEmpty) onCategoryDemand({ id: category.categoryId!, name: category.categoryName! });
+  }, [categories, onCategoryDemand, pages.loading, revision, selectedKey, totalEntries]);
+
   const visibleEntries = useMemo(() => {
     if (revision) return pages.entries;
     if (selectedKey === SEARCH_KEY) return searchResults;

@@ -26,6 +26,7 @@ import { MobileCatalogHeader, type CatalogCategoryOption } from "@/features/cata
 import { displayCategory } from "@/features/catalog/display";
 import { useDedupedTitles } from "@/features/catalog/use-deduped-titles";
 import { TvCatalogBrowser, type TvCatalogEntry } from "@/features/catalog/tv-catalog-browser";
+import { useSeriesCategoryFallback } from "@/features/catalog/use-series-category-fallback";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const SERIES_FOCUS_SCOPE = "series-grid";
@@ -76,6 +77,7 @@ function SeriesScreen() {
   const cachedCategories = useMemo(() => withoutHidden(allCategories, hiddenCategories, (item) => item.name), [allCategories, hiddenCategories]);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
+  const { loadCategory: loadSeriesCategory } = useSeriesCategoryFallback();
 
   const genres = useMemo<CatalogCategoryOption[]>(
     () => [
@@ -234,6 +236,7 @@ function SeriesScreen() {
         syncError={syncError}
         onOpen={handleSeries}
         onRefresh={refresh}
+        onCategoryDemand={loadSeriesCategory}
       />
     );
   }

@@ -133,6 +133,8 @@ internal object CatalogQueries {
         "added_desc" -> "added_value DESC,item_id"
         "rating_desc" -> "rating_value DESC,title_key,item_id"
         "name_desc" -> "title_key DESC,item_id"
+        // Ordem do servidor (canais ao vivo): a gravação segue a lista recebida.
+        "position" -> "rowid"
         else -> "title_key,item_id"
       }
       db.rawQuery("SELECT payload FROM catalog_items WHERE $where ORDER BY $order LIMIT ? OFFSET ?", (args + limit.coerceIn(1, 500).toString() + offset.coerceAtLeast(0).toString()).toTypedArray()).use { c ->

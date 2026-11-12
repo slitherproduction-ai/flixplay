@@ -29,6 +29,7 @@ import { useCatalogPagination } from "@/hooks/use-catalog-pagination";
 import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels";
 import { TvCategoryPanel, TvChannelPreview } from "@/features/live/tv-guide-panels";
 import { claimPreviewFor, consumeReturnedChannel } from "@/features/live/live-preview-handoff";
+import { isLazyLive, useLazyLiveCounts, useLazyLiveListing } from "@/features/live/lazyLive";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 const LIVE_FOCUS_SCOPE = "live-channels";
@@ -463,6 +464,11 @@ function LiveScreen() {
   const hiddenCategories = useHiddenCategoryNames("live");
   const channels = useMemo(() => withoutHidden(allChannels, hiddenCategories, (channel) => channel.categoryName), [allChannels, hiddenCategories]);
   const activeServerId = useAppStore((state) => state.activeServerId);
+  const activeServer = useAppStore((state) => state.servers.find((server) => server.id === state.activeServerId));
+  const liveRevision = useAppStore((state) => state.contentCache.liveRevision);
+  const liveCount = useAppStore((state) => state.contentCache.liveCount);
+  // TV + Xtream: a lista vem do banco, por categoria (como no Roku).
+  const lazy = tvMode && isLazyLive(activeServer) && liveRevision !== undefined;
   const allCategories = useAppStore((state) => state.contentCache.liveCategories);
   const cachedCategories = useMemo(() => withoutHidden(allCategories, hiddenCategories, (item) => item.name), [allCategories, hiddenCategories]);
   const { isSyncing, syncError, syncProgress, refresh } = useSyncStatus();
@@ -475,7 +481,9 @@ function LiveScreen() {
     () => [FAVORITES_LABEL, "Todos", ...cachedCategories.map((c) => c.name)],
     [cachedCategories],
   );
-  const categoryCounts = useMemo(() => {
+  const lazyCounts = useLazyLiveCounts(lazy, activeServer, liveRevision, hiddenCategories);
+  const memoryCounts = useMemo(() => {
+    if (lazy) return null;
     const counts = new Map<string, number>();
     counts.set(FAVORITES_LABEL, favoriteChannelIds.length);
     counts.set("Todos", channels.length);
@@ -483,9 +491,29 @@ function LiveScreen() {
       counts.set(channel.categoryName, (counts.get(channel.categoryName) ?? 0) + 1);
     }
     return counts;
-  }, [channels, favoriteChannelIds.length]);
+  }, [channels, favoriteChannelIds.length, lazy]);
+  const categoryCounts = useMemo(() => {
+    if (memoryCounts) return memoryCounts;
+    const counts = new Map(lazyCounts);
+    counts.set(FAVORITES_LABEL, favoriteChannelIds.length);
+    return counts;
+  }, [favoriteChannelIds.length, lazyCounts, memoryCounts]);
+  const lazyCategory = useMemo(
+    () => (category === FAVORITES_LABEL || category === "Todos" ? null : cachedCategories.find((item) => item.name === category) ?? null),
+    [cachedCategories, category],
+  );
+  const listing = useLazyLiveListing({
+    enabled: lazy,
+    profile: activeServer,
+    revision: liveRevision,
+    category: lazyCategory,
+    favorites: category === FAVORITES_LABEL ? favoriteChannelIds : null,
+    query: category === FAVORITES_LABEL ? "" : deferredQuery,
+    hidden: hiddenCategories,
+  });
 
   const filteredChannels = useMemo(() => {
+    if (lazy) return EMPTY_CHANNELS;
     const q = deferredQuery.trim().toLowerCase();
     return channels.filter((ch) => {
       if (category === FAVORITES_LABEL) return favoriteChannelIds.includes(ch.id);
@@ -493,18 +521,30 @@ function LiveScreen() {
       const matchQ = !q || `${ch.name} ${ch.currentEpg.title}`.toLowerCase().includes(q);
       return matchCat && matchQ;
     });
-  }, [channels, category, deferredQuery, favoriteChannelIds]);
+  }, [channels, category, deferredQuery, favoriteChannelIds, lazy]);
   const pager = useCatalogPagination<ChannelItem>(activeServerId, "liveChannels", {
     categoryName: category === FAVORITES_LABEL || category === "Todos" ? "" : category,
     query: category === FAVORITES_LABEL ? "" : query.trim(),
     sort: "channel_number",
   });
   const visibleChannels = useMemo(
-    () => pager.enabled && category !== FAVORITES_LABEL
-      ? hydratePagedChannelsWithEpg(withoutHidden(pager.items, hiddenCategories, (channel) => channel.categoryName), channels)
-      : filteredChannels,
-    [pager.enabled, pager.items, category, filteredChannels, channels, hiddenCategories],
+    () => lazy
+      ? hydratePagedChannelsWithEpg(listing.items, channels)
+      : pager.enabled && category !== FAVORITES_LABEL
+        ? hydratePagedChannelsWithEpg(withoutHidden(pager.items, hiddenCategories, (channel) => channel.categoryName), channels)
+        : filteredChannels,
+    [lazy, listing.items, pager.enabled, pager.items, category, filteredChannels, channels, hiddenCategories],
   );
+  // Busca de um canal pelo id: a listagem aberta e o conjunto em memória.
+  const findChannel = useCallback(
+    (channelId: string | null) => (channelId
+      ? visibleChannels.find((item) => item.id === channelId) ?? channels.find((item) => item.id === channelId)
+      : undefined),
+    [channels, visibleChannels],
+  );
+  const listedCount = lazy
+    ? (deferredQuery.trim() && category !== FAVORITES_LABEL ? visibleChannels.length : categoryCounts.get(category) ?? visibleChannels.length)
+    : filteredChannels.length;
   // Preload beyond the rendered window so cards already have Now/Next as the
   // user changes category or scrolls. The queue keeps the provider protected.
   // TV rows intentionally show logo + name only. Preloading EPG for an
@@ -519,8 +559,8 @@ function LiveScreen() {
   }, [previewChannelId, visibleChannels]);
 
   const previewChannel = useMemo(
-    () => channels.find((channel) => channel.id === previewChannelId) ?? visibleChannels[0],
-    [channels, previewChannelId, visibleChannels],
+    () => findChannel(previewChannelId) ?? visibleChannels[0],
+    [findChannel, previewChannelId, visibleChannels],
   );
 
   const handlePreviewChannel = useCallback((channel: ChannelItem) => {
@@ -548,7 +588,7 @@ function LiveScreen() {
 
   const handleChannel = useCallback(
     (channelId: string) => {
-      const channel = channels.find((item) => item.id === channelId);
+      const channel = findChannel(channelId);
       if (!channel) return;
       if (isContentBlocked(channel.id) || isCategoryBlocked("live", channel.categoryId)) {
         setPendingChannelId(channel.id);
@@ -568,31 +608,31 @@ function LiveScreen() {
         },
       });
     },
-    [channels, isCategoryBlocked, isContentBlocked, router, tvMode],
+    [findChannel, isCategoryBlocked, isContentBlocked, router, tvMode],
   );
 
   const openAuthorizedChannel = useCallback(() => {
     if (!pendingChannelId) return;
-    const channel = channels.find((item) => item.id === pendingChannelId);
+    const channel = findChannel(pendingChannelId);
     setPendingChannelId(null);
     if (!channel) return;
     if (tvMode) claimPreviewFor(channel.id);
     router.push({ pathname: "/player", params: { id: channel.id, title: channel.name, type: "live", streamUrl: channel.streamUrl, parentalCategoryKind: "live", parentalCategoryId: channel.categoryId } });
-  }, [channels, pendingChannelId, router, tvMode]);
+  }, [findChannel, pendingChannelId, router, tvMode]);
 
   const handleGuide = useCallback(
     (channelId: string) => {
-      const channel = channels.find((item) => item.id === channelId);
+      const channel = findChannel(channelId);
       if (!channel) return;
       Alert.alert(
         channel.name,
         `${channel.currentEpg.title} · ${channel.currentEpg.start}–${channel.currentEpg.end}\nA seguir: ${channel.nextProgram}`,
       );
     },
-    [channels],
+    [findChannel],
   );
 
-  const isEmpty = !isSyncing && channels.length === 0;
+  const isEmpty = !isSyncing && (lazy ? (liveCount ?? 0) === 0 && visibleChannels.length === 0 : channels.length === 0);
 
   // The guide shares a single responsive canvas: the channel column remains
   // comfortable for D-pad navigation while preview/EPG receive enough width
@@ -662,7 +702,7 @@ function LiveScreen() {
         syncError={syncError}
         syncProgress={syncProgress}
         channels={channels}
-        filteredCount={filteredChannels.length}
+        filteredCount={listedCount}
         categories={categories}
         category={category}
         viewMode={effectiveViewMode}
@@ -674,7 +714,7 @@ function LiveScreen() {
       />
     ),
     [
-      isSyncing, syncError, syncProgress, channels, filteredChannels.length,
+      isSyncing, syncError, syncProgress, channels, listedCount,
       categories, category, effectiveViewMode, refresh, toggleViewMode, handleCategoryChange, tvMode,
     ],
   );
@@ -697,7 +737,7 @@ function LiveScreen() {
             <AppText style={styles.syncBtnText}>Sincronizar agora</AppText>
           </TVFocusable>
         </View>
-      ) : category === FAVORITES_LABEL && filteredChannels.length === 0 ? (
+      ) : category === FAVORITES_LABEL && visibleChannels.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="star-outline" size={32} color={Colors.subtle} />
           <AppText style={styles.emptyTitle}>Sem canais favoritos</AppText>
@@ -712,7 +752,7 @@ function LiveScreen() {
           <AppText style={styles.emptyBody}>Tente outra categoria ou ajuste a busca.</AppText>
         </View>
       ),
-    [isEmpty, refresh, category, filteredChannels.length],
+    [isEmpty, refresh, category, visibleChannels.length],
   );
 
   const channelList = (
@@ -744,9 +784,9 @@ function LiveScreen() {
       removeClippedSubviews={Platform.OS === "android"}
       onViewableItemsChanged={handleViewableItemsChanged}
       onScrollToIndexFailed={onScrollToIndexFailed}
-      onEndReached={pager.enabled && category !== FAVORITES_LABEL ? pager.loadMore : undefined}
+      onEndReached={lazy ? listing.loadMore : pager.enabled && category !== FAVORITES_LABEL ? pager.loadMore : undefined}
       onEndReachedThreshold={0.5}
-      ListFooterComponent={pager.loading && visibleChannels.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
+      ListFooterComponent={(lazy ? listing.loading : pager.loading) && visibleChannels.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.pageLoader} /> : null}
     />
   );
 

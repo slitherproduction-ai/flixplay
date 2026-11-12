@@ -3,6 +3,7 @@ import { catalogDatabase } from "@/data/database/catalogDatabase";
 import { useAppStore } from "@/store/useAppStore";
 import { getVodStreams, mapVodStreamToMovie, type XtreamCategory } from "@/services/xtream";
 import { logTechnicalError } from "@/services/security/sanitize";
+import { forgetCategoryRefresh, shouldRefreshCategory, waitForCategoryRefreshWindow } from "@/features/catalog/categoryRefresh";
 
 export type VodCategory = { id: string; name: string };
 
@@ -23,8 +24,37 @@ export function useVodCategoryFallback() {
     const profile = activeProfile;
     if (!profile || !activeServerId || profile.sourceType === "m3u" || !category.id) return;
 
+    const paged = Boolean(useAppStore.getState().contentCache.vodRevision);
     const current = useAppStore.getState().contentCache.vodMovies;
-    if (current.some((movie) => movie.categoryId === category.id)) return;
+    if (!paged && current.some((movie) => movie.categoryId === category.id)) return;
+
+    // TV: categoria que já tem títulos no banco é atualizada em segundo plano.
+    if (paged) {
+      const existing = await catalogDatabase.tvPage(profile.id, "vodMovies", { categoryId: category.id, category: category.name }, 0, 1).catch(() => []);
+      if (useAppStore.getState().activeServerId !== profile.id) return;
+      if (existing.length) {
+        const refreshKey = `vod:${profile.id}:${category.id}`;
+        if (!shouldRefreshCategory(refreshKey)) return;
+        try {
+          if (!(await waitForCategoryRefreshWindow(profile.id))) {
+            forgetCategoryRefresh(refreshKey);
+            return;
+          }
+          const streams = await getVodStreams(profile, category.id);
+          if (useAppStore.getState().activeServerId !== profile.id || streams.length === 0) return;
+          const xtreamCategory: XtreamCategory = { category_id: category.id, category_name: category.name, parent_id: 0 };
+          await catalogDatabase.upsert(profile.id, "vodMovies", streams.map((stream) => ({
+            ...mapVodStreamToMovie(stream, xtreamCategory, profile),
+            categoryId: category.id,
+            genre: category.name,
+          })));
+        } catch (error) {
+          logTechnicalError("Catalog/vod-category-refresh", error);
+          forgetCategoryRefresh(refreshKey);
+        }
+        return;
+      }
+    }
 
     const requestKey = `${profile.id}:${category.id}`;
     if (attempted.current.has(requestKey)) return;
@@ -32,10 +62,6 @@ export function useVodCategoryFallback() {
     setLoadingCategoryId(category.id);
 
     try {
-      if (useAppStore.getState().contentCache.vodRevision) {
-        const existing = await catalogDatabase.tvPage(profile.id, "vodMovies", { categoryId: category.id, category: category.name }, 0, 1);
-        if (existing.length || useAppStore.getState().activeServerId !== profile.id) return;
-      }
       const streams = await getVodStreams(profile, category.id);
       // A lista ativa pode mudar enquanto a categoria é buscada.
       if (useAppStore.getState().activeServerId !== profile.id) return;

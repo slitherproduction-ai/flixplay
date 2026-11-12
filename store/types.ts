@@ -129,7 +129,14 @@ export interface ContentCache {
   vodRevision?: number;
   seriesRevision?: number;
   liveCategories: { id: string; name: string }[];
+  /**
+   * Na TV (Android, lista Xtream) só os canais em uso ficam aqui: a categoria
+   * aberta, favoritos e os do histórico. A lista completa fica no banco local;
+   * `liveCount` é o total e `liveRevision` muda a cada lista nova.
+   */
   liveChannels: ChannelItem[];
+  liveCount?: number;
+  liveRevision?: number;
   vodCategories: { id: string; name: string }[];
   vodMovies: VodMovie[];
   seriesCategories: { id: string; name: string }[];

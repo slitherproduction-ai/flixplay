@@ -71,7 +71,7 @@ export default function DiagnosticsScreen() {
     return () => { cancelled = true; };
   }, [activeServerId, cache.lastSyncedAt]);
 
-  const liveTotal = Math.max(totals?.live ?? 0, cache.liveChannels.length);
+  const liveTotal = Math.max(totals?.live ?? 0, cache.liveCount ?? 0, cache.liveChannels.length);
   const moviesTotal = Math.max(totals?.movies ?? 0, cache.vodMovies.length);
   const seriesTotal = Math.max(totals?.series ?? 0, cache.seriesList.length);
 

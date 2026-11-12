@@ -407,7 +407,9 @@ export function TvCatalogBrowser({
 
   const selectCategory = useCallback((category: CategoryRow) => {
     setSelectedKey(category.key);
-    if (category.categoryId && category.total === 0 && category.categoryName) {
+    // Vazia: baixa na hora. Com títulos: o hook atualiza em segundo plano
+    // (uma vez por sessão), como o Roku faz ao abrir cada categoria.
+    if (category.categoryId && category.categoryName) {
       onCategoryDemand?.({ id: category.categoryId, name: category.categoryName });
     }
   }, [onCategoryDemand]);

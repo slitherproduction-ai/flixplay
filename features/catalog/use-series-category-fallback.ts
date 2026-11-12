@@ -3,6 +3,7 @@ import { catalogDatabase } from "@/data/database/catalogDatabase";
 import { useAppStore } from "@/store/useAppStore";
 import { getSeries, mapSeriesStreamToItem, type XtreamCategory } from "@/services/xtream";
 import { logTechnicalError } from "@/services/security/sanitize";
+import { forgetCategoryRefresh, shouldRefreshCategory, waitForCategoryRefreshWindow } from "@/features/catalog/categoryRefresh";
 
 export type SeriesCategory = { id: string; name: string };
 
@@ -23,6 +24,32 @@ export function useSeriesCategoryFallback() {
     const profile = activeProfile;
     if (!profile || !activeServerId || profile.sourceType === "m3u" || !category.id) return;
     if (!useAppStore.getState().contentCache.seriesRevision) return;
+
+    // Categoria que já tem séries no banco: atualização em segundo plano.
+    const stored = await catalogDatabase.tvPage(profile.id, "seriesList", { categoryId: category.id, category: category.name }, 0, 1).catch(() => []);
+    if (useAppStore.getState().activeServerId !== profile.id) return;
+    if (stored.length) {
+      const refreshKey = `series:${profile.id}:${category.id}`;
+      if (!shouldRefreshCategory(refreshKey)) return;
+      try {
+        if (!(await waitForCategoryRefreshWindow(profile.id))) {
+          forgetCategoryRefresh(refreshKey);
+          return;
+        }
+        const rows = await getSeries(profile, category.id);
+        if (useAppStore.getState().activeServerId !== profile.id || rows.length === 0) return;
+        const xtreamCategory: XtreamCategory = { category_id: category.id, category_name: category.name, parent_id: 0 };
+        await catalogDatabase.upsert(profile.id, "seriesList", rows.map((row) => ({
+          ...mapSeriesStreamToItem(row, xtreamCategory),
+          categoryId: category.id,
+          genre: category.name,
+        })));
+      } catch (error) {
+        logTechnicalError("Catalog/series-category-refresh", error);
+        forgetCategoryRefresh(refreshKey);
+      }
+      return;
+    }
 
     const requestKey = `${profile.id}:${category.id}`;
     if (attempted.current.has(requestKey)) return;

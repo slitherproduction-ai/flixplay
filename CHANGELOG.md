@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.53] — 2026-11-12
+
+Estratégia do Roku trazida para a TV Android (lista Xtream):
+
+- **Canais ao vivo sob demanda** (`features/live/lazyLive.ts`). A abertura não lê mais os ~9 mil canais do banco para a memória: só a contagem, as categorias e os canais fixados (favoritos e histórico). A TV ao Vivo lê do banco a categoria aberta (páginas de 300, ordem do servidor — nova ordenação `position` → `rowid` no `catalogPage`), com busca e Favoritos também pelo banco e totais por categoria via `counts`. A memória guarda só o conjunto em uso (listagem aberta + fixados), que é o que player, guia e troca de canal usam. A sincronização grava a lista completa no banco e mantém na memória só esse conjunto; se a gravação falhar, a lista fica na memória como antes. `liveCount`/`liveRevision` no `contentCache`. Celular, tablet e listas M3U sem mudança.
+- **Categoria atualizada ao abrir** (`features/catalog/categoryRefresh.ts`): na TV, abrir uma categoria de filmes ou séries que já tem títulos busca `get_vod_streams`/`get_series` daquela categoria em segundo plano (1,5 s depois, uma vez por sessão, nunca durante sincronização ou vídeo) e grava os novos no banco.
+- **Lista completa uma vez por dia na TV** (`TV_CATALOG_FRESH_MS` = 24 h; celular continua 6 h).
+- Blocos da Início: totais de filmes e séries pelo banco (antes mostravam só a vitrine, ex.: "73 filmes"); canais pelo `liveCount`.
+- Build Android `20261071`.
+
 ## [2.17.52] — 2026-11-12
 
 - Diagnóstico do Fire TV Stick 4K (AFTKRT, 1.670 MB, perfil Padrão) na 2.17.51: filmes 32.292 em 50 s com **42 s de gravação**, séries 9.862 em 14 s (11 s de gravação), 3 avisos de pouca memória (último "baixo" às 19:24, durante a sincronização), abertura 6,5 s (coincidiu com a atualização da lista).

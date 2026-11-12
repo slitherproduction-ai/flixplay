@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.52",
+    version: "v2.17.53",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "TV: canais ao vivo carregados por categoria, como no Roku — app mais leve e abertura mais rápida." },
+      { tag: "Melhoria", text: "TV: cada categoria de filmes e séries é atualizada ao ser aberta; a lista completa é baixada uma vez por dia." },
+      { tag: "Correção", text: "Blocos da tela inicial mostram o total real de filmes e séries." },
+    ],
+  },
+  {
+    version: "v2.17.52",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Atualização da lista de filmes e séries bem mais rápida e com menos uso de memória." },

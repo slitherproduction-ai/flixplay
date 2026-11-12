@@ -2,7 +2,7 @@ import { waitForCatalogIdle } from "@/core/navigation/tv-catalog-activity";
 import { NativeModules, Platform } from "react-native";
 
 
-export type TvQuery = { category?: string; categoryId?: string; hidden?: string[]; ids?: string[]; titles?: string[]; query?: string; sort?: "added_desc" | "rating_desc" | "name_desc" | "name_asc"; counts?: boolean };
+export type TvQuery = { category?: string; categoryId?: string; hidden?: string[]; ids?: string[]; titles?: string[]; query?: string; sort?: "added_desc" | "rating_desc" | "name_desc" | "name_asc" | "position"; counts?: boolean };
 
 export type CatalogKind =
   | "liveCategories"

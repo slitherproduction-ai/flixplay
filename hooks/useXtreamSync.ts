@@ -32,6 +32,7 @@ import {
   deduplicateCatalogItems,
 } from "@/data/sync/catalogSyncPolicy";
 import { homeVideos, type VideoItem, type VideoKind } from "@/data/database/tvCatalog";
+import { isLazyLive, keepLiveWorkingSet, loadPinnedLiveChannels } from "@/features/live/lazyLive";
 import { fetchM3uChannels } from "@/services/m3uImport";
 
 /**
@@ -53,6 +54,16 @@ type CachedCategory = { id: string; name: string };
 
 /** Quanto tempo o catálogo salvo vale antes de baixar a lista de novo ao abrir o app. */
 export const CATALOG_FRESH_MS = 6 * 60 * 60 * 1000;
+/**
+ * Na TV cada categoria aberta é atualizada na hora (features/catalog/
+ * categoryRefresh) e os canais são lidos por categoria: a lista completa só
+ * precisa ser baixada uma vez por dia — os picos de memória da sincronização
+ * completa ficam 4× mais raros.
+ */
+export const TV_CATALOG_FRESH_MS = 24 * 60 * 60 * 1000;
+function catalogFreshMs(): number {
+  return catalogDatabase.supportsTvPages() ? TV_CATALOG_FRESH_MS : CATALOG_FRESH_MS;
+}
 /** Com o app aberto, de quanto em quanto tempo conferir se o catálogo ficou velho. */
 const AUTO_REFRESH_CHECK_MS = 15 * 60 * 1000;
 /** Espera ao voltar para o app ou fechar o vídeo antes de atualizar. */
@@ -87,13 +98,21 @@ async function readAllPages<T>(serverId: string, kind: Parameters<typeof catalog
 
 async function restoreOfflineCache(profile: ServerProfile): Promise<boolean> {
   const liveCategories = await readAllPages<CachedCategory>(profile.id, "liveCategories");
-  const storedLiveChannels = await readAllPages<ChannelItem>(profile.id, "liveChannels");
+  // TV + Xtream: os canais ficam no banco e são lidos por categoria na tela
+  // de TV ao Vivo (como no Roku). Na abertura só entram os favoritos e os do
+  // histórico — antes eram lidos todos (~9 mil) e mantidos na memória.
+  const lazyLive = isLazyLive(profile);
+  const liveCount = lazyLive ? await catalogDatabase.count(profile.id, "liveChannels") : undefined;
+  const storedLiveChannels = lazyLive
+    ? await loadPinnedLiveChannels(profile).catch(() => [] as ChannelItem[])
+    : await readAllPages<ChannelItem>(profile.id, "liveChannels");
   if (useAppStore.getState().activeServerId !== profile.id) return false;
   const liveChannels = storedLiveChannels.map((channel) => ({
     ...channel,
     streamUrl: createStreamUrl(profile, channel.streamId),
   }));
-  useAppStore.getState().setContentCache({ liveCategories, liveChannels });
+  const liveRevision = lazyLive ? Date.now() : undefined;
+  useAppStore.getState().setContentCache({ liveCategories, liveChannels, liveCount, liveRevision });
   const paged = catalogDatabase.supportsTvPages();
   const vodCategories = await readAllPages<CachedCategory>(profile.id, "vodCategories");
   const storedVodMovies = paged ? await homeVideos<VodMovie>(profile, "vodMovies") : await readAllPages<VodMovie>(profile.id, "vodMovies");
@@ -105,10 +124,12 @@ async function restoreOfflineCache(profile: ServerProfile): Promise<boolean> {
     streamUrl: createVodUrl(profile, movie.streamId, movie.containerExtension ?? "mp4"),
   }));
   // Provedores só de filmes/séries também abrem com o catálogo salvo.
-  if (liveChannels.length === 0 && vodMovies.length === 0 && seriesList.length === 0) return false;
+  if ((liveCount ?? liveChannels.length) === 0 && vodMovies.length === 0 && seriesList.length === 0) return false;
   useAppStore.getState().setContentCache({
     liveCategories,
     liveChannels,
+    liveCount,
+    liveRevision,
     vodCategories,
     vodMovies,
     vodRevision: paged ? Date.now() : undefined,
@@ -382,12 +403,21 @@ async function fetchAndCacheContent(
     ]);
     assertSafeCatalogReplacement("liveCategories", mappedLiveCategories.length, storedLiveCategories);
     assertSafeCatalogReplacement("liveChannels", mappedLiveChannels.length, storedLiveChannels);
-    persisted = (await persistCatalog("live", [
+    const livePersisted = await persistCatalog("live", [
       catalogDatabase.replaceAll(profile.id, "liveCategories", mappedLiveCategories),
       catalogDatabase.replaceAll(profile.id, "liveChannels", mappedLiveChannels),
-    ])) && persisted;
+    ]);
+    persisted = livePersisted && persisted;
     if (!isCurrent()) return;
-    setContentCache({ liveCategories: mappedLiveCategories, liveChannels: mappedLiveChannels });
+    // TV + Xtream: a lista completa fica só no banco; na memória, os canais em uso.
+    // Se a gravação falhou, a lista fica na memória como antes.
+    const lazyLive = livePersisted && isLazyLive(profile);
+    setContentCache({
+      liveCategories: mappedLiveCategories,
+      liveChannels: lazyLive ? keepLiveWorkingSet(mappedLiveChannels) : mappedLiveChannels,
+      liveCount: lazyLive ? mappedLiveChannels.length : undefined,
+      liveRevision: lazyLive ? Date.now() : undefined,
+    });
     recordSyncTiming("de canais", liveStartedAt, mappedLiveChannels.length, "lista completa");
     logTechnicalEvent("Sync", `Canais: ${mappedLiveChannels.length} salvos`);
     setSyncState({
@@ -633,7 +663,7 @@ export function useXtreamSync() {
     const fresh = server.sourceType !== "m3u"
       && catalogDatabase.isAvailable()
       && syncedAt > 0
-      && Date.now() - syncedAt < CATALOG_FRESH_MS;
+      && Date.now() - syncedAt < catalogFreshMs();
     const restoreStale = catalogDatabase.supportsTvPages() && syncedAt > 0 && server.sourceType !== "m3u";
     if (!fresh && !restoreStale) {
       logTechnicalEvent("Sync", "Abertura: sem catálogo salvo, baixando tudo");
@@ -732,7 +762,7 @@ export function useXtreamSync() {
       if (!server) return;
       const completed = Date.parse(state.contentCache.lastSyncedAt ?? "") || 0;
       const reference = Math.max(completed, lastAttemptAt.current);
-      if (reference === 0 || Date.now() - reference < CATALOG_FRESH_MS) return;
+      if (reference === 0 || Date.now() - reference < catalogFreshMs()) return;
       void doSync(server);
     };
     const schedule = () => {

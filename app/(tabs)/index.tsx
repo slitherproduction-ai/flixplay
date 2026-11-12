@@ -24,6 +24,7 @@ import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
 import { markAppReady } from "@/services/performanceMonitor";
 import { sizedImage } from "@/features/images/sizedImage";
 import { useHeroBackdrop } from "@/features/home/useHeroBackdrop";
+import { catalogDatabase } from "@/data/database/catalogDatabase";
 
 // ---------------------------------------------------------------------------
 // Home em formato de hub, alinhada ao ELVANOQ Play para Roku (0.1.88):
@@ -730,8 +731,28 @@ export default function HomeScreen() {
   const history = useAppStore((state) => state.history);
   const isContentBlocked = useAppStore((state) => state.isContentBlocked);
   const channels = useAppStore((state) => state.contentCache.liveChannels);
+  // Na TV os canais ficam no banco (só os em uso na memória): o total vem daqui.
+  const liveTotal = useAppStore((state) => state.contentCache.liveCount) ?? channels.length;
   const movies = useAppStore((state) => state.contentCache.vodMovies);
   const seriesList = useAppStore((state) => state.contentCache.seriesList);
+  // Na TV a memória só tem a vitrine da Início: os totais dos blocos vêm do banco.
+  const vodRevision = useAppStore((state) => state.contentCache.vodRevision);
+  const seriesRevision = useAppStore((state) => state.contentCache.seriesRevision);
+  const activeServerIdForTotals = useAppStore((state) => state.activeServerId);
+  const [storedTotals, setStoredTotals] = useState<{ movies: number; series: number } | null>(null);
+  useEffect(() => {
+    if (!activeServerIdForTotals || (!vodRevision && !seriesRevision)) return;
+    let active = true;
+    void Promise.all([
+      catalogDatabase.count(activeServerIdForTotals, "vodMovies"),
+      catalogDatabase.count(activeServerIdForTotals, "seriesList"),
+    ]).then(([moviesTotal, seriesTotal]) => {
+      if (active) setStoredTotals({ movies: moviesTotal, series: seriesTotal });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [activeServerIdForTotals, seriesRevision, vodRevision]);
+  const moviesTotal = Math.max(storedTotals?.movies ?? 0, movies.length);
+  const seriesTotal = Math.max(storedTotals?.series ?? 0, seriesList.length);
   const favoriteMovieIds = useAppStore((state) => state.favoriteMovieIds);
   const favoriteSeriesIds = useAppStore((state) => state.favoriteSeriesIds);
   const toggleFavoriteMovie = useAppStore((state) => state.toggleFavoriteMovie);
@@ -971,13 +992,13 @@ export default function HomeScreen() {
   );
   const showFavoritesRail = favoriteTitles.length > 0 && primaryRail?.title !== "Seus favoritos";
   const showRecentMoviesRail = recentMovies.length > 0 && primaryRail?.title !== "Novidades para você";
-  const showEmpty = !isSyncing && channels.length === 0 && movies.length === 0 && seriesList.length === 0;
+  const showEmpty = !isSyncing && liveTotal === 0 && movies.length === 0 && seriesList.length === 0;
 
   const favoritesCount = favoriteMovieIds.length + favoriteSeriesIds.length;
   const tileCaptions: Record<HomeTileDef["key"], string> = {
-    live: channels.length > 0 ? formatCount(channels.length, "canal", "canais") : "Guia e canais",
-    movies: movies.length > 0 ? formatCount(movies.length, "filme", "filmes") : "Catálogo de filmes",
-    series: seriesList.length > 0 ? formatCount(seriesList.length, "série", "séries") : "Catálogo de séries",
+    live: liveTotal > 0 ? formatCount(liveTotal, "canal", "canais") : "Guia e canais",
+    movies: moviesTotal > 0 ? formatCount(moviesTotal, "filme", "filmes") : "Catálogo de filmes",
+    series: seriesTotal > 0 ? formatCount(seriesTotal, "série", "séries") : "Catálogo de séries",
     search: "Encontre títulos",
     list: favoritesCount > 0 ? formatCount(favoritesCount, "salvo", "salvos") : "Salve para depois",
     settings: "Conta e player",

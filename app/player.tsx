@@ -29,6 +29,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   type GestureResponderEvent,
   type LayoutChangeEvent,
@@ -47,6 +48,7 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useChannelEpg } from "@/hooks/useChannelEpg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppStore } from "@/store/useAppStore";
+import { autoContentFit } from "@/features/player/aspectFit";
 import { reducePlayerUi, type PlayerUiLayer } from "@/store/playerUiState";
 import type { ContentType, EpgProgram, ServerProfile } from "@/store/types";
 import { notifyFullscreenChannel, releasePreview, takeClaimedPreview } from "@/features/live/live-preview-handoff";
@@ -119,7 +121,11 @@ type RatioOption = {
   aspectRatio?: number;
 };
 
+const AUTO_RATIO_LABEL = "Automático";
+const RATIO_PREFERENCE_KEY = "playerAspectMode";
+
 const RATIO_OPTIONS: RatioOption[] = [
+  { label: AUTO_RATIO_LABEL, contentFit: "contain" },
   { label: "Original / Ajustar", contentFit: "contain" },
   { label: "16:9 (Widescreen)", contentFit: "contain", aspectRatio: 16 / 9 },
   { label: "4:3 (TV Clássica)", contentFit: "contain", aspectRatio: 4 / 3 },
@@ -344,7 +350,16 @@ export default function PlayerScreen() {
   const [selectedAudio, setSelectedAudio] = useState<AudioTrack | null>(null);
   const [selectedSubtitle, setSelectedSubtitle] = useState<SubtitleTrack | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1.0);
-  const [selectedRatio, setSelectedRatio] = useState<RatioOption>(RATIO_OPTIONS[0]);
+  // Formato da tela: lembra a escolha do usuário (padrão "Automático").
+  const [selectedRatio, setSelectedRatio] = useState<RatioOption>(() => {
+    const saved = useAppStore.getState().preferences[RATIO_PREFERENCE_KEY];
+    return RATIO_OPTIONS.find((option) => option.label === saved) ?? RATIO_OPTIONS[0];
+  });
+  const [videoAspect, setVideoAspect] = useState<number | null>(null);
+  const windowSize = useWindowDimensions();
+  const effectiveFit = selectedRatio.label === AUTO_RATIO_LABEL
+    ? autoContentFit(videoAspect, windowSize.height > 0 ? windowSize.width / windowSize.height : 16 / 9)
+    : selectedRatio.contentFit;
   const [channelNumberInput, setChannelNumberInput] = useState("");
   const [pendingProtectedChannelId, setPendingProtectedChannelId] = useState<string | null>(null);
   const [pendingDirectPlayback, setPendingDirectPlayback] = useState(false);
@@ -720,6 +735,10 @@ export default function PlayerScreen() {
 
     const sourceSub = player.addListener("sourceLoad", (payload) => {
       if (!sessionGuard.isCurrent(sessionToken)) return;
+      // Tamanho do vídeo para o formato "Automático".
+      const tracks = (payload as { availableVideoTracks?: { size?: { width?: number; height?: number } }[] }).availableVideoTracks;
+      const size = tracks?.find((track) => (track.size?.width ?? 0) > 0 && (track.size?.height ?? 0) > 0)?.size;
+      setVideoAspect(size && size.width && size.height ? size.width / size.height : null);
       setAudioTracks(payload.availableAudioTracks);
       setSubtitleTracks(payload.availableSubtitleTracks);
       setSelectedAudio(player.audioTrack);
@@ -1332,6 +1351,7 @@ export default function PlayerScreen() {
   const handleSelectRatio = useCallback(
     (option: RatioOption) => {
       setSelectedRatio(option);
+      useAppStore.getState().setPreference(RATIO_PREFERENCE_KEY, option.label);
       setPanel(null);
       showControlsWithTimer();
     },
@@ -1340,7 +1360,9 @@ export default function PlayerScreen() {
 
   const handleCycleRatio = useCallback(() => {
     const currentIndex = RATIO_OPTIONS.findIndex((option) => option.label === selectedRatio.label);
-    setSelectedRatio(RATIO_OPTIONS[(currentIndex + 1) % RATIO_OPTIONS.length]);
+    const next = RATIO_OPTIONS[(currentIndex + 1) % RATIO_OPTIONS.length];
+    setSelectedRatio(next);
+    useAppStore.getState().setPreference(RATIO_PREFERENCE_KEY, next.label);
     showControlsWithTimer();
   }, [selectedRatio.label, showControlsWithTimer]);
 
@@ -1532,7 +1554,7 @@ export default function PlayerScreen() {
             ? styles.videoAspectContainer
             : undefined,
         ]}
-        contentFit={selectedRatio.contentFit}
+        contentFit={effectiveFit}
         nativeControls={false}
         allowsPictureInPicture
         startsPictureInPictureAutomatically={Platform.OS === "android" && !tvMode}

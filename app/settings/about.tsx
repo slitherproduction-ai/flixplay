@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.43",
+    version: "v2.17.44",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Formato Automático no player: filmes, séries e canais enchem a tela sozinhos quando o corte nas bordas é pequeno." },
+      { tag: "Melhoria", text: "O formato de tela escolhido no player fica salvo para os próximos vídeos." },
+    ],
+  },
+  {
+    version: "v2.17.43",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Filmes em formato de cinema: as faixas acima e abaixo do vídeo ficam pretas, sem a capa do filme aparecendo nas margens." },

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.44] — 2026-11-12
+
+- Player: novo formato "Automático" (padrão, primeiro do menu). Lê o tamanho do vídeo (`availableVideoTracks[].size` no `sourceLoad`) e usa "cobrir" quando o formato do vídeo difere até 15% do da tela (1,85:1 e 2:1 numa TV 16:9 enchem a tela com corte pequeno); formatos bem diferentes (2,39:1, 4:3) ficam inteiros com faixas pretas. `features/player/aspectFit.ts` + teste.
+- O formato escolhido no menu do player fica salvo (`playerAspectMode`) e vale para todos os vídeos. Build Android `20261062`.
+
 ## [2.17.43] — 2026-11-12
 
 - Player: a capa (`backdrop`) ficava atrás do `VideoView` o tempo todo; em filmes mais largos que a tela (2,39:1) ou mais estreitos, as faixas do "Ajustar" mostravam a capa nas margens. Agora a capa só aparece enquanto o vídeo carrega (`videoReady`, ligado no `readyToPlay`; o player da prévia do ao vivo já entra pronto) e volta a cada episódio novo. Faixas pretas, como em qualquer player. Build Android `20261061`.

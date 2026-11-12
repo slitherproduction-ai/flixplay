@@ -23,6 +23,7 @@ import { dedupeTitleVariants, displayCategory, displayTitle } from "@/features/c
 import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
 import { markAppReady } from "@/services/performanceMonitor";
 import { sizedImage } from "@/features/images/sizedImage";
+import { useHeroBackdrop } from "@/features/home/useHeroBackdrop";
 
 // ---------------------------------------------------------------------------
 // Home em formato de hub, alinhada ao ELVANOQ Play para Roku (0.1.88):
@@ -322,7 +323,17 @@ function HeroBanner({
   const contentShift = useRef(new Animated.Value(0)).current;
   const artScale = useRef(new Animated.Value(1)).current;
   const playLabel = hero.type === "series" ? "Ver episódios" : "Assistir agora";
-  const artwork = hero.backdrop || hero.poster;
+  // Imagem larga: a da lista (quando difere da capa) ou a do get_vod_info /
+  // get_series_info, buscada só para o destaque na tela (como no Roku). Sem
+  // ela, em TV/tablet a capa vertical aparece inteira à direita em vez de ser
+  // esticada até cobrir o destaque — era isso que deixava a arte ampliada e
+  // borrada no Fire TV Stick.
+  const activeServer = useAppStore((state) => state.servers.find((server) => server.id === state.activeServerId));
+  const fetchedBackdrop = useHeroBackdrop(activeServer, hero);
+  const listBackdrop = hero.backdrop && hero.backdrop !== hero.poster ? hero.backdrop : "";
+  const landscapeArt = fetchedBackdrop || listBackdrop;
+  const portraitOnly = !landscapeArt && wide;
+  const artwork = landscapeArt || hero.poster;
 
   // Troca de destaque: o texto entra com fade e leve subida, e a arte faz
   // uma aproximação lenta (Ken Burns) enquanto o slide está ativo.
@@ -350,7 +361,16 @@ function HeroBanner({
   return (
     <View style={[styles.heroStage, { height }]}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: artScale }] }]}>
-        <Image source={{ uri: sizedImage(artwork, "backdrop") }} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
+        {portraitOnly ? (
+          <Image
+            source={{ uri: sizedImage(artwork, "backdrop") }}
+            contentFit="cover"
+            transition={tvMode ? 250 : 650}
+            style={[styles.heroPortraitArt, { width: Math.round(height * (2 / 3)) }]}
+          />
+        ) : (
+          <Image source={{ uri: sizedImage(artwork, "backdrop") }} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
+        )}
       </Animated.View>
 
       {/* Equivalentes refinados de hero_shade_top/left/bottom do Roku. */}
@@ -1223,6 +1243,8 @@ const styles = StyleSheet.create({
 
   // Destaque de ponta a ponta, sem moldura de cartão.
   heroStage: { width: "100%", overflow: "hidden", backgroundColor: Colors.backgroundRaised },
+  // Capa vertical sem imagem larga: inteira, à direita, na proporção 2:3.
+  heroPortraitArt: { position: "absolute", top: 0, right: "8%", bottom: 0 },
   heroShadeTop: { position: "absolute", top: 0, right: 0, left: 0 },
   heroContent: { position: "absolute", right: 20, bottom: 58, left: 20, gap: 9 },
   wideHeroContent: { right: undefined, left: 28, bottom: 74, width: "50%", maxWidth: 560 },

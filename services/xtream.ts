@@ -354,6 +354,7 @@ function describeXtreamStage(action?: string): string {
     get_series_categories: "catálogo de categorias de séries",
     get_series: "catálogo de séries",
     get_series_info: "detalhes da série",
+    get_vod_info: "detalhes do filme",
     get_short_epg: "EPG",
     get_simple_data_table: "EPG",
   };
@@ -576,6 +577,28 @@ export const getSeries = (profile: ServerProfile, categoryId?: string, signal?: 
 
 export const getSeriesInfo = (profile: ServerProfile, seriesId: string, signal?: AbortSignal) =>
   requestXtream<unknown>(profile, "get_series_info", { series_id: seriesId }, signal);
+
+export const getVodInfo = (profile: ServerProfile, vodId: string, signal?: AbortSignal) =>
+  requestXtream<unknown>(profile, "get_vod_info", { vod_id: vodId }, signal);
+
+/**
+ * Primeira imagem larga (`info.backdrop_path`) de um get_vod_info ou
+ * get_series_info. O campo vem como lista ou como texto; só endereços http(s)
+ * são aceitos, como no Roku.
+ */
+export function pickBackdrop(body: unknown): string {
+  if (!body || typeof body !== "object") return "";
+  const info = (body as { info?: unknown }).info;
+  if (!info || typeof info !== "object") return "";
+  const value = (info as { backdrop_path?: unknown }).backdrop_path;
+  const candidates = Array.isArray(value) ? value : [value];
+  for (const entry of candidates) {
+    if (typeof entry !== "string") continue;
+    const url = entry.trim();
+    if (/^https?:\/\//i.test(url)) return url;
+  }
+  return "";
+}
 
 export const getShortEpg = (
   profile: ServerProfile,

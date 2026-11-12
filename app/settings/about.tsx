@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.50",
+    version: "v2.17.51",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Capa do destaque da tela inicial nítida e no enquadramento certo, como no Roku: usa a imagem larga do filme ou da série em vez de ampliar a capa vertical." },
+    ],
+  },
+  {
+    version: "v2.17.50",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Tela inicial da TV igual à do Roku: destaque, atalhos, Novidades para você e, abaixo, Continuar assistindo." },

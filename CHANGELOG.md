@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.51] — 2026-11-12
+
+- Destaque da Início ampliado e borrado no Fire TV Stick (foto do usuário comparando com o Roku). Causa: as listas do Xtream só trazem a capa vertical (`stream_icon`/`cover`), gravada também como `backdrop`; esticada com `cover` num destaque largo (~3:1), mostrava só um pedaço ampliado.
+- Como no Roku (`VodInfoService`), o destaque busca `get_vod_info` / `get_series_info` só do título na tela e usa `info.backdrop_path` (`pickBackdrop`: lista ou texto, só http/https). Cache em memória de 40 entradas por servidor, inclusive "sem imagem larga"; nada vai para o banco do catálogo. Listas M3U não fazem a chamada.
+- Sem imagem larga, na TV/tablet a capa vertical aparece inteira à direita (2:3) em vez de cobrir o destaque. Celular sem mudança.
+- Build Android `20261069`.
+
 ## [2.17.50] — 2026-11-12
 
 - Início na TV alinhada ao Roku (pedido do usuário com fotos do Fire Stick e da Roku): destaque, blocos de navegação e só duas fileiras — "Novidades para você" (`recentTitles`) e, abaixo, "Continuar assistindo". Saem da TV as fileiras Minha Lista, Canais ao vivo, Filmes adicionados recentemente e Séries mais bem avaliadas. Smartphone/tablet sem mudança.

@@ -350,7 +350,12 @@ export default function PlayerScreen() {
   const [pendingDirectPlayback, setPendingDirectPlayback] = useState(false);
   const [seriesEpisodes, setSeriesEpisodes] = useState<SeriesEpisodeNavigation[]>([]);
   const [episodeAdvanceCancelled, setEpisodeAdvanceCancelled] = useState(false);
-  const [episodeEnded, setEpisodeEnded] = useState(false);
+  // Guarda QUAL episódio terminou, não só "terminou": o player é a mesma tela
+  // ao passar para o próximo episódio (router.replace), e um booleano ainda
+  // "true" do episódio anterior disparava o avanço de novo no primeiro render
+  // do novo — o app pulava episódio atrás de episódio sozinho.
+  const [endedEpisodeId, setEndedEpisodeId] = useState<string | null>(null);
+  const episodeEnded = endedEpisodeId === id;
 
   // ─── Overlays ─────────────────────────────────────────────────────────────
   const playButtonRef = useRef<TVFocusableHandle>(null);
@@ -490,7 +495,7 @@ export default function PlayerScreen() {
 
   useEffect(() => {
     setEpisodeAdvanceCancelled(false);
-    setEpisodeEnded(false);
+    setEndedEpisodeId(null);
     episodeAdvanceHandledRef.current = false;
     episodeAdvanceRevealedRef.current = false;
   }, [id]);
@@ -562,6 +567,14 @@ export default function PlayerScreen() {
     lastSavedSecondRef.current = 0;
     latestPositionRef.current = 0;
     latestDurationRef.current = 0;
+    // Próximo episódio usa a mesma tela: o estado de reprodução do anterior
+    // (tempo, duração, "já começou") não pode valer para o novo.
+    playbackStartedRef.current = false;
+    lastObservedTimeRef.current = -1;
+    stallRecoveriesRef.current = 0;
+    pendingSeekRef.current = null;
+    setCurrentTime(0);
+    setDuration(0);
   }, [id]);
 
   useEffect(() => {
@@ -786,7 +799,7 @@ export default function PlayerScreen() {
         return;
       }
       removeHistoryItem(id);
-      setEpisodeEnded(true);
+      setEndedEpisodeId(id);
     });
 
     return () => {
@@ -1114,7 +1127,7 @@ export default function PlayerScreen() {
 
   const handleCancelNextEpisode = useCallback(() => {
     setEpisodeAdvanceCancelled(true);
-    setEpisodeEnded(false);
+    setEndedEpisodeId(null);
     showControlsWithTimer();
   }, [showControlsWithTimer]);
 

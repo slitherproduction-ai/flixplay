@@ -194,7 +194,7 @@ const PIP_VIDEO_H = Math.round(PIP_VIDEO_W * (9 / 16));
  */
 function PiPOverlayHost() {
   const active = useAppStore((state) => state.pip.isActive);
-  return active ? <PiPOverlayHost /> : null;
+  return active ? <PiPOverlay /> : null;
 }
 
 function PiPOverlay() {
@@ -583,7 +583,7 @@ export default function RootLayout() {
               <CodeAccessGate />
               <UpdateAvailableNotice />
               {/* Global floating PiP overlay — renders above all screens */}
-              <PiPOverlay />
+              <PiPOverlayHost />
           </View>
         </SafeAreaProvider>
       </GestureHandlerRootView>

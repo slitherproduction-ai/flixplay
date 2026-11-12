@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.41",
+    version: "v2.17.42",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Séries: o app não pula mais episódio atrás de episódio sozinho." },
+      { tag: "Correção", text: "Voltar em TV ao Vivo, Filmes e Séries leva de novo à Início, em vez de fechar o app." },
+      { tag: "Melhoria", text: "Mini player só é carregado quando está em uso." },
+    ],
+  },
+  {
+    version: "v2.17.41",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Séries: os episódios não pulam mais sozinhos quando o servidor não envia o vídeo; o app avisa e deixa tentar de novo." },

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.42] — 2026-11-12
+
+- Séries: causa real do pulo em cascata. O próximo episódio abre na mesma tela do player (`router.replace`) e `episodeEnded` era um booleano: no primeiro render do episódio novo ele ainda estava `true` do anterior, e o efeito de avanço rodava antes do reset → avançava de novo, sem fim. Agora o estado guarda o id do episódio que terminou (`endedEpisodeId`), e a troca de episódio zera tempo, duração, "já começou", retomadas e seek pendente.
+- Voltar nas seções (Ao vivo, Filmes, Séries) voltou a fechar o app em vez de ir à Início. O código do Voltar não mudou desde a 2.17.32; a mudança de comportamento coincide com o R8 ligado na 2.17.36, que pode ter removido algo que o React Native acha por reflexão no caminho do Voltar (o JS nem chega a receber a tecla). R8 desligado (`android.enableMinifyInReleaseBuilds=false`); regras mantidas para um teste futuro com build de depuração. Baseline Profile continua.
+- Mini player: a 2.17.36 trocou o lugar errado e o `PiPOverlay` (com um ExoPlayer vazio) continuava sempre montado. Corrigido: `PiPOverlayHost` na raiz, `PiPOverlay` só quando ativo.
+- Build Android `20261060`.
+
 ## [2.17.41] — 2026-11-12
 
 - Séries: o player pulava episódio atrás de episódio sozinho (vídeo do usuário: T1:E139 → E149 em 17 s, tela parada em 0:00). O `playToEnd` chegava sem o vídeo ter tocado (servidor entregando arquivo vazio/cortado) e acionava o próximo episódio. Agora só é fim de verdade se o vídeo andou e chegou a 90% ou a 5 s do final (`playedToTheEnd`); senão tenta o endereço alternativo e, sem ele, mostra o erro com "Tentar novamente". Vale também para filmes. Registro técnico `Player/ended-early`. Build Android `20261059`.

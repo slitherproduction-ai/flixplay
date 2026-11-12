@@ -22,6 +22,7 @@ import { VariantSelector, type TitleVariantOption } from "@/features/details/var
 import { VARIANT_LABEL, catalogTitleKey, displayTitle, findTitleVariants, titleKeysReady, titleVariant, warmTitleKeys } from "@/features/catalog/display";
 import type { EpisodeItem, ParentalCategoryKind, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
 import { loadOrFetchSynopsis } from "@/features/details/synopsis";
+import { sizedImage } from "@/features/images/sizedImage";
 
 // ---------------------------------------------------------------------------
 // Synopsis auto-fetch from Wikipedia
@@ -608,7 +609,7 @@ function ContentSummary({
   return (
     <>
       <View style={[styles.backdrop, tvMode && styles.tvBackdrop, isTablet && styles.tabletBackdrop, isTabletLandscape && styles.tabletLandscapeBackdrop]}>
-        <Image source={{ uri: backdrop || poster }} contentFit="cover" style={StyleSheet.absoluteFill} />
+        <Image source={{ uri: backdrop ? sizedImage(backdrop, "backdrop") : sizedImage(poster, "poster") }} contentFit="cover" style={StyleSheet.absoluteFill} />
         {/* Keep the artwork clear at the top, then transition into a deep
             readable stage instead of placing a hard dark block over it. */}
         <LinearGradient
@@ -639,7 +640,7 @@ function ContentSummary({
       <View style={[styles.titleBlock, tvMode && styles.tvTitleBlock, isTablet && styles.tabletTitleBlock]}>
         {!tvMode ? (
           <View style={[styles.poster, isTablet && styles.tabletPoster]}>
-            <Image source={{ uri: poster }} contentFit="cover" style={StyleSheet.absoluteFill} />
+            <Image source={{ uri: sizedImage(poster, "poster") }} contentFit="cover" style={StyleSheet.absoluteFill} />
             <View style={styles.posterBadge}>
               <Ionicons name="star" size={10} color={Colors.amber} />
               <AppText style={styles.posterRating}>{rating.toFixed(1)}</AppText>
@@ -941,7 +942,7 @@ function EpisodeCard({
     >
       <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : tabletMode ? styles.tabletEpisodeThumb : styles.mobileEpisodeThumb]}>
         {episode.thumbnail ? (
-          <Image source={{ uri: episode.thumbnail }} contentFit="cover" style={StyleSheet.absoluteFill} />
+          <Image source={{ uri: sizedImage(episode.thumbnail, "still") }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : (
           <View style={styles.thumbFallback}>
             <Ionicons name="film-outline" size={22} color={Colors.subtle} />
@@ -1009,7 +1010,7 @@ function SimilarSection({
             style={[styles.similarCard, tvMode && styles.tvSimilarCard, isTablet && styles.tabletSimilarCard]}
           >
             <Image
-              source={{ uri: item.poster }}
+              source={{ uri: sizedImage(item.poster, "poster") }}
               contentFit="cover"
               style={[styles.similarImage, tvMode && styles.tvSimilarImage, isTablet && styles.tabletSimilarImage, isTabletLandscape && styles.tabletLandscapeSimilarImage]}
             />

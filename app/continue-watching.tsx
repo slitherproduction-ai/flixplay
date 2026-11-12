@@ -18,6 +18,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { ContentType, PlayHistory } from "@/store/types";
 import { PremiumBackdrop, premium } from "@/components/premium-screen";
+import { sizedImage } from "@/features/images/sizedImage";
 
 function formatRelativeTime(iso: string): string {
   try {
@@ -76,7 +77,7 @@ function HistoryCard({ item, onResume, onRemove }: HistoryCardProps) {
         <View style={styles.thumbWrap}>
           {item.thumbnail ? (
             <Image
-              source={{ uri: item.thumbnail }}
+              source={{ uri: sizedImage(item.thumbnail, "backdrop") }}
               contentFit="cover"
               style={StyleSheet.absoluteFill}
               transition={200}

@@ -22,6 +22,7 @@ import type { PlayHistory, SeriesItem, ServerProfile, VodMovie } from "@/store/t
 import { dedupeTitleVariants, displayCategory, displayTitle } from "@/features/catalog/display";
 import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
 import { markAppReady } from "@/services/performanceMonitor";
+import { sizedImage } from "@/features/images/sizedImage";
 
 // ---------------------------------------------------------------------------
 // Home em formato de hub, alinhada ao ELVANOQ Play para Roku (0.1.88):
@@ -347,7 +348,7 @@ function HeroBanner({
   return (
     <View style={[styles.heroStage, { height }]}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: artScale }] }]}>
-        <Image source={{ uri: artwork }} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
+        <Image source={{ uri: sizedImage(artwork, "backdrop") }} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
       </Animated.View>
 
       {/* Equivalentes refinados de hero_shade_top/left/bottom do Roku. */}
@@ -630,7 +631,7 @@ const HeroCarousel = memo(function HeroCarousel({
           na TV o desfoque é caro demais para Fire TV Stick. */}
       {!tvMode && ambientArt ? (
         <View pointerEvents="none" style={[styles.ambient, { top: height, height: AMBIENT_TAIL }]}>
-          <Image source={{ uri: ambientArt }} blurRadius={32} contentFit="cover" transition={900} style={StyleSheet.absoluteFill} />
+          <Image source={{ uri: sizedImage(ambientArt, "backdrop") }} blurRadius={32} contentFit="cover" transition={900} style={StyleSheet.absoluteFill} />
           <LinearGradient
             colors={[BRAND.colors.background, "rgba(7,11,20,0.62)", BRAND.colors.background]}
             locations={[0, 0.38, 1]}
@@ -1047,7 +1048,7 @@ export default function HomeScreen() {
                       style={({ pressed }) => [styles.continueCard, tvMode && styles.tvContinueCard, pressed && styles.cardPressed]}
                     >
                       <View style={styles.continueImage}>
-                        <Image source={{ uri: item.thumbnail }} contentFit="cover" transition={220} style={StyleSheet.absoluteFill} />
+                        <Image source={{ uri: sizedImage(item.thumbnail, "backdrop") }} contentFit="cover" transition={220} style={StyleSheet.absoluteFill} />
                         <LinearGradient colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.82)"]} locations={[0.45, 1]} style={StyleSheet.absoluteFill} />
                         <View style={styles.continuePlay}><Ionicons name="play" size={13} color={Colors.background} /></View>
                         <AppText numberOfLines={1} style={styles.continueRemaining}>{remainingLabel(item)}</AppText>

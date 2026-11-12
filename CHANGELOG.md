@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.45] — 2026-11-12
+
+- Diagnóstico do Fire TV Stick HD (AFTSS, 901 MB, perfil Básico, v2.17.40): 4 encerramentos inesperados em ~20 min (/series, /movies, /player), 6 avisos de pouca memória (último crítico), 221–250 MB livres no último registro, maior pausa 2,0 s.
+- Capas no tamanho do uso (`features/images/sizedImage.ts`): endereços do TMDB trocam `original`/`w600…`/`w1280` por w185/w342/w500 (pôster), w780/w1280 (fundo) e w185/w300 (episódio) conforme o perfil do aparelho. Aplicado em grade da TV, fileiras, Início, detalhes, busca, Continuar assistindo, Assistir depois e player. Outros servidores sem mudança.
+- Perfil Básico: ao abrir o player, `Image.clearMemoryCache()` libera as capas decodificadas das telas de baixo; filmes e séries não são sincronizados com um vídeo aberto (`waitWhilePlaying`).
+- Build Android `20261063`.
+
 ## [2.17.44] — 2026-11-12
 
 - Player: novo formato "Automático" (padrão, primeiro do menu). Lê o tamanho do vídeo (`availableVideoTracks[].size` no `sourceLoad`) e usa "cobrir" quando o formato do vídeo difere até 15% do da tela (1,85:1 e 2:1 numa TV 16:9 enchem a tela com corte pequeno); formatos bem diferentes (2,39:1, 4:3) ficam inteiros com faixas pretas. `features/player/aspectFit.ts` + teste.

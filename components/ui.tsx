@@ -20,6 +20,7 @@ import {
 import { Colors, Radii, Shadows, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { displayTitle } from "@/features/catalog/display";
+import { sizedImage } from "@/features/images/sizedImage";
 
 /**
  * Screens expose their visual root here so GlassCard can opt into Android's
@@ -361,7 +362,7 @@ function PosterCardBase({
         )}
         {hasImage ? (
           <Image
-            source={{ uri: image }}
+            source={{ uri: sizedImage(image, "poster") }}
             contentFit="cover"
             transition={lite ? 0 : 240}
             recyclingKey={image}

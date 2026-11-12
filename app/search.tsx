@@ -14,6 +14,7 @@ import { createStreamUrl } from "@/services/xtream";
 import { useAppStore } from "@/store/useAppStore";
 import { ParentalGate } from "@/components/parental-gate";
 import type { ChannelItem, SeriesItem, VodMovie } from "@/store/types";
+import { sizedImage } from "@/features/images/sizedImage";
 
 type SearchResult = {
   id: string;
@@ -218,7 +219,7 @@ export default function GlobalSearchScreen() {
         contentContainerStyle={[styles.content, wideStyle, { paddingBottom: insets.bottom + 40 }]}
         onEndReached={loadMore}
         onEndReachedThreshold={0.45}
-        renderItem={({ item }) => <TVFocusable accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.subtitle}`} onPress={() => openResult(item)} focusStyle={premium.rowFocused} style={({ pressed }) => [styles.result, pressed && premium.rowPressed]}><View style={styles.thumb}>{item.image ? <Image source={{ uri: item.image }} contentFit="cover" style={StyleSheet.absoluteFill} /> : <Ionicons name="image-outline" size={20} color={Colors.subtle} />}</View><View style={styles.copy}><AppText numberOfLines={1} style={styles.title}>{item.title}</AppText><AppText numberOfLines={1} style={styles.subtitle}>{item.subtitle}</AppText></View><Ionicons name="chevron-forward" size={18} color={Colors.subtle} /></TVFocusable>}
+        renderItem={({ item }) => <TVFocusable accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.subtitle}`} onPress={() => openResult(item)} focusStyle={premium.rowFocused} style={({ pressed }) => [styles.result, pressed && premium.rowPressed]}><View style={styles.thumb}>{item.image ? <Image source={{ uri: sizedImage(item.image, "poster") }} contentFit="cover" style={StyleSheet.absoluteFill} /> : <Ionicons name="image-outline" size={20} color={Colors.subtle} />}</View><View style={styles.copy}><AppText numberOfLines={1} style={styles.title}>{item.title}</AppText><AppText numberOfLines={1} style={styles.subtitle}>{item.subtitle}</AppText></View><Ionicons name="chevron-forward" size={18} color={Colors.subtle} /></TVFocusable>}
         ListFooterComponent={loading && results.length > 0 ? <ActivityIndicator color={Colors.blueBright} style={styles.loader} /> : null}
         ListEmptyComponent={<View style={styles.empty}>{loading ? <ActivityIndicator color={Colors.blueBright} /> : <Ionicons name={searchError ? "warning-outline" : "search-outline"} size={30} color={searchError ? Colors.amber : Colors.subtle} />}<AppText style={styles.emptyTitle}>{query.trim().length < 2 ? "Digite pelo menos dois caracteres" : loading ? "Pesquisando no catálogo..." : searchError ?? "Nenhum resultado encontrado"}</AppText></View>}
       />

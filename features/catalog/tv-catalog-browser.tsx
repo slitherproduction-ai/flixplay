@@ -17,6 +17,7 @@ import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchTmdbPersonFilmography } from "@/services/tmdb";
 import { catalogTitleKey, displayCategory, displayTitle, warmTitleKeys } from "@/features/catalog/display";
+import { sizedImage } from "@/features/images/sizedImage";
 
 // ---------------------------------------------------------------------------
 // Filmes e Séries em TV no formato do ELVANOQ Play para Roku (BrowseView):
@@ -121,7 +122,7 @@ const PosterTile = memo(function PosterTile({
       focusStyle={styles.posterFocused}
       style={[styles.poster, { width, height: Math.round(width * 1.5) }]}
     >
-      <Image source={{ uri: entry.poster }} contentFit="cover" transition={touch ? 180 : 0} recyclingKey={entry.id} style={StyleSheet.absoluteFill} />
+      <Image source={{ uri: sizedImage(entry.poster, "poster") }} contentFit="cover" transition={touch ? 180 : 0} recyclingKey={entry.id} style={StyleSheet.absoluteFill} />
       {!entry.poster ? (
         <View style={styles.posterFallback}>
           <AppText numberOfLines={3} style={styles.posterFallbackText}>{displayTitle(entry.title)}</AppText>

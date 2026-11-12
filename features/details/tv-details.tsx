@@ -14,6 +14,7 @@ import { displayTitle } from "@/features/catalog/display";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { EpisodeItem, PlayHistory, SeriesItem, VodMovie } from "@/store/types";
+import { sizedImage } from "@/features/images/sizedImage";
 
 // ---------------------------------------------------------------------------
 // Detalhes em TV no formato do ELVANOQ Play para Roku (DetailView):
@@ -137,7 +138,7 @@ const EpisodeCard = memo(function EpisodeCard({
       style={[styles.episodeCard, { width }]}
     >
       <View style={styles.episodeImage}>
-        <Image source={{ uri: episode.thumbnail || fallbackImage }} contentFit="cover" transition={160} style={StyleSheet.absoluteFill} />
+        <Image source={{ uri: episode.thumbnail ? sizedImage(episode.thumbnail, "still") : sizedImage(fallbackImage, "backdrop") }} contentFit="cover" transition={160} style={StyleSheet.absoluteFill} />
         <LinearGradient colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.7)"]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} />
         {episode.duration ? <AppText style={styles.episodeDuration}>{episode.duration}</AppText> : null}
         {progress > 0 ? (
@@ -233,7 +234,7 @@ export function TvDetailsContent({
 
   return (
     <View style={styles.screen}>
-      <Image source={{ uri: backdrop }} contentFit="cover" transition={500} style={[StyleSheet.absoluteFill, styles.backdrop]} />
+      <Image source={{ uri: sizedImage(backdrop, "backdrop") }} contentFit="cover" transition={500} style={[StyleSheet.absoluteFill, styles.backdrop]} />
       <LinearGradient
         pointerEvents="none"
         colors={["rgba(7,11,20,0.96)", "rgba(7,11,20,0.78)", "rgba(7,11,20,0.25)", "rgba(7,11,20,0.45)"]}
@@ -320,7 +321,7 @@ export function TvDetailsContent({
           </View>
 
           <View style={[styles.posterFrame, { width: posterWidth + 8, height: posterHeight + 8 }]}>
-            <Image source={{ uri: poster }} contentFit="cover" transition={400} style={styles.posterImage} />
+            <Image source={{ uri: sizedImage(poster, "poster") }} contentFit="cover" transition={400} style={styles.posterImage} />
           </View>
         </View>
 
@@ -390,7 +391,7 @@ export function TvDetailsContent({
                   style={[styles.recommendation, { width: recommendationWidth }]}
                 >
                   <View style={styles.recommendationPoster}>
-                    <Image source={{ uri: entry.poster }} contentFit="cover" transition={160} style={StyleSheet.absoluteFill} />
+                    <Image source={{ uri: sizedImage(entry.poster, "poster") }} contentFit="cover" transition={160} style={StyleSheet.absoluteFill} />
                   </View>
                   <AppText numberOfLines={1} style={styles.recommendationTitle}>{entry.title}</AppText>
                 </TVFocusable>

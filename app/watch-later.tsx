@@ -12,6 +12,7 @@ import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
 import type { SeriesItem, VodMovie } from "@/store/types";
 import { PremiumBackdrop, premium } from "@/components/premium-screen";
+import { sizedImage } from "@/features/images/sizedImage";
 
 type SavedItem = {
   id: string;
@@ -116,7 +117,7 @@ function SavedCard({ item, width, onOpen, onRemove }: { item: SavedItem; width: 
     <View style={[styles.card, { width }]}>
       <TVFocusable accessibilityRole="button" accessibilityLabel={`Abrir ${item.title}`} onPress={() => onOpen(item)} style={styles.cardMain}>
         <View style={[styles.poster, { height: Math.round(width * 1.46) }]}>
-          {item.poster ? <Image source={{ uri: item.poster }} contentFit="cover" style={StyleSheet.absoluteFill} /> : <View style={styles.posterFallback}><Ionicons name="film-outline" size={28} color={Colors.subtle} /></View>}
+          {item.poster ? <Image source={{ uri: sizedImage(item.poster, "poster") }} contentFit="cover" style={StyleSheet.absoluteFill} /> : <View style={styles.posterFallback}><Ionicons name="film-outline" size={28} color={Colors.subtle} /></View>}
           <View style={styles.posterShade} />
           <View style={styles.typeBadge}><AppText style={styles.typeBadgeText}>{item.kind === "movie" ? "FILME" : "SÉRIE"}</AppText></View>
           {item.rating > 0 ? <View style={styles.rating}><Ionicons name="star" size={11} color={Colors.amber} /><AppText style={styles.ratingText}>{item.rating.toFixed(1)}</AppText></View> : null}

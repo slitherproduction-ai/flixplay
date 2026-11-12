@@ -70,7 +70,7 @@ import { openInExternalPlayer } from "@/services/externalPlayer";
 import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
 import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
-import { playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
+import { deviceTier, playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
 import { setPlaybackActive } from "@/services/playbackActivity";
 import {
   getIntroSkipTarget,
@@ -79,6 +79,7 @@ import {
   readIntroEndSeconds,
 } from "@/features/player/EpisodeAutomation";
 import { parseSeriesEpisodeNavigation, type SeriesEpisodeNavigation } from "@/features/player/seriesNavigation";
+import { sizedImage } from "@/features/images/sizedImage";
 
 /** Format seconds → hh:mm:ss */
 function formatTime(secs: number): string {
@@ -906,6 +907,10 @@ export default function PlayerScreen() {
   useEffect(() => () => setPlaybackKeepAwake(false), []);
   useEffect(() => {
     setPlaybackActive(true);
+    // Aparelhos de pouca memória: o vídeo precisa da memória que as capas das
+    // telas de baixo ainda ocupam (Fire TV Stick fechava o app no player).
+    // As capas voltam do disco ao sair do player.
+    if (deviceTier === "low") void Image.clearMemoryCache().catch(() => false);
     return () => setPlaybackActive(false);
   }, []);
 
@@ -1538,7 +1543,7 @@ export default function PlayerScreen() {
       {!videoReady ? (
         <>
           <Image
-            source={{ uri: backdrop }}
+            source={{ uri: sizedImage(backdrop, "backdrop") }}
             contentFit="cover"
             style={StyleSheet.absoluteFill}
           />

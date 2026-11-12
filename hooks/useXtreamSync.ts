@@ -256,6 +256,18 @@ async function syncVideoNative<T extends VideoItem>(
   }
 }
 
+/**
+ * Aparelhos de pouca memória: filmes e séries não são baixados com um vídeo
+ * aberto — a sincronização disputa memória e rede com o player (no Fire TV
+ * Stick o app era fechado no meio do vídeo). Espera o player fechar.
+ */
+async function waitWhilePlaying(current: () => boolean): Promise<void> {
+  if (deviceTier !== "low") return;
+  while (current() && isPlaybackActive()) {
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+}
+
 async function fetchAndCacheContent(
   profile: ServerProfile,
   setContentCache: ReturnType<typeof useAppStore.getState>["setContentCache"],
@@ -370,6 +382,8 @@ async function fetchAndCacheContent(
     if (catalogDatabase.supportsTvPages()) await waitForCatalogIdle(isCurrent);
     if (!isCurrent()) return;
     // ── VOD movies ───────────────────────────────────────────────────────────
+    await waitWhilePlaying(isCurrent);
+    if (!isCurrent()) return;
     setSyncState({ syncProgress: "Baixando catálogo de filmes..." });
     const moviesStartedAt = Date.now();
     setSyncState({
@@ -436,6 +450,8 @@ async function fetchAndCacheContent(
     if (catalogDatabase.supportsTvPages()) await waitForCatalogIdle(isCurrent);
     if (!isCurrent()) return;
     // ── Series ───────────────────────────────────────────────────────────────
+    await waitWhilePlaying(isCurrent);
+    if (!isCurrent()) return;
     setSyncState({ syncProgress: "Baixando catálogo de séries..." });
     const seriesStartedAt = Date.now();
     const stagesBeforeSeries = useAppStore.getState().syncState.stages;

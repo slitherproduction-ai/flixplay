@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.44",
+    version: "v2.17.45",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Capas de filmes e séries baixadas no tamanho certo para a tela: menos memória e carregamento mais rápido, principalmente no Fire TV Stick." },
+      { tag: "Melhoria", text: "Em aparelhos com pouca memória, o player libera a memória das capas ao abrir e a atualização da lista espera o vídeo terminar." },
+    ],
+  },
+  {
+    version: "v2.17.44",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Formato Automático no player: filmes, séries e canais enchem a tela sozinhos quando o corte nas bordas é pequeno." },

@@ -30,7 +30,9 @@ import { sizedImage } from "@/features/images/sizedImage";
 //      metadados, sinopse e as ações "Assistir agora" e "Minha Lista".
 //   2. Blocos de navegação (TV ao Vivo, Filmes, Séries, Busca, Minha Lista,
 //      Ajustes).
-//   3. Fileira principal: Continuar assistindo → Seus favoritos → Novidades.
+//   3. TV: "Novidades para você" e, abaixo, "Continuar assistindo" — só essas
+//      duas fileiras, como no Roku. Smartphone/tablet: fileira principal
+//      (Continuar assistindo → Seus favoritos → Novidades) e complementares.
 // O Android acrescenta acabamento que o SceneGraph não oferece: luz ambiente
 // derivada da arte, transição suave entre destaques, progresso animado da
 // rotação, blocos com contagem do catálogo e fileiras complementares.
@@ -936,7 +938,8 @@ export default function HomeScreen() {
   // No primeiro acesso não há histórico ao vivo: preserva a ordem do servidor.
   const featuredChannels = recentLiveChannels.length > 0 ? recentLiveChannels : channels.slice(0, SECONDARY_RAIL_LIMIT);
   const liveSubtitle = recentLiveChannels.length > 0 ? "Últimos canais assistidos" : "Programação ao vivo agora";
-  useEpgPreload(channels, EPG_HOME_PRELOAD_LIMIT);
+  // Na TV a Início segue o Roku e não mostra canais: nada de EPG em segundo plano.
+  useEpgPreload(channels, tvMode ? 0 : EPG_HOME_PRELOAD_LIMIT);
 
   const recentMovies = useMemo(
     () => recentTitles.filter((item) => item.type === "movie").slice(0, SECONDARY_RAIL_LIMIT),
@@ -988,6 +991,63 @@ export default function HomeScreen() {
     </>
   ), [activeServer, handleOpenAccount, handleOpenSearch, showTiles, tvMode]);
 
+  const renderContinueRail = (items: PlayHistory[]) => (
+    <View>
+      <SectionHeader title="Continuar assistindo" subtitle="Retome de onde parou" onPress={handleContinueWatchingAll} />
+      <HorizontalScroller>
+        {items.map((item) => {
+          const progress = Math.min(100, Math.max(0, Math.round((item.positionMs / item.durationMs) * 100)));
+          return (
+            <TVFocusable
+              key={item.contentId}
+              accessibilityRole="button"
+              accessibilityLabel={`Continuar ${item.title}. ${remainingLabel(item)}`}
+              onPress={() => handleHistory(item)}
+              focusStyle={styles.cardFocused}
+              style={({ pressed }) => [styles.continueCard, tvMode && styles.tvContinueCard, pressed && styles.cardPressed]}
+            >
+              <View style={styles.continueImage}>
+                <Image source={{ uri: sizedImage(item.thumbnail, "backdrop") }} contentFit="cover" transition={220} style={StyleSheet.absoluteFill} />
+                <LinearGradient colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.82)"]} locations={[0.45, 1]} style={StyleSheet.absoluteFill} />
+                <View style={styles.continuePlay}><Ionicons name="play" size={13} color={Colors.background} /></View>
+                <AppText numberOfLines={1} style={styles.continueRemaining}>{remainingLabel(item)}</AppText>
+                <View style={styles.continueTrack}>
+                  <View style={[styles.continueFill, { width: `${progress}%` }]} />
+                </View>
+              </View>
+              <AppText numberOfLines={1} style={styles.continueTitle}>{item.title}</AppText>
+              {item.subtitle ? <AppText numberOfLines={1} style={styles.continueSubtitle}>{item.subtitle}</AppText> : null}
+            </TVFocusable>
+          );
+        })}
+      </HorizontalScroller>
+    </View>
+  );
+
+  const renderTitlesRail = (title: string, subtitle: string, items: HeroContent[], onSeeAll: () => void) => (
+    <View>
+      <SectionHeader
+        title={title}
+        subtitle={subtitle}
+        onPress={onSeeAll}
+      />
+      <HorizontalScroller>
+        {items.map((item) => (
+          <PosterCard
+            key={`${item.type}-${item.id}`}
+            title={item.title}
+            image={item.poster}
+            meta={`${yearMeta(item.year)} · ${item.type === "series" ? item.meta : displayCategory(item.genre)}`}
+            rating={item.rating}
+            quality={item.quality}
+            width={posterWidth}
+            onPress={() => handleContent(item.id)}
+          />
+        ))}
+      </HorizontalScroller>
+    </View>
+  );
+
   return (
     <View style={styles.screen} testID="home-screen">
       <CatalogBackground />
@@ -1032,64 +1092,22 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={[styles.rails, { paddingHorizontal: sidePadding }, tvMode && styles.tvRails, !showTiles && heroSlides.length > 0 && styles.railsAfterHero]}>
-          {primaryRail?.kind === "continue" ? (
-            <View>
-              <SectionHeader title={primaryRail.title} subtitle={primaryRail.subtitle} onPress={handleContinueWatchingAll} />
-              <HorizontalScroller>
-                {primaryRail.items.map((item) => {
-                  const progress = Math.min(100, Math.max(0, Math.round((item.positionMs / item.durationMs) * 100)));
-                  return (
-                    <TVFocusable
-                      key={item.contentId}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Continuar ${item.title}. ${remainingLabel(item)}`}
-                      onPress={() => handleHistory(item)}
-                      focusStyle={styles.cardFocused}
-                      style={({ pressed }) => [styles.continueCard, tvMode && styles.tvContinueCard, pressed && styles.cardPressed]}
-                    >
-                      <View style={styles.continueImage}>
-                        <Image source={{ uri: sizedImage(item.thumbnail, "backdrop") }} contentFit="cover" transition={220} style={StyleSheet.absoluteFill} />
-                        <LinearGradient colors={["rgba(7,11,20,0)", "rgba(7,11,20,0.82)"]} locations={[0.45, 1]} style={StyleSheet.absoluteFill} />
-                        <View style={styles.continuePlay}><Ionicons name="play" size={13} color={Colors.background} /></View>
-                        <AppText numberOfLines={1} style={styles.continueRemaining}>{remainingLabel(item)}</AppText>
-                        <View style={styles.continueTrack}>
-                          <View style={[styles.continueFill, { width: `${progress}%` }]} />
-                        </View>
-                      </View>
-                      <AppText numberOfLines={1} style={styles.continueTitle}>{item.title}</AppText>
-                      {item.subtitle ? <AppText numberOfLines={1} style={styles.continueSubtitle}>{item.subtitle}</AppText> : null}
-                    </TVFocusable>
-                  );
-                })}
-              </HorizontalScroller>
-            </View>
+          {tvMode ? (
+            <>
+              {recentTitles.length > 0
+                ? renderTitlesRail("Novidades para você", "Filmes e séries adicionados recentemente", recentTitles, handleOpenMovies)
+                : null}
+              {dedupedHistory.length > 0 ? renderContinueRail(dedupedHistory.slice(0, 12)) : null}
+            </>
           ) : null}
 
-          {primaryRail?.kind === "titles" ? (
-            <View>
-              <SectionHeader
-                title={primaryRail.title}
-                subtitle={primaryRail.subtitle}
-                onPress={primaryRail.title === "Seus favoritos" ? handleWatchLaterAll : handleOpenMovies}
-              />
-              <HorizontalScroller>
-                {primaryRail.items.map((item) => (
-                  <PosterCard
-                    key={`${item.type}-${item.id}`}
-                    title={item.title}
-                    image={item.poster}
-                    meta={`${yearMeta(item.year)} · ${item.type === "series" ? item.meta : displayCategory(item.genre)}`}
-                    rating={item.rating}
-                    quality={item.quality}
-                    width={posterWidth}
-                    onPress={() => handleContent(item.id)}
-                  />
-                ))}
-              </HorizontalScroller>
-            </View>
-          ) : null}
+          {!tvMode && primaryRail?.kind === "continue" ? renderContinueRail(primaryRail.items) : null}
 
-          {showFavoritesRail ? (
+          {!tvMode && primaryRail?.kind === "titles"
+            ? renderTitlesRail(primaryRail.title, primaryRail.subtitle, primaryRail.items, primaryRail.title === "Seus favoritos" ? handleWatchLaterAll : handleOpenMovies)
+            : null}
+
+          {!tvMode && showFavoritesRail ? (
             <View>
               <SectionHeader title="Minha Lista" subtitle="Salvos para assistir mais tarde" onPress={handleWatchLaterAll} />
               <HorizontalScroller>
@@ -1109,7 +1127,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {featuredChannels.length > 0 ? (
+          {!tvMode && featuredChannels.length > 0 ? (
             <View>
               <SectionHeader title="Canais ao vivo" subtitle={liveSubtitle} onPress={handleOpenLive} />
               <HorizontalScroller>
@@ -1145,7 +1163,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {showRecentMoviesRail ? (
+          {!tvMode && showRecentMoviesRail ? (
             <View>
               <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
               <HorizontalScroller>
@@ -1156,7 +1174,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {topSeries.length > 0 ? (
+          {!tvMode && topSeries.length > 0 ? (
             <View>
               <SectionHeader title="Séries mais bem avaliadas" onPress={handleOpenSeries} />
               <HorizontalScroller>

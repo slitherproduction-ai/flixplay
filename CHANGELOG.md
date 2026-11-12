@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.50] — 2026-11-12
+
+- Início na TV alinhada ao Roku (pedido do usuário com fotos do Fire Stick e da Roku): destaque, blocos de navegação e só duas fileiras — "Novidades para você" (`recentTitles`) e, abaixo, "Continuar assistindo". Saem da TV as fileiras Minha Lista, Canais ao vivo, Filmes adicionados recentemente e Séries mais bem avaliadas. Smartphone/tablet sem mudança.
+- Na TV a Início não pré-carrega mais o guia de canais (`useEpgPreload` com limite 0), o que alivia memória e rede no Fire Stick.
+- As fileiras viraram `renderContinueRail` / `renderTitlesRail`, reaproveitadas pelos dois layouts.
+- Build Android `20261068`.
+
 ## [2.17.49] — 2026-11-12
 
 - Diagnóstico do Fire TV Stick HD na 2.17.47: 2 encerramentos (16:44 na Início com 0 min de app aberto; 16:50 em /movies com 6 min), 2 avisos de pouca memória (último crítico), 183 de 901 MB livres, maior pausa 0,7 s (antes 2,0 s). O registro técnico só tinha "Player/ended-early: [object Object] (4x)" — nenhum marco de sincronização.

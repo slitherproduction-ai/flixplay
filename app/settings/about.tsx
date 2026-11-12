@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.49",
+    version: "v2.17.50",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Tela inicial da TV igual à do Roku: destaque, atalhos, Novidades para você e, abaixo, Continuar assistindo." },
+      { tag: "Melhoria", text: "Início mais leve na TV: sem fileiras extras nem guia de canais carregando em segundo plano." },
+    ],
+  },
+  {
+    version: "v2.17.49",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Se uma atualização anterior foi interrompida e ficaram sem filmes ou séries, o app baixa de novo na abertura em vez de esperar 6 horas." },

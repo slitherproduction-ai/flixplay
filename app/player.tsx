@@ -73,6 +73,7 @@ import { setPlaybackActive } from "@/services/playbackActivity";
 import {
   getIntroSkipTarget,
   getNextEpisodeCountdown,
+  playedToTheEnd,
   readIntroEndSeconds,
 } from "@/features/player/EpisodeAutomation";
 import { parseSeriesEpisodeNavigation, type SeriesEpisodeNavigation } from "@/features/player/seriesNavigation";
@@ -757,6 +758,33 @@ export default function PlayerScreen() {
 
     const endSub = player.addListener("playToEnd", () => {
       if (!sessionGuard.isCurrent(sessionToken)) return;
+      // "Terminou" sem ter tocado: o servidor entregou um arquivo vazio ou
+      // cortado (arquivo ausente, limite de conexões). Antes isso contava como
+      // fim do episódio e o app pulava episódio atrás de episódio sozinho.
+      // Só é fim de verdade se o vídeo andou e chegou perto do final.
+      const total = latestDurationRef.current > 0 ? latestDurationRef.current : player.duration;
+      const position = latestPositionRef.current;
+      const reallyEnded = contentType === "live" || playedToTheEnd(playbackStartedRef.current, position, total);
+      if (!reallyEnded) {
+        logTechnicalError("Player/ended-early", { contentType, position, total, attempt: urlAttemptRef.current });
+        const nextAttempt = urlAttemptRef.current + 1;
+        if (nextAttempt < fallbackUrls.length) {
+          urlAttemptRef.current = nextAttempt;
+          try {
+            setIsBuffering(true);
+            player.replace({ uri: fallbackUrls[nextAttempt], headers: requestHeaders });
+            player.play();
+            return;
+          } catch (replaceErr) {
+            logTechnicalError("Player/ended-early-fallback", replaceErr);
+          }
+        }
+        setIsBuffering(false);
+        setPlayerError(contentType === "episode"
+          ? "Este episódio não pôde ser reproduzido. O servidor não enviou o vídeo (arquivo indisponível ou limite de conexões). Tente novamente em instantes."
+          : "Este conteúdo não pôde ser reproduzido. O servidor não enviou o vídeo (arquivo indisponível ou limite de conexões). Tente novamente em instantes.");
+        return;
+      }
       removeHistoryItem(id);
       setEpisodeEnded(true);
     });

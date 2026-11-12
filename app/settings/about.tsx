@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.40",
+    version: "v2.17.41",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Séries: os episódios não pulam mais sozinhos quando o servidor não envia o vídeo; o app avisa e deixa tentar de novo." },
+    ],
+  },
+  {
+    version: "v2.17.40",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Na TV, a lista de filmes e séries é salva bem mais rápido durante a atualização." },

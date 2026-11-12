@@ -1,4 +1,5 @@
 import {
+  playedToTheEnd,
   getIntroSkipTarget,
   getNextEpisodeCountdown,
   readIntroEndSeconds,
@@ -22,5 +23,19 @@ describe("EpisodeAutomation", () => {
     expect(getNextEpisodeCountdown(94.1, 100, true)).toBe(6);
     expect(getNextEpisodeCountdown(98.4, 100, true)).toBe(2);
     expect(getNextEpisodeCountdown(98.4, 100, false)).toBeNull();
+  });
+});
+
+describe("playedToTheEnd", () => {
+  it("não conta como fim um vídeo que nunca andou (arquivo vazio do servidor)", () => {
+    expect(playedToTheEnd(false, 0, 0)).toBe(false);
+    expect(playedToTheEnd(false, 0, 2700)).toBe(false);
+  });
+  it("não conta como fim um vídeo cortado no meio", () => {
+    expect(playedToTheEnd(true, 600, 2700)).toBe(false);
+  });
+  it("conta como fim perto do final", () => {
+    expect(playedToTheEnd(true, 2698, 2700)).toBe(true);
+    expect(playedToTheEnd(true, 2440, 2700)).toBe(true);
   });
 });

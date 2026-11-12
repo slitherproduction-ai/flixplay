@@ -40,3 +40,13 @@ export function getNextEpisodeCountdown(
   if (remaining <= 0 || remaining > NEXT_EPISODE_COUNTDOWN_SECONDS) return null;
   return Math.max(1, Math.ceil(remaining));
 }
+
+/**
+ * O vídeo terminou de verdade? Um "fim" sem o vídeo ter andado, ou longe do
+ * final, é arquivo vazio/cortado do servidor — não pode pular para o próximo
+ * episódio.
+ */
+export function playedToTheEnd(started: boolean, positionSeconds: number, durationSeconds: number): boolean {
+  if (!started || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return false;
+  return positionSeconds >= Math.min(durationSeconds * 0.9, durationSeconds - 5);
+}

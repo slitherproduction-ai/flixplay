@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.41] — 2026-11-12
+
+- Séries: o player pulava episódio atrás de episódio sozinho (vídeo do usuário: T1:E139 → E149 em 17 s, tela parada em 0:00). O `playToEnd` chegava sem o vídeo ter tocado (servidor entregando arquivo vazio/cortado) e acionava o próximo episódio. Agora só é fim de verdade se o vídeo andou e chegou a 90% ou a 5 s do final (`playedToTheEnd`); senão tenta o endereço alternativo e, sem ele, mostra o erro com "Tentar novamente". Vale também para filmes. Registro técnico `Player/ended-early`. Build Android `20261059`.
+
 ## [2.17.40] — 2026-11-11
 
 - Sincronização nativa mais rápida (medido na Philco de 1,6 GB: 32.292 filmes em 60 s): INSERT compilado e reaproveitado (`SQLiteStatement`) em vez de `ContentValues` + `insertWithOnConflict` por item; lotes de 2.000 itens por transação (antes 400); `PRAGMA synchronous=NORMAL` com WAL (o banco é só cache).

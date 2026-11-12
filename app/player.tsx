@@ -355,6 +355,10 @@ export default function PlayerScreen() {
   // "true" do episódio anterior disparava o avanço de novo no primeiro render
   // do novo — o app pulava episódio atrás de episódio sozinho.
   const [endedEpisodeId, setEndedEpisodeId] = useState<string | null>(null);
+  // A capa só fica atrás do player enquanto o vídeo carrega. Com o vídeo
+  // pronto ela sai: filmes em formato de cinema (mais largos que a tela)
+  // deixam faixas acima/abaixo, e ali aparecia a capa em vez de preto.
+  const [videoReady, setVideoReady] = useState(false);
   const episodeEnded = endedEpisodeId === id;
 
   // ─── Overlays ─────────────────────────────────────────────────────────────
@@ -432,6 +436,10 @@ export default function PlayerScreen() {
     },
   );
   const player = sharedPreviewPlayer ?? ownPlayer;
+  // Player da prévia do ao vivo já chega tocando (não emite "readyToPlay" de novo).
+  useEffect(() => {
+    try { if (sharedPreviewPlayer || player.status === "readyToPlay") setVideoReady(true); } catch { /* opcional */ }
+  }, [player, sharedPreviewPlayer]);
   useEffect(() => {
     if (!sharedPreviewPlayer) return undefined;
     try {
@@ -575,7 +583,9 @@ export default function PlayerScreen() {
     pendingSeekRef.current = null;
     setCurrentTime(0);
     setDuration(0);
-  }, [id]);
+    // Ao vivo troca de canal com o vídeo já na tela: a capa não volta.
+    if (contentType !== "live") setVideoReady(false);
+  }, [contentType, id]);
 
   useEffect(() => {
     if (!directPlaybackBlocked) return;
@@ -618,6 +628,7 @@ export default function PlayerScreen() {
     const statusSub = player.addListener("statusChange", (status) => {
       if (!sessionGuard.isCurrent(sessionToken)) return;
       if (status.status === "readyToPlay") {
+        setVideoReady(true);
         setPlayerError(null);
         setIsBuffering(false);
         lastProgressAtRef.current = Date.now();
@@ -1502,12 +1513,16 @@ export default function PlayerScreen() {
         onAuthorized={authorizeDirectPlayback}
         onClose={() => router.back()}
       />
-      <Image
-        source={{ uri: backdrop }}
-        contentFit="cover"
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.backdropVeil} />
+      {!videoReady ? (
+        <>
+          <Image
+            source={{ uri: backdrop }}
+            contentFit="cover"
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.backdropVeil} />
+        </>
+      ) : null}
       <VideoView
         ref={videoViewRef}
         player={player}

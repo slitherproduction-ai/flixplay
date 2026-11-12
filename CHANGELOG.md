@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.17.43] — 2026-11-12
+
+- Player: a capa (`backdrop`) ficava atrás do `VideoView` o tempo todo; em filmes mais largos que a tela (2,39:1) ou mais estreitos, as faixas do "Ajustar" mostravam a capa nas margens. Agora a capa só aparece enquanto o vídeo carrega (`videoReady`, ligado no `readyToPlay`; o player da prévia do ao vivo já entra pronto) e volta a cada episódio novo. Faixas pretas, como em qualquer player. Build Android `20261061`.
+
 ## [2.17.42] — 2026-11-12
 
 - Séries: causa real do pulo em cascata. O próximo episódio abre na mesma tela do player (`router.replace`) e `episodeEnded` era um booleano: no primeiro render do episódio novo ele ainda estava `true` do anterior, e o efeito de avanço rodava antes do reset → avançava de novo, sem fim. Agora o estado guarda o id do episódio que terminou (`endedEpisodeId`), e a troca de episódio zera tempo, duração, "já começou", retomadas e seek pendente.

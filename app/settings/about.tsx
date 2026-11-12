@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.42",
+    version: "v2.17.43",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Filmes em formato de cinema: as faixas acima e abaixo do vídeo ficam pretas, sem a capa do filme aparecendo nas margens." },
+    ],
+  },
+  {
+    version: "v2.17.42",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Séries: o app não pula mais episódio atrás de episódio sozinho." },

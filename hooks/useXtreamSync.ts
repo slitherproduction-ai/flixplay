@@ -57,6 +57,8 @@ export const CATALOG_FRESH_MS = 6 * 60 * 60 * 1000;
 const AUTO_REFRESH_CHECK_MS = 15 * 60 * 1000;
 /** Espera ao voltar para o app ou fechar o vídeo antes de atualizar. */
 const AUTO_REFRESH_DELAY_MS = 5_000;
+/** Catálogo salvo antigo: atualiza em segundo plano só depois da abertura. */
+const STALE_REFRESH_DELAY_MS = 20_000;
 export const catalogSyncedAtKey = (serverId: string) => `catalogSyncedAt:${serverId}`;
 
 /**
@@ -681,9 +683,25 @@ export function useXtreamSync() {
         }
       }
       if (!fresh) {
+        // O catálogo salvo já está na tela: a atualização espera a abertura
+        // terminar (STALE_REFRESH_DELAY_MS) para não disputar CPU e memória
+        // com a primeira tela, e não começa durante um vídeo nem no meio da
+        // navegação pela grade.
+        useAppStore.getState().setContentCache({ lastSyncedAt: new Date(syncedAt).toISOString() });
+        setSyncState({
+          isSyncing: false,
+          syncError: null,
+          syncProgress: null,
+          progressPercent: 0,
+          stages: { live: "complete", movies: "complete", series: "complete" },
+        });
         const current = () => mounted.current && useAppStore.getState().activeServerId === server.id;
+        await new Promise<void>((resolve) => setTimeout(resolve, STALE_REFRESH_DELAY_MS));
+        while (current() && isPlaybackActive()) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+        }
         await waitForCatalogIdle(current, 3000);
-        if (current()) void doSync(server);
+        if (current() && !useAppStore.getState().syncState.isSyncing) void doSync(server);
         return;
       }
       useAppStore.getState().setContentCache({ lastSyncedAt: new Date(syncedAt).toISOString() });

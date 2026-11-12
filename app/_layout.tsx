@@ -16,7 +16,7 @@ import { TVFocusable } from "@/components/tv-focusable";
 import { UpdateAvailableNotice } from "@/components/update-available-notice";
 import { CodeAccessGate } from "@/components/code-access-gate";
 import { LegacyPortalMigration } from "@/components/legacy-portal-migration";
-import { applyStartupKeepAwake } from "@/services/deviceProfile";
+import { applyStartupKeepAwake, exitAppCompletely } from "@/services/deviceProfile";
 import { markCleanExit, setPerformanceRoute, startPerformanceMonitor } from "@/services/performanceMonitor";
 
 startPerformanceMonitor();
@@ -157,7 +157,12 @@ function RootExitGuard() {
             <TVFocusable hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Não, continuar no aplicativo" onPress={() => setVisible(false)} style={exitStyles.secondary}>
               <Text style={exitStyles.secondaryText}>Não</Text>
             </TVFocusable>
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Sim, sair do aplicativo" onPress={() => { markCleanExit(); BackHandler.exitApp(); }} style={exitStyles.primary}>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Sim, sair do aplicativo" onPress={() => {
+              // Grava a saída limpa (no máximo 600 ms) e encerra o processo,
+              // como no Roku: nada fica em segundo plano ocupando memória.
+              const timeout = new Promise<void>((resolve) => setTimeout(resolve, 600));
+              void Promise.race([markCleanExit(), timeout]).finally(() => exitAppCompletely(() => BackHandler.exitApp()));
+            }} style={exitStyles.primary}>
               <Text style={exitStyles.primaryText}>Sim</Text>
             </TVFocusable>
           </View>

@@ -14,6 +14,7 @@ type NativeDeviceProfile = {
   lowRam?: boolean;
   isTv?: boolean;
   setKeepScreenOn?: (enabled: boolean) => void;
+  exitApp?: () => void;
   getConstants?: () => { totalMemMb?: number; lowRam?: boolean; isTv?: boolean };
 };
 
@@ -81,4 +82,20 @@ export function setPlaybackKeepAwake(enabled: boolean): void {
 
 export function applyStartupKeepAwake(): void {
   if (isAndroidTvDevice) setPlaybackKeepAwake(true);
+}
+
+/**
+ * Encerra o app por completo (Android), como no Roku: fecha a tela, sai dos
+ * recentes e termina o processo. Sem o módulo nativo, só fecha a tela.
+ */
+export function exitAppCompletely(fallback: () => void): void {
+  if (native?.exitApp) {
+    try {
+      native.exitApp();
+      return;
+    } catch {
+      // segue para o fallback
+    }
+  }
+  fallback();
 }

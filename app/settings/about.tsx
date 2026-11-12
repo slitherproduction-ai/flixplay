@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.51",
+    version: "v2.17.52",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Atualização da lista de filmes e séries bem mais rápida e com menos uso de memória." },
+      { tag: "Melhoria", text: "Abertura mais rápida: a atualização da lista em segundo plano só começa depois que o app abriu." },
+      { tag: "Novidade", text: "Ao sair, o aplicativo é encerrado por completo, como no Roku." },
+    ],
+  },
+  {
+    version: "v2.17.51",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Capa do destaque da tela inicial nítida e no enquadramento certo, como no Roku: usa a imagem larga do filme ou da série em vez de ampliar a capa vertical." },

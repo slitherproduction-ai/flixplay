@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.52] — 2026-11-12
+
+- Diagnóstico do Fire TV Stick 4K (AFTKRT, 1.670 MB, perfil Padrão) na 2.17.51: filmes 32.292 em 50 s com **42 s de gravação**, séries 9.862 em 14 s (11 s de gravação), 3 avisos de pouca memória (último "baixo" às 19:24, durante a sincronização), abertura 6,5 s (coincidiu com a atualização da lista).
+- Sincronização nativa: a área temporária virou a tabela `catalog_staging`, sem chave nem índices (banco v6; v4/v5 migram sem perder o catálogo). Antes cada linha mantinha 6 índices em `catalog_items` e a troca (`UPDATE … SET kind`) reescrevia todos de novo. Agora a gravação só acumula linhas e a troca é um `INSERT OR REPLACE … SELECT … ORDER BY rowid` numa transação, com `cache_size` de 16 MB (6 MB em aparelhos de pouca memória) só durante a cópia. Restos de `::staging` antigos são apagados na migração; `clearServer`/`clearAll` limpam a tabela nova.
+- Avisos de memória "baixo" ou pior: `SQLiteDatabase.releaseMemory()` (o Glide já libera as imagens sozinho).
+- Catálogo salvo antigo (mais de 6 h): a atualização em segundo plano espera 20 s depois da abertura, nunca durante um vídeo e só com a grade parada; o aviso "Abrindo catálogo salvo" não fica preso nesse intervalo e a data da última sincronização aparece no Diagnóstico.
+- Sair (Voltar duas vezes na Início → Sim): grava a saída limpa (até 600 ms) e encerra o processo pelo `ElvanoqDeviceProfile.exitApp` (`finishAndRemoveTask` + `killProcess`), como no Roku. Sem o módulo nativo, cai no `BackHandler.exitApp`.
+- Build Android `20261070`.
+
 ## [2.17.51] — 2026-11-12
 
 - Destaque da Início ampliado e borrado no Fire TV Stick (foto do usuário comparando com o Roku). Causa: as listas do Xtream só trazem a capa vertical (`stream_icon`/`cover`), gravada também como `backdrop`; esticada com `cover` num destaque largo (~3:1), mostrava só um pedaço ampliado.

@@ -51,6 +51,11 @@ class DeviceProfileModule(private val context: ReactApplicationContext) :
     trimCount += 1
     lastTrimLevel = level
     lastTrimAt = System.currentTimeMillis()
+    // A partir de "baixo": devolve ao sistema o cache de páginas do SQLite
+    // (catálogo). As imagens o próprio Glide já libera nesses avisos.
+    if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+      try { android.database.sqlite.SQLiteDatabase.releaseMemory() } catch (_: Exception) {}
+    }
   }
 
   // O módulo vive enquanto o app vive (release não recarrega o JS), então o
@@ -60,6 +65,25 @@ class DeviceProfileModule(private val context: ReactApplicationContext) :
   }
 
   private fun mb(bytes: Long): Double = bytes / (1024.0 * 1024.0)
+
+  /**
+   * Sair de verdade, como no Roku: fecha a tela, tira o app da lista de
+   * recentes e encerra o processo — nada fica ocupando memória em segundo
+   * plano e a próxima abertura começa do zero.
+   */
+  @ReactMethod
+  fun exitApp() {
+    UiThreadUtil.runOnUiThread {
+      try {
+        val activity = context.currentActivity
+        if (activity != null) activity.finishAndRemoveTask()
+      } catch (_: Exception) {
+      }
+      android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+        Process.killProcess(Process.myPid())
+      }, EXIT_DELAY_MS)
+    }
+  }
 
   /** Memória do aparelho e do app agora (leitura barata, sem PSS). */
   @ReactMethod
@@ -111,5 +135,10 @@ class DeviceProfileModule(private val context: ReactApplicationContext) :
       if (enabled) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
       else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
+  }
+
+  private companion object {
+    /** Tempo para a tela fechar e o registro de saída limpa ser gravado. */
+    const val EXIT_DELAY_MS = 300L
   }
 }

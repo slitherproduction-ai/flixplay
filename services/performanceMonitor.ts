@@ -232,9 +232,9 @@ export function setPerformanceActivity(activity: string | null): void {
 }
 
 /** Saída pelo próprio app ("Sim, sair"): não conta como encerramento inesperado. */
-export function markCleanExit(): void {
+export function markCleanExit(): Promise<void> {
   state.active = false;
-  void writeBeat(true);
+  return writeBeat(true).catch(() => undefined);
 }
 
 /** Primeira tela pronta (Início ou login): fecha a medição de abertura. */

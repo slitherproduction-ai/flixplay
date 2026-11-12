@@ -18,13 +18,17 @@ class CatalogStreamException(val code: String, message: String) : Exception(mess
 
 /**
  * Baixa a lista de filmes ou séries do Xtream e grava direto na área temporária
- * (`<kind>::staging`) do banco, item por item, numa thread própria:
+ * (tabela `catalog_staging`, sem índices) do banco, item por item, numa thread própria:
  * - o JSON é lido em fluxo (JsonReader), sem nunca ter a lista inteira na memória;
  * - o JavaScript fica livre — a tela segue respondendo ao controle durante a sincronização;
  * - o mapeamento repete o de `mapVodStreamToMovie`/`mapSeriesStreamToItem`
  *   (services/xtream.ts), sem URL de reprodução nem credenciais no payload.
- * A troca da lista gravada pela nova continua sendo do JS (`commitStaging`),
- * depois das verificações de segurança.
+ *
+ * Por que uma tabela à parte (2.17.52): gravar direto em `catalog_items`
+ * mantinha 6 índices a cada linha e, na troca, o UPDATE de `kind` reescrevia
+ * todos eles de novo — 42 dos 50 s da lista de 32 mil filmes no Fire TV Stick
+ * 4K. Agora a área temporária só acumula linhas (sem índice nenhum) e a troca
+ * copia tudo de uma vez, numa transação, com cache de páginas maior.
  */
 internal class CatalogStreamJob(
   private val db: SQLiteDatabase,
@@ -34,10 +38,11 @@ internal class CatalogStreamJob(
   /** Lote por transação: menor em aparelhos de pouca memória (Fire TV Stick). */
   private val batchSize: Int = DEFAULT_BATCH_SIZE,
 ) {
+  private val commitCacheKb = if (batchSize <= LOW_MEMORY_BATCH_SIZE) LOW_MEMORY_COMMIT_CACHE_KB else COMMIT_CACHE_KB
+
   val cancelled = AtomicBoolean(false)
   val progress = AtomicInteger(0)
 
-  private val stage = "$kind::staging"
   private val movies = kind == "vodMovies"
   private val batch = ArrayList<JSONObject>(batchSize)
   private var insert: SQLiteStatement? = null
@@ -56,30 +61,55 @@ internal class CatalogStreamJob(
    * thread dos módulos e segurava as consultas da grade). Devolve o total.
    */
   fun run(url: String, timeoutMs: Int, allowEmpty: Boolean): Int {
-    db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, stage))
+    clearStaging()
     val total = try {
       download(url, timeoutMs)
     } finally {
       insert?.close()
       insert = null
     }
-    if (total > 0 || allowEmpty) commit()
+    if (total > 0 || allowEmpty) commit() else clearStaging()
     return total
   }
 
+  private fun clearStaging() {
+    db.delete(STAGING_TABLE, "server_id = ? AND kind = ?", arrayOf(serverId, kind))
+  }
+
+  /**
+   * Troca a lista gravada pela nova numa só transação: apaga a antiga e copia
+   * a área temporária na ordem do servidor (rowid), montando os índices de uma
+   * vez. Leitores (grade, busca) seguem vendo a lista antiga até o fim (WAL).
+   */
   private fun commit() {
     checkCancelled()
     val started = SystemClock.elapsedRealtime()
+    // Mais páginas em memória só durante a cópia: os índices são montados
+    // sem ir e voltar ao disco. Volta ao padrão logo depois.
+    setCacheSize(commitCacheKb)
     db.beginTransaction()
     try {
       db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, kind))
-      db.execSQL("UPDATE catalog_items SET kind = ? WHERE server_id = ? AND kind = ?", arrayOf(kind, serverId, stage))
+      db.execSQL(
+        "INSERT OR REPLACE INTO catalog_items ($COLUMNS) SELECT $COLUMNS FROM $STAGING_TABLE " +
+          "WHERE server_id = ? AND kind = ? ORDER BY rowid",
+        arrayOf(serverId, kind),
+      )
+      db.delete(STAGING_TABLE, "server_id = ? AND kind = ?", arrayOf(serverId, kind))
       db.setTransactionSuccessful()
       committed = true
     } finally {
       db.endTransaction()
+      setCacheSize(DEFAULT_CACHE_KB)
     }
     commitMs = SystemClock.elapsedRealtime() - started
+  }
+
+  private fun setCacheSize(kb: Int) {
+    try {
+      db.rawQuery("PRAGMA cache_size = -$kb", null).use { it.moveToFirst() }
+    } catch (_: Exception) {
+    }
   }
 
   private fun download(url: String, timeoutMs: Int): Int {
@@ -98,7 +128,7 @@ internal class CatalogStreamJob(
       connection.disconnect()
     }
     checkCancelled()
-    return db.rawQuery("SELECT COUNT(*) FROM catalog_items WHERE server_id = ? AND kind = ?", arrayOf(serverId, stage)).use { cursor ->
+    return db.rawQuery("SELECT COUNT(DISTINCT item_id) FROM $STAGING_TABLE WHERE server_id = ? AND kind = ?", arrayOf(serverId, kind)).use { cursor ->
       if (cursor.moveToFirst()) cursor.getInt(0) else 0
     }
   }
@@ -106,7 +136,7 @@ internal class CatalogStreamJob(
   /** Apaga o que foi gravado na área temporária (falha ou cancelamento). */
   fun discard() {
     try {
-      db.delete("catalog_items", "server_id = ? AND kind = ?", arrayOf(serverId, stage))
+      clearStaging()
     } catch (_: Exception) {
     }
   }
@@ -265,7 +295,7 @@ internal class CatalogStreamJob(
         val fields = CatalogQueries.fields(item)
         statement.clearBindings()
         statement.bindString(1, serverId)
-        statement.bindString(2, stage)
+        statement.bindString(2, kind)
         statement.bindString(3, item.getString("id"))
         statement.bindString(4, item.toString())
         statement.bindLong(5, now)
@@ -294,9 +324,24 @@ internal class CatalogStreamJob(
   companion object {
     const val DEFAULT_BATCH_SIZE = 2000
     const val LOW_MEMORY_BATCH_SIZE = 500
-    private const val INSERT_SQL = "INSERT OR REPLACE INTO catalog_items " +
-      "(server_id, kind, item_id, payload, updated_at, title_key, group_key, category, category_id, rating_value, added_value) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    const val STAGING_TABLE = "catalog_staging"
+    private const val COLUMNS =
+      "server_id, kind, item_id, payload, updated_at, title_key, group_key, category, category_id, rating_value, added_value"
+    private const val INSERT_SQL = "INSERT INTO $STAGING_TABLE ($COLUMNS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    /** Padrão do SQLite do Android (2 MB). */
+    private const val DEFAULT_CACHE_KB = 2000
+    /** Cache da troca: 16 MB em geral, 6 MB em aparelhos de pouca memória. */
+    private const val COMMIT_CACHE_KB = 16_000
+    private const val LOW_MEMORY_COMMIT_CACHE_KB = 6_000
+
+    /** Área temporária sem chave nem índices: só acumula linhas. */
+    fun installStaging(db: SQLiteDatabase) {
+      db.execSQL(
+        "CREATE TABLE IF NOT EXISTS $STAGING_TABLE (server_id TEXT NOT NULL, kind TEXT NOT NULL, item_id TEXT NOT NULL, " +
+          "payload TEXT NOT NULL, updated_at INTEGER NOT NULL, title_key TEXT, group_key TEXT, category TEXT, " +
+          "category_id TEXT, rating_value REAL, added_value INTEGER)",
+      )
+    }
     private const val MAX_REDIRECTS = 6
     private const val CONNECT_TIMEOUT_MS = 20_000
     private const val USER_AGENT = "IPTVSmartersPro/3.1.5"

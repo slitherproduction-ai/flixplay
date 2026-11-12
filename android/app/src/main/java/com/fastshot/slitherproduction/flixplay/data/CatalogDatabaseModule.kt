@@ -17,7 +17,7 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-private const val CATALOG_DB_VERSION = 5
+private const val CATALOG_DB_VERSION = 6
 
 private class CatalogDatabase(context: Context) :
   SQLiteOpenHelper(context, "flixplay_catalog.db", null, CATALOG_DB_VERSION) {
@@ -52,13 +52,22 @@ private class CatalogDatabase(context: Context) :
     // então "ORDER BY rowid" das páginas não precisa ordenar a tabela inteira a
     // cada página. A chave primária já cobre buscas por item_id.
     db.execSQL("CREATE INDEX catalog_kind_idx ON catalog_items(server_id, kind)")
+    CatalogStreamJob.installStaging(db)
   }
 
   // O banco é só um cache do catálogo: em qualquer troca de versão (inclusive
   // arquivos de versões antigas com outro esquema) ele é recriado e a próxima
   // sincronização o preenche de novo.
   override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-    if (oldVersion == 4) CatalogQueries.install(db, true) else recreate(db)
+    when (oldVersion) {
+      4 -> { CatalogQueries.install(db, true); CatalogStreamJob.installStaging(db) }
+      5 -> {
+        CatalogStreamJob.installStaging(db)
+        // Restos da área temporária antiga (sincronização nativa interrompida).
+        db.delete("catalog_items", "kind IN (?, ?)", arrayOf("vodMovies::staging", "seriesList::staging"))
+      }
+      else -> recreate(db)
+    }
   }
 
   override fun onDowngrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = recreate(db)
@@ -333,7 +342,9 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
   @ReactMethod
   fun clearServer(serverId: String, promise: Promise) {
     try {
-      database.writableDatabase.delete("catalog_items", "server_id = ?", arrayOf(serverId))
+      val db = database.writableDatabase
+      db.delete("catalog_items", "server_id = ?", arrayOf(serverId))
+      db.delete(CatalogStreamJob.STAGING_TABLE, "server_id = ?", arrayOf(serverId))
       promise.resolve(null)
     } catch (_: Exception) {
       promise.reject("CATALOG_DELETE_FAILED", "Não foi possível limpar o cache do servidor.")
@@ -343,7 +354,9 @@ class CatalogDatabaseModule(context: ReactApplicationContext) :
   @ReactMethod
   fun clearAll(promise: Promise) {
     try {
-      database.writableDatabase.delete("catalog_items", null, null)
+      val db = database.writableDatabase
+      db.delete("catalog_items", null, null)
+      db.delete(CatalogStreamJob.STAGING_TABLE, null, null)
       promise.resolve(null)
     } catch (_: Exception) {
       promise.reject("CATALOG_DELETE_FAILED", "Não foi possível limpar o cache local.")

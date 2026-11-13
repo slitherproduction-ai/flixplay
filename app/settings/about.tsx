@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.54",
+    version: "v2.17.55",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Episódios da série não ficam mais em \"Carregando\" para sempre." },
+      { tag: "Melhoria", text: "Diagnóstico mostra a causa de cada fechamento inesperado (erro, falta de memória ou travamento)." },
+    ],
+  },
+  {
+    version: "v2.17.54",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Canal ou filme que ficava em \"Carregando\" sem abrir agora tenta o outro formato sozinho e, se não abrir, avisa." },

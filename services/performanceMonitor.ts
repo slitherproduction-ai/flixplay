@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState, NativeModules, Platform, type AppStateStatus } from "react-native";
 import { APP_INFO } from "@/constants/app";
 import { deviceTier } from "@/services/deviceProfile";
-import { onTechnicalLog, type TechnicalLogEntry } from "@/services/security/sanitize";
+import { onTechnicalLog, sanitizeError, type TechnicalLogEntry } from "@/services/security/sanitize";
 
 /**
  * Painel de desempenho (Ajustes → Diagnóstico). Mede no aparelho real, para
@@ -42,7 +42,7 @@ export type MemorySnapshot = {
 
 export type UiPause = { ms: number; route: string; at: number };
 export type SyncTiming = { stage: string; ms: number; items: number; mode: string; at: number };
-export type UnexpectedExit = { at: number; route: string; version: string; availMemMb: number | null; minutesOpen: number; activity?: string | null };
+export type UnexpectedExit = { at: number; route: string; version: string; availMemMb: number | null; minutesOpen: number; activity?: string | null; cause?: string | null };
 
 type SessionBeat = {
   version: string;
@@ -56,7 +56,32 @@ type SessionBeat = {
   activity?: string | null;
 };
 
-type NativeProfile = { getMemorySnapshot?: () => Promise<MemorySnapshot> };
+type NativeExitReason = { at: number; reason: number; status: number; importance: number; pssKb: number; description: string; trace?: string };
+type NativeExitReasons = { reasons: NativeExitReason[]; lastCrash?: { at: number; text: string } };
+type NativeProfile = {
+  getMemorySnapshot?: () => Promise<MemorySnapshot>;
+  getExitReasons?: () => Promise<NativeExitReasons>;
+};
+
+/** Motivos do Android (ApplicationExitInfo.REASON_*) em português. */
+const EXIT_REASONS: Record<number, string> = {
+  0: "motivo desconhecido",
+  1: "o app se encerrou",
+  2: "encerrado por sinal do sistema",
+  3: "falta de memória (sistema)",
+  4: "erro no app",
+  5: "erro nativo no app",
+  6: "app travado (sem resposta)",
+  7: "falha ao iniciar",
+  9: "uso excessivo de recursos",
+  10: "encerrado pelo usuário",
+  11: "parado pelo usuário",
+  12: "dependência encerrada",
+  13: "encerrado pelo sistema",
+  14: "congelado pelo sistema",
+  16: "app atualizado",
+};
+const EXIT_SEEN_KEY = "elvanoq.perf.exitSeen";
 const native = (Platform.OS === "android" ? NativeModules.ElvanoqDeviceProfile : undefined) as NativeProfile | undefined;
 
 const jsStartedAt = Date.now();
@@ -75,6 +100,8 @@ const state = {
   lastAvailMemMb: null as number | null,
   activity: null as string | null,
   log: [] as TechnicalLogEntry[],
+  /** Causa do último encerramento informada pelo Android e o erro fatal guardado (sanitizados). */
+  lastCause: null as { at: number; text: string } | null,
   opens: { live: [], movies: [], series: [] } as Record<VideoOpenKind, VideoOpen[]>,
 };
 
@@ -181,13 +208,57 @@ async function readPreviousSession(): Promise<void> {
   }
 }
 
+/**
+ * Por que o app fechou (2.17.55): o Android 11+ registra o motivo de cada
+ * saída do processo (erro, falta de memória, travamento…) e o CrashRecorder
+ * nativo guarda o último erro fatal. Entram no registro técnico e no
+ * encerramento correspondente, sempre sanitizados.
+ */
+async function readExitCauses(): Promise<void> {
+  try {
+    const data = await native?.getExitReasons?.();
+    if (!data) return;
+    const seen = Number(await AsyncStorage.getItem(EXIT_SEEN_KEY)) || 0;
+    const fresh = (data.reasons ?? []).filter((item) => item.at > seen).sort((a, b) => a.at - b.at);
+    const crash = data.lastCrash ? { at: data.lastCrash.at, text: sanitizeError(data.lastCrash.text) } : null;
+    let changed = false;
+    for (const item of fresh) {
+      // Saída pelo "Sim, sair" e atualização do app não são problema.
+      if (item.reason === 1 || item.reason === 16 || item.reason === 10) continue;
+      const label = EXIT_REASONS[item.reason] ?? `motivo ${item.reason}`;
+      const memory = item.pssKb > 0 ? ` · app com ${Math.round(item.pssKb / 1024)} MB` : "";
+      const crashText = crash && Math.abs(crash.at - item.at) < 120_000 ? crash.text : "";
+      const detail = sanitizeError(crashText || item.trace || item.description || "").split("\n").slice(0, 2).join(" · ");
+      const cause = `${label}${memory}${detail ? ` — ${detail}` : ""}`;
+      pushLog({ at: item.at, scope: "Saída", message: cause.slice(0, 160), count: 1 });
+      const exit = state.previousExits.find((entry) => !entry.cause && Math.abs(entry.at - item.at) < 120_000);
+      if (exit) { exit.cause = cause.slice(0, 200); changed = true; }
+      state.lastCause = { at: item.at, text: `${label}${memory}\n${sanitizeError(crashText || item.trace || item.description || "")}`.slice(0, 1500) };
+    }
+    if (!fresh.length && crash) {
+      pushLog({ at: crash.at, scope: "Erro fatal", message: crash.text.split("\n").slice(0, 2).join(" · ").slice(0, 160), count: 1 });
+      state.lastCause = { at: crash.at, text: crash.text.slice(0, 1500) };
+    }
+    if (changed) await AsyncStorage.setItem(EXITS_KEY, JSON.stringify(state.previousExits));
+    const newest = Math.max(seen, ...(data.reasons ?? []).map((item) => item.at));
+    if (newest > seen) await AsyncStorage.setItem(EXIT_SEEN_KEY, String(newest));
+  } catch {
+    // Diagnóstico opcional.
+  }
+}
+
+/** Causa do último encerramento, para o Diagnóstico e o relatório. */
+export function describeLastCause(): string | null {
+  return state.lastCause ? `${clock(state.lastCause.at)}: ${state.lastCause.text}` : null;
+}
+
 /** Liga o monitor (uma vez, na abertura do app). */
 export function startPerformanceMonitor(): void {
   if (state.started) return;
   state.started = true;
   onTechnicalLog(pushLog);
 
-  void readPreviousSession().then(() => getMemorySnapshot()).then(() => writeBeat());
+  void readPreviousSession().then(() => readExitCauses()).then(() => getMemorySnapshot()).then(() => writeBeat());
 
   let last = Date.now();
   setInterval(() => {
@@ -350,7 +421,8 @@ export function describeTrim(memory: MemorySnapshot | null): string {
 export function describeExit(exit: UnexpectedExit): string {
   const memory = exit.availMemMb !== null ? `, ${exit.availMemMb} MB livres` : "";
   const activity = exit.activity ? ` — durante: ${exit.activity}` : "";
-  return `${clock(exit.at)} em ${exit.route} (v${exit.version}, ${exit.minutesOpen} min aberto${memory})${activity}`;
+  const cause = exit.cause ? ` — ${exit.cause}` : "";
+  return `${clock(exit.at)} em ${exit.route} (v${exit.version}, ${exit.minutesOpen} min aberto${memory})${activity}${cause}`;
 }
 
 export function describeLog(entry: TechnicalLogEntry): string {
@@ -388,6 +460,8 @@ export function formatPerformanceReport(report: PerformanceReport): string[] {
     `Abertura de filmes: ${describeOpens(report.opens.movies)}`,
     `Abertura de episódios: ${describeOpens(report.opens.series)}`,
   );
+  const cause = describeLastCause();
+  if (cause) lines.push(`Causa do último encerramento: ${cause}`);
   report.recentPauses.forEach((pause) => lines.push(`Pausa: ${describePause(pause)}`));
   if (report.previousExits.length === 0) lines.push("Encerramentos inesperados: nenhum");
   report.previousExits.forEach((exit) => lines.push(`Encerramento inesperado: ${describeExit(exit)}`));

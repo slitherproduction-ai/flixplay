@@ -15,6 +15,7 @@ import { useAppStore } from "@/store/useAppStore";
 import {
   clearPerformanceHistory,
   describeExit,
+  describeLastCause,
   describeLog,
   describePause,
   describeSync,
@@ -200,6 +201,7 @@ export default function DiagnosticsScreen() {
             <InfoRow label="Abrir canal" value={perf ? describeOpens(perf.opens.live) : "…"} />
             <InfoRow label="Abrir filme" value={perf ? describeOpens(perf.opens.movies) : "…"} />
             <InfoRow label="Abrir episódio" value={perf ? describeOpens(perf.opens.series) : "…"} />
+            {describeLastCause() ? <InfoRow label="Causa" value={describeLastCause() ?? ""} alert lines={6} /> : null}
             <InfoRow label="Encerramentos" value={perf && perf.previousExits.length === 0 ? "Nenhum" : perf ? String(perf.previousExits.length) : "…"} alert={Boolean(perf?.previousExits.length)} />
           </Panel>
 
@@ -235,11 +237,11 @@ function Panel({ title, wide, children }: { title: string; wide: boolean; childr
   );
 }
 
-function InfoRow({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+function InfoRow({ label, value, alert, lines = 2 }: { label: string; value: string; alert?: boolean; lines?: number }) {
   return (
     <View style={styles.infoRow}>
       <AppText numberOfLines={1} style={styles.infoLabel}>{label}</AppText>
-      <AppText numberOfLines={2} style={[styles.infoValue, alert && styles.alert]}>{value}</AppText>
+      <AppText numberOfLines={lines} style={[styles.infoValue, alert && styles.alert]}>{value}</AppText>
     </View>
   );
 }

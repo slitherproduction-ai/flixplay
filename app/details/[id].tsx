@@ -99,8 +99,20 @@ export default function DetailsScreen() {
   }, [history, movie, show]);
 
   // Fetch series episodes from Xtream API
+  // A busca depende só da série e da lista ativa (2.17.55). Antes dependia dos
+  // objetos `show`/`activeProfile`: qualquer atualização do catálogo trocava a
+  // identidade deles, a limpeza cancelava o pedido e a guarda abaixo impedia
+  // um novo — os episódios ficavam em "Carregando" para sempre.
+  const showRef = useRef(show);
+  showRef.current = show;
+  const profileRef = useRef(activeProfile);
+  profileRef.current = activeProfile;
+  const episodesSeriesKey = show?.seriesId ?? null;
+  const episodesProfileKey = activeProfile?.id ?? null;
   useEffect(() => {
-    if (!show || !activeProfile) return;
+    const show = showRef.current;
+    const activeProfile = profileRef.current;
+    if (!show || !activeProfile || !episodesSeriesKey) return;
     if (fetchedSeriesIdRef.current === show.seriesId) return;
     fetchedSeriesIdRef.current = show.seriesId;
     const controller = new AbortController();
@@ -134,8 +146,10 @@ export default function DetailsScreen() {
     return () => {
       cancelled = true;
       controller.abort();
+      // Pedido cancelado: a próxima execução precisa buscar de novo.
+      if (fetchedSeriesIdRef.current === show.seriesId) fetchedSeriesIdRef.current = null;
     };
-  }, [show, activeProfile]);
+  }, [episodesSeriesKey, episodesProfileKey]);
 
   const selectedEpisodes = useMemo(
     () => episodesData.filter((ep) => ep.seasonNumber === season),

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.17.55] — 2026-11-13
+
+Diagnóstico do Fire TV Stick 4K na 2.17.53: 3 encerramentos em `/series` (0–2 min abertos, 374–515 MB livres, nenhum aviso de memória) e episódios em "Carregando" sem fim.
+
+- **Episódios em "Carregando" para sempre** (`app/details/[id].tsx`): a busca do `get_series_info` dependia dos objetos `show`/`activeProfile`. Qualquer atualização do catálogo trocava a identidade deles, a limpeza do efeito cancelava o pedido e a guarda `fetchedSeriesIdRef` impedia um novo. Agora a busca depende só do id da série e da lista, e a limpeza libera a guarda.
+- **Causa dos encerramentos**: os fechamentos aconteceram com memória sobrando, então não são falta de memória — é erro. Para mostrar qual:
+  - `CrashRecorder` (nativo, instalado no `MainApplication.onCreate`) grava de forma síncrona o último erro fatal — Java ou JavaScript (em release, erro fatal do JS vira `JavascriptException` com a pilha do JS) — com tipo, mensagem cortada e as primeiras linhas da pilha.
+  - `ElvanoqDeviceProfile.getExitReasons` lê o `ApplicationExitInfo` do Android 11+ (Fire OS 8): motivo (erro, erro nativo, travamento, falta de memória, encerrado pelo sistema…), memória do app e, para travamento/erro nativo, o início do rastro.
+  - Na abertura, `readExitCauses` junta os dois, sanitiza (`sanitizeError`: sem endereços nem credenciais), registra no "Atividade recente" (escopo "Saída") e no encerramento correspondente, e mostra a linha **Causa** em Desempenho; também vai no relatório compartilhado. Saída pelo "Sim, sair", parada pelo usuário e atualização do app são ignoradas.
+- Build Android `20261073`.
+
 ## [2.17.54] — 2026-11-13
 
 Paridade com Samsung MSX / LG 1.1.7–1.1.8 e Roku 1.1.7 (o que se aplica ao Android):

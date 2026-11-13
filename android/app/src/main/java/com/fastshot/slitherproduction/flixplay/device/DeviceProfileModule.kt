@@ -85,6 +85,50 @@ class DeviceProfileModule(private val context: ReactApplicationContext) :
     }
   }
 
+  /**
+   * Por que o app fechou nas últimas vezes: o motivo que o próprio Android
+   * registra (Android 11+: erro, falta de memória, travamento, encerrado pelo
+   * sistema…) e o último erro fatal guardado pelo [CrashRecorder].
+   */
+  @ReactMethod
+  fun getExitReasons(promise: Promise) {
+    val result = Arguments.createMap()
+    val reasons = Arguments.createArray()
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        for (info in manager.getHistoricalProcessExitReasons(context.packageName, 0, 5)) {
+          val entry = Arguments.createMap()
+          entry.putDouble("at", info.timestamp.toDouble())
+          entry.putInt("reason", info.reason)
+          entry.putInt("status", info.status)
+          entry.putInt("importance", info.importance)
+          entry.putDouble("pssKb", info.pss.toDouble())
+          entry.putString("description", (info.description ?: "").take(300))
+          if (info.reason == android.app.ApplicationExitInfo.REASON_ANR ||
+            info.reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE) {
+            try {
+              info.traceInputStream?.bufferedReader()?.use { reader ->
+                entry.putString("trace", reader.lineSequence().take(40).joinToString("\n").take(1500))
+              }
+            } catch (_: Exception) {
+            }
+          }
+          reasons.pushMap(entry)
+        }
+      }
+    } catch (_: Exception) {
+    }
+    result.putArray("reasons", reasons)
+    CrashRecorder.consume(context)?.let { (at, text) ->
+      val crash = Arguments.createMap()
+      crash.putDouble("at", at.toDouble())
+      crash.putString("text", text)
+      result.putMap("lastCrash", crash)
+    }
+    promise.resolve(result)
+  }
+
   /** Memória do aparelho e do app agora (leitura barata, sem PSS). */
   @ReactMethod
   fun getMemorySnapshot(promise: Promise) {

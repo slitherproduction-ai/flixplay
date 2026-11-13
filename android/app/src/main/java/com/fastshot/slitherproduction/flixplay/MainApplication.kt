@@ -42,6 +42,8 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // Primeiro de tudo: um erro fatal daqui em diante fica registrado para o Diagnóstico.
+    com.fastshot.slitherproduction.flixplay.device.CrashRecorder.install(this)
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

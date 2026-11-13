@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.54] — 2026-11-13
+
+Paridade com Samsung MSX / LG 1.1.7–1.1.8 e Roku 1.1.7 (o que se aplica ao Android):
+
+- **Abertura sem imagem conta como falha** (`app/player.tsx`): antes, um canal ou filme que ficava em "Carregando" sem erro (servidor segurando a conexão, canal fora do ar, limite de conexões) esperava para sempre — o vigia de travamento só age depois que o vídeo começou. Agora, sem `readyToPlay` em 12 s (ao vivo) ou 30 s (filme/episódio), o player segue o mesmo caminho do erro: próximo formato TS ↔ HLS, próximo endereço do rever e, no fim, a mensagem "O canal não abriu…". Em segundo plano o prazo recomeça. O tratamento de erro virou `handleSourceFailure`, usado pelo `statusChange` e pelo prazo.
+- **1ª tentativa mais curta:** ao vivo sem formato lembrado nesta lista (modo Automático, mais de um formato a tentar) desiste em 6 s.
+- **Diagnóstico › Desempenho › Abrir canal / filme / episódio** (`recordVideoOpen`/`describeOpens`): do toque até a imagem — último, média, pior, quantos não abriram e quantos vieram direto da prévia. Só na sessão; entra no relatório compartilhado.
+- Já existia no Android: prévia → tela cheia com o mesmo player (`live-preview-handoff`). Não portado: `preconnect` (o ExoPlayer resolve o servidor nas chamadas da API, que usam o mesmo endereço).
+- Build Android `20261072`.
+
 ## [2.17.53] — 2026-11-12
 
 Estratégia do Roku trazida para a TV Android (lista Xtream):

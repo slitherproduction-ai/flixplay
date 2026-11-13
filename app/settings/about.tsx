@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.53",
+    version: "v2.17.54",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Canal ou filme que ficava em \"Carregando\" sem abrir agora tenta o outro formato sozinho e, se não abrir, avisa." },
+      { tag: "Melhoria", text: "Canais abrem mais rápido na primeira vez numa lista: o outro formato é tentado em 6 s." },
+      { tag: "Novidade", text: "Diagnóstico mostra quanto tempo canais, filmes e episódios levam para abrir." },
+    ],
+  },
+  {
+    version: "v2.17.53",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "TV: canais ao vivo carregados por categoria, como no Roku — app mais leve e abertura mais rápida." },

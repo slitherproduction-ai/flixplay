@@ -18,6 +18,7 @@ import {
   describeLog,
   describePause,
   describeSync,
+  describeOpens,
   describeTrim,
   formatPerformanceReport,
   getPerformanceReport,
@@ -196,6 +197,9 @@ export default function DiagnosticsScreen() {
             {perf?.syncTimings.slice(0, 3).map((timing) => (
               <InfoRow key={`s${timing.at}${timing.stage}`} label={`Sinc. ${timing.stage}`} value={describeSync(timing)} />
             ))}
+            <InfoRow label="Abrir canal" value={perf ? describeOpens(perf.opens.live) : "…"} />
+            <InfoRow label="Abrir filme" value={perf ? describeOpens(perf.opens.movies) : "…"} />
+            <InfoRow label="Abrir episódio" value={perf ? describeOpens(perf.opens.series) : "…"} />
             <InfoRow label="Encerramentos" value={perf && perf.previousExits.length === 0 ? "Nenhum" : perf ? String(perf.previousExits.length) : "…"} alert={Boolean(perf?.previousExits.length)} />
           </Panel>
 

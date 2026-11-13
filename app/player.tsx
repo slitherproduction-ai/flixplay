@@ -52,7 +52,8 @@ import { autoContentFit } from "@/features/player/aspectFit";
 import { reducePlayerUi, type PlayerUiLayer } from "@/store/playerUiState";
 import type { ContentType, EpgProgram, ServerProfile } from "@/store/types";
 import { notifyFullscreenChannel, releasePreview, takeClaimedPreview } from "@/features/live/live-preview-handoff";
-import { logTechnicalError } from "@/services/security/sanitize";
+import { logTechnicalError, logTechnicalEvent } from "@/services/security/sanitize";
+import { recordVideoOpen, type VideoOpenKind } from "@/services/performanceMonitor";
 import {
   buildFallbackUrls,
   buildPlayerHeaders,
@@ -106,6 +107,13 @@ type ActivePanel = Exclude<Panel, null>;
 
 /** Reconexões automáticas do ao vivo depois de erro de rede. */
 const LIVE_ERROR_RETRIES = 3;
+// Abertura que fica em "Carregando" sem erro (servidor segura a conexão, canal
+// fora do ar): passado este tempo sem imagem, conta como falha e segue para o
+// próximo formato — como Samsung/LG 1.1.7 e Roku 1.1.7. Sem formato do ao
+// vivo lembrado nesta lista, a 1ª tentativa desiste antes (6 s, 1.1.8).
+const OPEN_LIVE_MS = 12_000;
+const OPEN_LIVE_FIRST_MS = 6_000;
+const OPEN_VOD_MS = 30_000;
 
 const SPEED_OPTIONS = [
   { label: "0.5x", value: 0.5 },
@@ -427,6 +435,10 @@ export default function PlayerScreen() {
   const liveErrorRetriesRef = useRef(0);
   const liveRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSeekRef = useRef<number | null>(null);
+  // Abertura: do toque até a imagem (Diagnóstico) e o limite sem imagem.
+  const openStartedAtRef = useRef(Date.now());
+  const openRecordedRef = useRef(false);
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A retomada só é armada depois que o vídeo começou a andar: um servidor
   // lento na abertura não pode ser reiniciado em loop.
   const playbackStartedRef = useRef(false);
@@ -605,6 +617,8 @@ export default function PlayerScreen() {
     lastObservedTimeRef.current = -1;
     stallRecoveriesRef.current = 0;
     pendingSeekRef.current = null;
+    openStartedAtRef.current = Date.now();
+    openRecordedRef.current = false;
     setCurrentTime(0);
     setDuration(0);
     // Ao vivo troca de canal com o vídeo já na tela: a capa não volta.
@@ -649,9 +663,120 @@ export default function PlayerScreen() {
     durationSetRef.current = false;
 
     const durationRefs = { durationSetRef };
+    const openKind: VideoOpenKind = contentType === "live" ? "live" : contentType === "movie" ? "movies" : "series";
+    const recordOpen = (ok: boolean) => {
+      if (openRecordedRef.current) return;
+      openRecordedRef.current = true;
+      recordVideoOpen(openKind, ok ? Date.now() - openStartedAtRef.current : null, Boolean(sharedPreviewPlayer) && urlAttemptRef.current === 0);
+    };
+    const clearOpenTimer = () => {
+      if (openTimerRef.current) clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    };
+    // Sem imagem dentro do limite: trata como erro e segue o mesmo caminho
+    // (próximo formato / próximo endereço do rever / mensagem de erro).
+    const armOpenTimer = () => {
+      clearOpenTimer();
+      if (playbackStartedRef.current) return;
+      try { if (player.status === "readyToPlay") return; } catch { /* segue */ }
+      const key = formatMemoryKey(useAppStore.getState().activeServerId);
+      const remembered = key ? useAppStore.getState().preferences[key] : null;
+      const live = contentType === "live";
+      const firstTry = live && !catchupActiveRef.current && urlAttemptRef.current === 0 && !remembered && fallbackUrls.length > 1;
+      const limit = !live ? OPEN_VOD_MS : firstTry ? OPEN_LIVE_FIRST_MS : OPEN_LIVE_MS;
+      openTimerRef.current = setTimeout(() => {
+        openTimerRef.current = null;
+        if (!sessionGuard.isCurrent(sessionToken) || playbackStartedRef.current) return;
+        try { if (player.status === "readyToPlay") return; } catch { /* segue */ }
+        // Em segundo plano não conta: espera de novo quando voltar.
+        if (AppState.currentState !== "active") { armOpenTimer(); return; }
+        logTechnicalEvent("Player", `sem imagem em ${Math.round(limit / 1000)} s (tentativa ${urlAttemptRef.current + 1})`);
+        handleSourceFailure({ status: "error", error: { message: "open timeout" } });
+      }, limit);
+    };
+
+    const handleSourceFailure = (status: { status: string; error?: unknown }) => {
+      clearOpenTimer();
+      // Rever programa: tenta o próximo formato de arquivo antes de desistir,
+      // sem cair no ao vivo.
+      if (catchupActiveRef.current) {
+        const nextCatchup = catchupQueueRef.current.shift();
+        if (nextCatchup) {
+          try {
+            setIsBuffering(true);
+            player.replace({ uri: nextCatchup, headers: requestHeaders });
+            player.play();
+            armOpenTimer();
+            return;
+          } catch (catchupErr) {
+            logTechnicalError("Player/catchup-fallback", catchupErr);
+          }
+        }
+        logTechnicalError("Player/catchup", status);
+        setPlayerError("Este programa não está disponível para rever.");
+        return;
+      }
+      const nextAttempt = urlAttemptRef.current + 1;
+      if (nextAttempt < fallbackUrls.length) {
+        urlAttemptRef.current = nextAttempt;
+        try {
+          setIsBuffering(true);
+          player.replace({ uri: fallbackUrls[nextAttempt], headers: requestHeaders });
+          player.play();
+          armOpenTimer();
+        } catch (replaceErr) {
+          logTechnicalError("Player/fallback", replaceErr);
+          recordOpen(false);
+          setPlayerError(mapPlayerError(status).message);
+        }
+      } else if (contentType === "live" && playbackStartedRef.current && liveErrorRetriesRef.current < LIVE_ERROR_RETRIES) {
+        // Ao vivo que já estava tocando: uma queda de rede vira "error".
+        // Reconecta sozinho 3 vezes, com espera crescente (3, 6 e 9 s), como
+        // Roku, LG e Samsung. Canal que nunca abriu mostra o erro na hora.
+        liveErrorRetriesRef.current += 1;
+        const attempt = liveErrorRetriesRef.current;
+        logTechnicalError("Player/live-reconnect", status);
+        setReconnecting(true);
+        setIsBuffering(true);
+        if (liveRetryTimerRef.current) clearTimeout(liveRetryTimerRef.current);
+        liveRetryTimerRef.current = setTimeout(() => {
+          liveRetryTimerRef.current = null;
+          if (!sessionGuard.isCurrent(sessionToken)) return;
+          urlAttemptRef.current = 0;
+          try {
+            player.replace({ uri: fallbackUrls[0], headers: requestHeaders });
+            player.play();
+          } catch (reconnectErr) {
+            logTechnicalError("Player/live-reconnect", reconnectErr);
+            setReconnecting(false);
+            setPlayerError(mapPlayerError(status).message);
+          }
+        }, 3_000 * attempt);
+      } else {
+        logTechnicalError("Player/playback", status);
+        setReconnecting(false);
+        recordOpen(false);
+        setPlayerError(contentType === "live" && !playbackStartedRef.current
+          ? "O canal não abriu. Ele pode estar fora do ar ou o limite de conexões da lista foi atingido. Tente novamente ou escolha outro canal."
+          : mapPlayerError(status).message);
+      }
+    };
+
+    // O player já pode estar carregando antes de o listener existir.
+    try { if (player.status === "loading") armOpenTimer(); } catch { /* segue */ }
+    if (sharedPreviewPlayer && !openRecordedRef.current) {
+      try { if (player.status === "readyToPlay") recordOpen(true); } catch { /* segue */ }
+    }
+
     const statusSub = player.addListener("statusChange", (status) => {
       if (!sessionGuard.isCurrent(sessionToken)) return;
+      if (status.status === "loading") {
+        if (!openTimerRef.current && !playbackStartedRef.current) armOpenTimer();
+        return;
+      }
       if (status.status === "readyToPlay") {
+        clearOpenTimer();
+        recordOpen(true);
         setVideoReady(true);
         setPlayerError(null);
         setIsBuffering(false);
@@ -683,63 +808,7 @@ export default function PlayerScreen() {
         return;
       }
       if (status.status !== "error") return;
-      // Rever programa: tenta o próximo formato de arquivo antes de desistir,
-      // sem cair no ao vivo.
-      if (catchupActiveRef.current) {
-        const nextCatchup = catchupQueueRef.current.shift();
-        if (nextCatchup) {
-          try {
-            setIsBuffering(true);
-            player.replace({ uri: nextCatchup, headers: requestHeaders });
-            player.play();
-            return;
-          } catch (catchupErr) {
-            logTechnicalError("Player/catchup-fallback", catchupErr);
-          }
-        }
-        logTechnicalError("Player/catchup", status);
-        setPlayerError("Este programa não está disponível para rever.");
-        return;
-      }
-      const nextAttempt = urlAttemptRef.current + 1;
-      if (nextAttempt < fallbackUrls.length) {
-        urlAttemptRef.current = nextAttempt;
-        try {
-          setIsBuffering(true);
-          player.replace({ uri: fallbackUrls[nextAttempt], headers: requestHeaders });
-          player.play();
-        } catch (replaceErr) {
-          logTechnicalError("Player/fallback", replaceErr);
-          setPlayerError(mapPlayerError(status).message);
-        }
-      } else if (contentType === "live" && playbackStartedRef.current && liveErrorRetriesRef.current < LIVE_ERROR_RETRIES) {
-        // Ao vivo que já estava tocando: uma queda de rede vira "error".
-        // Reconecta sozinho 3 vezes, com espera crescente (3, 6 e 9 s), como
-        // Roku, LG e Samsung. Canal que nunca abriu mostra o erro na hora.
-        liveErrorRetriesRef.current += 1;
-        const attempt = liveErrorRetriesRef.current;
-        logTechnicalError("Player/live-reconnect", status);
-        setReconnecting(true);
-        setIsBuffering(true);
-        if (liveRetryTimerRef.current) clearTimeout(liveRetryTimerRef.current);
-        liveRetryTimerRef.current = setTimeout(() => {
-          liveRetryTimerRef.current = null;
-          if (!sessionGuard.isCurrent(sessionToken)) return;
-          urlAttemptRef.current = 0;
-          try {
-            player.replace({ uri: fallbackUrls[0], headers: requestHeaders });
-            player.play();
-          } catch (reconnectErr) {
-            logTechnicalError("Player/live-reconnect", reconnectErr);
-            setReconnecting(false);
-            setPlayerError(mapPlayerError(status).message);
-          }
-        }, 3_000 * attempt);
-      } else {
-        logTechnicalError("Player/playback", status);
-        setReconnecting(false);
-        setPlayerError(mapPlayerError(status).message);
-      }
+      handleSourceFailure(status);
     });
 
     const sourceSub = player.addListener("sourceLoad", (payload) => {
@@ -843,6 +912,7 @@ export default function PlayerScreen() {
 
     return () => {
       sessionGuard.end(sessionToken);
+      clearOpenTimer();
       if (liveRetryTimerRef.current) {
         clearTimeout(liveRetryTimerRef.current);
         liveRetryTimerRef.current = null;
@@ -854,7 +924,7 @@ export default function PlayerScreen() {
       endSub.remove();
       persistProgress(latestPositionRef.current, latestDurationRef.current);
     };
-  }, [contentType, fallbackUrls, id, persistProgress, player, removeHistoryItem, requestHeaders]);
+  }, [contentType, fallbackUrls, id, persistProgress, player, removeHistoryItem, requestHeaders, sharedPreviewPlayer]);
 
   // ─── Retomada automática ─────────────────────────────────────────────────
   // Se o vídeo para de avançar (carregando ou "tocando" sem progresso), reabre

@@ -75,7 +75,13 @@ const state = {
   lastAvailMemMb: null as number | null,
   activity: null as string | null,
   log: [] as TechnicalLogEntry[],
+  opens: { live: [], movies: [], series: [] } as Record<VideoOpenKind, VideoOpen[]>,
 };
+
+/** Abertura de vídeo: do toque até a imagem (ms) ou `null` quando não abriu. */
+export type VideoOpenKind = "live" | "movies" | "series";
+export type VideoOpen = { ms: number | null; fromPreview: boolean; at: number };
+const MAX_OPENS = 20;
 
 let logSaveTimer: ReturnType<typeof setTimeout> | null = null;
 function saveLogSoon(): void {
@@ -250,7 +256,33 @@ export function recordSyncTiming(stage: string, startedAt: number, items: number
   pushRecent(state.syncTimings, { stage, ms: Date.now() - startedAt, items, mode, at: Date.now() });
 }
 
+/**
+ * Abertura de vídeos (como Samsung/LG 1.1.8): tempo do toque até a primeira
+ * imagem, por tipo. Só nesta sessão; nada de endereço ou título.
+ */
+export function recordVideoOpen(kind: VideoOpenKind, ms: number | null, fromPreview: boolean): void {
+  const list = state.opens[kind];
+  list.unshift({ ms: ms === null ? null : Math.max(0, Math.round(ms)), fromPreview, at: Date.now() });
+  if (list.length > MAX_OPENS) list.length = MAX_OPENS;
+}
+
+export function describeOpens(list: VideoOpen[]): string {
+  if (list.length === 0) return "Nenhuma ainda";
+  const ok = list.filter((item) => item.ms !== null).map((item) => item.ms as number);
+  const failed = list.length - ok.length;
+  const parts: string[] = [];
+  if (ok.length) {
+    const last = list.find((item) => item.ms !== null)?.ms ?? 0;
+    parts.push(`último ${seconds(last)}`, `média ${seconds(ok.reduce((sum, value) => sum + value, 0) / ok.length)}`, `pior ${seconds(Math.max(...ok))}`);
+  }
+  if (failed) parts.push(`${failed} não ${failed === 1 ? "abriu" : "abriram"}`);
+  const reused = list.filter((item) => item.fromPreview).length;
+  if (reused) parts.push(`${reused} direto da prévia`);
+  return parts.join(" · ");
+}
+
 export async function clearPerformanceHistory(): Promise<void> {
+  state.opens = { live: [], movies: [], series: [] };
   state.pauses = 0;
   state.pauseTotalMs = 0;
   state.maxPauseMs = 0;
@@ -275,6 +307,7 @@ export type PerformanceReport = {
   memory: MemorySnapshot | null;
   jsHeapMb: number | null;
   log: TechnicalLogEntry[];
+  opens: Record<VideoOpenKind, VideoOpen[]>;
 };
 
 export async function getPerformanceReport(): Promise<PerformanceReport> {
@@ -293,6 +326,7 @@ export async function getPerformanceReport(): Promise<PerformanceReport> {
     memory,
     jsHeapMb: getJsHeapMb(),
     log: state.log.map((entry) => ({ ...entry })),
+    opens: { live: [...state.opens.live], movies: [...state.opens.movies], series: [...state.opens.series] },
   };
 }
 
@@ -349,6 +383,11 @@ export function formatPerformanceReport(report: PerformanceReport): string[] {
     );
   }
   report.syncTimings.forEach((timing) => lines.push(`Sincronização ${timing.stage}: ${describeSync(timing)}`));
+  lines.push(
+    `Abertura de canais: ${describeOpens(report.opens.live)}`,
+    `Abertura de filmes: ${describeOpens(report.opens.movies)}`,
+    `Abertura de episódios: ${describeOpens(report.opens.series)}`,
+  );
   report.recentPauses.forEach((pause) => lines.push(`Pausa: ${describePause(pause)}`));
   if (report.previousExits.length === 0) lines.push("Encerramentos inesperados: nenhum");
   report.previousExits.forEach((exit) => lines.push(`Encerramento inesperado: ${describeExit(exit)}`));

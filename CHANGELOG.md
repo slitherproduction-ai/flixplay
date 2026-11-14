@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.17.58] — 2026-11-14
+
+Redesign da TV aprovado pelo usuário (quadro "Redesign TV: Ajustes, Listas, Player e Entrada"; a tela de entrada/login fica como está).
+
+- **Ajustes com menu à esquerda** (`components/tv-settings-shell.tsx`): Listas, Reprodução, Controle parental, Categorias visíveis, Diagnóstico, Sobre e, no rodapé, Sair da conta (com confirmação). Substitui a grade de cartões. Entre seções troca no lugar (`router.replace`), então o Voltar sempre leva às Listas; Diagnóstico e Sobre abrem em tela cheia. Dentro do painel, `PremiumTopBar` some (o Voltar do controle funciona) e `usePremiumContentStyle` usa as margens do painel.
+- **Padrão visual da TV** (`TvTone`, `tvFocus`): superfícies por tom, sem bordas; foco único = anel claro + fundo mais claro, sem ampliar (a ampliação era cortada pelos cartões); botão branco focado ganha contorno azul. `premium-screen` (usado por Ajustes, Adicionar lista, Minha Lista, Busca, Continuar assistindo) ganhou a variante TV: grupos sem borda, linhas de 54 dp com título 13 / detalhe 10, títulos de página à esquerda (26), rótulos de grupo 10 com espaçamento, sem o brilho azul de fundo.
+- **Ajustes › Listas**: cabeçalho com "Atualizar lista" e "Adicionar lista"; resumo da lista em uso (situação, validade, conexões) sem caixas; cada lista numa linha com "Em uso"/"Usar" e um botão de excluir ao lado (vermelho só no foco); "Excluir todas" vira texto discreto.
+- **Reprodução**: o valor escolhido tem ✓ e texto azul; o foco é só o anel. Antes o escolhido era um botão branco e o foco um contorno azul — não dava para saber qual valia. Título "Reprodução".
+- **Categorias visíveis** e **Controle parental** dentro do painel, com abas e linhas no mesmo padrão.
+- Build Android `20261076`.
+
 ## [2.17.57] — 2026-11-14
 
 - **Listas Salvas (TV)** (`app/login.tsx`, foto do Fire TV Stick 4K): cada linha ficava enorme, com o conteúdo abaixo do contorno de foco. Causa: o botão de excluir tinha `height: "100%"`, que dentro do `ScrollView` media pela lista inteira. Agora a linha usa `alignItems: "stretch"` e o botão acompanha a altura do cartão. Na TV: título 28, nome da lista 20, servidor 15, ícone 52, botões do Portal com 52 de altura ao lado do texto, foco com fundo claro sem ampliar (o cartão cortava a ampliação), lista em uso com borda verde e selo "EM USO", "Usar" nas outras. O servidor aparece só pelo nome (sem `http://`, porta ou caminho), também no celular.

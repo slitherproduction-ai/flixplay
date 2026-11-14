@@ -5,6 +5,7 @@ import { AUTO_ADULT_PREFERENCE, countBlocked, isAdultCategoryName, resolveCatego
 import { useRouter } from "expo-router";
 import { AppText } from "@/components/ui";
 import { TVFocusable } from "@/components/tv-focusable";
+import { TvSettingsShell } from "@/components/tv-settings-shell";
 import { Group, GroupLabel, GroupRow, PremiumBackdrop, PremiumButton, PremiumHeading, PremiumTopBar, premium, usePremiumContentStyle } from "@/components/premium-screen";
 import { Colors } from "@/constants/theme";
 import { useTVMode } from "@/hooks/use-tv-mode";
@@ -93,7 +94,7 @@ export default function ParentalSettingsScreen() {
     [autoAdult, blocked, live, movies, series],
   );
 
-  return <View style={premium.screen}>
+  return <TvSettingsShell current="parental"><View style={premium.screen}>
     <PremiumBackdrop />
     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={contentStyle}>
       <PremiumTopBar title="Controle parental" onBack={() => router.back()} />
@@ -159,7 +160,7 @@ export default function ParentalSettingsScreen() {
         </Group>
       </> : null}
     </ScrollView>
-  </View>;
+  </View></TvSettingsShell>;
 }
 
 function CategorySection({ kind, categories, blockedIds, autoAdult, expanded, onExpand, onToggle }: { kind: ParentalCategoryKind; categories: Category[]; blockedIds: string[]; autoAdult: boolean; expanded: boolean; onExpand: () => void; onToggle: (id: string) => void }) {

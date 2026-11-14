@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { AppText } from "@/components/ui";
 import { TVFocusable } from "@/components/tv-focusable";
+import { TvSettingsShell, TvTone, tvFocus } from "@/components/tv-settings-shell";
 import { GroupLabel, PremiumBackdrop, PremiumHeading, PremiumTopBar, premium, usePremiumContentStyle } from "@/components/premium-screen";
 import { Colors } from "@/constants/theme";
 import { useHiddenCategoryIds, useToggleHiddenCategory } from "@/features/catalog/hidden-categories";
@@ -39,7 +40,7 @@ export default function CategoriesSettingsScreen() {
         title="Escolha o que aparece"
         subtitle="Categorias desmarcadas somem das listas. Nada é apagado: marque de novo para voltar."
       />
-      <View style={styles.segment} accessibilityRole="tablist">
+      <View style={[styles.segment, tvMode && styles.tvSegment]} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const selected = tab.kind === kind;
           return (
@@ -49,11 +50,11 @@ export default function CategoriesSettingsScreen() {
               accessibilityState={{ selected }}
               hasTVPreferredFocus={tab.kind === "live"}
               onPress={() => setKind(tab.kind)}
-              focusStyle={styles.segmentFocused}
-              style={[styles.segmentButton, selected && styles.segmentSelected]}
+              focusStyle={tvMode ? tvFocus.ring : styles.segmentFocused}
+              style={[styles.segmentButton, tvMode && styles.tvSegmentButton, selected && (tvMode ? styles.tvSegmentSelected : styles.segmentSelected)]}
             >
-              <Ionicons name={tab.icon} size={15} color={selected ? Colors.background : Colors.muted} />
-              <AppText style={[styles.segmentText, selected && styles.segmentTextSelected]}>{tab.label}</AppText>
+              <Ionicons name={tab.icon} size={15} color={selected ? (tvMode ? Colors.blueBright : Colors.background) : Colors.muted} />
+              <AppText style={[styles.segmentText, selected && (tvMode ? styles.tvSegmentTextSelected : styles.segmentTextSelected)]}>{tab.label}</AppText>
             </TVFocusable>
           );
         })}
@@ -63,6 +64,7 @@ export default function CategoriesSettingsScreen() {
   );
 
   return (
+    <TvSettingsShell current="categories">
     <View style={premium.screen}>
       <PremiumBackdrop />
       <FlatList
@@ -82,13 +84,14 @@ export default function CategoriesSettingsScreen() {
               accessibilityState={{ checked: visible }}
               accessibilityLabel={`${visible ? "Ocultar" : "Mostrar"} ${item.name}`}
               onPress={() => toggle(item.id)}
-              focusStyle={premium.rowFocused}
+              focusStyle={tvMode ? tvFocus.ring : premium.rowFocused}
               style={[
                 styles.row,
                 index === 0 && styles.rowFirst,
                 index === categories.length - 1 && styles.rowLast,
                 index > 0 && premium.dividerTop,
                 !visible && styles.rowHidden,
+                tvMode && styles.tvRow,
               ]}
             >
               <Ionicons name={visible ? "eye-outline" : "eye-off-outline"} size={17} color={visible ? Colors.blueBright : Colors.subtle} />
@@ -101,6 +104,7 @@ export default function CategoriesSettingsScreen() {
         }}
       />
     </View>
+    </TvSettingsShell>
   );
 }
 
@@ -123,4 +127,10 @@ const styles = StyleSheet.create({
   pillText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.blueBright },
   pillTextHidden: { color: Colors.subtle },
   empty: { paddingVertical: 30, textAlign: "center", fontSize: 13, color: Colors.muted },
+  // TV: sem bordas; aba escolhida com texto azul (foco é o anel claro).
+  tvSegment: { borderWidth: 0, backgroundColor: TvTone.surface, alignSelf: "flex-start", gap: 6, padding: 4 },
+  tvSegmentButton: { flex: 0, paddingHorizontal: 18, minHeight: 38, borderRadius: 19, borderWidth: 2, borderColor: "transparent" },
+  tvSegmentSelected: { backgroundColor: "rgba(0,215,255,0.14)" },
+  tvSegmentTextSelected: { fontFamily: "Inter_700Bold", color: Colors.blueBright },
+  tvRow: { borderLeftWidth: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomWidth: 0, borderRadius: 12, marginBottom: 2, backgroundColor: TvTone.surface, borderWidth: 2, borderColor: "transparent" },
 });

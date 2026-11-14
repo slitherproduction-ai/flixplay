@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.57",
+    version: "v2.17.58",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Ajustes da TV com menu à esquerda: Listas, Reprodução, Controle parental, Categorias, Diagnóstico e Sobre." },
+      { tag: "Melhoria", text: "Visual da TV mais limpo: sem caixas dentro de caixas, um só destaque de foco e a opção escolhida marcada com ✓." },
+    ],
+  },
+  {
+    version: "v2.17.57",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Listas Salvas redesenhadas na TV: cartões no tamanho certo, textos maiores e a lista em uso destacada." },

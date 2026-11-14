@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { Colors } from "@/constants/theme";
+import { TvTone, tvFocus, useInTvSettingsShell } from "@/components/tv-settings-shell";
+import { useTVMode } from "@/hooks/use-tv-mode";
 
 /**
  * Linguagem visual premium compartilhada pelas telas secundárias (Sobre,
@@ -17,6 +19,9 @@ import { Colors } from "@/constants/theme";
 /** Brilho de marca no topo da tela. Fica atrás do conteúdo e não recebe toques. */
 export function PremiumBackdrop({ height = 420 }: { height?: number }) {
   const insets = useSafeAreaInsets();
+  // Na TV o fundo é liso: o brilho atrás de cartões transparentes deixava tudo turvo.
+  const tvMode = useTVMode();
+  if (tvMode) return null;
   return (
     <LinearGradient
       pointerEvents="none"
@@ -41,6 +46,10 @@ export function PremiumTopBar({
   backLabel?: string;
   right?: ReactNode;
 }) {
+  // Dentro do painel de Ajustes da TV o menu à esquerda já situa a tela e o
+  // Voltar do controle funciona: a barra sairia só ocupando espaço.
+  const inShell = useInTvSettingsShell();
+  if (inShell) return right ? <View style={premium.tvTopRight}>{right}</View> : null;
   return (
     <View style={premium.topBar}>
       <TVFocusable
@@ -60,6 +69,16 @@ export function PremiumTopBar({
 
 /** Cabeçalho grande da página, abaixo da barra (título + descrição curta). */
 export function PremiumHeading({ title, subtitle, icon }: { title: string; subtitle?: string; icon?: keyof typeof Ionicons.glyphMap }) {
+  const tvMode = useTVMode();
+  if (tvMode) {
+    // TV: título alinhado à esquerda, sem ícone grande nem texto centralizado.
+    return (
+      <View style={premium.tvHeading}>
+        <AppText style={premium.tvHeadingTitle}>{title}</AppText>
+        {subtitle ? <AppText style={premium.tvHeadingSubtitle}>{subtitle}</AppText> : null}
+      </View>
+    );
+  }
   return (
     <View style={premium.heading}>
       {icon ? <View style={premium.headingIcon}><Ionicons name={icon} size={24} color={Colors.blueBright} /></View> : null}
@@ -70,16 +89,18 @@ export function PremiumHeading({ title, subtitle, icon }: { title: string; subti
 }
 
 export function GroupLabel({ title, action }: { title: string; action?: ReactNode }) {
+  const tvMode = useTVMode();
   return (
-    <View style={premium.groupLabelRow}>
-      <AppText style={premium.groupLabel}>{title}</AppText>
+    <View style={[premium.groupLabelRow, tvMode && premium.tvGroupLabelRow]}>
+      <AppText style={[premium.groupLabel, tvMode && premium.tvGroupLabel]}>{title}</AppText>
       {action}
     </View>
   );
 }
 
 export function Group({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[premium.group, style]}>{children}</View>;
+  const tvMode = useTVMode();
+  return <View style={[premium.group, tvMode && premium.tvGroup, style]}>{children}</View>;
 }
 
 /** Linha de grupo. Com onPress vira um item focável (TV) com chevron ou elemento à direita. */
@@ -114,20 +135,22 @@ export function GroupRow({
   accessibilityState?: { checked?: boolean; selected?: boolean; expanded?: boolean; disabled?: boolean };
   hasTVPreferredFocus?: boolean;
 }) {
+  const tvMode = useTVMode();
   const color = destructive ? "#FF8B91" : iconColor;
   const content = (
     <>
-      {icon ? <View style={[premium.rowIcon, destructive && premium.rowIconDestructive]}><Ionicons name={icon} size={18} color={color} /></View> : null}
+      {icon ? <View style={[premium.rowIcon, tvMode && premium.tvRowIcon, destructive && premium.rowIconDestructive]}><Ionicons name={icon} size={tvMode ? 17 : 18} color={color} /></View> : null}
       <View style={premium.rowCopy}>
-        <AppText numberOfLines={1} style={[premium.rowTitle, destructive && { color }]}>{title}</AppText>
-        {subtitle ? <AppText numberOfLines={2} style={premium.rowMeta}>{subtitle}</AppText> : null}
+        <AppText numberOfLines={1} style={[premium.rowTitle, tvMode && premium.tvRowTitle, destructive && { color }]}>{title}</AppText>
+        {subtitle ? <AppText numberOfLines={2} style={[premium.rowMeta, tvMode && premium.tvRowMeta]}>{subtitle}</AppText> : null}
       </View>
-      {value ? <AppText numberOfLines={1} style={premium.rowValue}>{value}</AppText> : null}
+      {value ? <AppText numberOfLines={1} style={[premium.rowValue, tvMode && premium.tvRowValue]}>{value}</AppText> : null}
       {right}
-      {onPress && (chevron ?? !right) ? <Ionicons name="chevron-forward" size={16} color={Colors.subtle} /> : null}
+      {onPress && (chevron ?? !right) ? <Ionicons name="chevron-forward" size={tvMode ? 18 : 16} color={Colors.subtle} /> : null}
     </>
   );
-  if (!onPress) return <View style={[premium.row, divider && premium.dividerTop]}>{content}</View>;
+  const rowStyle = [premium.row, tvMode && premium.tvRow, divider && (tvMode ? premium.tvDividerTop : premium.dividerTop)];
+  if (!onPress) return <View style={rowStyle}>{content}</View>;
   return (
     <TVFocusable
       accessibilityRole={accessibilityRole ?? "button"}
@@ -136,8 +159,8 @@ export function GroupRow({
       disabled={disabled}
       hasTVPreferredFocus={hasTVPreferredFocus}
       onPress={onPress}
-      focusStyle={premium.rowFocused}
-      style={({ pressed }) => [premium.row, divider && premium.dividerTop, pressed && premium.rowPressed, disabled && premium.disabled]}
+      focusStyle={tvMode ? tvFocus.ring : premium.rowFocused}
+      style={({ pressed }) => [...rowStyle, pressed && premium.rowPressed, disabled && premium.disabled]}
     >
       {content}
     </TVFocusable>
@@ -164,6 +187,7 @@ export function PremiumButton({
   hasTVPreferredFocus?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const tvMode = useTVMode();
   const primary = variant === "primary";
   const tint = primary ? Colors.background : variant === "destructive" ? "#FF8B91" : Colors.text;
   return (
@@ -174,17 +198,18 @@ export function PremiumButton({
       disabled={disabled || loading}
       hasTVPreferredFocus={hasTVPreferredFocus}
       onPress={onPress}
-      focusStyle={primary ? premium.primaryFocused : premium.secondaryFocused}
+      focusStyle={tvMode ? (primary ? premium.tvPrimaryFocused : tvFocus.ring) : primary ? premium.primaryFocused : premium.secondaryFocused}
       style={({ pressed }) => [
         premium.button,
-        primary ? premium.primaryButton : variant === "destructive" ? premium.destructiveButton : premium.secondaryButton,
+        tvMode && premium.tvButton,
+        primary ? premium.primaryButton : variant === "destructive" ? (tvMode ? premium.tvDestructiveButton : premium.destructiveButton) : (tvMode ? premium.tvSecondaryButton : premium.secondaryButton),
         pressed && premium.pressed,
         (disabled || loading) && premium.disabled,
         style,
       ]}
     >
       {icon ? <Ionicons name={loading ? "hourglass-outline" : icon} size={17} color={tint} /> : null}
-      <AppText style={[premium.buttonText, { color: tint }]}>{label}</AppText>
+      <AppText style={[premium.buttonText, tvMode && premium.tvButtonText, { color: tint }]}>{label}</AppText>
     </TVFocusable>
   );
 }
@@ -192,6 +217,9 @@ export function PremiumButton({
 /** Contêiner do conteúdo rolável: margens, área segura e largura máxima em tablet/TV. */
 export function usePremiumContentStyle({ tvMode, wide }: { tvMode: boolean; wide: boolean }, maxWidth = 820) {
   const insets = useSafeAreaInsets();
+  const inShell = useInTvSettingsShell();
+  // Dentro do painel de Ajustes da TV: margens do painel, largura toda dele.
+  if (inShell) return [premium.content, premium.tvShellContent];
   return [
     premium.content,
     { paddingTop: insets.top + (tvMode ? 28 : 12), paddingBottom: insets.bottom + 40 },
@@ -246,4 +274,26 @@ export const premium = StyleSheet.create({
   footnote: { alignSelf: "center", textAlign: "center", fontSize: 11, lineHeight: 16, color: Colors.subtle },
   pressed: { opacity: 0.76, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.5 },
+
+  // TV (2.17.58): superfícies sem borda, foco único (tvFocus) e textos para ler de longe.
+  tvShellContent: { gap: 14, paddingHorizontal: 44, paddingTop: 34, paddingBottom: 40 },
+  tvTopRight: { alignSelf: "flex-end" },
+  tvHeading: { gap: 6, paddingBottom: 6 },
+  tvHeadingTitle: { fontFamily: "Inter_700Bold", fontSize: 26, lineHeight: 31, letterSpacing: -0.6, color: Colors.text },
+  tvHeadingSubtitle: { fontSize: 12, lineHeight: 17, color: Colors.muted },
+  tvGroupLabelRow: { marginBottom: -6, marginTop: 6, paddingHorizontal: 2 },
+  tvGroupLabel: { fontSize: 10, letterSpacing: 1.6 },
+  tvGroup: { borderWidth: 0, borderRadius: 14, backgroundColor: TvTone.surface },
+  tvRow: { minHeight: 54, gap: 14, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, borderWidth: 2, borderColor: "transparent" },
+  tvDividerTop: { borderTopColor: TvTone.divider },
+  tvRowIcon: { width: 32, height: 32, borderRadius: 16 },
+  tvRowTitle: { fontSize: 13 },
+  tvRowMeta: { fontSize: 10, lineHeight: 14 },
+  tvRowValue: { fontSize: 12, color: Colors.muted },
+  tvButton: { minHeight: 38, borderRadius: 19, paddingHorizontal: 18 },
+  tvSecondaryButton: { borderWidth: 2, borderColor: "transparent", backgroundColor: TvTone.surfaceHigh },
+  tvDestructiveButton: { borderWidth: 2, borderColor: "transparent", backgroundColor: "transparent" },
+  tvButtonText: { fontSize: 12 },
+  // Botão branco: o anel claro sumiria nele, então o foco é o contorno azul.
+  tvPrimaryFocused: { borderWidth: 2, borderColor: Colors.blueBright, transform: [] },
 });

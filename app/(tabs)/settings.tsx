@@ -14,6 +14,7 @@ import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { maskUsername } from "@/features/login/loginValidation";
 import { PremiumBackdrop } from "@/components/premium-screen";
+import { TvSettingsShell, TvTone, tvFocus } from "@/components/tv-settings-shell";
 
 /**
  * Descrição da lista sem expor o Host/DNS do servidor (mesma regra da tela de
@@ -333,79 +334,77 @@ function TvSettingsDashboard({
   onAbout: () => void;
   onLogout: () => void;
 }) {
-  const actions: Array<{ icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; onPress: () => void; disabled?: boolean }> = [
-    { icon: "add-circle-outline", title: "Adicionar lista", subtitle: "Xtream Codes ou M3U", onPress: onAddServer },
-    { icon: "play-circle-outline", title: "Reprodução", subtitle: "Player, OSD e formato", onPress: onPlayer },
-    { icon: "lock-closed-outline", title: "Controle parental", subtitle: "PIN e conteúdo protegido", onPress: onParental },
-    { icon: "eye-outline", title: "Categorias visíveis", subtitle: "Ocultar categorias das listas", onPress: onCategories },
-    { icon: "refresh", title: "Atualizar lista", subtitle: isSyncing ? "Sincronizando…" : "Canais, filmes e séries", onPress: onSync, disabled: isSyncing },
-    { icon: "pulse-outline", title: "Diagnóstico", subtitle: "Conexão e catálogo", onPress: onDiagnostics },
-    { icon: "sparkles-outline", title: "Sobre o aplicativo", subtitle: APP_INFO.versionLabel, onPress: onAbout },
-  ];
-
+  // As outras seções (Reprodução, Controle parental…) estão no menu à
+  // esquerda (TvSettingsShell); aqui fica só o que é das listas.
+  void onPlayer; void onParental; void onCategories; void onDiagnostics; void onAbout; void onLogout;
+  const status = activeServer ? statusInfo(activeServer.status) : null;
   return (
-    <View style={styles.screen}>
-      <PremiumBackdrop />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tvDashboardContent}>
-        <View style={styles.tvDashboardHeader}>
-          <View><AppText style={styles.kicker}>ELVANOQ PLAY</AppText><AppText style={styles.tvDashboardTitle}>Ajustes</AppText></View>
-          <AppText style={styles.tvDashboardSubtitle}>Conta, reprodução e segurança</AppText>
+    <TvSettingsShell current="lists">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tvPane}>
+        <View style={styles.tvPaneHeader}>
+          <View style={styles.tvPaneHeaderCopy}>
+            <AppText style={styles.tvPaneTitle}>Listas</AppText>
+            <AppText style={styles.tvPaneSubtitle}>Escolha qual lista o aplicativo usa. Só uma fica em uso por vez.</AppText>
+          </View>
+          <TVFocusable accessibilityRole="button" accessibilityLabel="Atualizar lista" disabled={isSyncing} onPress={onSync} focusStyle={tvFocus.ring} style={[styles.tvPill, styles.tvPillSecondary, isSyncing && styles.settingsRowDisabled]}>
+            {isSyncing ? <ActivityIndicator size="small" color={Colors.text} /> : <Ionicons name="refresh" size={15} color={Colors.text} />}
+            <AppText style={styles.tvPillText}>{isSyncing ? "Atualizando…" : "Atualizar lista"}</AppText>
+          </TVFocusable>
+          <TVFocusable accessibilityRole="button" accessibilityLabel="Adicionar lista" onPress={onAddServer} focusStyle={styles.tvPrimaryFocused} style={[styles.tvPill, styles.tvPillPrimary]}>
+            <Ionicons name="add" size={17} color={Colors.background} />
+            <AppText style={[styles.tvPillText, styles.tvPillPrimaryText]}>Adicionar lista</AppText>
+          </TVFocusable>
         </View>
 
-        {activeServer ? (() => {
-          const status = statusInfo(activeServer.status);
-          return (
-            <View style={styles.tvAccountCard}>
-              <View style={styles.tvAccountAvatar}><AppText style={styles.tvAccountInitial}>{(activeServer.name.trim().charAt(0) || "E").toLocaleUpperCase("pt-BR")}</AppText></View>
-              <View style={styles.tvAccountCopy}>
-                <AppText numberOfLines={1} style={styles.tvAccountName}>{activeServer.name}</AppText>
-                <AppText numberOfLines={1} style={styles.tvAccountMeta}>{describeServer(activeServer)}</AppText>
-              </View>
-              <StatusItem label="LISTA" value={status.label} tone={status.tone} />
-              <StatusItem label="EXPIRA" value={expiryLabel(activeServer)} />
-              <StatusItem label="CONEXÕES" value={activeServer.maxConnections ? `${activeServer.activeConnections ?? 0}/${activeServer.maxConnections}` : activeServer.activeConnections ?? "—"} />
+        {activeServer && status ? (
+          <View style={styles.tvSummary}>
+            <View style={styles.tvSummaryCopy}>
+              <AppText style={styles.tvSummaryKicker}>EM USO</AppText>
+              <AppText numberOfLines={1} style={styles.tvSummaryName}>{activeServer.name}</AppText>
+              <AppText numberOfLines={1} style={styles.tvSummaryMeta}>{describeServer(activeServer)}</AppText>
             </View>
-          );
-        })() : null}
-
-        <View style={styles.tvActionGrid}>
-          {actions.map((action) => <TvSettingsTile key={action.title} {...action} />)}
-        </View>
-
-        <View style={styles.tvServerSection}>
-          <View style={styles.tvServerSectionHeader}>
-            <View><AppText style={styles.tvSectionTitle}>Listas e servidores</AppText><AppText style={styles.tvSectionHint}>Selecione a conexão que deseja utilizar</AppText></View>
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Adicionar servidor" onPress={onAddServer} style={styles.tvAddServer}><Ionicons name="add" size={17} color={Colors.blueBright} /><AppText style={styles.tvAddServerText}>Adicionar</AppText></TVFocusable>
+            <TvStat label="Situação" value={status.label} tone={status.tone} />
+            <TvStat label="Expira em" value={expiryLabel(activeServer)} />
+            <TvStat label="Conexões" value={activeServer.maxConnections ? `${activeServer.activeConnections ?? 0} de ${activeServer.maxConnections}` : String(activeServer.activeConnections ?? "—")} />
           </View>
-          <View style={styles.tvServerList}>
-            {servers.map((server) => {
-              const active = server.id === activeServerId;
-              return <View key={server.id} style={[styles.tvServerRowContainer, active && styles.tvServerRowActive]}>
-                <TVFocusable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => onSelectServer(server.id)} style={styles.tvServerRow}>
-                  <Ionicons name={active ? "checkmark-circle" : "cloud-outline"} size={19} color={active ? Colors.green : Colors.muted} />
-                  <View style={styles.tvServerCopy}><AppText numberOfLines={1} style={styles.tvServerName}>{server.name}</AppText><AppText numberOfLines={1} style={styles.tvServerMeta}>{describeServer(server)} · expira {expiryLabel(server)}</AppText></View>
-                  {active ? <AppText style={styles.tvActiveLabel}>ATIVO</AppText> : null}
+        ) : null}
+
+        <AppText style={styles.tvListLabel}>TODAS AS LISTAS · {servers.length}</AppText>
+        <View style={styles.tvServerList}>
+          {servers.map((server) => {
+            const active = server.id === activeServerId;
+            return (
+              <View key={server.id} style={styles.tvServerLine}>
+                <TVFocusable accessibilityRole="button" accessibilityLabel={active ? `${server.name}, em uso` : `Usar a lista ${server.name}`} accessibilityState={{ selected: active }} onPress={() => onSelectServer(server.id)} focusStyle={tvFocus.ring} style={styles.tvServerItem}>
+                  <View style={[styles.tvServerBadge, active && styles.tvServerBadgeActive]}>
+                    <Ionicons name={active ? "checkmark" : "cloud-outline"} size={17} color={active ? Colors.green : Colors.muted} />
+                  </View>
+                  <View style={styles.tvServerCopy}>
+                    <AppText numberOfLines={1} style={styles.tvServerName}>{server.name}</AppText>
+                    <AppText numberOfLines={1} style={styles.tvServerMeta}>{describeServer(server)} · expira {expiryLabel(server)}</AppText>
+                  </View>
+                  <AppText style={[styles.tvServerState, active && styles.tvServerStateActive]}>{active ? "Em uso" : "Usar"}</AppText>
                 </TVFocusable>
-                <TVFocusable accessibilityRole="button" accessibilityLabel={`Excluir lista ${server.name}`} onPress={() => onDeleteServer(server.id, server.name)} style={styles.tvServerDelete}><Ionicons name="trash-outline" size={17} color={Colors.red} /></TVFocusable>
-              </View>;
-            })}
-          </View>
-          {servers.length > 1 ? <TVFocusable accessibilityRole="button" accessibilityLabel="Excluir todas as listas" onPress={onDeleteAll} style={styles.tvDeleteAll}><Ionicons name="trash-outline" size={15} color={Colors.red} /><AppText style={styles.tvDeleteAllText}>Excluir todas as listas</AppText></TVFocusable> : null}
+                <TVFocusable accessibilityRole="button" accessibilityLabel={`Excluir lista ${server.name}`} onPress={() => onDeleteServer(server.id, server.name)} focusStyle={styles.tvDeleteFocused} style={styles.tvServerDelete}>
+                  <Ionicons name="trash-outline" size={17} color={Colors.muted} />
+                </TVFocusable>
+              </View>
+            );
+          })}
         </View>
-
-        <TVFocusable accessibilityRole="button" accessibilityLabel="Sair da conta" onPress={onLogout} style={styles.tvLogout}><Ionicons name="log-out-outline" size={19} color={Colors.red} /><AppText style={styles.tvLogoutText}>Sair da conta</AppText></TVFocusable>
-        <AppText style={styles.version}>{APP_INFO.name} {APP_INFO.versionLabel}</AppText>
+        {servers.length > 1 ? (
+          <TVFocusable accessibilityRole="button" accessibilityLabel="Excluir todas as listas" onPress={onDeleteAll} focusStyle={tvFocus.ring} style={styles.tvDeleteAll}>
+            <Ionicons name="trash-outline" size={14} color={TvTone.danger} />
+            <AppText style={styles.tvDeleteAllText}>Excluir todas as listas</AppText>
+          </TVFocusable>
+        ) : null}
       </ScrollView>
-    </View>
+    </TvSettingsShell>
   );
 }
 
-function TvSettingsTile({ icon, title, subtitle, onPress, disabled = false }: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; onPress: () => void; disabled?: boolean }) {
-  return <TVFocusable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.tvActionTile, disabled && styles.settingsRowDisabled, pressed && styles.pressed]}>
-    <View style={styles.tvActionIcon}><Ionicons name={icon} size={21} color={Colors.blueBright} /></View>
-    <View style={styles.tvActionCopy}><AppText numberOfLines={1} style={styles.tvActionTitle}>{title}</AppText><AppText numberOfLines={1} style={styles.tvActionMeta}>{subtitle}</AppText></View>
-    <Ionicons name="chevron-forward" size={17} color={Colors.subtle} />
-  </TVFocusable>;
+function TvStat({ label, value, tone = "neutral" }: { label: string; value: string; tone?: StatusTone }) {
+  return <View style={styles.tvStat}><AppText style={styles.tvStatLabel}>{label}</AppText><AppText numberOfLines={1} style={[styles.tvStatValue, tone === "success" && styles.statusValueSuccess, tone === "warning" && styles.statusValueWarning]}>{value}</AppText></View>;
 }
 
 function StatusItem({ label, value, tone = "neutral" }: { label: string; value: string | number; tone?: StatusTone }) {
@@ -431,19 +430,47 @@ const styles = StyleSheet.create({
   tvSectionHint: { marginTop: 2, fontSize: 10, color: Colors.muted },
   tvAddServer: { minHeight: 34, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: "rgba(96,165,250,0.34)", backgroundColor: "rgba(59,130,246,0.08)" },
   tvAddServerText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.blueBright },
-  tvServerList: { gap: 6 },
   tvServerRowContainer: { flexDirection: "row", minHeight: 48, overflow: "hidden", borderRadius: 8, borderWidth: 1, borderColor: "rgba(190,222,255,0.12)", backgroundColor: "rgba(255,255,255,0.025)" },
   tvServerRowActive: { borderColor: "rgba(59,130,246,0.43)", backgroundColor: "rgba(59,130,246,0.10)" },
   tvServerRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 11 },
-  tvServerCopy: { flex: 1, minWidth: 0, gap: 2 },
-  tvServerName: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
-  tvServerMeta: { fontSize: 9, color: Colors.subtle },
   tvActiveLabel: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 0.7, color: Colors.green },
-  tvServerDelete: { width: 42, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderLeftColor: "rgba(190,222,255,0.12)" },
-  tvDeleteAll: { alignSelf: "flex-start", minHeight: 31, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1, borderColor: "rgba(229,9,20,0.24)", backgroundColor: "rgba(229,9,20,0.06)" },
-  tvDeleteAllText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.red },
   tvLogout: { alignSelf: "flex-start", minHeight: 38, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(229,9,20,0.28)", backgroundColor: "rgba(229,9,20,0.07)" },
   tvLogoutText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.red },
+  // TV › Listas (2.17.58): sem bordas, foco único (tvFocus), textos para ler de longe.
+  tvPane: { gap: 14, paddingHorizontal: 44, paddingTop: 34, paddingBottom: 40 },
+  tvPaneHeader: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingBottom: 6 },
+  tvPaneHeaderCopy: { flex: 1, gap: 6 },
+  tvPaneTitle: { fontFamily: "Inter_700Bold", fontSize: 26, lineHeight: 31, letterSpacing: -0.6, color: Colors.text },
+  tvPaneSubtitle: { fontSize: 12, lineHeight: 17, color: Colors.muted },
+  tvPill: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 16, borderRadius: 19, borderWidth: 2, borderColor: "transparent" },
+  tvPillSecondary: { backgroundColor: TvTone.surfaceHigh },
+  tvPillPrimary: { backgroundColor: "#F4F8FF" },
+  tvPillText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
+  tvPillPrimaryText: { fontFamily: "Inter_700Bold", color: Colors.background },
+  tvPrimaryFocused: { borderWidth: 2, borderColor: Colors.blueBright, transform: [] },
+  tvSummary: { flexDirection: "row", alignItems: "center", gap: 26, paddingHorizontal: 20, paddingVertical: 16, borderRadius: 14, backgroundColor: TvTone.surface },
+  tvSummaryCopy: { flex: 1, minWidth: 0, gap: 3 },
+  tvSummaryKicker: { fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.4, color: Colors.green },
+  tvSummaryName: { fontFamily: "Inter_700Bold", fontSize: 17, color: Colors.text },
+  tvSummaryMeta: { fontSize: 10, color: Colors.muted },
+  tvStat: { gap: 3, minWidth: 64 },
+  tvStatLabel: { fontSize: 9, color: Colors.muted },
+  tvStatValue: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.text },
+  tvListLabel: { marginTop: 6, paddingHorizontal: 4, fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.6, color: Colors.muted },
+  tvServerList: { gap: 6 },
+  tvServerLine: { flexDirection: "row", alignItems: "stretch", gap: 6 },
+  tvServerItem: { flex: 1, minHeight: 54, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 2, borderColor: "transparent", backgroundColor: TvTone.surface },
+  tvServerBadge: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 15, backgroundColor: "#18223A" },
+  tvServerBadgeActive: { backgroundColor: "rgba(74,222,128,0.16)" },
+  tvServerCopy: { flex: 1, minWidth: 0, gap: 3 },
+  tvServerName: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.text },
+  tvServerMeta: { fontSize: 10, color: Colors.muted },
+  tvServerState: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.muted },
+  tvServerStateActive: { color: Colors.green },
+  tvServerDelete: { width: 54, alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 2, borderColor: "transparent", backgroundColor: TvTone.surface },
+  tvDeleteFocused: { borderWidth: 2, borderColor: TvTone.ring, backgroundColor: "rgba(229,9,20,0.22)", transform: [] },
+  tvDeleteAll: { alignSelf: "flex-start", minHeight: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, marginTop: 4, borderRadius: 17, borderWidth: 2, borderColor: "transparent" },
+  tvDeleteAllText: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: TvTone.danger },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14 },
   headerCopy: { flex: 1, gap: 4 },
   kicker: { fontFamily: "Inter_600SemiBold", fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },

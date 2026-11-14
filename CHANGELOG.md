@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.57] — 2026-11-14
+
+- **Listas Salvas (TV)** (`app/login.tsx`, foto do Fire TV Stick 4K): cada linha ficava enorme, com o conteúdo abaixo do contorno de foco. Causa: o botão de excluir tinha `height: "100%"`, que dentro do `ScrollView` media pela lista inteira. Agora a linha usa `alignItems: "stretch"` e o botão acompanha a altura do cartão. Na TV: título 28, nome da lista 20, servidor 15, ícone 52, botões do Portal com 52 de altura ao lado do texto, foco com fundo claro sem ampliar (o cartão cortava a ampliação), lista em uso com borda verde e selo "EM USO", "Usar" nas outras. O servidor aparece só pelo nome (sem `http://`, porta ou caminho), também no celular.
+- **Diagnóstico › Causa**: a saída pelo "Sim, sair" encerra o próprio processo e o Android a registra como "sinal do sistema" — aparecia como causa. Agora só entram erro, erro nativo, travamento, falta de memória, falha ao iniciar e uso excessivo, ou outro motivo que coincida com um encerramento inesperado.
+- Build Android `20261075`.
+
 ## [2.17.56] — 2026-11-14
 
 - **Causa dos fechamentos em Séries encontrada** (Diagnóstico da 2.17.55 no Fire TV Stick 4K: `JavascriptException: Invariant Violation: scrollToIndex out of range: item length 0 but minimum is 1`). Ao voltar para uma grade, `useTvFocusRestoration` rolava até o último título focado com `scrollToIndex`, mas a lista podia estar vazia (sendo recarregada — os 3 fechamentos de hoje foram durante a sincronização) e o índice usado era o do título, enquanto a lista virtual de uma grade conta **linhas**: em posições altas o índice também passava do fim. No React Native isso é erro fatal e fechava o app. Agora a rolagem converte título → linha, limita ao tamanho atual da lista, não faz nada com a lista vazia e fica num `try/catch`. Vale para Filmes, Séries, TV ao Vivo e o catálogo da TV.

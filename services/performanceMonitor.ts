@@ -223,8 +223,14 @@ async function readExitCauses(): Promise<void> {
     const crash = data.lastCrash ? { at: data.lastCrash.at, text: sanitizeError(data.lastCrash.text) } : null;
     let changed = false;
     for (const item of fresh) {
-      // Saída pelo "Sim, sair" e atualização do app não são problema.
-      if (item.reason === 1 || item.reason === 16 || item.reason === 10) continue;
+      // Saída pelo "Sim, sair" (o app encerra o próprio processo: aparece como
+      // "sinal do sistema"), atualização e parada pelo usuário não são problema.
+      // Fora erro, travamento e falta de memória, só conta se houve um
+      // encerramento inesperado no mesmo momento.
+      if (item.reason === 1 || item.reason === 16 || item.reason === 10 || item.reason === 11) continue;
+      const serious = item.reason === 3 || item.reason === 4 || item.reason === 5 || item.reason === 6 || item.reason === 7 || item.reason === 9;
+      const matchesExit = state.previousExits.some((entry) => Math.abs(entry.at - item.at) < 120_000);
+      if (!serious && !matchesExit) continue;
       const label = EXIT_REASONS[item.reason] ?? `motivo ${item.reason}`;
       const memory = item.pssKb > 0 ? ` · app com ${Math.round(item.pssKb / 1024)} MB` : "";
       const crashText = crash && Math.abs(crash.at - item.at) < 120_000 ? crash.text : "";

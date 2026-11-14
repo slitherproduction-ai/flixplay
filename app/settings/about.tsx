@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.56",
+    version: "v2.17.57",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Listas Salvas redesenhadas na TV: cartões no tamanho certo, textos maiores e a lista em uso destacada." },
+      { tag: "Correção", text: "Saída pelo \"Sim, sair\" não aparece mais como causa de encerramento no Diagnóstico." },
+    ],
+  },
+  {
+    version: "v2.17.56",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "App não fecha mais ao voltar para Séries, Filmes ou TV ao Vivo enquanto a lista é atualizada." },

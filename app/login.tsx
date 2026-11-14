@@ -72,12 +72,23 @@ interface SavedListsModalProps {
 
 type PortalSyncState = "idle" | "syncing" | "synced" | "no-playlist" | "pending" | "inactive" | "unavailable";
 
+/** Só o nome do servidor (sem http://, porta ou caminho) na lista salva. */
+function displayHost(url: string): string {
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url.replace(/^https?:\/\//i, "").split(/[/:?#]/)[0] || url;
+  }
+}
+
 function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, portalState, portalMessage, onSyncPortal, onLinkPortal, onManagePortal }: SavedListsModalProps) {
   const insets = useSafeAreaInsets();
   const { tvMode, isTablet, height } = useResponsiveLayout();
   const closeButtonRef = useRef<TVFocusableHandle>(null);
   const preferredServerRef = useRef<TVFocusableHandle>(null);
   const largeSurface = tvMode || isTablet;
+  // Na TV tudo é lido de longe: textos e alvos maiores (2.17.57).
+  const tv = tvMode;
   const surfaceMaxHeight = Math.max(440, Math.min(height - 72, tvMode ? 760 : 720));
   // Na TV, o foco inicial vai para a lista ativa (ou a primeira): abrir o
   // painel é quase sempre para escolher uma lista, não para fechá-lo.
@@ -103,9 +114,9 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
       <View style={[modalStyles.header, largeSurface && modalStyles.largeHeader]}>
         {!largeSurface ? <View style={modalStyles.grabber} /> : null}
         <View style={modalStyles.titleRow}>
-          <AppText style={modalStyles.title}>Listas Salvas</AppText>
-          <View style={modalStyles.countBadge}>
-            <AppText style={modalStyles.countText}>{servers.length}</AppText>
+          <AppText style={[modalStyles.title, tv && modalStyles.tvTitle]}>Listas Salvas</AppText>
+          <View style={[modalStyles.countBadge, tv && modalStyles.tvCountBadge]}>
+            <AppText style={[modalStyles.countText, tv && modalStyles.tvCountText]}>{servers.length}</AppText>
           </View>
         </View>
         <TVFocusable
@@ -114,31 +125,31 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
           accessibilityLabel="Fechar"
           hasTVPreferredFocus={!preferredServerId}
           onPress={onClose}
-          style={modalStyles.closeBtn}
+          style={[modalStyles.closeBtn, tv && modalStyles.tvCloseBtn]}
         >
-          <Ionicons name="close" size={20} color={Colors.text} />
+          <Ionicons name="close" size={tv ? 26 : 20} color={Colors.text} />
         </TVFocusable>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={modalStyles.listContent}
+        contentContainerStyle={[modalStyles.listContent, tv && modalStyles.tvListContent]}
       >
-        <View style={[modalStyles.portalSyncCard, largeSurface && modalStyles.largePortalSyncCard]}>
-          <View style={modalStyles.portalSyncCopy}>
-            <AppText style={modalStyles.portalSyncTitle}>Listas do Portal</AppText>
-            <AppText style={modalStyles.portalSyncBody}>
+        <View style={[modalStyles.portalSyncCard, largeSurface && modalStyles.largePortalSyncCard, tv && modalStyles.tvPortalSyncCard]}>
+          <View style={[modalStyles.portalSyncCopy, tv && modalStyles.tvPortalSyncCopy]}>
+            <AppText style={[modalStyles.portalSyncTitle, tv && modalStyles.tvPortalSyncTitle]}>Listas do Portal</AppText>
+            <AppText style={[modalStyles.portalSyncBody, tv && modalStyles.tvPortalSyncBody]}>
               {portalState === "syncing" ? "Sincronizando sem alterar a lista ativa…" : portalMessage ?? "Atualize para buscar a lista vinculada a este dispositivo."}
             </AppText>
           </View>
-          <View style={[modalStyles.portalActions, largeSurface && modalStyles.largePortalActions]}>
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Sincronizar listas do Portal" disabled={portalState === "syncing"} onPress={onSyncPortal} style={({ pressed }) => [modalStyles.portalSyncButton, largeSurface && modalStyles.largePortalAction, pressed && modalStyles.pressed]}>
+          <View style={[modalStyles.portalActions, largeSurface && modalStyles.largePortalActions, tv && modalStyles.tvPortalActions]}>
+            <TVFocusable accessibilityRole="button" accessibilityLabel="Sincronizar listas do Portal" disabled={portalState === "syncing"} onPress={onSyncPortal} style={({ pressed }) => [modalStyles.portalSyncButton, largeSurface && modalStyles.largePortalAction, tv && modalStyles.tvPortalAction, pressed && modalStyles.pressed]}>
               {portalState === "syncing" ? <ActivityIndicator size="small" color={Colors.background} /> : <Ionicons name="sync-outline" size={17} color={Colors.background} />}
-              <AppText style={modalStyles.portalSyncButtonText}>Atualizar</AppText>
+              <AppText style={[modalStyles.portalSyncButtonText, tv && modalStyles.tvActionText]}>Atualizar</AppText>
             </TVFocusable>
-            <TVFocusable accessibilityRole="link" accessibilityLabel="Gerenciar listas no Portal" onPress={onManagePortal} style={({ pressed }) => [modalStyles.portalManageButton, largeSurface && modalStyles.largePortalAction, pressed && modalStyles.pressed]}>
+            <TVFocusable accessibilityRole="link" accessibilityLabel="Gerenciar listas no Portal" onPress={onManagePortal} style={({ pressed }) => [modalStyles.portalManageButton, largeSurface && modalStyles.largePortalAction, tv && modalStyles.tvPortalAction, pressed && modalStyles.pressed]}>
               <Ionicons name="open-outline" size={16} color={Colors.blueBright} />
-              <AppText style={modalStyles.portalManageButtonText}>Gerenciar no Portal</AppText>
+              <AppText style={[modalStyles.portalManageButtonText, tv && modalStyles.tvActionText]}>Gerenciar no Portal</AppText>
             </TVFocusable>
             {portalState === "pending" ? <TVFocusable accessibilityRole="button" accessibilityLabel="Vincular chave do Portal" onPress={onLinkPortal} style={({ pressed }) => [modalStyles.portalLinkButton, largeSurface && modalStyles.largePortalAction, pressed && modalStyles.pressed]}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /><AppText style={modalStyles.portalLinkButtonText}>Vincular chave</AppText></TVFocusable> : null}
           </View>
@@ -155,37 +166,38 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
           </View>
         ) : (
           servers.map((server) => (
-            <View key={server.id} style={modalStyles.serverRow}>
+            <View key={server.id} style={[modalStyles.serverRow, server.isActive && modalStyles.serverRowActive]}>
               <TVFocusable
                 ref={server.id === preferredServerId ? preferredServerRef : undefined}
                 accessibilityRole="button"
                 accessibilityLabel={`Conectar à lista ${server.name}`}
                 hasTVPreferredFocus={tvMode && server.id === preferredServerId}
                 onPress={() => onSelect(server)}
-                style={({ pressed }) => [modalStyles.serverMain, pressed && modalStyles.pressed]}
+                focusStyle={modalStyles.rowFocused}
+                style={({ pressed }) => [modalStyles.serverMain, tv && modalStyles.tvServerMain, pressed && modalStyles.pressed]}
               >
-                <View style={[modalStyles.serverIcon, server.isActive && modalStyles.serverIconActive]}>
+                <View style={[modalStyles.serverIcon, tv && modalStyles.tvServerIcon, server.isActive && modalStyles.serverIconActive]}>
                   <Ionicons
                     name={server.isActive ? "checkmark" : "cloud-outline"}
-                    size={17}
+                    size={tv ? 24 : 17}
                     color={server.isActive ? Colors.green : Colors.muted}
                   />
                 </View>
                 <View style={modalStyles.serverInfo}>
                   <View style={modalStyles.serverNameRow}>
-                    <AppText style={modalStyles.serverName} numberOfLines={1}>
+                    <AppText style={[modalStyles.serverName, tv && modalStyles.tvServerName]} numberOfLines={1}>
                       {server.name}
                     </AppText>
                     {server.isActive ? (
-                      <View style={modalStyles.activeBadge}>
-                        <AppText style={modalStyles.activeBadgeText}>ATIVO</AppText>
+                      <View style={[modalStyles.activeBadge, tv && modalStyles.tvActiveBadge]}>
+                        <AppText style={[modalStyles.activeBadgeText, tv && modalStyles.tvActiveBadgeText]}>EM USO</AppText>
                       </View>
                     ) : null}
                   </View>
-                  <AppText style={modalStyles.serverUrl} numberOfLines={1}>
-                    {server.portalManaged ? "Recebida do Portal ELVANOQ" : server.serverUrl}
+                  <AppText style={[modalStyles.serverUrl, tv && modalStyles.tvServerUrl]} numberOfLines={1}>
+                    {server.portalManaged ? "Recebida do Portal ELVANOQ" : displayHost(server.serverUrl)}
                   </AppText>
-                  <AppText style={modalStyles.serverMeta}>
+                  <AppText style={[modalStyles.serverMeta, tv && modalStyles.tvServerMeta]} numberOfLines={1}>
                     {server.portalManaged
                       ? `${server.sourceType === "m3u" ? "M3U" : "Xtream"} · Atualização manual disponível`
                       : server.sourceType === "xtream-code" && server.serverCode
@@ -193,15 +205,19 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
                         : `${maskUsername(server.username)} · Adicionado em ${formatAddedAt(server.addedAt)}`}
                   </AppText>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.subtle} />
+                {!server.isActive ? (
+                  <AppText style={[modalStyles.useLabel, tv && modalStyles.tvUseLabel]}>Usar</AppText>
+                ) : null}
+                <Ionicons name="chevron-forward" size={tv ? 22 : 16} color={Colors.subtle} />
               </TVFocusable>
               <TVFocusable
                 accessibilityRole="button"
                 accessibilityLabel={`Excluir lista ${server.name}`}
                 onPress={() => onDelete(server.id, server.name)}
-                style={({ pressed }) => [modalStyles.deleteBtn, pressed && modalStyles.pressed]}
+                focusStyle={modalStyles.deleteFocused}
+                style={({ pressed }) => [modalStyles.deleteBtn, tv && modalStyles.tvDeleteBtn, pressed && modalStyles.pressed]}
               >
-                <Ionicons name="trash-outline" size={18} color={Colors.red} />
+                <Ionicons name="trash-outline" size={tv ? 24 : 18} color={Colors.red} />
               </TVFocusable>
             </View>
           ))
@@ -212,10 +228,10 @@ function SavedListsModal({ servers, onSelect, onDelete, onDeleteAll, onClose, po
             accessibilityRole="button"
             accessibilityLabel="Excluir todas as listas"
             onPress={onDeleteAll}
-            style={({ pressed }) => [modalStyles.deleteAllBtn, pressed && modalStyles.pressed]}
+            style={({ pressed }) => [modalStyles.deleteAllBtn, tv && modalStyles.tvDeleteAllBtn, pressed && modalStyles.pressed]}
           >
-            <Ionicons name="trash" size={16} color={Colors.red} />
-            <AppText style={modalStyles.deleteAllText}>Excluir todas as listas</AppText>
+            <Ionicons name="trash" size={tv ? 20 : 16} color={Colors.red} />
+            <AppText style={[modalStyles.deleteAllText, tv && modalStyles.tvActionText]}>Excluir todas as listas</AppText>
           </TVFocusable>
         ) : null}
       </ScrollView>
@@ -1585,7 +1601,10 @@ const modalStyles = StyleSheet.create({
   },
   serverRow: {
     flexDirection: "row",
-    alignItems: "center",
+    // "stretch": o botão de excluir acompanha a altura da linha. Antes ele
+    // tinha height "100%", que na TV media pela lista inteira e deixava cada
+    // linha enorme, com o conteúdo fora do contorno de foco.
+    alignItems: "stretch",
     gap: 0,
     borderRadius: Radii.medium,
     borderWidth: 1,
@@ -1651,7 +1670,6 @@ const modalStyles = StyleSheet.create({
   },
   deleteBtn: {
     width: 52,
-    height: "100%",
     alignItems: "center",
     justifyContent: "center",
     borderLeftWidth: 1,
@@ -1679,4 +1697,32 @@ const modalStyles = StyleSheet.create({
     fontSize: 13,
     color: Colors.red,
   },
+  serverRowActive: { borderColor: "rgba(16,185,129,0.45)" },
+  // Foco dentro do cartão: fundo claro + contorno, sem ampliar (o cartão corta o que passa da borda).
+  rowFocused: { backgroundColor: "rgba(0,215,255,0.10)", borderRadius: Radii.medium, transform: [] },
+  deleteFocused: { backgroundColor: "rgba(229,9,20,0.22)", transform: [] },
+  useLabel: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.muted },
+  // TV (lido de longe)
+  tvTitle: { fontSize: 28 },
+  tvCountBadge: { minWidth: 32, height: 32, borderRadius: 16 },
+  tvCountText: { fontSize: 15 },
+  tvCloseBtn: { width: 48, height: 48, borderRadius: 24, bottom: 12 },
+  tvListContent: { gap: 12, padding: 24 },
+  tvPortalSyncCard: { flexDirection: "row", alignItems: "center", gap: 20, padding: 18 },
+  tvPortalSyncCopy: { flex: 1, gap: 6 },
+  tvPortalSyncTitle: { fontSize: 19 },
+  tvPortalSyncBody: { fontSize: 15, lineHeight: 21 },
+  tvPortalActions: { width: 440, flexDirection: "row" },
+  tvPortalAction: { minHeight: 52, borderRadius: 14 },
+  tvActionText: { fontSize: 16 },
+  tvServerMain: { gap: 16, paddingVertical: 16, paddingHorizontal: 18 },
+  tvServerIcon: { width: 52, height: 52, borderRadius: 14 },
+  tvServerName: { fontSize: 20 },
+  tvActiveBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  tvActiveBadgeText: { fontSize: 12 },
+  tvServerUrl: { fontSize: 15 },
+  tvServerMeta: { fontSize: 13 },
+  tvUseLabel: { fontSize: 15 },
+  tvDeleteBtn: { width: 76 },
+  tvDeleteAllBtn: { minHeight: 56 },
 });

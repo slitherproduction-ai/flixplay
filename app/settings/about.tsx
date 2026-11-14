@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.59",
+    version: "v2.17.60",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Ao voltar de um filme ou série, o foco volta para o título que estava selecionado, e não para a busca de categorias." },
+    ],
+  },
+  {
+    version: "v2.17.59",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Novas janelas de confirmação: menores, discretas e no visual do aplicativo, no celular e na TV." },

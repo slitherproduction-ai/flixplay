@@ -1,10 +1,10 @@
 import { recordCatalogNavigation } from "@/core/navigation/tv-catalog-activity";
 import type React from "react";
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { findNodeHandle, Platform, Pressable, StyleSheet, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
 import { Colors } from "@/constants/theme";
 import { getTVRemoteEvent, type TVKeyDownEvent, type TVRemoteEvent } from "@/hooks/use-tv-remote";
-import { getRememberedTvFocus, rememberTvFocus } from "@/core/navigation/tv-focus-memory";
+import { getRememberedTvFocus, registerTvFocusTarget, rememberTvFocus } from "@/core/navigation/tv-focus-memory";
 
 export type TVFocusableHandle = {
   focus: () => void;
@@ -90,6 +90,14 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
     const baseStyle = typeof style === "function" ? style(state) : style;
     return [baseStyle, Platform.isTV && focused && styles.focused, Platform.isTV && focused && focusStyle];
   }, [focusStyle, focused, style]);
+
+  // Item de grade que pode receber o foco de volta ao retornar de outra tela.
+  useEffect(() => {
+    if (!Platform.isTV || !restoreFocus || !focusScope || !focusId) return;
+    return registerTvFocusTarget(focusScope, focusId, {
+      focus: () => (pressableRef.current as FocusTarget | null)?.focus?.(),
+    });
+  }, [focusId, focusScope, restoreFocus]);
 
   const rememberedFocus = focusScope ? getRememberedTvFocus(focusScope) : undefined;
   const shouldRestoreFocus = restoreFocus && Boolean(focusId) && rememberedFocus?.itemId === focusId;

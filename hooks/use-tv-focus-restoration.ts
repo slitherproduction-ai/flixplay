@@ -1,12 +1,14 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef } from "react";
 import { FlatList, type FlatListProps } from "react-native";
-import { getRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
+import { focusRememberedTvTarget, getRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
 
 /** Scrolls a virtualized grid back to the row containing its last focused item. */
 export function useTvFocusRestoration<T>(scope: string, enabled: boolean, columns = 1) {
   const listRef = useRef<FlatList<T>>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const firstFocus = useRef(true);
 
   const restore = useCallback(() => {
     const index = getRememberedTvFocus(scope)?.itemIndex;
@@ -33,10 +35,23 @@ export function useTvFocusRestoration<T>(scope: string, enabled: boolean, column
 
   useFocusEffect(useCallback(() => {
     restore();
+    // Voltando de outra tela (Detalhes, player): devolve o foco ao título que
+    // estava selecionado. Na primeira abertura não, para não brigar com o foco
+    // inicial da tela. Tenta algumas vezes porque a linha pode ainda estar
+    // sendo desenhada depois da rolagem.
+    const returning = !firstFocus.current;
+    firstFocus.current = false;
+    if (returning && enabled) {
+      for (const delay of [60, 220, 480]) {
+        focusTimers.current.push(setTimeout(() => { focusRememberedTvTarget(scope); }, delay));
+      }
+    }
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
+      focusTimers.current.forEach(clearTimeout);
+      focusTimers.current = [];
     };
-  }, [restore]));
+  }, [enabled, restore, scope]));
 
   const onScrollToIndexFailed = useCallback<NonNullable<FlatListProps<T>["onScrollToIndexFailed"]>>(
     ({ index, averageItemLength }) => {

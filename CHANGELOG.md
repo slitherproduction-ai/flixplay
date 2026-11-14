@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.60] — 2026-11-14
+
+- **Foco ao voltar de Detalhes** (relato do usuário: o Voltar levava o foco ao campo de busca das categorias). A grade de Filmes/Séries continua montada embaixo de Detalhes, e o `hasTVPreferredFocus` do título lembrado só age quando o item aparece — então, ao voltar, o Android dava o foco ao primeiro item da tela. Agora os itens com `restoreFocus` se registram (`registerTvFocusTarget`) e `useTvFocusRestoration`, quando a tela volta a ficar ativa (não na primeira abertura), rola até a linha e foca o título lembrado (`focusRememberedTvTarget`, tentativas em 60, 220 e 480 ms). Vale para Filmes, Séries, o catálogo da TV e TV ao Vivo (volta do player).
+- Build Android `20261078`.
+
 ## [2.17.59] — 2026-11-14
 
 - **Janelas de confirmação próprias** (`components/app-dialog.tsx`, pedido do usuário: "elegante, fino, sofisticado e delicado, nada gigantesco"): `showDialog(title, message, buttons)` com a mesma assinatura do `Alert.alert` e `AppDialogHost` montado no `_layout`. Cartão de até 360 dp, cantos de 18, fundo `#0F1626` com borda fina quase invisível e sombra suave; título 15 semibold, texto 12 em uma ou duas linhas; botões finos (34 dp) alinhados à direita — Cancelar discreto, ação principal em branco, ação destrutiva só em texto vermelho-claro. Entra com fade e um leve deslocamento (170–200 ms). Na TV o foco é o anel claro, sem ampliar; com ação destrutiva o foco começa em Cancelar. Voltar = Cancelar. Uma janela por vez (fila).

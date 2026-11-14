@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
 import { AUTO_ADULT_PREFERENCE, countBlocked, isAdultCategoryName, resolveCategoryBlocked } from "@/features/parental/adult-categories";
 import { useRouter } from "expo-router";
 import { AppText } from "@/components/ui";
@@ -14,6 +14,7 @@ import { useAppStore } from "@/store/useAppStore";
 import type { ParentalCategoryKind } from "@/store/types";
 const SECURE_STORAGE_TIMEOUT_MS = 5_000;
 import { clearParentalPin, getParentalPinStatus, setParentalPin, verifyParentalPin } from "@/services/security/parentalControl";
+import { showDialog } from "@/components/app-dialog";
 
 type PinMode = "change" | "remove" | null;
 type Category = { id: string; name: string };
@@ -75,11 +76,11 @@ export default function ParentalSettingsScreen() {
     try { const result = await verifyParentalPin(currentPin); if (!result.success) { setMessage(result.lockedUntil > Date.now() ? "PIN temporariamente bloqueado. Tente novamente mais tarde." : "PIN atual incorreto."); return; } }
     catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível validar o PIN."); return; }
     if (mode === "remove") {
-      setBusy(true); try { const result = await clearParentalPin(currentPin); if (!result.success) { setMessage("PIN atual incorreto."); return; } setCurrentPin(""); await refresh(); Alert.alert("Controle parental", "PIN restaurado para o padrão 0000."); } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível restaurar o PIN padrão."); } finally { setBusy(false); } return;
+      setBusy(true); try { const result = await clearParentalPin(currentPin); if (!result.success) { setMessage("PIN atual incorreto."); return; } setCurrentPin(""); await refresh(); showDialog("Controle parental", "PIN restaurado para o padrão 0000."); } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível restaurar o PIN padrão."); } finally { setBusy(false); } return;
     }
     if (pin !== confirmation) { setMessage("A confirmação do novo PIN não corresponde."); return; }
     setBusy(true);
-    try { await setParentalPin(pin); setCurrentPin(""); setPin(""); setConfirmation(""); setConfigured(true); setMode(null); setUnlocked(true); Alert.alert("Controle parental", "PIN salvo com segurança neste dispositivo."); }
+    try { await setParentalPin(pin); setCurrentPin(""); setPin(""); setConfirmation(""); setConfigured(true); setMode(null); setUnlocked(true); showDialog("Controle parental", "PIN salvo com segurança neste dispositivo."); }
     catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível salvar o PIN."); }
     finally { setBusy(false); }
   }, [busy, confirmation, currentPin, mode, pin, refresh]);

@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { createContext, useCallback, useContext, type ReactNode } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { APP_INFO } from "@/constants/app";
 import { Colors } from "@/constants/theme";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useAppStore } from "@/store/useAppStore";
+import { showDialog } from "@/components/app-dialog";
 
 /**
  * Ajustes na TV (2.17.58): menu fixo à esquerda e o conteúdo à direita, como
@@ -72,7 +73,7 @@ export function TvSettingsShell({ current, children }: { current: TvSettingsSect
   }, [current, router]);
 
   const confirmLogout = useCallback(() => {
-    Alert.alert("Sair da conta", "Desconectar da lista atual? Você precisará entrar novamente.", [
+    showDialog("Sair da conta", "Desconectar da lista atual? Você precisará entrar novamente.", [
       { text: "Cancelar", style: "cancel" },
       { text: "Sair", style: "destructive", onPress: () => { logout(); router.replace("/login"); } },
     ]);

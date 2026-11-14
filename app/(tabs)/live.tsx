@@ -4,7 +4,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useDeferredValue, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   ScrollView,
@@ -32,6 +31,7 @@ import { claimPreviewFor, consumeReturnedChannel } from "@/features/live/live-pr
 import { isLazyLive, useLazyLiveCounts, useLazyLiveListing } from "@/features/live/lazyLive";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
+import { showDialog } from "@/components/app-dialog";
 const LIVE_FOCUS_SCOPE = "live-channels";
 const EMPTY_CHANNELS: ChannelItem[] = [];
 const TV_PREVIEW_FOCUS_DELAY_MS = 180;
@@ -624,7 +624,7 @@ function LiveScreen() {
     (channelId: string) => {
       const channel = findChannel(channelId);
       if (!channel) return;
-      Alert.alert(
+      showDialog(
         channel.name,
         `${channel.currentEpg.title} · ${channel.currentEpg.start}–${channel.currentEpg.end}\nA seguir: ${channel.nextProgram}`,
       );

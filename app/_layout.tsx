@@ -4,7 +4,7 @@ import { useFonts } from "expo-font";
 import { FontMap } from "@/constants/Typography";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useState } from "react";
-import { Animated, BackHandler, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
+import { Animated, BackHandler, PanResponder, Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -17,6 +17,7 @@ import { UpdateAvailableNotice } from "@/components/update-available-notice";
 import { CodeAccessGate } from "@/components/code-access-gate";
 import { LegacyPortalMigration } from "@/components/legacy-portal-migration";
 import { applyStartupKeepAwake, exitAppCompletely } from "@/services/deviceProfile";
+import { AppDialogHost, showDialog } from "@/components/app-dialog";
 import { markCleanExit, setPerformanceRoute, startPerformanceMonitor } from "@/services/performanceMonitor";
 
 startPerformanceMonitor();
@@ -114,7 +115,6 @@ function isRootRoute(pathname: string) {
 function RootExitGuard() {
   const pathname = usePathname();
   const router = useRouter();
-  const [visible, setVisible] = useState(false);
   const lastBackAt = React.useRef(0);
 
   useEffect(() => { setPerformanceRoute(pathname); }, [pathname]);
@@ -122,10 +122,6 @@ function RootExitGuard() {
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (visible) {
-        setVisible(false);
-        return true;
-      }
       if (!isRootRoute(pathname)) return false;
       // Ao vivo, Filmes, Séries e Ajustes: Voltar leva à Início (como no
       // Roku, na LG e no Samsung). Só na Início o Voltar oferece sair.
@@ -141,48 +137,29 @@ function RootExitGuard() {
         return true;
       }
       lastBackAt.current = 0;
-      setVisible(true);
+      // Mesma janela de confirmação do resto do app (AppDialogHost); o Voltar
+      // com ela aberta equivale a "Não".
+      showDialog("Sair do aplicativo?", "Você continua de onde parou ao abrir de novo.", [
+        { text: "Não", style: "cancel" },
+        {
+          text: "Sair",
+          style: "destructive",
+          onPress: () => {
+            // Grava a saída limpa (no máximo 600 ms) e encerra o processo,
+            // como no Roku: nada fica em segundo plano ocupando memória.
+            const timeout = new Promise<void>((resolve) => setTimeout(resolve, 600));
+            void Promise.race([markCleanExit(), timeout]).finally(() => exitAppCompletely(() => BackHandler.exitApp()));
+          },
+        },
+      ]);
       return true;
     });
     return () => subscription.remove();
-  }, [pathname, router, visible]);
+  }, [pathname, router]);
 
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-      <View accessibilityViewIsModal style={exitStyles.backdrop}>
-        <View style={exitStyles.dialog}>
-          <Text style={exitStyles.title}>Deseja sair do aplicativo?</Text>
-          <Text style={exitStyles.body}>Você poderá continuar de onde parou ao abrir novamente.</Text>
-          <View style={exitStyles.actions}>
-            <TVFocusable hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Não, continuar no aplicativo" onPress={() => setVisible(false)} style={exitStyles.secondary}>
-              <Text style={exitStyles.secondaryText}>Não</Text>
-            </TVFocusable>
-            <TVFocusable accessibilityRole="button" accessibilityLabel="Sim, sair do aplicativo" onPress={() => {
-              // Grava a saída limpa (no máximo 600 ms) e encerra o processo,
-              // como no Roku: nada fica em segundo plano ocupando memória.
-              const timeout = new Promise<void>((resolve) => setTimeout(resolve, 600));
-              void Promise.race([markCleanExit(), timeout]).finally(() => exitAppCompletely(() => BackHandler.exitApp()));
-            }} style={exitStyles.primary}>
-              <Text style={exitStyles.primaryText}>Sim</Text>
-            </TVFocusable>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
+  return null;
 }
 
-const exitStyles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "rgba(0,0,0,0.72)" },
-  dialog: { width: "100%", maxWidth: 430, gap: 12, padding: 24, borderRadius: 20, backgroundColor: Colors.backgroundRaised, borderWidth: 1, borderColor: Colors.border },
-  title: { color: Colors.text, fontSize: 20, fontWeight: "700" },
-  body: { color: Colors.muted, fontSize: 14, lineHeight: 20 },
-  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
-  secondary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: Colors.border },
-  primary: { minWidth: 104, minHeight: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.82)", backgroundColor: Colors.white },
-  secondaryText: { color: Colors.text, fontSize: 15, fontWeight: "700" },
-  primaryText: { color: Colors.background, fontSize: 15, fontWeight: "700" },
-});
 
 // ---------------------------------------------------------------------------
 // Global floating Picture-in-Picture overlay — YouTube miniplayer style
@@ -589,6 +566,7 @@ export default function RootLayout() {
               <UpdateAvailableNotice />
               {/* Global floating PiP overlay — renders above all screens */}
               <PiPOverlayHost />
+              <AppDialogHost />
           </View>
         </SafeAreaProvider>
       </GestureHandlerRootView>

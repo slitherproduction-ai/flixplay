@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   StyleSheet,
   View,
@@ -19,6 +18,7 @@ import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import type { ContentType, PlayHistory } from "@/store/types";
 import { PremiumBackdrop, premium } from "@/components/premium-screen";
 import { sizedImage } from "@/features/images/sizedImage";
+import { showDialog } from "@/components/app-dialog";
 
 function formatRelativeTime(iso: string): string {
   try {
@@ -231,7 +231,7 @@ export default function ContinueWatchingScreen() {
   }, [removeHistoryItem]);
 
   const handleClearAll = useCallback(() => {
-    Alert.alert(
+    showDialog(
       "Limpar histórico",
       "Remover todos os títulos de Continuar Assistindo?",
       [

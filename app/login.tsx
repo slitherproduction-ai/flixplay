@@ -9,7 +9,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   findNodeHandle,
   KeyboardAvoidingView,
   Linking,
@@ -53,6 +52,7 @@ import {
   type DiagInfo,
 } from "@/features/login/loginValidation";
 import { markAppReady } from "@/services/performanceMonitor";
+import { showDialog } from "@/components/app-dialog";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -642,7 +642,7 @@ export default function LoginScreen() {
   const handleManagePortal = useCallback(() => {
     void Linking.openURL(PORTAL_LINKS.deviceAndPlaylists).catch((error) => {
       logTechnicalError("Login/openPortal", error);
-      Alert.alert("Não foi possível abrir o Portal", "Verifique se há um navegador disponível neste dispositivo.");
+      showDialog("Não foi possível abrir o Portal", "Verifique se há um navegador disponível neste dispositivo.");
     });
   }, []);
 
@@ -662,7 +662,7 @@ export default function LoginScreen() {
 
   const handleDeleteServer = useCallback(
     (id: string, name: string) => {
-      Alert.alert(
+      showDialog(
         "Excluir lista",
         `Excluir lista "${name}"? As credenciais salvas serão removidas permanentemente.`,
         [
@@ -674,7 +674,7 @@ export default function LoginScreen() {
               try {
                 await removeServer(id);
               } catch {
-                Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+                showDialog("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
               }
             },
           },
@@ -685,7 +685,7 @@ export default function LoginScreen() {
   );
 
   const handleDeleteAll = useCallback(() => {
-    Alert.alert(
+    showDialog(
       "Excluir todas as listas",
       "Todas as listas e credenciais salvas serão removidas permanentemente.",
       [
@@ -698,7 +698,7 @@ export default function LoginScreen() {
               await removeAllServers();
               closeSavedLists();
             } catch {
-              Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+              showDialog("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
             }
           },
         },

@@ -2,7 +2,7 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Platform, ScrollView, Share, StyleSheet, View } from "react-native";
+import { Platform, ScrollView, Share, StyleSheet, View } from "react-native";
 import { AppText } from "@/components/ui";
 import { PremiumBackdrop, PremiumTopBar, premium, usePremiumContentStyle } from "@/components/premium-screen";
 import { TVFocusable } from "@/components/tv-focusable";
@@ -27,6 +27,7 @@ import {
   type PerformanceReport,
 } from "@/services/performanceMonitor";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
+import { showDialog } from "@/components/app-dialog";
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return "0 MB";
@@ -98,10 +99,10 @@ export default function DiagnosticsScreen() {
     try {
       const result = await authenticateXtream(activeServer);
       setLatencyMs(Date.now() - started);
-      Alert.alert(result.user_info ? "Servidor respondeu" : "Resposta inválida", `Latência aproximada: ${Date.now() - started} ms`);
+      showDialog(result.user_info ? "Servidor respondeu" : "Resposta inválida", `Latência aproximada: ${Date.now() - started} ms`);
     } catch (error) {
       setLatencyMs(null);
-      Alert.alert("Falha de conexão", sanitizeError(error));
+      showDialog("Falha de conexão", sanitizeError(error));
     } finally {
       setTesting(false);
     }
@@ -111,7 +112,7 @@ export default function DiagnosticsScreen() {
     if (activeServerId) await catalogDatabase.clearServer(activeServerId);
     clearContentCache();
     await refreshCacheSize();
-    Alert.alert("Cache limpo", "Os dados locais desta lista foram removidos.");
+    showDialog("Cache limpo", "Os dados locais desta lista foram removidos.");
   }, [activeServerId, clearContentCache, refreshCacheSize]);
 
   const rebuild = useCallback(async () => {

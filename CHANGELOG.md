@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.59] — 2026-11-14
+
+- **Janelas de confirmação próprias** (`components/app-dialog.tsx`, pedido do usuário: "elegante, fino, sofisticado e delicado, nada gigantesco"): `showDialog(title, message, buttons)` com a mesma assinatura do `Alert.alert` e `AppDialogHost` montado no `_layout`. Cartão de até 360 dp, cantos de 18, fundo `#0F1626` com borda fina quase invisível e sombra suave; título 15 semibold, texto 12 em uma ou duas linhas; botões finos (34 dp) alinhados à direita — Cancelar discreto, ação principal em branco, ação destrutiva só em texto vermelho-claro. Entra com fade e um leve deslocamento (170–200 ms). Na TV o foco é o anel claro, sem ampliar; com ação destrutiva o foco começa em Cancelar. Voltar = Cancelar. Uma janela por vez (fila).
+- Trocados os 18 `Alert.alert` (Ajustes, Listas, Excluir lista, Sair da conta, TV ao Vivo, Continuar assistindo, Diagnóstico, Controle parental, Listas salvas do login) e a janela "Sair do aplicativo?" do Voltar na Início, que agora usa o mesmo componente ("Não" / "Sair").
+- Build Android `20261077`.
+
 ## [2.17.58] — 2026-11-14
 
 Redesign da TV aprovado pelo usuário (quadro "Redesign TV: Ajustes, Listas, Player e Entrada"; a tela de entrada/login fica como está).

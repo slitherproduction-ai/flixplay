@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { Colors, Radii, Shadows } from "@/constants/theme";
 import { APP_INFO } from "@/constants/app";
 import { TVFocusable } from "@/components/tv-focusable";
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { maskUsername } from "@/features/login/loginValidation";
 import { PremiumBackdrop } from "@/components/premium-screen";
 import { TvSettingsShell, TvTone, tvFocus } from "@/components/tv-settings-shell";
+import { showDialog } from "@/components/app-dialog";
 
 /**
  * Descrição da lista sem expor o Host/DNS do servidor (mesma regra da tela de
@@ -66,7 +67,7 @@ export default function SettingsScreen() {
   }, [setActiveServer]);
 
   const handleLogout = useCallback(() => {
-    Alert.alert(
+    showDialog(
       "Sair da conta",
       "Deseja desconectar da lista atual? Você precisará entrar novamente.",
       [
@@ -85,7 +86,7 @@ export default function SettingsScreen() {
 
   const handleDeleteServer = useCallback((id: string, name: string) => {
     const isActive = id === activeServerId;
-    Alert.alert(
+    showDialog(
       "Excluir lista",
       `Excluir lista "${name}"? As credenciais salvas serão removidas permanentemente.${isActive ? "\n\nEsta é sua lista ativa — você será desconectado." : ""}`,
       [
@@ -98,7 +99,7 @@ export default function SettingsScreen() {
               await removeServer(id);
               if (isActive) router.replace("/login");
             } catch {
-              Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+              showDialog("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
             }
           },
         },
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
   }, [activeServerId, removeServer, router]);
 
   const handleDeleteAllServers = useCallback(() => {
-    Alert.alert(
+    showDialog(
       "Excluir todas as listas",
       "Todas as listas e credenciais salvas serão removidas permanentemente. Você será desconectado.",
       [
@@ -120,7 +121,7 @@ export default function SettingsScreen() {
               await removeAllServers();
               router.replace("/login");
             } catch {
-              Alert.alert("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
+              showDialog("Não foi possível excluir", "Os dados foram preservados. Tente novamente.");
             }
           },
         },

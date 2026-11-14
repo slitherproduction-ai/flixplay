@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.56] — 2026-11-14
+
+- **Causa dos fechamentos em Séries encontrada** (Diagnóstico da 2.17.55 no Fire TV Stick 4K: `JavascriptException: Invariant Violation: scrollToIndex out of range: item length 0 but minimum is 1`). Ao voltar para uma grade, `useTvFocusRestoration` rolava até o último título focado com `scrollToIndex`, mas a lista podia estar vazia (sendo recarregada — os 3 fechamentos de hoje foram durante a sincronização) e o índice usado era o do título, enquanto a lista virtual de uma grade conta **linhas**: em posições altas o índice também passava do fim. No React Native isso é erro fatal e fechava o app. Agora a rolagem converte título → linha, limita ao tamanho atual da lista, não faz nada com a lista vazia e fica num `try/catch`. Vale para Filmes, Séries, TV ao Vivo e o catálogo da TV.
+- **Diagnóstico sem endereço do servidor**: o erro de conexão do Xtream (`createSafeEndpointDiagnostic`) mostrava o host. Agora só protocolo, porta, caminho e status ("sem resposta" quando 0).
+- Build Android `20261074`.
+
 ## [2.17.55] — 2026-11-13
 
 Diagnóstico do Fire TV Stick 4K na 2.17.53: 3 encerramentos em `/series` (0–2 min abertos, 374–515 MB livres, nenhum aviso de memória) e episódios em "Carregando" sem fim.

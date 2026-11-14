@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.55",
+    version: "v2.17.56",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "App não fecha mais ao voltar para Séries, Filmes ou TV ao Vivo enquanto a lista é atualizada." },
+      { tag: "Correção", text: "Diagnóstico não mostra mais o endereço do servidor." },
+    ],
+  },
+  {
+    version: "v2.17.55",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Episódios da série não ficam mais em \"Carregando\" para sempre." },

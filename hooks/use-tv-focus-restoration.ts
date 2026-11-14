@@ -12,9 +12,24 @@ export function useTvFocusRestoration<T>(scope: string, enabled: boolean, column
     const index = getRememberedTvFocus(scope)?.itemIndex;
     if (!enabled || index === undefined) return;
     requestAnimationFrame(() => {
-      listRef.current?.scrollToIndex({ index, animated: false, viewPosition: 0.42 });
+      const list = listRef.current;
+      if (!list) return;
+      // A lista pode estar vazia ou menor que antes (lista sendo atualizada,
+      // categoria trocada): rolar para fora dela é erro fatal do React Native
+      // ("scrollToIndex out of range") e fechava o app em Séries (2.17.56).
+      // Em grade, a lista virtual conta linhas, não títulos.
+      const data = (list as unknown as { props?: { data?: ArrayLike<unknown> | null } }).props?.data;
+      const perRow = Math.max(columns, 1);
+      const rows = data ? Math.ceil(data.length / perRow) : 0;
+      if (rows === 0) return;
+      const row = Math.min(Math.floor(index / perRow), rows - 1);
+      try {
+        list.scrollToIndex({ index: row, animated: false, viewPosition: 0.42 });
+      } catch {
+        // Lista mudou entre a medida e a rolagem: só não restaura a posição.
+      }
     });
-  }, [enabled, scope]);
+  }, [columns, enabled, scope]);
 
   useFocusEffect(useCallback(() => {
     restore();
@@ -25,8 +40,8 @@ export function useTvFocusRestoration<T>(scope: string, enabled: boolean, column
 
   const onScrollToIndexFailed = useCallback<NonNullable<FlatListProps<T>["onScrollToIndexFailed"]>>(
     ({ index, averageItemLength }) => {
-      const row = Math.floor(index / Math.max(columns, 1));
-      listRef.current?.scrollToOffset({ offset: averageItemLength * row, animated: false });
+      // `index` aqui já é a linha pedida.
+      listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
       if (retryTimer.current) clearTimeout(retryTimer.current);
       retryTimer.current = setTimeout(restore, 80);
     },

@@ -366,7 +366,8 @@ function createSafeEndpointDiagnostic(url: string, status: number): Error {
     const parsed = new URL(url);
     const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
     return new Error(
-      `protocol=${parsed.protocol.slice(0, -1)} host=${parsed.hostname} port=${port} path=${parsed.pathname || "/"} status=${status}`,
+      // Sem o endereço do servidor: o registro aparece no Diagnóstico e no relatório.
+      `protocol=${parsed.protocol.slice(0, -1)} port=${port} path=${parsed.pathname || "/"} status=${status}${status === 0 ? " (sem resposta)" : ""}`,
     );
   } catch {
     return new Error(`endpoint=invalid status=${status}`);

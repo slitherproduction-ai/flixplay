@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.70",
+    version: "v2.17.71",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Tela de ativação na TV no layout do novo visual: passos, MAC e chave num só cartão, botões menores e o QR code num cartão à direita." },
+    ],
+  },
+  {
+    version: "v2.17.70",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "O aviso \"Sair deste conteúdo?\" do player agora usa a mesma janela discreta de \"Sair da conta\" e das demais confirmações do app." },

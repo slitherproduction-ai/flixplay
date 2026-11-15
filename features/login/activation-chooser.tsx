@@ -83,42 +83,44 @@ function tvScale(width: number, height: number): number {
 function makeTvStyles(u: number) {
   const n = (value: number) => Math.round(value * u);
   return StyleSheet.create({
-    root: { width: "100%", gap: n(12) },
-    logo: { width: n(170), height: n(41) },
-    clockTime: { fontFamily: "Inter_600SemiBold", fontSize: n(20), lineHeight: n(24), color: "#F4F8FF" },
-    clockDate: { fontSize: n(11), lineHeight: n(15), color: "#8894A8" },
-    body: { flexDirection: "row", alignItems: "flex-end", gap: n(32) },
-    mainColumn: { flex: 1, maxWidth: n(480), gap: n(10) },
-    heading: { gap: n(4) },
-    eyebrow: { fontFamily: "Inter_700Bold", fontSize: n(10), letterSpacing: 1.8, color: Colors.blueBright },
-    headline: { fontFamily: "Inter_700Bold", fontSize: n(28), lineHeight: n(33), letterSpacing: -0.8, color: "#F4F8FF" },
-    description: { fontSize: n(13), lineHeight: n(18), color: "#B8C4D6" },
-    steps: { gap: n(6) },
+    // Medidas do canvas "Proposta visual Login e Ativação" (tela 3, 1920×1080)
+    // na metade: coluna de 380 dp à esquerda e o QR num cartão à direita.
+    root: { width: "100%", gap: n(14) },
+    logo: { width: n(165), height: n(40) },
+    clockTime: { fontFamily: "Inter_600SemiBold", fontSize: n(22), lineHeight: n(26), color: "#F4F8FF" },
+    clockDate: { fontSize: n(10), lineHeight: n(14), color: "#9AA6BD" },
+    body: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: n(32) },
+    mainColumn: { flex: 1, maxWidth: n(380), gap: n(12) },
+    heading: { gap: n(5) },
+    eyebrow: { fontFamily: "Inter_700Bold", fontSize: n(9), letterSpacing: 1.8, color: Colors.blueBright },
+    headline: { fontFamily: "Inter_700Bold", fontSize: n(36), lineHeight: n(40), letterSpacing: -0.8, color: "#F4F8FF" },
+    description: { fontSize: n(12), lineHeight: n(17), color: "#C9D2E3" },
+    steps: { gap: n(11) },
     step: { flexDirection: "row", alignItems: "center", gap: n(10) },
     stepNumber: { width: n(22), height: n(22), alignItems: "center", justifyContent: "center", borderRadius: n(11), backgroundColor: "#1A2438" },
-    stepNumberText: { fontFamily: "Inter_700Bold", fontSize: n(11), color: Colors.blueBright },
-    stepText: { flex: 1, fontSize: n(13), lineHeight: n(17), color: "#E4EAF4" },
-    codeBlock: { gap: n(5) },
-    codeCaption: { fontFamily: "Inter_700Bold", fontSize: n(10), letterSpacing: 1.6, color: "#8E9AAE" },
-    codeCard: { minHeight: n(48), flexDirection: "row", alignItems: "center", paddingHorizontal: n(16), paddingVertical: n(7), borderRadius: n(14), backgroundColor: "rgba(14,21,36,0.92)" },
-    codeLabel: { fontFamily: "Inter_700Bold", fontSize: n(9), letterSpacing: 1.2, color: "#8E9AAE" },
-    codeValue: { fontFamily: "Inter_700Bold", fontSize: n(15), lineHeight: n(20), color: "#FFFFFF" },
-    codeDivider: { width: 1, alignSelf: "stretch", marginHorizontal: n(16), backgroundColor: "rgba(190,222,255,0.24)" },
+    stepNumberText: { fontFamily: "Inter_700Bold", fontSize: n(10), color: Colors.blueBright },
+    stepText: { flex: 1, fontSize: n(12), lineHeight: n(16), color: "#F4F8FF" },
+    codeBlock: { gap: n(5), paddingHorizontal: n(15), paddingVertical: n(10), borderRadius: n(10), backgroundColor: "rgba(14,21,36,0.92)" },
+    codeCaption: { fontFamily: "Inter_700Bold", fontSize: n(8), letterSpacing: 1.6, color: "#9AA6BD" },
+    codeCard: { flexDirection: "row", alignItems: "flex-end" },
+    codeLabel: { fontFamily: "Inter_700Bold", fontSize: n(7), letterSpacing: 1.2, color: "#7F8BA3" },
+    codeValue: { fontFamily: "Inter_700Bold", fontSize: n(17), lineHeight: n(22), letterSpacing: 0.3, color: "#FFFFFF" },
+    codeDivider: { width: 1, alignSelf: "stretch", marginHorizontal: n(14), backgroundColor: "rgba(190,222,255,0.16)" },
     keyItem: { minWidth: n(80) },
     actions: { gap: n(8) },
-    primary: { minHeight: n(44), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(9), paddingHorizontal: n(16), borderRadius: n(12), borderWidth: 2, borderColor: "transparent", backgroundColor: "#F4F8FF" },
-    primaryText: { fontFamily: "Inter_700Bold", fontSize: n(14), color: Colors.background },
-    shortcut: { flex: 1, minHeight: n(38), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(7), paddingHorizontal: n(10), borderRadius: n(11), borderWidth: 2, borderColor: "transparent", backgroundColor: "rgba(14,21,36,0.92)" },
-    shortcutText: { flexShrink: 1, fontFamily: "Inter_600SemiBold", fontSize: n(12), color: "#F4F8FF" },
-    feedbackText: { fontSize: n(12), color: Colors.muted },
-    errorText: { flex: 1, fontSize: n(12), lineHeight: n(16), color: "#FF8B91" },
-    qrColumn: { alignItems: "center", gap: n(6), paddingBottom: n(2) },
-    qrCard: { width: n(128), height: n(128), alignItems: "center", justifyContent: "center", borderRadius: n(12), backgroundColor: "#FFFFFF" },
-    qrCaption: { fontFamily: "Inter_600SemiBold", fontSize: n(11), color: "#B8C4D6" },
+    primary: { minHeight: n(38), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(8), paddingHorizontal: n(16), borderRadius: n(8), borderWidth: 2, borderColor: "transparent", backgroundColor: "#F4F8FF" },
+    primaryText: { fontFamily: "Inter_700Bold", fontSize: n(12), color: Colors.background },
+    shortcut: { flex: 1, minHeight: n(30), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(6), paddingHorizontal: n(10), borderRadius: n(7), borderWidth: 2, borderColor: "transparent", backgroundColor: "rgba(14,21,36,0.92)" },
+    shortcutText: { flexShrink: 1, fontFamily: "Inter_600SemiBold", fontSize: n(10), color: "#C9D2E3" },
+    feedbackText: { fontSize: n(11), color: Colors.muted },
+    errorText: { flex: 1, fontSize: n(11), lineHeight: n(15), color: "#FF8B91" },
+    qrColumn: { width: n(230), alignItems: "center", gap: n(8), paddingTop: n(20), paddingBottom: n(18), paddingHorizontal: n(20), borderRadius: n(14), backgroundColor: "#0E1524" },
+    qrCard: { width: n(150), height: n(150), alignItems: "center", justifyContent: "center", borderRadius: n(9), backgroundColor: "#FFFFFF", marginBottom: n(2) },
+    qrCaption: { fontSize: n(10), color: "#C9D2E3" },
     qrHost: { fontFamily: "Inter_700Bold", fontSize: n(13), color: Colors.blueBright },
     footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    statusText: { fontSize: n(11), color: "#B8C4D6" },
-    version: { fontSize: n(10), color: "#8E9AAE" },
+    statusText: { fontSize: n(10), color: "#C9D2E3" },
+    version: { fontSize: n(9), color: "#7F8BA3" },
     icon: { width: n(17) },
     shortcutIcon: { width: n(15) },
   });
@@ -147,7 +149,7 @@ export function ActivationChooser({
   const shortcutIconSize = Math.round(15 * u);
 
   const steps = tv
-    ? [`Acesse ${PORTAL_HOST} ou aponte a câmera para o QR code`, "Informe o MAC e a chave deste aparelho", "A lista aparece sozinha em Listas salvas"]
+    ? [`Aponte a câmera para o QR ou acesse ${PORTAL_HOST}`, "Informe o MAC e a chave deste aparelho", "A lista aparece sozinha em Listas salvas"]
     : ["Toque em Abrir o Portal", "Informe o MAC e a chave deste aparelho", "A lista aparece sozinha em Listas salvas"];
 
   return (
@@ -180,6 +182,7 @@ export function ActivationChooser({
             ))}
           </View>
 
+          {/* TV: legenda dentro do cartão (canvas); celular: legenda acima. */}
           <View style={tv ? t.codeBlock : styles.codeBlock}>
             <AppText style={tv ? t.codeCaption : styles.codeCaption}>MAC E CHAVE DESTE APARELHO</AppText>
             <View style={tv ? t.codeCard : styles.codeCard}>

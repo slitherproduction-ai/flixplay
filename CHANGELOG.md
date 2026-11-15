@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.71] — 2026-11-15
+
+- **Ativação da TV no layout do canvas** ("Proposta visual Login e Ativação", tela 3), após o teste em que só as cores tinham mudado: coluna de 380 dp à esquerda (título 36, passos com número ciano, legenda "MAC E CHAVE DESTE APARELHO" dentro do cartão escuro, botão claro "Entrar com código do servidor" mais baixo e atalhos menores) e o QR code num cartão `#0E1524` à direita, centralizado na altura. Celular e tablet não mudam.
+- Build Android `20261089`.
+
 ## [2.17.70] — 2026-11-15
 
 - **Aviso de saída do player no formato das janelas do app** (retorno do teste: o padrão certo é o de "Sair da conta"): "Sair deste conteúdo?" deixa o cartão grande com ícone e botões em pílula e passa a usar o cartão de `components/app-dialog.tsx` (exporta `dialogStyles`) — título curto à esquerda, texto em uma linha, "Continuar assistindo" e "Sair" (vermelho) finos à direita. Na TV o foco começa em "Continuar assistindo". O `showDialog` volta ao visual da 2.17.68: a mudança da 2.17.69 foi desfeita.

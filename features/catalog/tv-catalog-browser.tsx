@@ -7,7 +7,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { Colors } from "@/constants/theme";
-import { BRAND } from "@/constants/brand";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { CatalogBackground } from "@/components/catalog-background";
@@ -167,10 +166,14 @@ function createFooterStore() {
   };
 }
 
-/** Rodapé com o título (ou a categoria) sob o foco; só ele é redesenhado ao navegar. */
+/**
+ * Faixa do título (ou da categoria) sob o foco, acima da grade — como no
+ * Roku, LG e MSX. Só ela é redesenhada ao navegar; a altura é fixa para a
+ * grade não pular quando o conteúdo muda.
+ */
 function CatalogFooter({ store, visibleCount }: { store: ReturnType<typeof createFooterStore>; visibleCount: number }) {
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
-  if (!state) return null;
+  if (!state) return <View style={styles.footer} />;
   let title: string;
   let meta: string;
   let rating = 0;
@@ -195,7 +198,7 @@ function CatalogFooter({ store, visibleCount }: { store: ReturnType<typeof creat
     <View pointerEvents="none" style={styles.footer}>
       <AppText numberOfLines={1} style={styles.footerTitle}>{title}</AppText>
       <View style={styles.footerRow}>
-        {rating > 0 ? <Ionicons name="star" size={10} color={Colors.amber} /> : null}
+        {rating > 0 ? <Ionicons name="star" size={11} color={Colors.amber} /> : null}
         <AppText numberOfLines={1} style={styles.footerMeta}>{meta}</AppText>
         <AppText style={styles.footerCount}>{formatCount(visibleCount)} títulos</AppText>
       </View>
@@ -246,10 +249,11 @@ const CategoryRowItem = memo(function CategoryRowItem({
       focusStyle={styles.categoryFocused}
       style={({ pressed }) => [styles.categoryRow, touch && styles.touchCategoryRow, selected && styles.categoryRowSelected, pressed && styles.categoryPressed]}
     >
-      {selected && !focused ? <View style={styles.categoryMarker} /> : null}
       {item.icon ? (
-        <Ionicons name={item.icon} size={12} color={focused ? Colors.white : highlight ? Colors.blueBright : Colors.muted} />
-      ) : null}
+        <Ionicons name={item.icon} size={12} color={focused ? Colors.background : highlight ? Colors.blueBright : Colors.muted} />
+      ) : !touch ? (
+        <View style={[styles.categoryDot, selected && styles.categoryDotSelected, selected && focused && styles.categoryDotFocused]} />
+      ) : selected && !focused ? <View style={styles.categoryMarker} /> : null}
       <AppText numberOfLines={1} style={[styles.categoryName, touch && styles.touchCategoryName, highlight && styles.categoryNameSelected, focused && styles.categoryTextFocused]}>{item.name}</AppText>
       {item.total !== null ? (
         <AppText style={[styles.categoryCount, selected && styles.categoryCountSelected, focused && styles.categoryTextFocused]}>{formatCount(item.total)}</AppText>
@@ -592,6 +596,7 @@ export function TvCatalogBrowser({
 
         <View style={styles.gridArea}>
           <AppText numberOfLines={1} style={styles.eyebrow}>{eyebrow}</AppText>
+          {touch ? null : <CatalogFooter store={footerStore} visibleCount={visibleEntries.length} />}
           {selectedKey === SEARCH_KEY ? (
             <View style={[styles.searchBox, touch && styles.touchSearchBox]}>
               <Ionicons name="search" size={14} color={Colors.blueBright} />
@@ -623,7 +628,7 @@ export function TvCatalogBrowser({
             columnWrapperStyle={{ gap: gridGap }}
             ItemSeparatorComponent={() => <View style={{ height: touch ? 18 : gridGap + 2 }} />}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.gridContent, { paddingBottom: touch ? 32 : Math.round(height * 0.16) }]}
+            contentContainerStyle={[styles.gridContent, { paddingBottom: touch ? 32 : Math.round(height * 0.08) }]}
             initialNumToRender={18}
             maxToRenderPerBatch={18}
             windowSize={5}
@@ -636,7 +641,6 @@ export function TvCatalogBrowser({
               </View>
             }
           />
-          {touch ? null : <CatalogFooter store={footerStore} visibleCount={visibleEntries.length} />}
         </View>
       </View>
     </View>
@@ -656,18 +660,24 @@ const styles = StyleSheet.create({
   retryText: { fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.background },
 
   body: { flex: 1, flexDirection: "row" },
-  panel: { paddingTop: 10, paddingHorizontal: 6, borderTopLeftRadius: 14, borderTopRightRadius: 14, borderWidth: 1, borderBottomWidth: 0, borderColor: "rgba(190,222,255,0.10)", backgroundColor: "rgba(13,20,34,0.86)" },
+  // Trilho das categorias: superfície única, sem moldura (TvTone.rail).
+  panel: { paddingTop: 10, paddingHorizontal: 6, borderTopLeftRadius: 14, borderTopRightRadius: 14, backgroundColor: "rgba(10,16,28,0.92)" },
   panelTitle: { marginBottom: 6, paddingHorizontal: 8, fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.3, color: Colors.muted },
   panelList: { gap: 2, paddingBottom: 24 },
   categoryRow: { minHeight: 26, flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 8, borderRadius: 7, borderWidth: 1, borderColor: "transparent" },
-  categoryRowSelected: { backgroundColor: "rgba(0,215,255,0.06)" },
-  categoryFocused: { backgroundColor: BRAND.colors.primary, borderColor: Colors.blueBright, transform: [{ scale: 1 }] },
+  // Selecionada = fundo elevado + ponto ciano; em foco = pílula clara (a
+  // mesma regra do menu da Início e dos Ajustes).
+  categoryRowSelected: { backgroundColor: "#1A2438" },
+  categoryFocused: { backgroundColor: "#F4F8FF", borderColor: "#F4F8FF", transform: [{ scale: 1 }] },
+  categoryDot: { width: 5, height: 5, borderRadius: 3, marginRight: 1, backgroundColor: "transparent" },
+  categoryDotSelected: { backgroundColor: Colors.blueBright },
+  categoryDotFocused: { backgroundColor: Colors.background },
   categoryMarker: { position: "absolute", left: 0, top: 6, bottom: 6, width: 2, borderRadius: 1, backgroundColor: Colors.blueBright },
   categoryName: { flex: 1, fontSize: 11, color: "#C9D3E3" },
-  categoryNameSelected: { fontFamily: "Inter_600SemiBold", color: Colors.blueBright },
+  categoryNameSelected: { fontFamily: "Inter_600SemiBold", color: Colors.text },
   categoryCount: { fontSize: 9, color: Colors.muted },
-  categoryCountSelected: { color: Colors.blueBright },
-  categoryTextFocused: { fontFamily: "Inter_600SemiBold", color: Colors.white },
+  categoryCountSelected: { color: "#9AA6BD" },
+  categoryTextFocused: { fontFamily: "Inter_600SemiBold", color: Colors.background },
   categoryPressed: { opacity: 0.7 },
   // Tablet (toque): alvos de 40 dp e texto maior.
   touchCategoryRow: { minHeight: 40, borderRadius: 9 },
@@ -685,16 +695,17 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, height: 36, paddingVertical: 0, fontFamily: "Inter_500Medium", fontSize: 12, color: Colors.text },
   gridContent: { paddingTop: 8, paddingHorizontal: 8 },
   poster: { overflow: "hidden", borderRadius: 9, borderWidth: 1, borderColor: "rgba(190,222,255,0.10)", backgroundColor: Colors.backgroundRaised },
-  posterFocused: { borderWidth: 2, borderColor: Colors.blueBright, transform: [{ scale: 1.07 }] },
+  // Foco do pôster: anel branco + leve ampliação (branco = onde estou).
+  posterFocused: { borderWidth: 2, borderColor: "#FFFFFF", transform: [{ scale: 1.06 }] },
   posterFallback: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", padding: 8 },
   posterFallbackText: { textAlign: "center", fontFamily: "Inter_600SemiBold", fontSize: 10, color: Colors.muted },
   posterQuality: { position: "absolute", top: 5, right: 5, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, backgroundColor: "rgba(7,11,20,0.78)" },
   posterQualityText: { fontFamily: "Inter_700Bold", fontSize: 7, letterSpacing: 0.3, color: Colors.text },
   empty: { alignItems: "center", justifyContent: "center", gap: 10, paddingTop: 70, paddingHorizontal: 30 },
   emptyText: { maxWidth: 380, textAlign: "center", fontSize: 12, lineHeight: 17, color: Colors.muted },
-  footer: { position: "absolute", right: 0, bottom: 0, left: 0, paddingTop: 12, paddingBottom: 18, paddingHorizontal: 4, gap: 3, borderTopWidth: 1, borderTopColor: "rgba(190,222,255,0.08)", backgroundColor: "rgba(7,11,20,0.94)" },
-  footerTitle: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.text },
+  footer: { height: 46, marginBottom: 6, paddingHorizontal: 8, gap: 4, justifyContent: "center" },
+  footerTitle: { fontFamily: "Inter_700Bold", fontSize: 18, lineHeight: 22, letterSpacing: -0.3, color: Colors.text },
   footerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  footerMeta: { flex: 1, fontSize: 10, color: Colors.muted },
-  footerCount: { fontSize: 10, color: Colors.subtle },
+  footerMeta: { flex: 1, fontSize: 11, color: "#C9D2E3" },
+  footerCount: { fontSize: 10, color: "#9AA6BD" },
 });

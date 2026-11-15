@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.62] — 2026-11-14
+
+- **Catálogo de Filmes e Séries na TV** (redesign aprovado): a faixa com o título em foco (nome, ano, duração ou temporadas, categoria e nota) sai do rodapé e fica acima da grade, com altura fixa, para a grade não pular. Categorias num trilho sem moldura; a selecionada tem fundo elevado `#1A2438` e ponto ciano, e o foco é a pílula clara, igual ao menu da Início. Pôster em foco com anel branco e ampliação de 6%. A busca continua como está, na primeira linha das categorias.
+- Build Android `20261080`.
+
 ## [2.17.61] — 2026-11-14
 
 - **Menu da TV com ícones** (redesign aprovado no canvas "Proposta visual TV"): os seis blocos da Início saem e o topo do destaque vira o menu — marca, pílulas com ícone para Início, TV ao Vivo, Filmes, Séries e Minha Lista, Ajustes só com ícone e o relógio (`TvHomeNav`, `TvClock`, que só redesenha a si mesmo uma vez por minuto). Sem o atalho de Busca, a pedido do usuário (a busca segue dentro de Filmes e Séries). Aba ativa em fundo elevado `#1A2438` com ícone ciano; foco em pílula branca, sem ampliar. No tablet os blocos continuam.

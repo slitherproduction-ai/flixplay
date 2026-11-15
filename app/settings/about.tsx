@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.61",
+    version: "v2.17.62",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Filmes e Séries na TV: título em foco no topo da grade, categoria selecionada com ponto ciano e foco em destaque claro." },
+    ],
+  },
+  {
+    version: "v2.17.61",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Na TV, a Início ganhou um menu no topo com ícones: Início, TV ao Vivo, Filmes, Séries, Minha Lista e Ajustes." },

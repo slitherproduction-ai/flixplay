@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.65",
+    version: "v2.17.66",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Novos ícones nas abas, no menu da TV e no player, iguais em todas as versões do app." },
+      { tag: "Melhoria", text: "TV ao Vivo no celular no mesmo padrão de Filmes e Séries: título e busca no topo, cartões e linhas mais elegantes e favorito com coração." },
+      { tag: "Correção", text: "Player ao vivo: informações menores, lista de canais sem a barra de volume por cima e sem o botão Guia e rever." },
+    ],
+  },
+  {
+    version: "v2.17.65",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Detalhes no celular e tablet: Assistir em destaque, temporadas em botões lado a lado e episódios com barra de progresso e marcação de assistido." },

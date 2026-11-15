@@ -11,6 +11,7 @@ import { BRAND } from "@/constants/brand";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, ChannelLogo, HorizontalScroller, PosterCard, SectionHeader } from "@/components/ui";
 import { BrandLogo } from "@/components/brand-logo";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { CatalogBackground } from "@/components/catalog-background";
 import { ParentalGate } from "@/components/parental-gate";
 import { EPG_HOME_PRELOAD_LIMIT, useEpgPreload } from "@/hooks/useEpgPreload";
@@ -500,17 +501,17 @@ function HeroBanner({
 type TvNavDef = {
   key: "home" | "live" | "movies" | "series" | "list";
   title: string;
-  icon: IoniconName;
-  activeIcon: IoniconName;
+  icon: AppIconName;
   href?: Href;
 };
 
+// Mesmos ícones do canvas aprovado e dos apps Roku, LG e MSX.
 const TV_NAV: readonly TvNavDef[] = [
-  { key: "home", title: "Início", icon: "home-outline", activeIcon: "home" },
-  { key: "live", title: "TV ao Vivo", icon: "radio-outline", activeIcon: "radio", href: "/live" },
-  { key: "movies", title: "Filmes", icon: "film-outline", activeIcon: "film", href: "/movies" },
-  { key: "series", title: "Séries", icon: "albums-outline", activeIcon: "albums", href: "/series" },
-  { key: "list", title: "Minha Lista", icon: "bookmark-outline", activeIcon: "bookmark", href: "/watch-later" },
+  { key: "home", title: "Início", icon: "home" },
+  { key: "live", title: "TV ao Vivo", icon: "live", href: "/live" },
+  { key: "movies", title: "Filmes", icon: "film", href: "/movies" },
+  { key: "series", title: "Séries", icon: "series", href: "/series" },
+  { key: "list", title: "Minha Lista", icon: "bookmark", href: "/watch-later" },
 ];
 
 function TvNavItem({ item, active, index, onPress }: { item: TvNavDef; active: boolean; index: number; onPress: () => void }) {
@@ -531,7 +532,7 @@ function TvNavItem({ item, active, index, onPress }: { item: TvNavDef; active: b
       focusStyle={styles.tvNavItemFocused}
       style={[styles.tvNavItem, active && styles.tvNavItemActive]}
     >
-      <Ionicons name={active ? item.activeIcon : item.icon} size={15} color={focused ? Colors.background : active ? Colors.blueBright : color} />
+      <AppIcon name={item.icon} size={15} color={focused ? Colors.background : active ? Colors.blueBright : color} />
       <AppText numberOfLines={1} style={[styles.tvNavText, active && styles.tvNavTextActive, { color }]}>{item.title}</AppText>
     </TVFocusable>
   );
@@ -553,7 +554,7 @@ function TvSettingsButton({ onPress }: { onPress: () => void }) {
       focusStyle={styles.tvNavItemFocused}
       style={styles.tvNavIcon}
     >
-      <Ionicons name="settings-outline" size={16} color={focused ? Colors.background : "#C9D2E3"} />
+      <AppIcon name="settings" size={16} color={focused ? Colors.background : "#C9D2E3"} />
     </TVFocusable>
   );
 }
@@ -603,16 +604,16 @@ function TvHomeNav({ onNavigate }: { onNavigate: (href: Href) => void }) {
 type HomeTileDef = {
   key: "live" | "movies" | "series" | "search" | "list" | "settings";
   title: string;
-  icon: IoniconName;
+  icon: AppIconName;
   href: Href;
 };
 
 const HOME_TILES: readonly HomeTileDef[] = [
-  { key: "live", title: "TV ao Vivo", icon: "radio-outline", href: "/live" },
-  { key: "movies", title: "Filmes", icon: "film-outline", href: "/movies" },
-  { key: "series", title: "Séries", icon: "albums-outline", href: "/series" },
-  { key: "list", title: "Minha Lista", icon: "bookmark-outline", href: "/watch-later" },
-  { key: "settings", title: "Ajustes", icon: "settings-outline", href: "/settings" },
+  { key: "live", title: "TV ao Vivo", icon: "live", href: "/live" },
+  { key: "movies", title: "Filmes", icon: "film", href: "/movies" },
+  { key: "series", title: "Séries", icon: "series", href: "/series" },
+  { key: "list", title: "Minha Lista", icon: "bookmark", href: "/watch-later" },
+  { key: "settings", title: "Ajustes", icon: "settings", href: "/settings" },
 ];
 
 function HomeTile({ tile, caption, width, height, tvMode, index, onPress }: {
@@ -649,7 +650,7 @@ function HomeTile({ tile, caption, width, height, tvMode, index, onPress }: {
         />
       ) : null}
       <View style={[styles.tileIcon, tvMode && styles.tvTileIcon, focused && styles.tileIconFocused]}>
-        <Ionicons name={tile.icon} size={tvMode ? 15 : 18} color={focused ? Colors.white : Colors.blueBright} />
+        <AppIcon name={tile.icon} size={tvMode ? 15 : 18} color={focused ? Colors.white : Colors.blueBright} />
       </View>
       <View style={styles.tileCopy}>
         <AppText numberOfLines={1} style={[styles.tileTitle, tvMode && styles.tvTileTitle]}>{tile.title}</AppText>

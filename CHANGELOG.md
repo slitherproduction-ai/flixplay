@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.66] — 2026-11-14
+
+- **Ícones do redesign** (`components/app-icon.tsx`, `react-native-svg`): os mesmos desenhos do canvas e dos apps Roku, LG e MSX (traço 2, viewBox 24) na barra de abas (Início, TV ao Vivo com antena, Filmes, Séries, Ajustes), no menu da TV, nos blocos do tablet e no player (Voltar, Áudio e legendas, Picture-in-Picture, Favorito, Controle parental, Proporção, Outro player e a lista de Canais). Play/pausa/troca de canal seguem como estavam.
+- **TV ao Vivo no celular/tablet** (retorno do teste): o título "TV ao Vivo", o total e os botões de grade/lista e atualizar vão para o topo, respeitando a barra de status (a busca ficava embaixo do relógio), e a busca vem logo abaixo — o mesmo padrão de Filmes e Séries. Saem o rótulo verde "GUIA AO VIVO", o título gigante e o "Canais disponíveis"; fica só a contagem. Cartões da grade sem borda, em `#0E1524`, logo sobre `#1A2438`; favorito com coração (ciano quando marcado) na grade, nas linhas e no filtro Favoritos.
+- **Player ao vivo no celular** (retorno do teste): sai o botão "Guia e rever"; com a lista de Canais aberta, a barra de volume da direita some (ficava por cima da lista); título do canal em 18 dp (antes 26) e logo menor.
+- Build Android `20261084`.
+
 ## [2.17.65] — 2026-11-14
 
 - **Detalhes no celular e tablet** (redesign aprovado): "Assistir/Continuar" ocupa a largura em branco; Mais tarde e Bloquear viram botões em superfície escura com texto claro (ciano quando salvo, vermelho-claro quando bloqueado). O seletor suspenso de temporadas dá lugar às mesmas pílulas da TV (`TvSeasonPill` com `touch`). Episódios continuam lado a lado, agora com barra de progresso na miniatura e "Assistido ✓" / "% visto" em todos os aparelhos. Imagens do TMDB sem mudança.

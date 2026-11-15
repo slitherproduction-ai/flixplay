@@ -84,6 +84,7 @@ import {
 } from "@/features/player/EpisodeAutomation";
 import { parseSeriesEpisodeNavigation, type SeriesEpisodeNavigation } from "@/features/player/seriesNavigation";
 import { sizedImage } from "@/features/images/sizedImage";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { displayCategory } from "@/features/catalog/display";
 
 /** Format seconds → hh:mm:ss */
@@ -1749,6 +1750,7 @@ export default function PlayerScreen() {
               onInteraction={showControlsWithTimer}
               safeLeft={insets.left}
               safeRight={insets.right}
+              hideRight={channelsOpen}
             />
           ) : null}
           {tvMode ? null : <PlayerCenterControls
@@ -1781,17 +1783,13 @@ export default function PlayerScreen() {
             endsAt={contentType !== "live" && duration > 0 ? endsAtLabel(currentTime, duration, playbackRate) : null}
             tvControls={!tvMode && contentType === "live" ? (
               <View style={styles.phoneLiveActions}>
-                <TVFocusable accessibilityRole="button" accessibilityLabel="Guia de programação e rever" onPress={handleOpenEpg} style={({ pressed }) => [styles.phonePill, pressed && styles.pressed]}>
-                  <Ionicons name="calendar-outline" size={14} color={Colors.white} />
-                  <AppText style={styles.phonePillText}>Guia e rever</AppText>
-                </TVFocusable>
                 <TVFocusable
                   accessibilityRole="button"
                   accessibilityLabel={channelsOpen ? "Fechar lista de canais" : "Abrir lista de canais do grupo"}
                   onPress={() => { setChannelsOpen((open) => !open); showControlsWithTimer(); }}
                   style={({ pressed }) => [styles.phonePill, channelsOpen && styles.phonePillActive, pressed && styles.pressed]}
                 >
-                  <Ionicons name="list" size={14} color={channelsOpen ? Colors.background : Colors.white} />
+                  <AppIcon name="list" size={15} color={channelsOpen ? Colors.background : Colors.white} />
                   <AppText style={[styles.phonePillText, channelsOpen && styles.phonePillTextActive]}>Canais</AppText>
                 </TVFocusable>
               </View>
@@ -1951,7 +1949,7 @@ function PlayerTopBar({
   if (tvMode) {
     return (
       <View pointerEvents="box-none" style={styles.topBar}>
-        <PlayerTopAction icon="arrow-back" label="Voltar" onPress={onBack} />
+        <PlayerTopAction icon="back" label="Voltar" onPress={onBack} />
         <View style={styles.topSpacer} />
         <View style={styles.tvClockBlock}>
           <AppText style={styles.tvClockText}>{hhmm(new Date())}</AppText>
@@ -1962,32 +1960,33 @@ function PlayerTopBar({
   }
   return (
     <View pointerEvents="box-none" style={styles.topBar}>
-      <PlayerTopAction icon="arrow-back" label="Voltar" onPress={onBack} />
+      <PlayerTopAction icon="back" label="Voltar" onPress={onBack} />
       <View style={styles.topSpacer} />
       <View style={styles.topActions}>
-        <PlayerTopAction ref={topControlsRef} icon="musical-note" label="Faixas de áudio e legendas" onPress={onOpenTracks} />
+        <PlayerTopAction ref={topControlsRef} icon="tracks" label="Faixas de áudio e legendas" onPress={onOpenTracks} />
         <PlayerTopAction
-          icon="phone-portrait-outline"
+          icon="pip"
           label="Picture-in-Picture"
           onPress={onTogglePip}
         />
         {contentType === "live" ? (
           <PlayerTopAction
-            icon={favorite ? "heart" : "heart-outline"}
+            icon="heart"
+            filled={favorite}
             label={favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
             onPress={onToggleFavorite}
             active={favorite}
           />
         ) : null}
         <PlayerTopAction
-          icon={protectedContent ? "lock-closed" : "lock-open-outline"}
+          icon={protectedContent ? "lock" : "unlock"}
           label={protectedContent ? "Conteúdo protegido: abrir controle parental" : "Abrir controle parental"}
           onPress={onOpenParentalSettings}
           active={protectedContent}
         />
-        <PlayerTopAction icon="scan-outline" label="Alterar proporção de tela" onPress={onCycleRatio} />
+        <PlayerTopAction icon="ratio" label="Alterar proporção de tela" onPress={onCycleRatio} />
         {onOpenExternal ? (
-          <PlayerTopAction icon="open-outline" label="Abrir em outro player (VLC, MX Player)" onPress={onOpenExternal} />
+          <PlayerTopAction icon="external" label="Abrir em outro player (VLC, MX Player)" onPress={onOpenExternal} />
         ) : null}
       </View>
     </View>
@@ -1995,13 +1994,14 @@ function PlayerTopBar({
 }
 
 type PlayerTopActionProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
+  filled?: boolean;
   label: string;
   onPress: () => void;
   active?: boolean;
 };
 
-const PlayerTopAction = forwardRef<TVFocusableHandle, PlayerTopActionProps>(function PlayerTopAction({ icon, label, onPress, active = false }, ref) {
+const PlayerTopAction = forwardRef<TVFocusableHandle, PlayerTopActionProps>(function PlayerTopAction({ icon, label, onPress, active = false, filled = false }, ref) {
   return (
     <TVFocusable
       ref={ref}
@@ -2011,7 +2011,7 @@ const PlayerTopAction = forwardRef<TVFocusableHandle, PlayerTopActionProps>(func
       focusStyle={styles.playerTopActionFocused}
       style={({ pressed }) => [styles.playerTopAction, pressed && styles.playerTopActionPressed]}
     >
-      <Ionicons name={icon} size={26} color={active ? Colors.blueBright : Colors.white} />
+      <AppIcon name={icon} size={24} color={active ? Colors.blueBright : Colors.white} filled={filled} />
     </TVFocusable>
   );
 });
@@ -2135,24 +2135,25 @@ function TvTransportRow({
         onPress={onForward}
       />
       <View style={styles.topSpacer} />
-      <TvPill ref={topControlsRef} icon="chatbox-ellipses-outline" label="Áudio e legendas" accessibilityLabel="Faixas de áudio e legendas" onPress={onOpenTracks} />
-      <TvPill icon="scan-outline" label={ratioLabel} accessibilityLabel={`Proporção de tela: ${ratioLabel}`} onPress={onCycleRatio} />
+      <TvPill ref={topControlsRef} appIcon="tracks" label="Áudio e legendas" accessibilityLabel="Faixas de áudio e legendas" onPress={onOpenTracks} />
+      <TvPill appIcon="ratio" label={ratioLabel} accessibilityLabel={`Proporção de tela: ${ratioLabel}`} onPress={onCycleRatio} />
       {isLive ? (
         <TvPill
-          icon={favorite ? "heart" : "heart-outline"}
+          appIcon="heart"
+          filled={favorite}
           active={favorite}
           accessibilityLabel={favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
           onPress={onToggleFavorite}
         />
       ) : null}
       <TvPill
-        icon={protectedContent ? "lock-closed" : "lock-open-outline"}
+        appIcon={protectedContent ? "lock" : "unlock"}
         active={protectedContent}
         accessibilityLabel={protectedContent ? "Conteúdo protegido: abrir controle parental" : "Abrir controle parental"}
         onPress={onOpenParentalSettings}
       />
       {onOpenExternal ? (
-        <TvPill icon="open-outline" accessibilityLabel="Abrir em outro player (VLC, MX Player)" onPress={onOpenExternal} />
+        <TvPill appIcon="external" accessibilityLabel="Abrir em outro player (VLC, MX Player)" onPress={onOpenExternal} />
       ) : null}
     </View>
   );
@@ -2160,6 +2161,9 @@ function TvTransportRow({
 
 type TvPillProps = {
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Ícone do redesign (o mesmo do canvas e das outras plataformas). */
+  appIcon?: AppIconName;
+  filled?: boolean;
   label?: string;
   accessibilityLabel: string;
   onPress: () => void;
@@ -2168,7 +2172,7 @@ type TvPillProps = {
   preferred?: boolean;
 };
 
-const TvPill = forwardRef<TVFocusableHandle, TvPillProps>(function TvPill({ icon, label, accessibilityLabel, onPress, active = false, round = false, preferred = false }, ref) {
+const TvPill = forwardRef<TVFocusableHandle, TvPillProps>(function TvPill({ icon, appIcon, filled = false, label, accessibilityLabel, onPress, active = false, round = false, preferred = false }, ref) {
   const [focused, setFocused] = useState(false);
   const color = focused || round ? Colors.background : active ? Colors.blueBright : Colors.white;
   return (
@@ -2184,6 +2188,7 @@ const TvPill = forwardRef<TVFocusableHandle, TvPillProps>(function TvPill({ icon
       style={[styles.tvPill, round && styles.tvPillRound, !label && !round && styles.tvPillIconOnly]}
     >
       {icon ? <Ionicons name={icon} size={round ? 17 : 15} color={color} /> : null}
+      {appIcon ? <AppIcon name={appIcon} size={16} color={color} filled={filled} /> : null}
       {label ? <AppText numberOfLines={1} style={[styles.tvPillText, { color }]}>{label}</AppText> : null}
     </TVFocusable>
   );
@@ -2250,6 +2255,7 @@ function SideAdjustments({
   onInteraction,
   safeLeft,
   safeRight,
+  hideRight = false,
 }: {
   volume: number;
   brightness: number;
@@ -2258,6 +2264,8 @@ function SideAdjustments({
   onInteraction: () => void;
   safeLeft: number;
   safeRight: number;
+  /** Com a lista de canais aberta, o volume sai da frente dela. */
+  hideRight?: boolean;
 }) {
   return (
     <>
@@ -2270,6 +2278,7 @@ function SideAdjustments({
         onInteraction={onInteraction}
         edgeInset={safeLeft}
       />
+      {hideRight ? null : (
       <VerticalAdjustment
         side="right"
         icon={volume === 0 ? "volume-mute-outline" : "volume-high-outline"}
@@ -2279,6 +2288,7 @@ function SideAdjustments({
         onInteraction={onInteraction}
         edgeInset={safeRight}
       />
+      )}
     </>
   );
 }
@@ -2513,13 +2523,13 @@ function PlayerBottomPanel({
   return (
     <View style={styles.bottomPanel}>
       <View style={styles.mediaSummary}>
-        <ChannelLogo image={artwork} name={title} size={52} />
+        <ChannelLogo image={artwork} name={title} size={Platform.isTV ? 52 : 38} />
         <View style={styles.mediaSummaryCopy}>
           <AppText numberOfLines={1} style={[styles.mediaSummaryMeta, tvControls ? styles.tvSummaryEyebrow : null]}>
             {isLive ? (liveMeta || "AO VIVO") : contentType === "episode" ? "SÉRIE" : "FILME"}
             {!isLive && subtitle ? ` · ${subtitle}` : ""}
           </AppText>
-          <AppText numberOfLines={1} style={styles.mediaSummaryTitle}>{title}</AppText>
+          <AppText numberOfLines={1} style={[styles.mediaSummaryTitle, !Platform.isTV && styles.phoneSummaryTitle]}>{title}</AppText>
           {isLive ? (
             <>
               <View style={styles.tvEpgRow}>
@@ -3089,6 +3099,8 @@ const styles = StyleSheet.create({
   },
 
   // Celular/tablet: ações do ao vivo e lista lateral de canais.
+  // Celular: título e guia menores (o título de 26 dp ocupava meia tela deitada).
+  phoneSummaryTitle: { fontSize: 18, lineHeight: 22 },
   phoneLiveActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
   phonePill: { height: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, borderRadius: 17, backgroundColor: "rgba(244,248,255,0.14)" },
   phonePillActive: { backgroundColor: "#F4F8FF" },

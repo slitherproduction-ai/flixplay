@@ -14,6 +14,8 @@ import {
 import { Colors, Radii, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText, Chip, IconButton, SearchField, SectionHeader } from "@/components/ui";
+import { AppIcon } from "@/components/app-icon";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
@@ -125,11 +127,7 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite, 
         hitSlop={8}
         style={gridStyles.favBtn}
       >
-        <Ionicons
-          name={isFavorite ? "star" : "star-outline"}
-          size={15}
-          color={isFavorite ? Colors.amber : Colors.muted}
-        />
+        <AppIcon name="heart" size={15} filled={isFavorite} color={isFavorite ? Colors.blueBright : "#C9D2E3"} />
       </TVFocusable>
     </View>
   );
@@ -245,11 +243,7 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
             hitSlop={8}
             style={styles.favoriteButton}
           >
-            <Ionicons
-              name={isFavorite ? "star" : "star-outline"}
-              size={20}
-              color={isFavorite ? Colors.amber : Colors.muted}
-            />
+            <AppIcon name="heart" size={19} filled={isFavorite} color={isFavorite ? Colors.blueBright : "#9AA6BD"} />
           </TVFocusable>
         )}
     </View>
@@ -334,7 +328,7 @@ function LiveHeader({
         </View>
       ) : null}
 
-      <View style={[styles.header, tvMode && styles.tvHeader]}>
+      {tvMode ? <View style={[styles.header, styles.tvHeader]}>
         {tvMode ? (
           <View style={styles.tvGuideStatus}>
             <AppText style={styles.tvGuideCount}>
@@ -368,7 +362,7 @@ function LiveHeader({
           <IconButton icon="refresh" label="Atualizar lista" onPress={refresh} size={tvMode ? 36 : 42} />
           </> : null}
         </View>
-      </View>
+      </View> : null}
 
       <ScrollView
         horizontal
@@ -384,7 +378,7 @@ function LiveHeader({
               selectedTone={tvMode ? "light" : "blue"}
             hasTVPreferredFocus={index === 0 && !hasRememberedTvFocus(LIVE_FOCUS_SCOPE)}
             onPress={() => setCategory(item)}
-            icon={item === FAVORITES_LABEL ? "star" : undefined}
+            icon={item === FAVORITES_LABEL ? (tvMode ? "star" : "heart") : undefined}
             compact={tvMode}
           />
         ))}
@@ -396,10 +390,10 @@ function LiveHeader({
           <AppText style={styles.tvListCount}>{isSyncing ? "Carregando…" : `${filteredCount} canais`}</AppText>
         </View>
       ) : (
-        <SectionHeader
-          title={category === FAVORITES_LABEL ? "Canais favoritos" : "Canais disponíveis"}
-          subtitle={isSyncing ? "Carregando..." : `${filteredCount} canais`}
-        />
+        // Celular/tablet: só a contagem (o título fica no topo, como em Filmes).
+        <AppText style={styles.mobileResultCount}>
+          {isSyncing ? "Carregando…" : `${filteredCount.toLocaleString("pt-BR")} ${filteredCount === 1 ? "canal" : "canais"}${category === FAVORITES_LABEL ? " favoritos" : ""}`}
+        </AppText>
       )}
     </View>
   );
@@ -455,6 +449,7 @@ function LiveScreen() {
   // valor "atrasado" e o React descarta os cálculos que ficaram velhos.
   const deferredQuery = useDeferredValue(query);
   const [viewMode, toggleViewMode] = useViewMode();
+  const insets = useSafeAreaInsets();
   const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
 
   const favoriteChannelIds = useAppStore((state) => state.favoriteChannelIds);
@@ -822,12 +817,37 @@ function LiveScreen() {
     <View style={styles.screen}>
       <ParentalGate visible={pendingChannelId !== null} onAuthorized={openAuthorizedChannel} onClose={() => setPendingChannelId(null)} />
       <View style={styles.ambient} />
-      {/* Search field rendered OUTSIDE FlatList so it never remounts on query change */}
-      <View style={[styles.searchBar, { paddingHorizontal: horizontalPadding }]}>
+      {/* Título e busca fora da FlatList (a busca não remonta ao digitar).
+          Mesmo padrão de Filmes e Séries: título + total, depois a busca. */}
+      <View style={[styles.searchBar, { paddingHorizontal: horizontalPadding, paddingTop: insets.top + 14 }]}>
+        <View style={styles.mobileTitleRow}>
+          <AppText style={styles.mobileTitle}>TV ao Vivo</AppText>
+          <AppText style={styles.mobileTotal}>
+            {isSyncing && channels.length === 0 ? (syncProgress ?? "Carregando…") : `${channels.length.toLocaleString("pt-BR")} canais`}
+          </AppText>
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel={effectiveViewMode === "grid" ? "Mudar para lista" : "Mudar para grade"}
+            onPress={toggleViewMode}
+            hitSlop={6}
+            style={({ pressed }) => [styles.mobileTitleButton, pressed && styles.pressed]}
+          >
+            <Ionicons name={effectiveViewMode === "grid" ? "list-outline" : "grid-outline"} size={18} color={Colors.text} />
+          </TVFocusable>
+          <TVFocusable
+            accessibilityRole="button"
+            accessibilityLabel="Atualizar lista"
+            onPress={refresh}
+            hitSlop={6}
+            style={({ pressed }) => [styles.mobileTitleButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="refresh" size={18} color={Colors.text} />
+          </TVFocusable>
+        </View>
         <SearchField
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar canal ou programa"
+          placeholder="Buscar canal ou número"
         />
       </View>
       {channelList}
@@ -841,21 +861,19 @@ function LiveScreen() {
 
 const gridStyles = StyleSheet.create({
   card: {
-    borderRadius: Radii.medium,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.glass,
+    borderRadius: 14,
+    backgroundColor: "#0E1524",
     overflow: "hidden",
   },
   cardPressable: { flex: 1 },
   logoArea: {
-    height: 100,
-    backgroundColor: Colors.backgroundRaised,
+    height: 92,
+    backgroundColor: "#1A2438",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  logo: { width: "80%", height: "80%" },
+  logo: { width: "72%", height: "72%" },
   logoFallback: {
     width: 52,
     height: 52,
@@ -877,7 +895,7 @@ const gridStyles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 5,
-    backgroundColor: "rgba(229,9,20,0.85)",
+    backgroundColor: "#FF5A5F",
   },
   liveDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.white },
   liveText: { fontFamily: "Inter_700Bold", fontSize: 7, letterSpacing: 0.3, color: Colors.white },
@@ -885,15 +903,15 @@ const gridStyles = StyleSheet.create({
     position: "absolute",
     top: 7,
     left: 7,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 5,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: "rgba(7,11,20,0.75)",
   },
-  numText: { fontFamily: "Inter_600SemiBold", fontSize: 8, color: Colors.muted },
-  infoArea: { gap: 4, padding: 8, paddingBottom: 10 },
-  channelName: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.text },
-  programName: { fontSize: 10, color: Colors.muted },
+  numText: { fontFamily: "Inter_600SemiBold", fontSize: 9, color: "#C9D2E3" },
+  infoArea: { gap: 4, padding: 10, paddingRight: 36, paddingBottom: 12 },
+  channelName: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
+  programName: { fontSize: 11, color: "#9AA6BD" },
   progressTrack: {
     height: 2,
     borderRadius: 1,
@@ -911,7 +929,7 @@ const gridStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "transparent",
   },
 });
 
@@ -930,7 +948,12 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     backgroundColor: "rgba(16, 185, 129, 0.07)",
   },
-  searchBar: { paddingTop: 12, paddingBottom: 3 },
+  searchBar: { paddingTop: 12, paddingBottom: 3, gap: 14 },
+  mobileTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  mobileTitle: { flex: 1, fontFamily: "Inter_700Bold", fontSize: 28, lineHeight: 34, letterSpacing: -0.5, color: Colors.text },
+  mobileTotal: { fontSize: 13, color: "#9AA6BD" },
+  mobileTitleButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 18, backgroundColor: "#0E1524" },
+  mobileResultCount: { fontSize: 12, color: "#9AA6BD", marginTop: 2 },
   tvSearchBar: { paddingTop: 18, paddingBottom: 10 },
   content: { gap: 0, paddingTop: 0, paddingBottom: 35 },
   tvContent: { paddingBottom: 42 },

@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.68",
+    version: "v2.17.69",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Janelas de confirmação (Sair da conta, excluir lista, sair do app e avisos) no mesmo padrão do \"Sair deste conteúdo?\" do player: ícone, título centralizado e botões em pílula." },
+    ],
+  },
+  {
+    version: "v2.17.68",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Imagens do destaque da Início e dos Detalhes na TV: se o servidor de imagens do TMDB não responder, o app tenta outro servidor do TMDB e, por fim, a imagem da sua lista." },

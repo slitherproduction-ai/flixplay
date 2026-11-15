@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.69] — 2026-11-15
+
+- **Janelas de confirmação no padrão do redesign** (`components/app-dialog.tsx`), após o teste em que "Sair da conta" ainda aparecia no estilo antigo: todas as janelas do `showDialog` (Sair da conta no celular e na TV, excluir lista, sair do aplicativo, Diagnóstico, controle parental, Continuar assistindo, TV ao Vivo e login) passam a seguir o "Sair deste conteúdo?" do player — ícone ciano conforme o assunto (sair, excluir, erro, aviso), título 21 e texto centralizados, cartão `#0E1524` e botões em pílula: Cancelar escuro (`#1A2438`) ocupando o espaço à esquerda e a ação principal em pílula clara à direita (texto vermelho quando exclui ou desconecta). Na TV o foco continua começando em Cancelar quando a ação é destrutiva.
+- Build Android `20261087`.
+
 ## [2.17.68] — 2026-11-15
 
 - **Imagens do TMDB com reserva** (`features/images/fallbackImage.tsx`), após teste na TV em que nota, sinopse e elenco do TMDB chegavam mas as imagens não: o destaque da Início e o fundo e a capa dos Detalhes da TV passam a usar `FallbackImage`. Quando um endereço de `image.tmdb.org` falha, o app tenta o mesmo arquivo em `media.themoviedb.org` (o outro servidor de imagens do TMDB), depois a imagem larga da lista e, por fim, a capa. A troca só acontece em caso de erro: quem carrega de primeira não baixa nada a mais.

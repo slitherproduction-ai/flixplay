@@ -47,8 +47,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.67",
+    version: "v2.17.68",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Imagens do destaque da Início e dos Detalhes na TV: se o servidor de imagens do TMDB não responder, o app tenta outro servidor do TMDB e, por fim, a imagem da sua lista." },
+    ],
+  },
+  {
+    version: "v2.17.67",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Tela de ativação no novo padrão: passos em ciano, MAC e chave em uma linha, botões sem contorno e foco branco na TV." },

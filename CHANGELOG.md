@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.68] — 2026-11-15
+
+- **Imagens do TMDB com reserva** (`features/images/fallbackImage.tsx`), após teste na TV em que nota, sinopse e elenco do TMDB chegavam mas as imagens não: o destaque da Início e o fundo e a capa dos Detalhes da TV passam a usar `FallbackImage`. Quando um endereço de `image.tmdb.org` falha, o app tenta o mesmo arquivo em `media.themoviedb.org` (o outro servidor de imagens do TMDB), depois a imagem larga da lista e, por fim, a capa. A troca só acontece em caso de erro: quem carrega de primeira não baixa nada a mais.
+- Build Android `20261086`.
+
 ## [2.17.67] — 2026-11-15
 
 - **Login e ativação no padrão do redesign** (canvas "Proposta visual Login e Ativação"), com o mesmo fundo de hoje (`ELVANOQ_login_*_backdrop_v5`): números dos passos em ciano sobre `#1A2438` (antes azul `#147DFF`); cartão do MAC e da chave sem borda ciano, em `rgba(14,21,36,0.92)`, com os dois códigos em uma linha só e menores (15 dp; sai o `adjustsFontSizeToFit` que cortava o MAC); "Entrar com código do servidor", "Xtream por Host" e "Listas salvas" sem contorno; foco da TV em anel branco, sem ampliar. Status amarelo enquanto o aparelho aguarda o vínculo ("esta tela atualiza sozinha").

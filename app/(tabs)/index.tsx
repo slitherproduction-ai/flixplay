@@ -25,6 +25,7 @@ import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
 import { markAppReady } from "@/services/performanceMonitor";
 import { sizedImage } from "@/features/images/sizedImage";
 import { useHeroBackdrop } from "@/features/home/useHeroBackdrop";
+import { FallbackImage, imageCandidates } from "@/features/images/fallbackImage";
 import { HERO_FOCUS_DELAY_MS, createHeroFocusStore } from "@/features/home/heroFocus";
 import { catalogDatabase } from "@/data/database/catalogDatabase";
 
@@ -350,6 +351,12 @@ function HeroBanner({
   const landscapeArt = fetchedBackdrop || listBackdrop;
   const portraitOnly = !landscapeArt && wide;
   const artwork = landscapeArt || hero.poster;
+  // Se o servidor de imagens do TMDB falhar, tenta o espelho do TMDB, a imagem
+  // larga da lista e, por fim, a capa.
+  const artworkSources = useMemo(
+    () => imageCandidates(sizedImage(artwork, "backdrop"), sizedImage(listBackdrop, "backdrop"), sizedImage(hero.poster, "backdrop")),
+    [artwork, listBackdrop, hero.poster],
+  );
 
   // Troca de destaque: o texto entra com fade e leve subida, e a arte faz
   // uma aproximação lenta (Ken Burns) enquanto o slide está ativo.
@@ -378,14 +385,14 @@ function HeroBanner({
     <View style={[styles.heroStage, { height }]}>
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: artScale }] }]}>
         {portraitOnly ? (
-          <Image
-            source={{ uri: sizedImage(artwork, "backdrop") }}
+          <FallbackImage
+            sources={artworkSources}
             contentFit="cover"
             transition={tvMode ? 250 : 650}
             style={[styles.heroPortraitArt, { width: Math.round(height * (2 / 3)) }]}
           />
         ) : (
-          <Image source={{ uri: sizedImage(artwork, "backdrop") }} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
+          <FallbackImage sources={artworkSources} contentFit="cover" contentPosition="top" transition={tvMode ? 250 : 650} style={StyleSheet.absoluteFill} />
         )}
       </Animated.View>
 

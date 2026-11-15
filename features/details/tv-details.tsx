@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { FallbackImage, imageCandidates } from "@/features/images/fallbackImage";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { type ComponentProps, memo, useEffect, useMemo, useState } from "react";
@@ -186,8 +187,16 @@ export function TvDetailsContent({
   const confident = Boolean(tmdb?.confidentMatch);
 
   const title = (confident && tmdb?.title) || displayTitle(item?.title ?? "") || "Conteúdo";
-  const poster = (confident && tmdb?.posterUrl) || item?.poster || "";
-  const backdrop = (confident && tmdb?.backdropUrl) || item?.backdrop || item?.poster || "";
+  // Arte do TMDB com reserva: espelho do TMDB e, se nada responder, a da lista.
+  const posterSources = imageCandidates(
+    sizedImage(confident ? tmdb?.posterUrl : "", "poster"),
+    sizedImage(item?.poster, "poster"),
+  );
+  const backdropSources = imageCandidates(
+    sizedImage(confident ? tmdb?.backdropUrl : "", "backdrop"),
+    sizedImage(item?.backdrop, "backdrop"),
+    sizedImage(item?.poster, "backdrop"),
+  );
   const serverPlot = (item?.plot ?? "").trim();
   const hasServerPlot = serverPlot.length > 30 && serverPlot.toLowerCase() !== "n/a";
   const synopsis = tmdb?.synopsis ?? (hasServerPlot ? serverPlot : fallbackSynopsis);
@@ -234,7 +243,7 @@ export function TvDetailsContent({
 
   return (
     <View style={styles.screen}>
-      <Image source={{ uri: sizedImage(backdrop, "backdrop") }} contentFit="cover" transition={500} style={[StyleSheet.absoluteFill, styles.backdrop]} />
+      <FallbackImage sources={backdropSources} contentFit="cover" transition={500} style={[StyleSheet.absoluteFill, styles.backdrop]} />
       <LinearGradient
         pointerEvents="none"
         colors={["rgba(7,11,20,0.96)", "rgba(7,11,20,0.78)", "rgba(7,11,20,0.25)", "rgba(7,11,20,0.45)"]}
@@ -321,7 +330,7 @@ export function TvDetailsContent({
           </View>
 
           <View style={[styles.posterFrame, { width: posterWidth + 8, height: posterHeight + 8 }]}>
-            <Image source={{ uri: sizedImage(poster, "poster") }} contentFit="cover" transition={400} style={styles.posterImage} />
+            <FallbackImage sources={posterSources} contentFit="cover" transition={400} style={styles.posterImage} />
           </View>
         </View>
 

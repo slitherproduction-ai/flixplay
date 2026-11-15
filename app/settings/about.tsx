@@ -47,11 +47,11 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.69",
+    version: "v2.17.70",
     label: "Atual",
     date: "2026.11",
     changes: [
-      { tag: "Melhoria", text: "Janelas de confirmação (Sair da conta, excluir lista, sair do app e avisos) no mesmo padrão do \"Sair deste conteúdo?\" do player: ícone, título centralizado e botões em pílula." },
+      { tag: "Melhoria", text: "O aviso \"Sair deste conteúdo?\" do player agora usa a mesma janela discreta de \"Sair da conta\" e das demais confirmações do app." },
     ],
   },
   {

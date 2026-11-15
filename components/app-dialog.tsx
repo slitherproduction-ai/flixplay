@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { Animated, Easing, Modal, Platform, StyleSheet, View } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { Colors } from "@/constants/theme";
 
 /**
- * Janela de confirmação do app, no lugar do `Alert.alert` do Android. Desde a
- * 2.17.69 segue o padrão do "Sair deste conteúdo?" do player (redesign):
- * ícone ciano, título e texto centralizados e botões em pílula — Cancelar
- * escuro à esquerda, a ação principal em pílula clara à direita. Mesma
- * assinatura do Alert, para trocar sem mudar a lógica de quem chama.
+ * Janela de confirmação do app (2.17.59), no lugar do `Alert.alert` do
+ * Android: cartão pequeno e discreto, título curto, texto em uma ou duas
+ * linhas e botões finos alinhados à direita. Mesma assinatura do Alert, para
+ * trocar sem mudar a lógica de quem chama.
  *
  * - O botão "cancel" fecha também com o Voltar.
  * - Com uma ação "destructive", o foco começa em Cancelar (evita apagar por engano).
@@ -18,18 +16,6 @@ import { Colors } from "@/constants/theme";
  */
 export type DialogButton = { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void };
 type DialogRequest = { id: number; title: string; message?: string; buttons: DialogButton[] };
-
-type IoniconName = keyof typeof Ionicons.glyphMap;
-
-/** Ícone pelo assunto da janela: sair, excluir, erro ou aviso. */
-function iconFor(request: DialogRequest): IoniconName {
-  const title = request.title.toLocaleLowerCase("pt-BR");
-  if (title.startsWith("sair")) return "exit-outline";
-  if (/(falha|não foi possível|inválid|erro)/.test(title)) return "alert-circle-outline";
-  if (/(excluir|remover|apagar|limpar)/.test(title) && request.buttons.some((b) => b.style === "destructive")) return "trash-outline";
-  if (request.buttons.length <= 1) return "checkmark-circle-outline";
-  return "help-circle-outline";
-}
 
 let nextId = 1;
 const queue: DialogRequest[] = [];
@@ -74,21 +60,17 @@ export function AppDialogHost() {
   const ordered = [...current.buttons].sort((a, b) => Number(b.style === "cancel") - Number(a.style === "cancel"));
   const preferred = hasDestructive && cancel ? cancel : ordered[ordered.length - 1];
 
-  const icon = iconFor(current);
-  const single = ordered.length === 1;
-
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={() => close(cancel)}>
-      <Animated.View style={[styles.backdrop, { opacity }]}>
-        <Animated.View accessibilityViewIsModal accessibilityRole="alert" style={[styles.card, { transform: [{ translateY: lift }] }]}>
-          <Ionicons name={icon} size={30} color={Colors.blueBright} />
-          <AppText style={styles.title}>{current.title}</AppText>
-          {current.message ? <AppText style={styles.message}>{current.message}</AppText> : null}
-          <View style={styles.actions}>
+      <Animated.View style={[dialogStyles.backdrop, { opacity }]}>
+        <Animated.View accessibilityViewIsModal accessibilityRole="alert" style={[dialogStyles.card, { transform: [{ translateY: lift }] }]}>
+          <AppText style={dialogStyles.title}>{current.title}</AppText>
+          {current.message ? <AppText style={dialogStyles.message}>{current.message}</AppText> : null}
+          <View style={dialogStyles.actions}>
             {ordered.map((button, index) => {
               const destructive = button.style === "destructive";
               const isCancel = button.style === "cancel";
-              const primary = !isCancel && index === ordered.length - 1;
+              const primary = !isCancel && !destructive && index === ordered.length - 1;
               return (
                 <TVFocusable
                   key={`${current.id}-${button.text}`}
@@ -96,16 +78,10 @@ export function AppDialogHost() {
                   accessibilityLabel={button.text}
                   hasTVPreferredFocus={Platform.isTV && button === preferred}
                   onPress={() => close(button)}
-                  focusStyle={primary ? styles.primaryFocused : styles.ghostFocused}
-                  style={({ pressed }) => [
-                    styles.button,
-                    primary ? styles.primary : styles.ghost,
-                    !primary && !single && styles.grow,
-                    single && styles.grow,
-                    pressed && styles.pressed,
-                  ]}
+                  focusStyle={primary ? dialogStyles.primaryFocused : dialogStyles.ghostFocused}
+                  style={({ pressed }) => [dialogStyles.button, primary ? dialogStyles.primary : dialogStyles.ghost, pressed && dialogStyles.pressed]}
                 >
-                  <AppText numberOfLines={1} style={[styles.buttonText, primary && styles.primaryText, primary && destructive && styles.destructiveText]}>{button.text}</AppText>
+                  <AppText style={[dialogStyles.buttonText, primary && dialogStyles.primaryText, destructive && dialogStyles.destructiveText, isCancel && dialogStyles.cancelText]}>{button.text}</AppText>
                 </TVFocusable>
               );
             })}
@@ -116,35 +92,36 @@ export function AppDialogHost() {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "rgba(3,6,12,0.72)" },
+/** Exportado para o aviso de saída do player usar o mesmo cartão. */
+export const dialogStyles = StyleSheet.create({
+  backdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "rgba(3,6,12,0.68)" },
   card: {
     width: "100%",
-    maxWidth: 430,
-    alignItems: "center",
-    gap: 12,
-    padding: 24,
-    borderRadius: 22,
-    backgroundColor: "#0E1524",
-    borderWidth: 1,
+    maxWidth: 360,
+    paddingTop: 20,
+    paddingHorizontal: 22,
+    paddingBottom: 16,
+    borderRadius: 18,
+    backgroundColor: "#0F1626",
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.08)",
     shadowColor: "#000",
-    shadowOpacity: 0.45,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 14,
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
   },
-  title: { fontFamily: "Inter_700Bold", fontSize: 21, lineHeight: 27, letterSpacing: -0.3, color: Colors.text, textAlign: "center" },
-  message: { fontSize: 13, lineHeight: 19, color: Colors.muted, textAlign: "center" },
-  actions: { width: "100%", flexDirection: "row", gap: 12, marginTop: 8 },
-  button: { minHeight: 46, minWidth: 92, alignItems: "center", justifyContent: "center", paddingHorizontal: 22, borderRadius: 23, borderWidth: 1.5, borderColor: "transparent" },
-  grow: { flex: 1 },
-  ghost: { backgroundColor: "#1A2438" },
+  title: { fontFamily: "Inter_600SemiBold", fontSize: 15, lineHeight: 20, letterSpacing: -0.2, color: Colors.text },
+  message: { marginTop: 6, fontSize: 12, lineHeight: 18, color: Colors.muted },
+  actions: { flexDirection: "row", justifyContent: "flex-end", flexWrap: "wrap", gap: 6, marginTop: 18 },
+  button: { minHeight: 34, minWidth: 72, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, borderRadius: 17, borderWidth: 1.5, borderColor: "transparent" },
+  ghost: { backgroundColor: "transparent" },
   primary: { backgroundColor: "#F4F8FF" },
-  pressed: { opacity: 0.75 },
-  ghostFocused: { borderColor: "rgba(244,248,255,0.95)", backgroundColor: "#24314A", transform: [] },
-  primaryFocused: { borderColor: Colors.blueBright, transform: [] },
-  buttonText: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: Colors.text },
-  primaryText: { fontFamily: "Inter_700Bold", color: "#070B14" },
-  destructiveText: { color: "#C62828" },
+  pressed: { opacity: 0.7 },
+  ghostFocused: { borderWidth: 1.5, borderColor: "rgba(244,248,255,0.9)", backgroundColor: "rgba(255,255,255,0.08)", transform: [] },
+  primaryFocused: { borderWidth: 1.5, borderColor: Colors.blueBright, transform: [] },
+  buttonText: { fontFamily: "Inter_600SemiBold", fontSize: 12.5, color: Colors.text },
+  primaryText: { color: Colors.background },
+  cancelText: { color: Colors.muted },
+  destructiveText: { color: "#FF8A8A" },
 });

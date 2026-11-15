@@ -1,5 +1,6 @@
 import { useTvVideo } from "@/hooks/use-tv-video";
 import { Ionicons } from "@expo/vector-icons";
+import { dialogStyles } from "@/components/app-dialog";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -1876,23 +1877,30 @@ export default function PlayerScreen() {
         animationType="fade"
         onRequestClose={handleCloseOverlay}
       >
-        <View style={styles.exitBackdrop}>
-          <View style={styles.exitCard}>
-            <Ionicons name="exit-outline" size={30} color={Colors.blueBright} />
-            <AppText style={styles.exitTitle}>Sair deste conteúdo?</AppText>
-            <AppText style={styles.exitBody}>
-              Seu progresso será salvo automaticamente.
-            </AppText>
-            <View style={styles.exitActions}>
+        {/* Mesmo cartão das janelas do app (Sair da conta, excluir lista…). */}
+        <View style={dialogStyles.backdrop}>
+          <View accessibilityViewIsModal accessibilityRole="alert" style={dialogStyles.card}>
+            <AppText style={dialogStyles.title}>Sair deste conteúdo?</AppText>
+            <AppText style={dialogStyles.message}>Seu progresso será salvo automaticamente.</AppText>
+            <View style={dialogStyles.actions}>
               <TVFocusable
+                accessibilityRole="button"
+                accessibilityLabel="Continuar assistindo"
                 hasTVPreferredFocus
                 onPress={handleCloseOverlay}
-                style={styles.exitSecondaryButton}
+                focusStyle={dialogStyles.ghostFocused}
+                style={({ pressed }) => [dialogStyles.button, dialogStyles.ghost, pressed && dialogStyles.pressed]}
               >
-                <AppText style={styles.exitSecondaryText}>Continuar assistindo</AppText>
+                <AppText style={[dialogStyles.buttonText, dialogStyles.cancelText]}>Continuar assistindo</AppText>
               </TVFocusable>
-              <TVFocusable onPress={handleConfirmExit} style={styles.exitPrimaryButton}>
-                <AppText style={styles.exitPrimaryText}>Sair</AppText>
+              <TVFocusable
+                accessibilityRole="button"
+                accessibilityLabel="Sair"
+                onPress={handleConfirmExit}
+                focusStyle={dialogStyles.ghostFocused}
+                style={({ pressed }) => [dialogStyles.button, dialogStyles.ghost, pressed && dialogStyles.pressed]}
+              >
+                <AppText style={[dialogStyles.buttonText, dialogStyles.destructiveText]}>Sair</AppText>
               </TVFocusable>
             </View>
           </View>
@@ -2999,50 +3007,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 18,
   },
-  exitBackdrop: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    backgroundColor: "rgba(0,0,0,0.72)",
-  },
-  exitCard: {
-    width: "100%",
-    maxWidth: 430,
-    alignItems: "center",
-    gap: 12,
-    padding: 24,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: Colors.borderStrong,
-    backgroundColor: "rgba(15, 23, 42, 0.98)",
-    ...Shadows.card,
-  },
-  exitTitle: { fontFamily: "Inter_700Bold", fontSize: 21, color: Colors.text },
-  exitBody: { fontSize: 13, color: Colors.muted, textAlign: "center" },
-  exitActions: { width: "100%", flexDirection: "row", gap: 12, marginTop: 8 },
-  exitSecondaryButton: {
-    flex: 1,
-    minHeight: 46,
-    justifyContent: "center",
-    paddingHorizontal: 18,
-    borderRadius: 23,
-    borderWidth: 1,
-    borderColor: Colors.borderStrong,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  exitSecondaryText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.text },
-  exitPrimaryButton: {
-    minWidth: 92,
-    minHeight: 46,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    borderRadius: 23,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.82)",
-    backgroundColor: Colors.white,
-  },
-  exitPrimaryText: { fontFamily: "Inter_700Bold", fontSize: 12, color: Colors.background },
 
   // Buffering
   bufferingOverlay: {

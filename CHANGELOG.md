@@ -1,6 +1,11 @@
 # Changelog
 
-## [2.17.69] — 2026-11-15
+## [2.17.70] — 2026-11-15
+
+- **Aviso de saída do player no formato das janelas do app** (retorno do teste: o padrão certo é o de "Sair da conta"): "Sair deste conteúdo?" deixa o cartão grande com ícone e botões em pílula e passa a usar o cartão de `components/app-dialog.tsx` (exporta `dialogStyles`) — título curto à esquerda, texto em uma linha, "Continuar assistindo" e "Sair" (vermelho) finos à direita. Na TV o foco começa em "Continuar assistindo". O `showDialog` volta ao visual da 2.17.68: a mudança da 2.17.69 foi desfeita.
+- Build Android `20261088`.
+
+## [2.17.69] — 2026-11-15 (desfeita na 2.17.70)
 
 - **Janelas de confirmação no padrão do redesign** (`components/app-dialog.tsx`), após o teste em que "Sair da conta" ainda aparecia no estilo antigo: todas as janelas do `showDialog` (Sair da conta no celular e na TV, excluir lista, sair do aplicativo, Diagnóstico, controle parental, Continuar assistindo, TV ao Vivo e login) passam a seguir o "Sair deste conteúdo?" do player — ícone ciano conforme o assunto (sair, excluir, erro, aviso), título 21 e texto centralizados, cartão `#0E1524` e botões em pílula: Cancelar escuro (`#1A2438`) ocupando o espaço à esquerda e a ação principal em pílula clara à direita (texto vermelho quando exclui ou desconecta). Na TV o foco continua começando em Cancelar quando a ação é destrutiva.
 - Build Android `20261087`.

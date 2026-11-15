@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.63",
+    version: "v2.17.64",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Celular e tablet mais leves: sem desfoque na barra de abas e no fundo, e a Início só com Continuar assistindo e Novidades para você." },
+      { tag: "Melhoria", text: "Novo visual das abas e dos filtros: item selecionado com fundo destacado e ponto ciano." },
+      { tag: "Novidade", text: "Player no celular: capa na hora ao abrir, horário em que o filme termina e, no ao vivo, programa de agora e o próximo, Guia e rever e lista de canais do grupo." },
+    ],
+  },
+  {
+    version: "v2.17.63",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Player da TV redesenhado: controles numa faixa só embaixo, relógio e horário em que o filme termina." },

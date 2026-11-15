@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.17.64] — 2026-11-14
+
+- **Celular e tablet mais leves** (redesign aprovado no canvas "Proposta visual Celular e Tablet"): a barra de abas troca o `BlurView` (refeito a cada quadro de rolagem) por fundo sólido `#0A101C`; a luz ambiente desfocada atrás das fileiras da Início sai (`SHOW_AMBIENT_BLUR`); `CatalogBackground` deixa de carregar a imagem de tela cheia do celular e usa o mesmo degradê da TV. A Início não pré-carrega mais EPG.
+- **Início no celular e tablet**: só "Continuar assistindo" e "Novidades para você" (as fileiras extras ficam desligadas por `SHOW_EXTRA_RAILS`). Sai o ícone de Busca do topo e o bloco "Busca" do tablet, a pedido; a busca continua em Filmes, Séries e TV ao Vivo.
+- **Abas e filtros**: aba ativa com fundo `#1A2438` e ícone ciano; `Chip` selecionado com fundo elevado, texto claro e ponto ciano (antes pílula branca); não selecionado em `#0E1524` sem borda.
+- **Player no celular/tablet**: a capa na abertura passa a valer também fora da TV; "termina às HH:MM" na linha de estado de filmes e episódios. No ao vivo, AGORA/A SEGUIR do EPG já carregado, botão **Guia e rever** (abre o guia que já existia só pelo botão azul do controle) e botão **Canais**, que abre uma lista lateral com os canais do mesmo grupo (`PhoneChannelsPanel`, até 400, virtualizada) para trocar sem sair do player. Todas as ações do topo continuam (áudio/legendas, PiP, favorito, controle parental, proporção, outro player), assim como brilho, volume e o deslizar para trocar de canal.
+- Build Android `20261082`.
+
 ## [2.17.63] — 2026-11-14
 
 - **Player da TV** (redesign aprovado): sem botões no centro da imagem. No topo, só Voltar e o relógio, com "termina às HH:MM" em filmes e episódios (considera a velocidade). Embaixo, uma faixa única sob a barra de tempo (`TvTransportRow`/`TvPill`): reproduzir/pausar (foco inicial, mesmo `playButtonRef`), −10s/+10s (ou canal anterior/próximo no ao vivo) e, à direita, Áudio e legendas (`topControlsRef`, então ▲ continua levando a ela), Proporção com o nome atual, Favorito (ao vivo), Controle parental e Abrir em outro player. Foco em pílula clara, sem ampliar. Picture-in-Picture fica só no celular. Celular e tablet não mudam.

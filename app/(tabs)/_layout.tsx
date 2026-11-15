@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import type React from "react";
-import { Platform, StyleSheet, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
+import { Platform, StyleSheet, View, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
@@ -79,10 +78,11 @@ export default function TabsLayout() {
         sceneStyle: {
           backgroundColor: Colors.background,
         },
-        // Aba ativa em branco com ícone preenchido; inativas em contorno.
+        // Aba ativa: fundo elevado, ícone ciano preenchido e texto claro
+        // (mesmo padrão da TV); inativas em contorno.
         tabBarActiveTintColor: Colors.text,
-        tabBarInactiveTintColor: "#6F7C92",
-        tabBarActiveBackgroundColor: "rgba(244, 248, 255, 0.07)",
+        tabBarInactiveTintColor: "#9AA6BD",
+        tabBarActiveBackgroundColor: "#1A2438",
         tabBarItemStyle: {
           marginHorizontal: 3,
           marginVertical: 6,
@@ -94,22 +94,17 @@ export default function TabsLayout() {
           letterSpacing: 0.1,
           marginBottom: 2,
         },
-        tabBarBackground: () => (
-          <BlurView
-            intensity={52}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-        ),
+        // Fundo sólido: o desfoque da barra era refeito a cada quadro de
+        // rolagem e pesava em celulares de entrada.
+        tabBarBackground: () => <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "#0A101C" }]} />,
         tabBarStyle: {
           display: tvMode ? "none" : "flex",
           height: 64 + insets.bottom,
           paddingTop: 5,
           paddingBottom: Math.max(insets.bottom, 8),
           borderTopWidth: 1,
-          borderTopColor: "rgba(190, 222, 255, 0.10)",
-          backgroundColor: "rgba(7, 11, 20, 0.78)",
+          borderTopColor: "#141F33",
+          backgroundColor: "#0A101C",
         },
       }}
     >
@@ -117,7 +112,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Início",
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size - 1} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "home" : "home-outline"} color={focused ? Colors.blueBright : color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
@@ -127,7 +122,7 @@ export default function TabsLayout() {
           // Sem congelar: na TV a seção é descarregada ao voltar à Início
           // (withTvTabEviction), o que um congelamento impediria.
           freezeOnBlur: false,
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "radio" : "radio-outline"} color={color} size={size - 1} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "radio" : "radio-outline"} color={focused ? Colors.blueBright : color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
@@ -137,7 +132,7 @@ export default function TabsLayout() {
           // Sem congelar: na TV a seção é descarregada ao voltar à Início
           // (withTvTabEviction), o que um congelamento impediria.
           freezeOnBlur: false,
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "film" : "film-outline"} color={color} size={size - 1} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "film" : "film-outline"} color={focused ? Colors.blueBright : color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
@@ -147,14 +142,14 @@ export default function TabsLayout() {
           // Sem congelar: na TV a seção é descarregada ao voltar à Início
           // (withTvTabEviction), o que um congelamento impediria.
           freezeOnBlur: false,
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "albums" : "albums-outline"} color={color} size={size - 1} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "albums" : "albums-outline"} color={focused ? Colors.blueBright : color} size={size - 1} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Ajustes",
-          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "settings" : "settings-outline"} color={color} size={size - 1} />,
+          tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "settings" : "settings-outline"} color={focused ? Colors.blueBright : color} size={size - 1} />,
         }}
       />
     </Tabs>

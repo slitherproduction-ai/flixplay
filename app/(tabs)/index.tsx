@@ -53,6 +53,12 @@ const PRIMARY_RAIL_LIMIT = 30;
 const SECONDARY_RAIL_LIMIT = 12;
 /** Quanto a luz ambiente se estende abaixo do destaque antes de sumir. */
 const AMBIENT_TAIL = 420;
+/** Luz ambiente desfocada atrás das fileiras: desligada (o desfoque pesava em
+ * celulares de entrada); o degradê do fundo cumpre o papel. */
+const SHOW_AMBIENT_BLUR = false;
+/** Fileiras extras do celular (Minha Lista, canais, filmes, séries): fora do
+ * redesign — a Início fica com Continuar assistindo e Novidades. */
+const SHOW_EXTRA_RAILS = false;
 
 function computePosterWidth(tvMode: boolean, width: number, isTablet: boolean, isTabletLandscape: boolean): number {
   if (!tvMode && width <= 700) return 132;
@@ -605,7 +611,6 @@ const HOME_TILES: readonly HomeTileDef[] = [
   { key: "live", title: "TV ao Vivo", icon: "radio-outline", href: "/live" },
   { key: "movies", title: "Filmes", icon: "film-outline", href: "/movies" },
   { key: "series", title: "Séries", icon: "albums-outline", href: "/series" },
-  { key: "search", title: "Busca", icon: "search-outline", href: "/search" },
   { key: "list", title: "Minha Lista", icon: "bookmark-outline", href: "/watch-later" },
   { key: "settings", title: "Ajustes", icon: "settings-outline", href: "/settings" },
 ];
@@ -773,7 +778,7 @@ const HeroCarousel = memo(function HeroCarousel({
     <View>
       {/* Luz ambiente desfocada atrás das fileiras — só em celular/tablet;
           na TV o desfoque é caro demais para Fire TV Stick. */}
-      {!tvMode && ambientArt ? (
+      {SHOW_AMBIENT_BLUR && !tvMode && ambientArt ? (
         <View pointerEvents="none" style={[styles.ambient, { top: height, height: AMBIENT_TAIL }]}>
           <Image source={{ uri: sizedImage(ambientArt, "backdrop") }} blurRadius={32} contentFit="cover" transition={900} style={StyleSheet.absoluteFill} />
           <LinearGradient
@@ -1101,7 +1106,7 @@ export default function HomeScreen() {
   const featuredChannels = recentLiveChannels.length > 0 ? recentLiveChannels : channels.slice(0, SECONDARY_RAIL_LIMIT);
   const liveSubtitle = recentLiveChannels.length > 0 ? "Últimos canais assistidos" : "Programação ao vivo agora";
   // Na TV a Início segue o Roku e não mostra canais: nada de EPG em segundo plano.
-  useEpgPreload(channels, tvMode ? 0 : EPG_HOME_PRELOAD_LIMIT);
+  useEpgPreload(channels, 0);
 
   const recentMovies = useMemo(
     () => recentTitles.filter((item) => item.type === "movie").slice(0, SECONDARY_RAIL_LIMIT),
@@ -1128,7 +1133,7 @@ export default function HomeScreen() {
   // No tablet os blocos fazem o papel do menu; na TV o menu com ícones fica no
   // topo do destaque. No smartphone a barra de abas inferior cumpre o papel.
   const showTiles = !tvMode && wide;
-  const tileColumns = 6;
+  const tileColumns = HOME_TILES.length;
   const tileGap = tvMode ? 11 : 10;
   const tileWidth = Math.floor((width - sidePadding * 2 - tileGap * (tileColumns - 1)) / tileColumns);
   const tileHeight = Math.round(tvMode ? Math.max(70, tileWidth * 0.54) : Math.max(84, tileWidth * 0.5));
@@ -1139,17 +1144,8 @@ export default function HomeScreen() {
     <>
       <BrandLogo variant="wordmark" accessibilityLabel="ELVANOQ" style={[styles.wordmark, tvMode && styles.tvWordmark]} />
       <View style={styles.headerActions}>
-        {/* Sem os blocos, a Busca precisa de um acesso próprio no smartphone. */}
-        {showTiles ? null : (
-          <TVFocusable
-            accessibilityRole="button"
-            accessibilityLabel="Buscar filmes, séries e canais"
-            onPress={handleOpenSearch}
-            style={({ pressed }) => [styles.headerIconButton, pressed && styles.heroActionPressed]}
-          >
-            <Ionicons name="search" size={18} color={Colors.text} />
-          </TVFocusable>
-        )}
+        {/* Sem atalho de Busca na Início (a pedido): a busca fica em Filmes,
+            Séries e TV ao Vivo. */}
         <AccountSummary profile={activeServer} tvMode={tvMode} onPress={handleOpenAccount} />
       </View>
     </>
@@ -1269,6 +1265,8 @@ export default function HomeScreen() {
         ) : null}
 
         <View style={[styles.rails, { paddingHorizontal: sidePadding }, tvMode && styles.tvRails, !showTiles && heroSlides.length > 0 && (tvMode ? styles.tvRailsAfterHero : styles.railsAfterHero)]}>
+          {/* Duas fileiras, como no Roku/LG/MSX: na TV Novidades primeiro; no
+              celular e no tablet, Continuar assistindo primeiro. */}
           {tvMode ? (
             <>
               {recentTitles.length > 0
@@ -1276,15 +1274,22 @@ export default function HomeScreen() {
                 : null}
               {dedupedHistory.length > 0 ? renderContinueRail(dedupedHistory.slice(0, 12)) : null}
             </>
-          ) : null}
+          ) : (
+            <>
+              {dedupedHistory.length > 0 ? renderContinueRail(dedupedHistory.slice(0, 12)) : null}
+              {recentTitles.length > 0
+                ? renderTitlesRail("Novidades para você", "Filmes e séries adicionados recentemente", recentTitles, handleOpenMovies)
+                : null}
+            </>
+          )}
 
-          {!tvMode && primaryRail?.kind === "continue" ? renderContinueRail(primaryRail.items) : null}
+          {SHOW_EXTRA_RAILS && !tvMode && primaryRail?.kind === "continue" ? renderContinueRail(primaryRail.items) : null}
 
-          {!tvMode && primaryRail?.kind === "titles"
+          {SHOW_EXTRA_RAILS && !tvMode && primaryRail?.kind === "titles"
             ? renderTitlesRail(primaryRail.title, primaryRail.subtitle, primaryRail.items, primaryRail.title === "Seus favoritos" ? handleWatchLaterAll : handleOpenMovies)
             : null}
 
-          {!tvMode && showFavoritesRail ? (
+          {SHOW_EXTRA_RAILS && !tvMode && showFavoritesRail ? (
             <View>
               <SectionHeader title="Minha Lista" subtitle="Salvos para assistir mais tarde" onPress={handleWatchLaterAll} />
               <HorizontalScroller>
@@ -1304,7 +1309,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {!tvMode && featuredChannels.length > 0 ? (
+          {SHOW_EXTRA_RAILS && !tvMode && featuredChannels.length > 0 ? (
             <View>
               <SectionHeader title="Canais ao vivo" subtitle={liveSubtitle} onPress={handleOpenLive} />
               <HorizontalScroller>
@@ -1340,7 +1345,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {!tvMode && showRecentMoviesRail ? (
+          {SHOW_EXTRA_RAILS && !tvMode && showRecentMoviesRail ? (
             <View>
               <SectionHeader title="Filmes adicionados recentemente" onPress={handleOpenMovies} />
               <HorizontalScroller>
@@ -1351,7 +1356,7 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          {!tvMode && topSeries.length > 0 ? (
+          {SHOW_EXTRA_RAILS && !tvMode && topSeries.length > 0 ? (
             <View>
               <SectionHeader title="Séries mais bem avaliadas" onPress={handleOpenSeries} />
               <HorizontalScroller>

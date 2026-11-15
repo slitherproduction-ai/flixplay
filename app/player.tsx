@@ -26,6 +26,7 @@ import {
   AppState,
   BackHandler,
   Easing,
+  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -503,6 +504,12 @@ export default function PlayerScreen() {
   }, [player]);
 
   const currentChannel = useMemo(() => allChannels.find((ch) => ch.id === id), [allChannels, id]);
+  // Celular/tablet: lista lateral com os canais do mesmo grupo (troca sem sair do player).
+  const [channelsOpen, setChannelsOpen] = useState(false);
+  const groupChannels = useMemo(() => {
+    if (!channelsOpen || !currentChannel) return [];
+    return allChannels.filter((ch) => ch.categoryId === currentChannel.categoryId).slice(0, 400);
+  }, [allChannels, channelsOpen, currentChannel]);
   const currentSeries = sourceSeriesId
     ? cachedSeries.find((series) => series.id === sourceSeriesId)
     : undefined;
@@ -1771,7 +1778,24 @@ export default function PlayerScreen() {
             currentEpg={epg.current}
             nextEpg={epg.next ?? null}
             liveMeta={currentChannel ? [currentChannel.number, displayCategory(currentChannel.categoryName)].filter(Boolean).join("  ·  ") : ""}
-            tvControls={tvMode ? (
+            endsAt={contentType !== "live" && duration > 0 ? endsAtLabel(currentTime, duration, playbackRate) : null}
+            tvControls={!tvMode && contentType === "live" ? (
+              <View style={styles.phoneLiveActions}>
+                <TVFocusable accessibilityRole="button" accessibilityLabel="Guia de programação e rever" onPress={handleOpenEpg} style={({ pressed }) => [styles.phonePill, pressed && styles.pressed]}>
+                  <Ionicons name="calendar-outline" size={14} color={Colors.white} />
+                  <AppText style={styles.phonePillText}>Guia e rever</AppText>
+                </TVFocusable>
+                <TVFocusable
+                  accessibilityRole="button"
+                  accessibilityLabel={channelsOpen ? "Fechar lista de canais" : "Abrir lista de canais do grupo"}
+                  onPress={() => { setChannelsOpen((open) => !open); showControlsWithTimer(); }}
+                  style={({ pressed }) => [styles.phonePill, channelsOpen && styles.phonePillActive, pressed && styles.pressed]}
+                >
+                  <Ionicons name="list" size={14} color={channelsOpen ? Colors.background : Colors.white} />
+                  <AppText style={[styles.phonePillText, channelsOpen && styles.phonePillTextActive]}>Canais</AppText>
+                </TVFocusable>
+              </View>
+            ) : tvMode ? (
               <TvTransportRow
                 playButtonRef={playButtonRef}
                 topControlsRef={topControlsRef}
@@ -1807,13 +1831,24 @@ export default function PlayerScreen() {
             onSelectRatio={handleSelectRatio}
             onTimelineFocus={handleTimelineFocus}
           />
+          {!tvMode && contentType === "live" && channelsOpen ? (
+            <PhoneChannelsPanel
+              channels={groupChannels}
+              currentId={id}
+              groupName={displayCategory(currentChannel?.categoryName ?? "") || "Canais"}
+              onSelect={(channelId) => { handleSwitchChannel(channelId); showControlsWithTimer(); }}
+              onScroll={showControlsWithTimer}
+              topInset={Math.max(12, insets.top)}
+              rightInset={Math.max(0, insets.right)}
+            />
+          ) : null}
         </Animated.View>
 
         <PlayerStatus
           loading={!playerError && player.status === "loading"}
           error={playerError}
           onRetry={handleRetry}
-          cover={tvMode && contentType !== "live" && currentTime <= 0 ? sourceThumbnail || backdrop : ""}
+          cover={contentType !== "live" && currentTime <= 0 ? sourceThumbnail || backdrop : ""}
           coverTitle={title}
           coverSubtitle={sourceSubtitle}
         />
@@ -1980,6 +2015,64 @@ const PlayerTopAction = forwardRef<TVFocusableHandle, PlayerTopActionProps>(func
     </TVFocusable>
   );
 });
+
+/** Lista lateral de canais do grupo (celular/tablet), dentro dos controles. */
+function PhoneChannelsPanel({
+  channels,
+  currentId,
+  groupName,
+  onSelect,
+  onScroll,
+  topInset,
+  rightInset,
+}: {
+  channels: { id: string; name: string; number: string; logo: string; currentEpg: { title: string } }[];
+  currentId: string;
+  groupName: string;
+  onSelect: (channelId: string) => void;
+  onScroll: () => void;
+  topInset: number;
+  rightInset: number;
+}) {
+  const initialIndex = Math.max(0, channels.findIndex((channel) => channel.id === currentId));
+  return (
+    <View style={[styles.phoneChannels, { paddingTop: topInset, paddingRight: 10 + rightInset }]}>
+      <View style={styles.phoneChannelsHeader}>
+        <AppText numberOfLines={1} style={styles.phoneChannelsTitle}>{groupName}</AppText>
+        <AppText style={styles.phoneChannelsCount}>{channels.length} canais</AppText>
+      </View>
+      <FlatList
+        data={channels}
+        keyExtractor={(item) => item.id}
+        initialScrollIndex={initialIndex > 3 ? initialIndex - 2 : 0}
+        getItemLayout={(_, index) => ({ length: 54, offset: 54 * index, index })}
+        onScrollBeginDrag={onScroll}
+        initialNumToRender={12}
+        windowSize={5}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => {
+          const current = item.id === currentId;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Assistir ${item.name}`}
+              accessibilityState={{ selected: current }}
+              onPress={() => onSelect(item.id)}
+              style={({ pressed }) => [styles.phoneChannelRow, current && styles.phoneChannelRowCurrent, pressed && styles.pressed]}
+            >
+              <AppText style={styles.phoneChannelNumber}>{item.number}</AppText>
+              <ChannelLogo image={item.logo} name={item.name} size={30} />
+              <View style={styles.phoneChannelCopy}>
+                <AppText numberOfLines={1} style={styles.phoneChannelName}>{item.name}</AppText>
+                <AppText numberOfLines={1} style={styles.phoneChannelProgram}>{item.currentEpg?.title || "Programação não informada"}</AppText>
+              </View>
+            </Pressable>
+          );
+        }}
+      />
+    </View>
+  );
+}
 
 /**
  * Faixa de controles da TV, sob a barra de tempo: reproduzir/pausar, voltar
@@ -2335,6 +2428,7 @@ function PlayerBottomPanel({
   currentEpg,
   nextEpg,
   liveMeta,
+  endsAt,
   tvControls,
   onProgressLayout,
   onProgressGrant,
@@ -2372,7 +2466,9 @@ function PlayerBottomPanel({
   nextEpg: EpgProgram | null;
   /** Número e grupo do canal ("102 · Esportes"). */
   liveMeta: string;
-  /** TV: faixa de controles sob a barra de tempo. */
+  /** "termina às 22:12" (filmes e episódios). */
+  endsAt: string | null;
+  /** Faixa de controles sob a barra de tempo (TV) ou ações do ao vivo (celular). */
   tvControls: ReactNode;
   onProgressLayout: (e: LayoutChangeEvent) => void;
   onProgressGrant: (e: GestureResponderEvent) => void;
@@ -2424,7 +2520,7 @@ function PlayerBottomPanel({
             {!isLive && subtitle ? ` · ${subtitle}` : ""}
           </AppText>
           <AppText numberOfLines={1} style={styles.mediaSummaryTitle}>{title}</AppText>
-          {isLive && tvControls ? (
+          {isLive ? (
             <>
               <View style={styles.tvEpgRow}>
                 <AppText style={styles.tvEpgLabel}>AGORA</AppText>
@@ -2441,7 +2537,7 @@ function PlayerBottomPanel({
             </>
           ) : (
             <AppText numberOfLines={1} style={styles.mediaSummaryProgram}>
-              {isLive ? currentEpg?.title ?? "Programação não informada" : isPlaying ? "Reproduzindo" : "Pausado"}
+              {isLive ? currentEpg?.title ?? "Programação não informada" : `${isPlaying ? "Reproduzindo" : "Pausado"}${endsAt ? `  ·  ${endsAt}` : ""}`}
             </AppText>
           )}
         </View>
@@ -2991,6 +3087,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+
+  // Celular/tablet: ações do ao vivo e lista lateral de canais.
+  phoneLiveActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
+  phonePill: { height: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, borderRadius: 17, backgroundColor: "rgba(244,248,255,0.14)" },
+  phonePillActive: { backgroundColor: "#F4F8FF" },
+  phonePillText: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.white },
+  phonePillTextActive: { color: Colors.background },
+  phoneChannels: { position: "absolute", top: 0, right: 0, bottom: 0, width: 290, paddingLeft: 10, paddingBottom: 10, backgroundColor: "rgba(10,16,28,0.94)" },
+  phoneChannelsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 6, paddingBottom: 8 },
+  phoneChannelsTitle: { flex: 1, fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.white },
+  phoneChannelsCount: { fontSize: 11, color: "#9AA6BD" },
+  phoneChannelRow: { height: 50, marginBottom: 4, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 8, borderRadius: 12 },
+  phoneChannelRowCurrent: { backgroundColor: "#1A2438" },
+  phoneChannelNumber: { width: 28, fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#7F8BA3" },
+  phoneChannelCopy: { flex: 1, minWidth: 0, gap: 2 },
+  phoneChannelName: { fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.white },
+  phoneChannelProgram: { fontSize: 10, color: "#9AA6BD" },
 
   // TV: relógio no topo e faixa única de controles embaixo.
   tvClockBlock: { alignItems: "flex-end", gap: 1 },

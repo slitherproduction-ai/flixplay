@@ -196,10 +196,12 @@ export function Chip({
         <Ionicons
           name={icon}
           size={12}
-          color={selected ? Colors.background : Colors.subtle}
+          color={selected ? (selectedTone === "light" ? Colors.background : Colors.blueBright) : Colors.subtle}
           style={{ marginRight: 2 }}
         />
       ) : null}
+      {/* Selecionado (tom padrão): fundo elevado + ponto ciano, como na TV. */}
+      {selected && selectedTone === "blue" && !icon ? <View style={styles.chipDot} /> : null}
       <AppText style={[styles.chipText, compact && styles.chipTextCompact, selected && (selectedTone === "light" ? styles.chipTextSelectedLight : styles.chipTextSelected)]}>{label}</AppText>
     </TVFocusable>
   );
@@ -639,9 +641,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: Radii.pill,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.glassSoft,
+    borderColor: "transparent",
+    backgroundColor: "#0E1524",
   },
+  chipDot: { width: 6, height: 6, marginRight: 3, borderRadius: 3, backgroundColor: Colors.blueBright },
   chipCompact: {
     minHeight: 32,
     paddingHorizontal: 12,
@@ -650,8 +653,8 @@ export const styles = StyleSheet.create({
     // Category filters are navigation controls, not a destructive/primary
     // confirmation. A saturated blue state remains legible on TV and avoids
     // the glaring white pill visible from across the room.
-    borderColor: "rgba(111,207,255,0.96)",
-    backgroundColor: Colors.white,
+    borderColor: "transparent",
+    backgroundColor: "#1A2438",
   },
   chipSelectedLight: {
     borderColor: "rgba(255,255,255,0.96)",
@@ -667,11 +670,12 @@ export const styles = StyleSheet.create({
   chipText: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,
-    color: Colors.muted,
+    color: "#C9D2E3",
   },
   chipTextCompact: { fontSize: 11 },
   chipTextSelected: {
-    color: Colors.background,
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.text,
   },
   chipTextSelectedLight: {
     color: Colors.background,

@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Colors, Radii, Type } from "@/constants/theme";
 import { TVFocusable } from "@/components/tv-focusable";
-import { AppText, Chip, GlassCard, IconButton, SearchField, SectionHeader } from "@/components/ui";
+import { AppText, Chip, IconButton, SearchField, SectionHeader } from "@/components/ui";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useSyncStatus } from "@/hooks/useXtreamSync";
@@ -259,7 +259,9 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
   // D-pad scrolls. TV rows are deliberately lightweight opaque views; mobile
   // keeps the existing glass treatment.
   if (tvMode) return <View style={[styles.channelCard, styles.tvChannelCard]}>{row}</View>;
-  return <GlassCard style={styles.channelCard} intensity={18}>{row}</GlassCard>;
+  // Celular/tablet: superfície sólida (sem um desfoque por linha, que pesava
+  // na rolagem de listas grandes).
+  return <View style={[styles.channelCard, styles.mobileChannelCard]}>{row}</View>;
 }
 
 // ---------------------------------------------------------------------------
@@ -899,7 +901,7 @@ const gridStyles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.12)",
     marginTop: 2,
   },
-  progressFill: { height: "100%", borderRadius: 1, backgroundColor: Colors.green },
+  progressFill: { height: "100%", borderRadius: 1, backgroundColor: Colors.blueBright },
   favBtn: {
     position: "absolute",
     bottom: 10,
@@ -1019,6 +1021,7 @@ const styles = StyleSheet.create({
   tvRowSeparator: { height: 2 },
   pageLoader: { paddingVertical: 20 },
   channelCard: { minHeight: 116, borderRadius: Radii.medium },
+  mobileChannelCard: { minHeight: 76, borderRadius: 14, backgroundColor: "#0E1524" },
   // TV rows deliberately mirror the category rows: logo + channel name only.
   tvChannelCard: { minHeight: 33, borderRadius: 7, backgroundColor: "transparent", borderColor: "transparent", borderWidth: 0 },
   channelRow: { flex: 1, flexDirection: "row", alignItems: "center" },
@@ -1036,15 +1039,13 @@ const styles = StyleSheet.create({
   tvFavoriteButton: { width: 30, height: 30, marginRight: 3, alignItems: "center", justifyContent: "center", borderRadius: 15, flexShrink: 0 },
   tvFavoriteFocused: { borderWidth: 1, borderColor: "#96E1FF", backgroundColor: "#173C55", elevation: 0, shadowOpacity: 0, shadowRadius: 0, transform: [{ scale: 1 }] },
   channelImage: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 46,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(190,222,255,0.12)",
-    backgroundColor: "#111B2D",
+    borderRadius: 10,
+    backgroundColor: "#1A2438",
   },
   tvChannelImage: { width: 30, height: 25, borderRadius: 4, backgroundColor: "transparent" },
   channelLogoImage: { width: "78%", height: "62%" },
@@ -1080,7 +1081,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-  programFill: { height: "100%", borderRadius: 2, backgroundColor: Colors.green },
+  programFill: { height: "100%", borderRadius: 2, backgroundColor: Colors.blueBright },
   nextProgram: { fontSize: 9, color: Colors.subtle },
   favoriteButton: {
     width: 38,

@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.64",
+    version: "v2.17.65",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Detalhes no celular e tablet: Assistir em destaque, temporadas em botões lado a lado e episódios com barra de progresso e marcação de assistido." },
+      { tag: "Novidade", text: "Tablet deitado: detalhes da série em duas colunas, com os episódios em lista à direita." },
+      { tag: "Melhoria", text: "TV ao Vivo no celular e tablet mais leve, com linhas compactas e barra do programa em ciano." },
+    ],
+  },
+  {
+    version: "v2.17.64",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Celular e tablet mais leves: sem desfoque na barra de abas e no fundo, e a Início só com Continuar assistindo e Novidades para você." },

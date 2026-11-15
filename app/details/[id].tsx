@@ -530,13 +530,9 @@ function DetailsContent({
   onSeasonChange: (season: number) => void;
   onSimilar: (id: string) => void;
 }) {
-  const { isTablet } = useResponsiveLayout();
-  return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.content, tvMode && styles.tvContent, isTablet && styles.tabletContent]}
-    >
+  const { isTablet, isTabletLandscape } = useResponsiveLayout();
+  const summary = (
+    <>
       <ContentSummary
         movie={movie}
         show={show}
@@ -564,7 +560,9 @@ function DetailsContent({
           <VariantSelector options={variants} currentId={movie?.id ?? show?.id ?? ""} onSelect={onSelectVariant} />
         </View>
       ) : null}
-      {show ? (
+    </>
+  );
+  const episodes = show ? (
         <EpisodesSection
           show={{ ...show, seasonsCount }}
           season={season}
@@ -575,11 +573,36 @@ function DetailsContent({
           onPlay={onPlay}
           onSeasonChange={onSeasonChange}
           tvMode={tvMode}
+          vertical={!tvMode && isTabletLandscape}
         />
-      ) : null}
-      {similar.length > 0 ? (
-        <SimilarSection similar={similar} onSimilar={onSimilar} tvMode={tvMode} />
-      ) : null}
+  ) : null;
+  const similarBlock = similar.length > 0 ? <SimilarSection similar={similar} onSimilar={onSimilar} tvMode={tvMode} /> : null;
+
+  // Tablet deitado (série): duas colunas — informações à esquerda,
+  // temporadas e episódios em lista à direita.
+  if (!tvMode && isTabletLandscape && show) {
+    return (
+      <View style={styles.tabletSplit}>
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.tabletSplitLeft} contentContainerStyle={[styles.content, styles.tabletSplitContent]}>
+          {summary}
+        </ScrollView>
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.tabletSplitRight} contentContainerStyle={[styles.content, styles.tabletSplitRightContent]}>
+          {episodes}
+          {similarBlock}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={[styles.content, tvMode && styles.tvContent, isTablet && styles.tabletContent]}
+    >
+      {summary}
+      {episodes}
+      {similarBlock}
     </ScrollView>
   );
 }
@@ -742,7 +765,7 @@ function ContentActions({
         hasTVPreferredFocus
         onPress={onPlay}
         focusStyle={styles.whiteActionFocused}
-        style={[styles.primaryButton, tvMode && styles.tvPrimaryButton]}
+        style={[styles.primaryButton, tvMode ? styles.tvPrimaryButton : styles.mobilePrimaryButton]}
       >
         <Ionicons name="play" size={16} color={Colors.background} />
         <AppText style={[styles.primaryText, tvMode && styles.tvPrimaryText]}>
@@ -755,14 +778,14 @@ function ContentActions({
         accessibilityState={{ selected: isBlocked }}
         onPress={onToggleBlocked}
         focusStyle={styles.whiteActionFocused}
-        style={[styles.actionButton, isBlocked && styles.actionButtonCritical, tvMode && styles.tvActionButton]}
+        style={[styles.actionButton, isBlocked && styles.actionButtonCritical, tvMode ? styles.tvActionButton : styles.mobileActionButton]}
       >
         <Ionicons
           name={isBlocked ? "lock-closed" : "lock-open-outline"}
           size={17}
-          color={isBlocked ? "#B4232B" : Colors.background}
+          color={tvMode ? (isBlocked ? "#B4232B" : Colors.background) : (isBlocked ? "#FF8A8A" : Colors.text)}
         />
-        <AppText style={[styles.actionText, isBlocked && styles.actionTextCritical]}>{isBlocked ? "Bloqueado" : "Bloquear"}</AppText>
+        <AppText style={[styles.actionText, isBlocked && styles.actionTextCritical, !tvMode && styles.mobileActionText, !tvMode && isBlocked && styles.mobileActionTextCritical]}>{isBlocked ? "Bloqueado" : "Bloquear"}</AppText>
       </TVFocusable>
       <TVFocusable
         accessibilityRole="button"
@@ -770,14 +793,14 @@ function ContentActions({
         accessibilityState={{ selected: isFavorite }}
         onPress={onFavorite}
         focusStyle={styles.whiteActionFocused}
-        style={[styles.actionButton, isFavorite && styles.actionButtonActive, tvMode && styles.tvActionButton]}
+        style={[styles.actionButton, isFavorite && styles.actionButtonActive, tvMode ? styles.tvActionButton : styles.mobileActionButton]}
       >
         <Ionicons
           name={isFavorite ? "bookmark" : "bookmark-outline"}
           size={17}
-          color={isFavorite ? "#9A6700" : Colors.background}
+          color={tvMode ? (isFavorite ? "#9A6700" : Colors.background) : (isFavorite ? Colors.blueBright : Colors.text)}
         />
-        <AppText style={[styles.actionText, isFavorite && styles.actionTextActive]}>
+        <AppText style={[styles.actionText, isFavorite && styles.actionTextActive, !tvMode && styles.mobileActionText]}>
           {isFavorite ? "Salvo" : "Mais tarde"}
         </AppText>
       </TVFocusable>
@@ -795,6 +818,7 @@ function EpisodesSection({
   onPlay,
   onSeasonChange,
   tvMode,
+  vertical = false,
 }: {
   show: SeriesItem & { seasonsCount: number };
   season: number;
@@ -805,6 +829,8 @@ function EpisodesSection({
   onPlay: (episodeId?: string) => void;
   onSeasonChange: (season: number) => void;
   tvMode: boolean;
+  /** Tablet deitado: episódios em lista vertical (coluna da direita). */
+  vertical?: boolean;
 }) {
   const { isTablet, isTabletLandscape } = useResponsiveLayout();
   const [seasonMenuOpen, setSeasonMenuOpen] = useState(false);
@@ -829,38 +855,12 @@ function EpisodesSection({
           ))}
         </ScrollView>
       ) : (
-        <View style={styles.mobileSeasonSelectorArea}>
-          <TVFocusable
-            accessibilityRole="button"
-            accessibilityLabel={`Selecionar temporada. Atual: temporada ${season}`}
-            accessibilityState={{ expanded: seasonMenuOpen }}
-            onPress={() => setSeasonMenuOpen((open) => !open)}
-            style={styles.mobileSeasonSelector}
-          >
-            <Ionicons name="albums-outline" size={17} color={Colors.background} />
-            <AppText style={styles.mobileSeasonSelectorText}>Temporada {season}</AppText>
-            <Ionicons name={seasonMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.background} />
-          </TVFocusable>
-          {seasonMenuOpen ? (
-            <View style={styles.mobileSeasonList}>
-              {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
-                <TVFocusable
-                  key={num}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Temporada ${num}`}
-                  accessibilityState={{ selected: season === num }}
-                  onPress={() => selectSeason(num)}
-                  style={[styles.mobileSeasonOption, season === num && styles.mobileSeasonOptionSelected]}
-                >
-                  <AppText style={[styles.mobileSeasonOptionText, season === num && styles.mobileSeasonOptionTextSelected]}>
-                    Temporada {num}
-                  </AppText>
-                  {season === num ? <Ionicons name="checkmark" size={17} color={Colors.blueBright} /> : null}
-                </TVFocusable>
-              ))}
-            </View>
-          ) : null}
-        </View>
+        // Celular e tablet: as mesmas pílulas de temporada da TV.
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.tvSeasonPills, styles.mobileSeasonPills]}>
+          {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
+            <TvSeasonPill key={num} season={num} selected={season === num} onSelect={selectSeason} touch />
+          ))}
+        </ScrollView>
       )}
 
       {isLoading ? (
@@ -875,9 +875,10 @@ function EpisodesSection({
         </View>
       ) : (
         <ScrollView
-          horizontal
+          horizontal={!vertical}
+          scrollEnabled={!vertical}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.episodeList, tvMode ? styles.tvEpisodeList : styles.mobileEpisodeList]}
+          contentContainerStyle={[styles.episodeList, tvMode ? styles.tvEpisodeList : vertical ? styles.verticalEpisodeList : styles.mobileEpisodeList]}
         >
           {selectedEpisodes.length ? (
             selectedEpisodes.map((episode) => (
@@ -889,6 +890,7 @@ function EpisodesSection({
                 tvMode={tvMode}
                 tabletMode={isTablet}
                 tabletLandscape={isTabletLandscape}
+                row={vertical}
               />
             ))
           ) : (
@@ -903,7 +905,7 @@ function EpisodesSection({
   );
 }
 
-function TvSeasonPill({ season, selected, onSelect }: { season: number; selected: boolean; onSelect: (season: number) => void }) {
+function TvSeasonPill({ season, selected, onSelect, touch = false }: { season: number; selected: boolean; onSelect: (season: number) => void; touch?: boolean }) {
   const [focused, setFocused] = useState(false);
   return (
     <TVFocusable
@@ -913,11 +915,11 @@ function TvSeasonPill({ season, selected, onSelect }: { season: number; selected
       onPress={() => onSelect(season)}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
-      style={[styles.tvSeasonPill, selected && styles.tvSeasonPillSelected]}
+      style={[styles.tvSeasonPill, touch && styles.mobileSeasonPill, selected ? styles.tvSeasonPillSelected : touch && styles.mobileSeasonPillIdle]}
       focusStyle={styles.tvSeasonPillFocused}
     >
       {selected ? <View style={[styles.tvSeasonDot, focused && styles.tvSeasonDotFocused]} /> : null}
-      <AppText style={[styles.tvSeasonPillText, selected && styles.tvSeasonPillTextSelected, focused && styles.tvSeasonPillTextFocused]}>
+      <AppText style={[styles.tvSeasonPillText, touch && styles.mobileSeasonPillText, selected && styles.tvSeasonPillTextSelected, focused && styles.tvSeasonPillTextFocused]}>
         Temporada {season}
       </AppText>
     </TVFocusable>
@@ -931,6 +933,7 @@ function EpisodeCard({
   tvMode,
   tabletMode,
   tabletLandscape,
+  row = false,
 }: {
   episode: EpisodeItem;
   historyEntry?: PlayHistory;
@@ -938,6 +941,7 @@ function EpisodeCard({
   tvMode: boolean;
   tabletMode: boolean;
   tabletLandscape: boolean;
+  row?: boolean;
 }) {
   const handlePress = useCallback(() => onPlay(episode.id), [episode.id, onPlay]);
   const progress = getHistoryProgress(historyEntry);
@@ -953,9 +957,9 @@ function EpisodeCard({
       onFocus={tvMode ? () => setFocused(true) : undefined}
       onBlur={tvMode ? () => setFocused(false) : undefined}
       focusStyle={tvMode ? styles.tvEpisodeCardFocused : undefined}
-      style={({ pressed }) => [styles.episodeCard, tvMode ? styles.tvEpisodeCard : tabletLandscape ? styles.tabletLandscapeEpisodeCard : tabletMode ? styles.tabletEpisodeCard : styles.mobileEpisodeCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.episodeCard, tvMode ? styles.tvEpisodeCard : row ? styles.rowEpisodeCard : tabletLandscape ? styles.tabletLandscapeEpisodeCard : tabletMode ? styles.tabletEpisodeCard : styles.mobileEpisodeCard, pressed && styles.pressed]}
     >
-      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : tabletMode ? styles.tabletEpisodeThumb : styles.mobileEpisodeThumb, tvMode && focused && styles.tvEpisodeThumbFocused]}>
+      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : row ? styles.rowEpisodeThumb : tabletMode ? styles.tabletEpisodeThumb : styles.mobileEpisodeThumb, tvMode && focused && styles.tvEpisodeThumbFocused]}>
         {episode.thumbnail ? (
           <Image source={{ uri: sizedImage(episode.thumbnail, "still") }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : (
@@ -972,13 +976,13 @@ function EpisodeCard({
             T{episode.seasonNumber}:E{episode.episodeNumber}
           </AppText>
         </View>
-        {tvMode && (hasProgress || watched) ? (
+        {hasProgress || watched ? (
           <View style={styles.tvThumbProgress}>
             <View style={[styles.tvThumbProgressFill, { width: `${watched ? 100 : progress}%` }]} />
           </View>
         ) : null}
       </View>
-      <View style={[styles.episodeCopy, tvMode ? styles.tvEpisodeCopy : tabletMode ? styles.tabletEpisodeCopy : styles.mobileEpisodeCopy]}>
+      <View style={[styles.episodeCopy, tvMode ? styles.tvEpisodeCopy : row ? styles.rowEpisodeCopy : tabletMode ? styles.tabletEpisodeCopy : styles.mobileEpisodeCopy]}>
         <AppText numberOfLines={1} style={[styles.episodeTitle, tvMode && styles.tvEpisodeTitle]}>
           {episode.title}
         </AppText>
@@ -990,11 +994,11 @@ function EpisodeCard({
         <View style={styles.episodeBottom}>
           <Ionicons name="time-outline" size={11} color={Colors.subtle} />
           <AppText style={styles.episodeDuration}>{episode.duration}</AppText>
-          {tvMode && watched ? (
+          {watched ? (
             <AppText style={styles.tvWatched}>Assistido ✓</AppText>
-          ) : tvMode && hasProgress ? (
-            <AppText style={styles.tvWatched}>{progress}% visto</AppText>
           ) : hasProgress ? (
+            <AppText style={styles.tvWatched}>{progress}% visto</AppText>
+          ) : false ? (
             <View style={styles.episodeProgress}>
               <View style={[styles.episodeProgressFill, { width: `${progress}%` }]} />
             </View>
@@ -1207,6 +1211,25 @@ const styles = StyleSheet.create({
   tvEpisodesSection: { gap: 10, paddingHorizontal: 62, paddingTop: 4 },
   tvSeasonSelectorArea: { alignSelf: "flex-start", minWidth: 230, zIndex: 3 },
   tvSeasonPills: { gap: 6, paddingVertical: 2 },
+  mobileSeasonPills: { gap: 8, paddingRight: 20 },
+  // Tablet deitado: duas colunas.
+  tabletSplit: { flex: 1, flexDirection: "row" },
+  tabletSplitLeft: { flex: 46 },
+  tabletSplitRight: { flex: 54 },
+  tabletSplitContent: { gap: 18, paddingBottom: 40 },
+  tabletSplitRightContent: { gap: 18, paddingTop: 28, paddingBottom: 40 },
+  verticalEpisodeList: { flexDirection: "column", gap: 10, paddingRight: 0 },
+  rowEpisodeCard: { width: "100%", minHeight: 0, flexDirection: "row", alignItems: "center", gap: 14, padding: 8, overflow: "hidden" },
+  rowEpisodeThumb: { width: 160, height: 90, borderRadius: 10 },
+  rowEpisodeCopy: { flex: 1, gap: 4, paddingVertical: 2 },
+  mobileSeasonPill: { height: 36, borderRadius: 18, paddingHorizontal: 15 },
+  mobileSeasonPillIdle: { backgroundColor: "#0E1524" },
+  mobileSeasonPillText: { fontSize: 13 },
+  // Celular/tablet: ação principal larga em branco; as demais em superfície escura.
+  mobilePrimaryButton: { flexBasis: "100%", flexGrow: 1, minHeight: 50, borderRadius: 12 },
+  mobileActionButton: { flex: 1, minHeight: 50, borderRadius: 12, borderWidth: 0, backgroundColor: "#0E1524" },
+  mobileActionText: { color: Colors.text },
+  mobileActionTextCritical: { color: "#FF8A8A" },
   tvSeasonPill: { height: 30, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, borderRadius: 15, borderWidth: 0 },
   tvSeasonPillSelected: { backgroundColor: "#1A2438" },
   tvSeasonPillFocused: { backgroundColor: "#F4F8FF", borderWidth: 0, transform: [] },

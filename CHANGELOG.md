@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.65] — 2026-11-14
+
+- **Detalhes no celular e tablet** (redesign aprovado): "Assistir/Continuar" ocupa a largura em branco; Mais tarde e Bloquear viram botões em superfície escura com texto claro (ciano quando salvo, vermelho-claro quando bloqueado). O seletor suspenso de temporadas dá lugar às mesmas pílulas da TV (`TvSeasonPill` com `touch`). Episódios continuam lado a lado, agora com barra de progresso na miniatura e "Assistido ✓" / "% visto" em todos os aparelhos. Imagens do TMDB sem mudança.
+- **Tablet deitado (séries)**: duas colunas — capa, informações e ações à esquerda; temporadas e episódios em lista vertical (`EpisodesSection vertical`, `EpisodeCard row`) e Semelhantes à direita.
+- **TV ao Vivo no celular e tablet**: cada linha deixa de usar `GlassCard` (um desfoque por linha) e passa a superfície sólida `#0E1524`, mais baixa (76 dp), com logo menor; barra do programa em ciano (antes verde), também na grade.
+- Build Android `20261083`.
+
 ## [2.17.64] — 2026-11-14
 
 - **Celular e tablet mais leves** (redesign aprovado no canvas "Proposta visual Celular e Tablet"): a barra de abas troca o `BlurView` (refeito a cada quadro de rolagem) por fundo sólido `#0A101C`; a luz ambiente desfocada atrás das fileiras da Início sai (`SHOW_AMBIENT_BLUR`); `CatalogBackground` deixa de carregar a imagem de tela cheia do celular e usa o mesmo degradê da TV. A Início não pré-carrega mais EPG.

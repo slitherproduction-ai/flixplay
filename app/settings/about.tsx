@@ -47,8 +47,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.66",
+    version: "v2.17.67",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Tela de ativação no novo padrão: passos em ciano, MAC e chave em uma linha, botões sem contorno e foco branco na TV." },
+      { tag: "Novidade", text: "Na TV, quem já tem lista vê \"Bem-vindo de volta\" e entra sozinho, sem apertar nada (Voltar leva ao login para trocar de lista)." },
+    ],
+  },
+  {
+    version: "v2.17.66",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Novos ícones nas abas, no menu da TV e no player, iguais em todas as versões do app." },

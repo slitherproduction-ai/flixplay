@@ -10,6 +10,7 @@ import { getStartupScreen } from "@/core/startup/recovery";
 import { getSecureStorageStatus, subscribeSecureStorageStatus } from "@/services/security/secureStorage";
 import { useAppStore } from "@/store/useAppStore";
 import { useTVMode } from "@/hooks/use-tv-mode";
+import { WelcomeBack, shouldShowWelcomeBack } from "@/features/login/welcome-back";
 
 const mobileSplash = require("@/assets/images/brand/ELVANOQ_splash_mobile_v3.png");
 const tvSplash = require("@/assets/images/brand/ELVANOQ_splash_tv_v3.png");
@@ -33,6 +34,7 @@ export default function Index() {
   const hasHydrated = useAppStore((state) => state._hasHydrated);
   const setHydrating = useAppStore((state) => state.setHydrating);
   const router = useRouter();
+  const tvMode = useTVMode();
   const [timedOut, setTimedOut] = useState(false);
   const [secureStatus, setSecureStatus] = useState(getSecureStorageStatus);
 
@@ -88,6 +90,13 @@ export default function Index() {
   const serverExists = servers.some((s) => s.id === activeServerId);
   if (!activeServerId || !serverExists) {
     return <Redirect href="/login" />;
+  }
+
+  // TV: "Bem-vindo de volta" por ~1,2 s e entra sozinho na lista (uma vez por
+  // abertura do app; Voltar leva ao login para trocar de lista).
+  if (tvMode && shouldShowWelcomeBack()) {
+    const server = servers.find((s) => s.id === activeServerId);
+    if (server) return <WelcomeBack server={server} />;
   }
 
   return <Redirect href="/(tabs)" />;

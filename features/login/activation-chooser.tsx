@@ -43,7 +43,7 @@ function statusLabel(status: PortalDeviceStatus | null): string {
     case "linked": return "Aparelho vinculado ao Portal";
     case "inactive": return "Aparelho vinculado · licença inativa";
     case "migration-pending": return "Vínculo em análise no Portal";
-    case "pending": return "Aguardando cadastro no Portal";
+    case "pending": return "Aguardando vínculo no Portal · esta tela atualiza sozinha";
     case "unavailable": return "Portal indisponível no momento · tente mais tarde";
     default: return "Preparando este aparelho…";
   }
@@ -95,20 +95,20 @@ function makeTvStyles(u: number) {
     description: { fontSize: n(13), lineHeight: n(18), color: "#B8C4D6" },
     steps: { gap: n(6) },
     step: { flexDirection: "row", alignItems: "center", gap: n(10) },
-    stepNumber: { width: n(22), height: n(22), alignItems: "center", justifyContent: "center", borderRadius: n(11), backgroundColor: "#147DFF" },
-    stepNumberText: { fontFamily: "Inter_700Bold", fontSize: n(11), color: "#FFFFFF" },
+    stepNumber: { width: n(22), height: n(22), alignItems: "center", justifyContent: "center", borderRadius: n(11), backgroundColor: "#1A2438" },
+    stepNumberText: { fontFamily: "Inter_700Bold", fontSize: n(11), color: Colors.blueBright },
     stepText: { flex: 1, fontSize: n(13), lineHeight: n(17), color: "#E4EAF4" },
     codeBlock: { gap: n(5) },
     codeCaption: { fontFamily: "Inter_700Bold", fontSize: n(10), letterSpacing: 1.6, color: "#8E9AAE" },
-    codeCard: { minHeight: n(54), flexDirection: "row", alignItems: "center", paddingHorizontal: n(16), paddingVertical: n(7), borderRadius: n(14), borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "#0D1422" },
+    codeCard: { minHeight: n(48), flexDirection: "row", alignItems: "center", paddingHorizontal: n(16), paddingVertical: n(7), borderRadius: n(14), backgroundColor: "rgba(14,21,36,0.92)" },
     codeLabel: { fontFamily: "Inter_700Bold", fontSize: n(9), letterSpacing: 1.2, color: "#8E9AAE" },
-    codeValue: { fontFamily: "Inter_700Bold", fontSize: n(18), letterSpacing: 1.4, color: "#FFFFFF" },
+    codeValue: { fontFamily: "Inter_700Bold", fontSize: n(15), lineHeight: n(20), color: "#FFFFFF" },
     codeDivider: { width: 1, alignSelf: "stretch", marginHorizontal: n(16), backgroundColor: "rgba(190,222,255,0.24)" },
     keyItem: { minWidth: n(80) },
     actions: { gap: n(8) },
     primary: { minHeight: n(44), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(9), paddingHorizontal: n(16), borderRadius: n(12), borderWidth: 2, borderColor: "transparent", backgroundColor: "#F4F8FF" },
     primaryText: { fontFamily: "Inter_700Bold", fontSize: n(14), color: Colors.background },
-    shortcut: { flex: 1, minHeight: n(38), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(7), paddingHorizontal: n(10), borderRadius: n(11), borderWidth: 2, borderColor: "rgba(190,222,255,0.16)", backgroundColor: "rgba(13,20,34,0.72)" },
+    shortcut: { flex: 1, minHeight: n(38), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: n(7), paddingHorizontal: n(10), borderRadius: n(11), borderWidth: 2, borderColor: "transparent", backgroundColor: "rgba(14,21,36,0.92)" },
     shortcutText: { flexShrink: 1, fontFamily: "Inter_600SemiBold", fontSize: n(12), color: "#F4F8FF" },
     feedbackText: { fontSize: n(12), color: Colors.muted },
     errorText: { flex: 1, fontSize: n(12), lineHeight: n(16), color: "#FF8B91" },
@@ -185,7 +185,7 @@ export function ActivationChooser({
             <View style={tv ? t.codeCard : styles.codeCard}>
               <View style={styles.codeItem}>
                 <AppText style={tv ? t.codeLabel : styles.codeLabel}>MAC</AppText>
-                <AppText selectable numberOfLines={1} adjustsFontSizeToFit style={tv ? t.codeValue : styles.codeValue}>{identity?.macAddress ?? "—"}</AppText>
+                <AppText selectable numberOfLines={1} style={tv ? t.codeValue : styles.codeValue}>{identity?.macAddress ?? "—"}</AppText>
               </View>
               <View style={tv ? t.codeDivider : styles.codeDivider} />
               <View style={[styles.codeItem, styles.codeItemKey, tv && t.keyItem]}>
@@ -252,7 +252,7 @@ export function ActivationChooser({
 
       <View style={tv ? t.footer : styles.footer}>
         <View style={styles.statusRow}>
-          <View style={[styles.statusDot, !linked && status?.state === "pending" && styles.statusDotWarn]} />
+          <View style={[styles.statusDot, !linked && status?.state !== "unavailable" && styles.statusDotWarn]} />
           <AppText style={tv ? t.statusText : styles.statusText}>{statusLabel(status)}</AppText>
         </View>
         <AppText style={tv ? t.version : styles.version}>ELVANOQ · Versão {APP_INFO.version} · Build {APP_INFO.build}</AppText>
@@ -274,26 +274,30 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, lineHeight: 20, color: "#B8C4D6" },
   steps: { gap: 10 },
   step: { flexDirection: "row", alignItems: "center", gap: 12 },
-  stepNumber: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "#147DFF" },
-  stepNumberText: { fontFamily: "Inter_700Bold", fontSize: 13, color: "#FFFFFF" },
+  // Passos no padrão do redesign: número ciano sobre #1A2438.
+  stepNumber: { width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 13, backgroundColor: "#1A2438" },
+  stepNumberText: { fontFamily: "Inter_700Bold", fontSize: 13, color: Colors.blueBright },
   stepText: { flex: 1, fontSize: 14, lineHeight: 19, color: "#E4EAF4" },
   codeBlock: { gap: 8 },
   codeCaption: { fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 1.6, color: "#8E9AAE" },
-  codeCard: { minHeight: 64, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: "#0D1422" },
-  codeItem: { flex: 1, gap: 2 },
-  codeItemKey: { flex: 0, minWidth: 96 },
+  // Cartão do código sem borda ciano (borda clara é só foco); MAC e chave
+  // cada um em uma linha, alinhados pelo topo.
+  codeCard: { minHeight: 60, flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, backgroundColor: "rgba(14,21,36,0.92)" },
+  codeItem: { flex: 1, gap: 4 },
+  codeItemKey: { flex: 0, minWidth: 84 },
   codeLabel: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.2, color: "#8E9AAE" },
-  codeValue: { fontFamily: "Inter_700Bold", fontSize: 18, letterSpacing: 1.2, color: "#FFFFFF" },
+  codeValue: { fontFamily: "Inter_700Bold", fontSize: 15, lineHeight: 20, color: "#FFFFFF" },
   codeDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", marginHorizontal: 14, backgroundColor: "rgba(190,222,255,0.24)" },
   actions: { gap: 10 },
   primary: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "#F4F8FF" },
-  primaryTvFocused: { borderColor: Colors.blueBright, transform: [{ scale: 1.03 }] },
+  // Foco da TV: anel branco, sem ampliar (mesma regra do menu e do player).
+  primaryTvFocused: { borderColor: "#FFFFFF", transform: [] },
   primaryText: { fontFamily: "Inter_700Bold", fontSize: 15, color: Colors.background },
-  secondary: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 18, borderRadius: 14, borderWidth: 1, borderColor: "rgba(244,248,255,0.24)", backgroundColor: "rgba(17,27,45,0.86)" },
+  secondary: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 18, borderRadius: 14, backgroundColor: "rgba(14,21,36,0.92)" },
   secondaryText: { fontFamily: "Inter_600SemiBold", fontSize: 15, color: Colors.text },
   shortcuts: { flexDirection: "row", gap: 8 },
-  shortcut: { flex: 1, minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: "rgba(190,222,255,0.16)", backgroundColor: "rgba(13,20,34,0.72)" },
-  shortcutFocused: { borderColor: Colors.blueBright, backgroundColor: "rgba(255,255,255,0.14)", transform: [{ scale: 1.04 }] },
+  shortcut: { flex: 1, minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 10, borderRadius: 12, backgroundColor: "rgba(14,21,36,0.92)" },
+  shortcutFocused: { borderColor: "#FFFFFF", backgroundColor: "rgba(255,255,255,0.12)", transform: [] },
   shortcutText: { flexShrink: 1, fontFamily: "Inter_600SemiBold", fontSize: 13, color: "#D6DEEB" },
   feedback: { flexDirection: "row", alignItems: "center", gap: 8 },
   feedbackText: { fontSize: 13, color: Colors.muted },

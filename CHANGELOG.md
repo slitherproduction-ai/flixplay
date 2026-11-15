@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.67] — 2026-11-15
+
+- **Login e ativação no padrão do redesign** (canvas "Proposta visual Login e Ativação"), com o mesmo fundo de hoje (`ELVANOQ_login_*_backdrop_v5`): números dos passos em ciano sobre `#1A2438` (antes azul `#147DFF`); cartão do MAC e da chave sem borda ciano, em `rgba(14,21,36,0.92)`, com os dois códigos em uma linha só e menores (15 dp; sai o `adjustsFontSizeToFit` que cortava o MAC); "Entrar com código do servidor", "Xtream por Host" e "Listas salvas" sem contorno; foco da TV em anel branco, sem ampliar. Status amarelo enquanto o aparelho aguarda o vínculo ("esta tela atualiza sozinha").
+- **"Bem-vindo de volta" na TV** (`features/login/welcome-back.tsx`): ao abrir o app com uma lista ativa, a TV mostra o fundo do login, "Bem-vindo de volta", a lista (nome e validade) e uma barra que enche em 1,2 s; ao terminar, entra sozinha na Início, sem o usuário apertar nada. Voltar durante a barra leva ao login (trocar de lista). Uma vez por abertura do app; celular e tablet continuam entrando direto.
+- Build Android `20261085`.
+
 ## [2.17.66] — 2026-11-14
 
 - **Ícones do redesign** (`components/app-icon.tsx`, `react-native-svg`): os mesmos desenhos do canvas e dos apps Roku, LG e MSX (traço 2, viewBox 24) na barra de abas (Início, TV ao Vivo com antena, Filmes, Séries, Ajustes), no menu da TV, nos blocos do tablet e no player (Voltar, Áudio e legendas, Picture-in-Picture, Favorito, Controle parental, Proporção, Outro player e a lista de Canais). Play/pausa/troca de canal seguem como estavam.

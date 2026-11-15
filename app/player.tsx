@@ -17,6 +17,7 @@ import {
   useReducer,
   useRef,
   useState,
+  type ReactNode,
   type Ref,
 } from "react";
 import {
@@ -24,6 +25,7 @@ import {
   Animated,
   AppState,
   BackHandler,
+  Easing,
   Modal,
   Platform,
   Pressable,
@@ -81,6 +83,7 @@ import {
 } from "@/features/player/EpisodeAutomation";
 import { parseSeriesEpisodeNavigation, type SeriesEpisodeNavigation } from "@/features/player/seriesNavigation";
 import { sizedImage } from "@/features/images/sizedImage";
+import { displayCategory } from "@/features/catalog/display";
 
 /** Format seconds → hh:mm:ss */
 function formatTime(secs: number): string {
@@ -1717,6 +1720,8 @@ export default function PlayerScreen() {
           />
           <PlayerTopBar
             topControlsRef={topControlsRef}
+            tvMode={tvMode}
+            endsAt={contentType !== "live" && duration > 0 ? endsAtLabel(currentTime, duration, playbackRate) : null}
             contentType={contentType}
             onBack={handleRequestExit}
             onTogglePip={handleTogglePip}
@@ -1739,14 +1744,14 @@ export default function PlayerScreen() {
               safeRight={insets.right}
             />
           ) : null}
-          <PlayerCenterControls
+          {tvMode ? null : <PlayerCenterControls
             playButtonRef={playButtonRef}
             isPlaying={isPlaying}
             isLive={contentType === "live"}
             onTogglePlayback={handleTogglePlayback}
             onBackward={contentType === "live" ? zapPrevious : () => handleSeek(-10)}
             onForward={contentType === "live" ? zapNext : () => handleSeek(10)}
-          />
+          />}
           <PlayerBottomPanel
             title={title}
             subtitle={sourceSubtitle}
@@ -1764,6 +1769,27 @@ export default function PlayerScreen() {
             playbackRate={playbackRate}
             selectedRatio={selectedRatio}
             currentEpg={epg.current}
+            nextEpg={epg.next ?? null}
+            liveMeta={currentChannel ? [currentChannel.number, displayCategory(currentChannel.categoryName)].filter(Boolean).join("  ·  ") : ""}
+            tvControls={tvMode ? (
+              <TvTransportRow
+                playButtonRef={playButtonRef}
+                topControlsRef={topControlsRef}
+                isPlaying={isPlaying}
+                isLive={contentType === "live"}
+                onTogglePlayback={handleTogglePlayback}
+                onBackward={contentType === "live" ? zapPrevious : () => handleSeek(-10)}
+                onForward={contentType === "live" ? zapNext : () => handleSeek(10)}
+                onOpenTracks={handleOpenTracks}
+                onCycleRatio={handleCycleRatio}
+                ratioLabel={selectedRatio.label}
+                favorite={isCurrentChannelFavorite}
+                onToggleFavorite={handleToggleChannelFavorite}
+                protectedContent={isCurrentContentBlocked}
+                onOpenParentalSettings={handleOpenParentalSettings}
+                onOpenExternal={Platform.OS === "android" && !isCurrentContentBlocked ? handleOpenExternalPlayer : undefined}
+              />
+            ) : null}
             onProgressLayout={handleProgressLayout}
             onProgressGrant={handleProgressGrant}
             onProgressMove={handleProgressMove}
@@ -1787,6 +1813,9 @@ export default function PlayerScreen() {
           loading={!playerError && player.status === "loading"}
           error={playerError}
           onRetry={handleRetry}
+          cover={tvMode && contentType !== "live" && currentTime <= 0 ? sourceThumbnail || backdrop : ""}
+          coverTitle={title}
+          coverSubtitle={sourceSubtitle}
         />
       </View>
 
@@ -1842,8 +1871,21 @@ export default function PlayerScreen() {
 
 // ─── Player Top Bar ──────────────────────────────────────────────────────────
 
+function hhmm(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+/** "termina às 22:12": hora atual + o que falta (na velocidade escolhida). */
+function endsAtLabel(currentTime: number, duration: number, rate: number): string | null {
+  const remaining = Math.max(0, duration - currentTime) / Math.max(0.25, rate || 1);
+  if (!Number.isFinite(remaining) || remaining <= 0) return null;
+  return `termina às ${hhmm(new Date(Date.now() + remaining * 1000))}`;
+}
+
 function PlayerTopBar({
   topControlsRef,
+  tvMode,
+  endsAt,
   contentType,
   onBack,
   onTogglePip,
@@ -1856,6 +1898,8 @@ function PlayerTopBar({
   onOpenExternal,
 }: {
   topControlsRef: Ref<TVFocusableHandle>;
+  tvMode: boolean;
+  endsAt: string | null;
   contentType: ContentType;
   onBack: () => void;
   onTogglePip: () => void;
@@ -1867,6 +1911,20 @@ function PlayerTopBar({
   onOpenParentalSettings: () => void;
   onOpenExternal?: () => void;
 }) {
+  // TV: no topo só o Voltar e o relógio; as ações ficam na faixa de baixo
+  // (TvTransportRow), como no Roku, na LG e no MSX.
+  if (tvMode) {
+    return (
+      <View pointerEvents="box-none" style={styles.topBar}>
+        <PlayerTopAction icon="arrow-back" label="Voltar" onPress={onBack} />
+        <View style={styles.topSpacer} />
+        <View style={styles.tvClockBlock}>
+          <AppText style={styles.tvClockText}>{hhmm(new Date())}</AppText>
+          {endsAt ? <AppText style={styles.tvEndsText}>{endsAt}</AppText> : null}
+        </View>
+      </View>
+    );
+  }
   return (
     <View pointerEvents="box-none" style={styles.topBar}>
       <PlayerTopAction icon="arrow-back" label="Voltar" onPress={onBack} />
@@ -1919,6 +1977,121 @@ const PlayerTopAction = forwardRef<TVFocusableHandle, PlayerTopActionProps>(func
       style={({ pressed }) => [styles.playerTopAction, pressed && styles.playerTopActionPressed]}
     >
       <Ionicons name={icon} size={26} color={active ? Colors.blueBright : Colors.white} />
+    </TVFocusable>
+  );
+});
+
+/**
+ * Faixa de controles da TV, sob a barra de tempo: reproduzir/pausar, voltar
+ * e avançar (ou trocar de canal) à esquerda; áudio e legendas, tela e as
+ * demais ações à direita. Nada no centro da imagem. Foco: pílula clara.
+ */
+function TvTransportRow({
+  playButtonRef,
+  topControlsRef,
+  isPlaying,
+  isLive,
+  onTogglePlayback,
+  onBackward,
+  onForward,
+  onOpenTracks,
+  onCycleRatio,
+  ratioLabel,
+  favorite,
+  onToggleFavorite,
+  protectedContent,
+  onOpenParentalSettings,
+  onOpenExternal,
+}: {
+  playButtonRef: Ref<TVFocusableHandle>;
+  topControlsRef: Ref<TVFocusableHandle>;
+  isPlaying: boolean;
+  isLive: boolean;
+  onTogglePlayback: () => void;
+  onBackward: () => void;
+  onForward: () => void;
+  onOpenTracks: () => void;
+  onCycleRatio: () => void;
+  ratioLabel: string;
+  favorite: boolean;
+  onToggleFavorite: () => void;
+  protectedContent: boolean;
+  onOpenParentalSettings: () => void;
+  onOpenExternal?: () => void;
+}) {
+  return (
+    <View style={styles.tvTransport}>
+      <TvPill
+        ref={playButtonRef}
+        round
+        preferred
+        icon={isPlaying ? "pause" : "play"}
+        accessibilityLabel={isPlaying ? "Pausar" : "Reproduzir"}
+        onPress={onTogglePlayback}
+      />
+      <TvPill
+        icon={isLive ? "play-skip-back" : undefined}
+        label={isLive ? undefined : "−10s"}
+        accessibilityLabel={isLive ? "Canal anterior" : "Voltar 10 segundos"}
+        onPress={onBackward}
+      />
+      <TvPill
+        icon={isLive ? "play-skip-forward" : undefined}
+        label={isLive ? undefined : "+10s"}
+        accessibilityLabel={isLive ? "Próximo canal" : "Avançar 10 segundos"}
+        onPress={onForward}
+      />
+      <View style={styles.topSpacer} />
+      <TvPill ref={topControlsRef} icon="chatbox-ellipses-outline" label="Áudio e legendas" accessibilityLabel="Faixas de áudio e legendas" onPress={onOpenTracks} />
+      <TvPill icon="scan-outline" label={ratioLabel} accessibilityLabel={`Proporção de tela: ${ratioLabel}`} onPress={onCycleRatio} />
+      {isLive ? (
+        <TvPill
+          icon={favorite ? "heart" : "heart-outline"}
+          active={favorite}
+          accessibilityLabel={favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          onPress={onToggleFavorite}
+        />
+      ) : null}
+      <TvPill
+        icon={protectedContent ? "lock-closed" : "lock-open-outline"}
+        active={protectedContent}
+        accessibilityLabel={protectedContent ? "Conteúdo protegido: abrir controle parental" : "Abrir controle parental"}
+        onPress={onOpenParentalSettings}
+      />
+      {onOpenExternal ? (
+        <TvPill icon="open-outline" accessibilityLabel="Abrir em outro player (VLC, MX Player)" onPress={onOpenExternal} />
+      ) : null}
+    </View>
+  );
+}
+
+type TvPillProps = {
+  icon?: keyof typeof Ionicons.glyphMap;
+  label?: string;
+  accessibilityLabel: string;
+  onPress: () => void;
+  active?: boolean;
+  round?: boolean;
+  preferred?: boolean;
+};
+
+const TvPill = forwardRef<TVFocusableHandle, TvPillProps>(function TvPill({ icon, label, accessibilityLabel, onPress, active = false, round = false, preferred = false }, ref) {
+  const [focused, setFocused] = useState(false);
+  const color = focused || round ? Colors.background : active ? Colors.blueBright : Colors.white;
+  return (
+    <TVFocusable
+      ref={ref}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hasTVPreferredFocus={preferred}
+      onPress={onPress}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      focusStyle={round ? styles.tvPillRoundFocused : styles.tvPillFocused}
+      style={[styles.tvPill, round && styles.tvPillRound, !label && !round && styles.tvPillIconOnly]}
+    >
+      {icon ? <Ionicons name={icon} size={round ? 17 : 15} color={color} /> : null}
+      {label ? <AppText numberOfLines={1} style={[styles.tvPillText, { color }]}>{label}</AppText> : null}
     </TVFocusable>
   );
 });
@@ -2067,15 +2240,55 @@ function VerticalAdjustment({
 
 // ─── Player Status ─────────────────────────────────────────────────────────
 
+/** Linha fina indeterminada (só transform, no thread nativo). */
+function OpeningLine() {
+  const shift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(shift, { toValue: 1, duration: 1_100, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [shift]);
+  return (
+    <View style={styles.openingTrack}>
+      <Animated.View
+        style={[styles.openingBar, { transform: [{ translateX: shift.interpolate({ inputRange: [0, 1], outputRange: [-240, 960] }) }] }]}
+      />
+    </View>
+  );
+}
+
 function PlayerStatus({
   loading,
   error,
   onRetry,
+  cover,
+  coverTitle,
+  coverSubtitle,
 }: {
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** TV, antes do primeiro quadro: a capa já baixada na tela anterior. */
+  cover: string;
+  coverTitle: string;
+  coverSubtitle: string;
 }) {
+  // Na TV, ao abrir um filme ou episódio, a capa (já em cache da tela
+  // anterior) aparece na hora no lugar do círculo girando.
+  if (loading && cover && !error) {
+    return (
+      <View pointerEvents="none" style={styles.openingCover}>
+        <Image source={{ uri: sizedImage(cover, "backdrop") }} contentFit="cover" transition={0} style={StyleSheet.absoluteFill} />
+        <View style={styles.openingVeil} />
+        <View style={styles.openingCopy}>
+          <AppText style={styles.openingEyebrow}>ABRINDO</AppText>
+          <AppText numberOfLines={2} style={styles.openingTitle}>{coverTitle}</AppText>
+          {coverSubtitle ? <AppText numberOfLines={1} style={styles.openingSubtitle}>{coverSubtitle}</AppText> : null}
+        </View>
+        <OpeningLine />
+      </View>
+    );
+  }
   return (
     <>
       {loading ? (
@@ -2120,6 +2333,9 @@ function PlayerBottomPanel({
   playbackRate,
   selectedRatio,
   currentEpg,
+  nextEpg,
+  liveMeta,
+  tvControls,
   onProgressLayout,
   onProgressGrant,
   onProgressMove,
@@ -2153,6 +2369,11 @@ function PlayerBottomPanel({
   playbackRate: number;
   selectedRatio: RatioOption;
   currentEpg: EpgProgram | null;
+  nextEpg: EpgProgram | null;
+  /** Número e grupo do canal ("102 · Esportes"). */
+  liveMeta: string;
+  /** TV: faixa de controles sob a barra de tempo. */
+  tvControls: ReactNode;
   onProgressLayout: (e: LayoutChangeEvent) => void;
   onProgressGrant: (e: GestureResponderEvent) => void;
   onProgressMove: (e: GestureResponderEvent) => void;
@@ -2198,19 +2419,36 @@ function PlayerBottomPanel({
       <View style={styles.mediaSummary}>
         <ChannelLogo image={artwork} name={title} size={52} />
         <View style={styles.mediaSummaryCopy}>
-          <AppText numberOfLines={1} style={styles.mediaSummaryMeta}>
-            {isLive ? "10 · Grupo: Canais" : contentType === "episode" ? "SÉRIE" : "FILME"}
+          <AppText numberOfLines={1} style={[styles.mediaSummaryMeta, tvControls ? styles.tvSummaryEyebrow : null]}>
+            {isLive ? (liveMeta || "AO VIVO") : contentType === "episode" ? "SÉRIE" : "FILME"}
             {!isLive && subtitle ? ` · ${subtitle}` : ""}
           </AppText>
           <AppText numberOfLines={1} style={styles.mediaSummaryTitle}>{title}</AppText>
-          <AppText numberOfLines={1} style={styles.mediaSummaryProgram}>
-            {isLive ? currentEpg?.title ?? "Programação não informada" : isPlaying ? "Reproduzindo" : "Pausado"}
-          </AppText>
+          {isLive && tvControls ? (
+            <>
+              <View style={styles.tvEpgRow}>
+                <AppText style={styles.tvEpgLabel}>AGORA</AppText>
+                <AppText numberOfLines={1} style={styles.tvEpgTitle}>{currentEpg?.title ?? "Programação não informada"}</AppText>
+                {currentEpg?.start ? <AppText style={styles.tvEpgTime}>{currentEpg.start}{currentEpg.end ? ` – ${currentEpg.end}` : ""}</AppText> : null}
+              </View>
+              {nextEpg?.title ? (
+                <View style={styles.tvEpgRow}>
+                  <AppText style={[styles.tvEpgLabel, styles.tvEpgLabelNext]}>A SEGUIR</AppText>
+                  <AppText numberOfLines={1} style={[styles.tvEpgTitle, styles.tvEpgTitleNext]}>{nextEpg.title}</AppText>
+                  {nextEpg.start ? <AppText style={styles.tvEpgTime}>{nextEpg.start}</AppText> : null}
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <AppText numberOfLines={1} style={styles.mediaSummaryProgram}>
+              {isLive ? currentEpg?.title ?? "Programação não informada" : isPlaying ? "Reproduzindo" : "Pausado"}
+            </AppText>
+          )}
         </View>
         {isLive ? (
           <View style={styles.liveBadge}>
             <View style={styles.liveBadgeDot} />
-            <AppText style={styles.liveBadgeText}>LIVE</AppText>
+            <AppText style={styles.liveBadgeText}>AO VIVO</AppText>
           </View>
         ) : null}
       </View>
@@ -2308,6 +2546,7 @@ function PlayerBottomPanel({
       {timelineFocused ? (
         <AppText style={styles.timelineHint}>◀ voltar   ▶ avançar   (segure apertando para ir mais rápido)</AppText>
       ) : null}
+      {tvControls}
 
       {panel ? (
         <ActivePanelSection
@@ -2753,6 +2992,25 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
 
+  // TV: relógio no topo e faixa única de controles embaixo.
+  tvClockBlock: { alignItems: "flex-end", gap: 1 },
+  tvClockText: { fontFamily: "Inter_600SemiBold", fontSize: 14, color: Colors.white },
+  tvEndsText: { fontFamily: "Inter_500Medium", fontSize: 10, color: "rgba(244,248,255,0.7)" },
+  tvTransport: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  tvPill: { height: 30, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12, borderRadius: 15, borderWidth: 0, backgroundColor: "rgba(244,248,255,0.12)" },
+  tvPillIconOnly: { width: 30, paddingHorizontal: 0 },
+  tvPillRound: { width: 34, height: 34, borderRadius: 17, paddingHorizontal: 0, backgroundColor: "rgba(244,248,255,0.86)" },
+  tvPillFocused: { backgroundColor: "#F4F8FF", borderWidth: 0, transform: [] },
+  tvPillRoundFocused: { backgroundColor: "#FFFFFF", borderWidth: 2, borderColor: "#FFFFFF", transform: [{ scale: 1.08 }] },
+  tvPillText: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
+  tvSummaryEyebrow: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.2, color: Colors.blueBright },
+  tvEpgRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tvEpgLabel: { width: 58, fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.2, color: Colors.blueBright },
+  tvEpgLabelNext: { color: "rgba(244,248,255,0.6)" },
+  tvEpgTitle: { flexShrink: 1, fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.white },
+  tvEpgTitleNext: { fontFamily: "Inter_500Medium", color: "rgba(244,248,255,0.8)" },
+  tvEpgTime: { fontFamily: "Inter_500Medium", fontSize: 11, color: "rgba(244,248,255,0.6)" },
+
   // Center transport: visually detached from the lower information region.
   centerControls: {
     position: "absolute",
@@ -2837,6 +3095,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(7,9,14,0.65)",
   },
   loadingText: { fontSize: 12, color: Colors.white },
+  openingCover: { ...StyleSheet.absoluteFill, backgroundColor: Colors.background },
+  openingVeil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(4,9,18,0.62)" },
+  openingCopy: { position: "absolute", left: 48, right: 48, bottom: 46, gap: 6 },
+  openingEyebrow: { fontFamily: "Inter_700Bold", fontSize: 10, letterSpacing: 1.4, color: Colors.blueBright },
+  openingTitle: { fontFamily: "Inter_700Bold", fontSize: 24, lineHeight: 29, color: Colors.white },
+  openingSubtitle: { fontFamily: "Inter_500Medium", fontSize: 12, color: "rgba(244,248,255,0.75)" },
+  openingTrack: { position: "absolute", left: 0, right: 0, bottom: 0, height: 3, overflow: "hidden", backgroundColor: "rgba(244,248,255,0.12)" },
+  openingBar: { width: 240, height: 3, backgroundColor: Colors.blueBright },
   playerError: {
     position: "absolute",
     top: "44%",

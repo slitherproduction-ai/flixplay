@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.17.63] — 2026-11-14
+
+- **Player da TV** (redesign aprovado): sem botões no centro da imagem. No topo, só Voltar e o relógio, com "termina às HH:MM" em filmes e episódios (considera a velocidade). Embaixo, uma faixa única sob a barra de tempo (`TvTransportRow`/`TvPill`): reproduzir/pausar (foco inicial, mesmo `playButtonRef`), −10s/+10s (ou canal anterior/próximo no ao vivo) e, à direita, Áudio e legendas (`topControlsRef`, então ▲ continua levando a ela), Proporção com o nome atual, Favorito (ao vivo), Controle parental e Abrir em outro player. Foco em pílula clara, sem ampliar. Picture-in-Picture fica só no celular. Celular e tablet não mudam.
+- **Faixa do canal ao vivo**: a linha fixa "10 · Grupo: Canais" dá lugar ao número e grupo reais do canal; na TV aparecem AGORA (título e horário) e A SEGUIR do EPG já carregado — nada novo é buscado na rede. Selo "LIVE" vira "AO VIVO".
+- **Abertura com capa** (TV, filmes e episódios): até o primeiro quadro, a capa recebida da tela anterior (já em cache) ocupa a tela com véu escuro, título e uma linha fina animada só com `transform`, no lugar do círculo girando. Recarregamentos no meio do vídeo continuam com o indicador discreto.
+- **Detalhes da série na TV**: o seletor suspenso de temporada vira pílulas lado a lado (selecionada com fundo elevado e ponto ciano, foco claro). Episódios com anel branco só na miniatura, barra de progresso na base da miniatura e "Assistido ✓" / "% visto". As imagens do TMDB não mudam.
+- Build Android `20261081`.
+
 ## [2.17.62] — 2026-11-14
 
 - **Catálogo de Filmes e Séries na TV** (redesign aprovado): a faixa com o título em foco (nome, ano, duração ou temporadas, categoria e nota) sai do rodapé e fica acima da grade, com altura fixa, para a grade não pular. Categorias num trilho sem moldura; a selecionada tem fundo elevado `#1A2438` e ponto ciano, e o foco é a pílula clara, igual ao menu da Início. Pôster em foco com anel branco e ampliação de 6%. A busca continua como está, na primeira linha das categorias.

@@ -47,8 +47,18 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.62",
+    version: "v2.17.63",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Player da TV redesenhado: controles numa faixa só embaixo, relógio e horário em que o filme termina." },
+      { tag: "Melhoria", text: "Ao vivo: faixa do canal com número, grupo, programa de agora e o próximo." },
+      { tag: "Melhoria", text: "Ao abrir filme ou episódio na TV, a capa aparece na hora enquanto o vídeo carrega." },
+      { tag: "Melhoria", text: "Detalhes da série na TV: temporadas em botões lado a lado e episódios com barra de progresso e marcação de assistido." },
+    ],
+  },
+  {
+    version: "v2.17.62",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Filmes e Séries na TV: título em foco no topo da grade, categoria selecionada com ponto ciano e foco em destaque claro." },

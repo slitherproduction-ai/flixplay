@@ -820,40 +820,14 @@ function EpisodesSection({
         subtitle={`${show.seasonsCount} temporada${show.seasonsCount !== 1 ? "s" : ""}`}
       />
       {tvMode ? (
-        <View style={styles.tvSeasonSelectorArea}>
-          <TVFocusable
-            accessibilityRole="button"
-            accessibilityLabel={`Selecionar temporada. Atual: temporada ${season}`}
-            accessibilityState={{ expanded: seasonMenuOpen }}
-            onPress={() => setSeasonMenuOpen((open) => !open)}
-            style={styles.tvSeasonSelector}
-            focusStyle={styles.tvSeasonSelectorFocused}
-          >
-            <Ionicons name="albums-outline" size={16} color={Colors.background} />
-            <AppText style={styles.tvSeasonSelectorText}>Temporada {season}</AppText>
-            <Ionicons name={seasonMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.background} />
-          </TVFocusable>
-          {seasonMenuOpen ? (
-            <View style={styles.tvSeasonMenu}>
-              {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
-                <TVFocusable
-                  key={num}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Temporada ${num}`}
-                  accessibilityState={{ selected: season === num }}
-                  onPress={() => selectSeason(num)}
-                  style={[styles.tvSeasonOption, season === num && styles.tvSeasonOptionSelected]}
-                  focusStyle={styles.tvSeasonOptionFocused}
-                >
-                  <AppText style={[styles.tvSeasonOptionText, season === num && styles.tvSeasonOptionTextSelected]}>
-                    Temporada {num}
-                  </AppText>
-                  {season === num ? <Ionicons name="checkmark" size={15} color={Colors.blueBright} /> : null}
-                </TVFocusable>
-              ))}
-            </View>
-          ) : null}
-        </View>
+        // TV: temporadas em pílulas lado a lado (sem menu suspenso), como no
+        // Roku, LG e MSX. Selecionada = fundo elevado + ponto ciano; foco =
+        // pílula clara.
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tvSeasonPills}>
+          {Array.from({ length: show.seasonsCount }, (_, i) => i + 1).map((num) => (
+            <TvSeasonPill key={num} season={num} selected={season === num} onSelect={selectSeason} />
+          ))}
+        </ScrollView>
       ) : (
         <View style={styles.mobileSeasonSelectorArea}>
           <TVFocusable
@@ -929,6 +903,27 @@ function EpisodesSection({
   );
 }
 
+function TvSeasonPill({ season, selected, onSelect }: { season: number; selected: boolean; onSelect: (season: number) => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      accessibilityLabel={`Temporada ${season}`}
+      accessibilityState={{ selected }}
+      onPress={() => onSelect(season)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={[styles.tvSeasonPill, selected && styles.tvSeasonPillSelected]}
+      focusStyle={styles.tvSeasonPillFocused}
+    >
+      {selected ? <View style={[styles.tvSeasonDot, focused && styles.tvSeasonDotFocused]} /> : null}
+      <AppText style={[styles.tvSeasonPillText, selected && styles.tvSeasonPillTextSelected, focused && styles.tvSeasonPillTextFocused]}>
+        Temporada {season}
+      </AppText>
+    </TVFocusable>
+  );
+}
+
 function EpisodeCard({
   episode,
   historyEntry,
@@ -947,14 +942,20 @@ function EpisodeCard({
   const handlePress = useCallback(() => onPlay(episode.id), [episode.id, onPlay]);
   const progress = getHistoryProgress(historyEntry);
   const hasProgress = isResumable(historyEntry);
+  const watched = progress >= 95;
+  // TV: o foco é um anel branco só na miniatura (como nos pôsteres).
+  const [focused, setFocused] = useState(false);
   return (
     <TVFocusable
       accessibilityRole="button"
-      accessibilityLabel={`${hasProgress ? "Continuar" : "Reproduzir"} ${episode.title}${hasProgress ? `, ${progress}% assistido` : ""}`}
+      accessibilityLabel={`${hasProgress ? "Continuar" : "Reproduzir"} ${episode.title}${hasProgress ? `, ${progress}% assistido` : watched ? ", assistido" : ""}`}
       onPress={handlePress}
+      onFocus={tvMode ? () => setFocused(true) : undefined}
+      onBlur={tvMode ? () => setFocused(false) : undefined}
+      focusStyle={tvMode ? styles.tvEpisodeCardFocused : undefined}
       style={({ pressed }) => [styles.episodeCard, tvMode ? styles.tvEpisodeCard : tabletLandscape ? styles.tabletLandscapeEpisodeCard : tabletMode ? styles.tabletEpisodeCard : styles.mobileEpisodeCard, pressed && styles.pressed]}
     >
-      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : tabletMode ? styles.tabletEpisodeThumb : styles.mobileEpisodeThumb]}>
+      <View style={[styles.episodeThumb, tvMode ? styles.tvEpisodeThumb : tabletMode ? styles.tabletEpisodeThumb : styles.mobileEpisodeThumb, tvMode && focused && styles.tvEpisodeThumbFocused]}>
         {episode.thumbnail ? (
           <Image source={{ uri: sizedImage(episode.thumbnail, "still") }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : (
@@ -971,6 +972,11 @@ function EpisodeCard({
             T{episode.seasonNumber}:E{episode.episodeNumber}
           </AppText>
         </View>
+        {tvMode && (hasProgress || watched) ? (
+          <View style={styles.tvThumbProgress}>
+            <View style={[styles.tvThumbProgressFill, { width: `${watched ? 100 : progress}%` }]} />
+          </View>
+        ) : null}
       </View>
       <View style={[styles.episodeCopy, tvMode ? styles.tvEpisodeCopy : tabletMode ? styles.tabletEpisodeCopy : styles.mobileEpisodeCopy]}>
         <AppText numberOfLines={1} style={[styles.episodeTitle, tvMode && styles.tvEpisodeTitle]}>
@@ -984,7 +990,11 @@ function EpisodeCard({
         <View style={styles.episodeBottom}>
           <Ionicons name="time-outline" size={11} color={Colors.subtle} />
           <AppText style={styles.episodeDuration}>{episode.duration}</AppText>
-          {hasProgress ? (
+          {tvMode && watched ? (
+            <AppText style={styles.tvWatched}>Assistido ✓</AppText>
+          ) : tvMode && hasProgress ? (
+            <AppText style={styles.tvWatched}>{progress}% visto</AppText>
+          ) : hasProgress ? (
             <View style={styles.episodeProgress}>
               <View style={[styles.episodeProgressFill, { width: `${progress}%` }]} />
             </View>
@@ -1196,6 +1206,15 @@ const styles = StyleSheet.create({
   tabletEpisodesSection: { paddingHorizontal: 32, gap: 14 },
   tvEpisodesSection: { gap: 10, paddingHorizontal: 62, paddingTop: 4 },
   tvSeasonSelectorArea: { alignSelf: "flex-start", minWidth: 230, zIndex: 3 },
+  tvSeasonPills: { gap: 6, paddingVertical: 2 },
+  tvSeasonPill: { height: 30, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, borderRadius: 15, borderWidth: 0 },
+  tvSeasonPillSelected: { backgroundColor: "#1A2438" },
+  tvSeasonPillFocused: { backgroundColor: "#F4F8FF", borderWidth: 0, transform: [] },
+  tvSeasonDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.blueBright },
+  tvSeasonDotFocused: { backgroundColor: Colors.background },
+  tvSeasonPillText: { fontFamily: "Inter_500Medium", fontSize: 11, color: "#C9D2E3" },
+  tvSeasonPillTextSelected: { fontFamily: "Inter_600SemiBold", color: Colors.text },
+  tvSeasonPillTextFocused: { color: Colors.background },
   tvSeasonSelector: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", backgroundColor: "rgba(238,244,252,0.94)" },
   tvSeasonSelectorFocused: { borderWidth: 2, borderColor: Colors.blueBright, backgroundColor: Colors.white, transform: [{ scale: 1 }] },
   tvSeasonSelectorText: { flex: 1, fontFamily: "Inter_600SemiBold", fontSize: 12, color: Colors.background },
@@ -1289,7 +1308,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: Colors.backgroundRaised,
   },
-  tvEpisodeThumb: { width: 210, height: 118, borderRadius: 8 },
+  tvEpisodeThumb: { width: 210, height: 118, borderRadius: 8, borderWidth: 2, borderColor: "transparent" },
+  tvEpisodeThumbFocused: { borderColor: "#FFFFFF" },
+  tvEpisodeCardFocused: { borderWidth: 0, transform: [{ scale: 1.03 }] },
+  tvThumbProgress: { position: "absolute", left: 0, right: 0, bottom: 0, height: 3, backgroundColor: "rgba(244,248,255,0.2)" },
+  tvThumbProgressFill: { height: 3, backgroundColor: Colors.blueBright },
+  tvWatched: { fontFamily: "Inter_500Medium", fontSize: 10, color: "#9AA6BD" },
   mobileEpisodeThumb: { width: "100%", height: 134, borderRadius: 0 },
   tabletEpisodeThumb: { width: "100%", height: 155, borderRadius: 0 },
   thumbFallback: {

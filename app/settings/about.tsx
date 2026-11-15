@@ -47,8 +47,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.60",
+    version: "v2.17.61",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Na TV, a Início ganhou um menu no topo com ícones: Início, TV ao Vivo, Filmes, Séries, Minha Lista e Ajustes." },
+      { tag: "Melhoria", text: "Ao parar sobre um título em Novidades para você, o destaque passa a mostrar esse título." },
+      { tag: "Melhoria", text: "Fundo das telas da TV mais limpo, sem o logo atrás das capas." },
+    ],
+  },
+  {
+    version: "v2.17.60",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Ao voltar de um filme ou série, o foco volta para o título que estava selecionado, e não para a busca de categorias." },

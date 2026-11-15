@@ -24,6 +24,7 @@ import { parseAddedAt, topItems } from "@/features/catalog/addedAt";
 import { markAppReady } from "@/services/performanceMonitor";
 import { sizedImage } from "@/features/images/sizedImage";
 import { useHeroBackdrop } from "@/features/home/useHeroBackdrop";
+import { HERO_FOCUS_DELAY_MS, createHeroFocusStore } from "@/features/home/heroFocus";
 import { catalogDatabase } from "@/data/database/catalogDatabase";
 
 // ---------------------------------------------------------------------------
@@ -110,7 +111,9 @@ type HeroLabel =
   | "RECÉM-ADICIONADO"
   | "MAIS BEM AVALIADO"
   | "CONTINUE ASSISTINDO"
-  | "DESTAQUE ELVANOQ";
+  | "DESTAQUE ELVANOQ"
+  | "FILME"
+  | "SÉRIE";
 
 const HERO_LABEL_ICONS: Record<HeroLabel, IoniconName> = {
   "DESTAQUE DA SEMANA": "sparkles",
@@ -118,7 +121,12 @@ const HERO_LABEL_ICONS: Record<HeroLabel, IoniconName> = {
   "MAIS BEM AVALIADO": "star",
   "CONTINUE ASSISTINDO": "play-circle-outline",
   "DESTAQUE ELVANOQ": "diamond-outline",
+  FILME: "film-outline",
+  "SÉRIE": "albums-outline",
 };
+
+/** Pôster em foco nas fileiras da TV: o destaque passa a mostrá-lo. */
+const useHeroFocus = createHeroFocusStore<HeroContent>();
 
 type HeroSlide = {
   id: string;
@@ -480,6 +488,109 @@ function HeroBanner({
 }
 
 // ---------------------------------------------------------------------------
+// Menu da TV (topo da Início, com ícones — igual em Roku, LG e MSX)
+// ---------------------------------------------------------------------------
+
+type TvNavDef = {
+  key: "home" | "live" | "movies" | "series" | "list";
+  title: string;
+  icon: IoniconName;
+  activeIcon: IoniconName;
+  href?: Href;
+};
+
+const TV_NAV: readonly TvNavDef[] = [
+  { key: "home", title: "Início", icon: "home-outline", activeIcon: "home" },
+  { key: "live", title: "TV ao Vivo", icon: "radio-outline", activeIcon: "radio", href: "/live" },
+  { key: "movies", title: "Filmes", icon: "film-outline", activeIcon: "film", href: "/movies" },
+  { key: "series", title: "Séries", icon: "albums-outline", activeIcon: "albums", href: "/series" },
+  { key: "list", title: "Minha Lista", icon: "bookmark-outline", activeIcon: "bookmark", href: "/watch-later" },
+];
+
+function TvNavItem({ item, active, index, onPress }: { item: TvNavDef; active: boolean; index: number; onPress: () => void }) {
+  const [focused, setFocused] = useState(false);
+  const color = focused ? Colors.background : active ? Colors.text : "#C9D2E3";
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      accessibilityLabel={item.title}
+      accessibilityState={{ selected: active }}
+      focusId={`home-nav-${item.key}`}
+      focusScope="home-nav"
+      focusIndex={index}
+      restoreFocus
+      onPress={onPress}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      focusStyle={styles.tvNavItemFocused}
+      style={[styles.tvNavItem, active && styles.tvNavItemActive]}
+    >
+      <Ionicons name={active ? item.activeIcon : item.icon} size={15} color={focused ? Colors.background : active ? Colors.blueBright : color} />
+      <AppText numberOfLines={1} style={[styles.tvNavText, active && styles.tvNavTextActive, { color }]}>{item.title}</AppText>
+    </TVFocusable>
+  );
+}
+
+function TvSettingsButton({ onPress }: { onPress: () => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <TVFocusable
+      accessibilityRole="button"
+      accessibilityLabel="Ajustes"
+      focusId="home-nav-settings"
+      focusScope="home-nav"
+      focusIndex={TV_NAV.length}
+      restoreFocus
+      onPress={onPress}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      focusStyle={styles.tvNavItemFocused}
+      style={styles.tvNavIcon}
+    >
+      <Ionicons name="settings-outline" size={16} color={focused ? Colors.background : "#C9D2E3"} />
+    </TVFocusable>
+  );
+}
+
+/** Relógio do topo: redesenha só ele, uma vez por minuto. */
+function TvClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const timeout = setTimeout(() => {
+      setNow(new Date());
+      interval = setInterval(() => setNow(new Date()), 60_000);
+    }, 60_000 - (Date.now() % 60_000) + 50);
+    return () => {
+      clearTimeout(timeout);
+      if (interval) clearInterval(interval);
+    };
+  }, []);
+  const label = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return <AppText style={styles.tvClock}>{label}</AppText>;
+}
+
+function TvHomeNav({ onNavigate }: { onNavigate: (href: Href) => void }) {
+  return (
+    <View style={styles.tvNav}>
+      <BrandLogo variant="wordmark" accessibilityLabel="ELVANOQ" style={[styles.wordmark, styles.tvWordmark, styles.tvNavWordmark]} />
+      {TV_NAV.map((item, index) => (
+        <TvNavItem
+          key={item.key}
+          item={item}
+          active={item.key === "home"}
+          index={index}
+          onPress={() => { if (item.href) onNavigate(item.href); }}
+        />
+      ))}
+      <View style={styles.tvNavSpacer} />
+      <TvSettingsButton onPress={() => onNavigate("/settings")} />
+      <TvClock />
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Blocos de navegação (substituem o menu no Roku)
 // ---------------------------------------------------------------------------
 
@@ -597,9 +708,14 @@ const HeroCarousel = memo(function HeroCarousel({
     setSlideIndex((current) => Math.min(current, Math.max(0, slideCount - 1)));
   }, [slideCount]);
 
+  // Na TV, parar sobre um pôster das fileiras leva o título para o destaque
+  // (como no Roku); a rotação automática para enquanto ele estiver ali.
+  const focusedItem = useHeroFocus((state) => state.item);
+  const override = tvMode ? focusedItem : null;
+
   // A barra do segmento ativo é o próprio relógio da rotação: pausar a
   // animação (foco nos botões, outra aba aberta) pausa também a troca.
-  const rotationActive = slideCount > 1 && screenFocused && !actionsFocused;
+  const rotationActive = slideCount > 1 && screenFocused && !actionsFocused && !override;
   useEffect(() => {
     if (!rotationActive) return;
     let cancelled = false;
@@ -622,7 +738,12 @@ const HeroCarousel = memo(function HeroCarousel({
 
   useEffect(() => () => { if (focusTimer.current) clearTimeout(focusTimer.current); }, []);
 
-  const slide = slides[slideIndex] ?? slides[0];
+  const rotatingSlide = slides[slideIndex] ?? slides[0];
+  const slide = useMemo<HeroSlide>(() => {
+    if (!override) return rotatingSlide;
+    const label: HeroLabel = override.type === "series" ? "SÉRIE" : "FILME";
+    return { id: `focus-${override.id}`, label, icon: HERO_LABEL_ICONS[label], content: override };
+  }, [override, rotatingSlide]);
   const content = slide.content;
   const isFavorite = content.type === "movie" ? favoriteMovieIds.includes(content.id) : favoriteSeriesIds.includes(content.id);
 
@@ -664,7 +785,7 @@ const HeroCarousel = memo(function HeroCarousel({
       ) : null}
       <HeroBanner
         slide={slide}
-        slides={slides}
+        slides={override ? [] : slides}
         slideIndex={slideIndex}
         height={height}
         tvMode={tvMode}
@@ -1004,15 +1125,17 @@ export default function HomeScreen() {
     settings: "Conta e player",
   };
 
-  // Os blocos substituem o menu lateral, como no Roku. No smartphone a barra
-  // de abas inferior já cumpre esse papel, então eles não são exibidos.
-  const showTiles = tvMode || wide;
+  // No tablet os blocos fazem o papel do menu; na TV o menu com ícones fica no
+  // topo do destaque. No smartphone a barra de abas inferior cumpre o papel.
+  const showTiles = !tvMode && wide;
   const tileColumns = 6;
   const tileGap = tvMode ? 11 : 10;
   const tileWidth = Math.floor((width - sidePadding * 2 - tileGap * (tileColumns - 1)) / tileColumns);
   const tileHeight = Math.round(tvMode ? Math.max(70, tileWidth * 0.54) : Math.max(84, tileWidth * 0.5));
 
-  const header = useMemo(() => (
+  const handleNavigate = useCallback((href: Href) => { router.push(href); }, [router]);
+
+  const header = useMemo(() => (tvMode ? <TvHomeNav onNavigate={handleNavigate} /> : (
     <>
       <BrandLogo variant="wordmark" accessibilityLabel="ELVANOQ" style={[styles.wordmark, tvMode && styles.tvWordmark]} />
       <View style={styles.headerActions}>
@@ -1030,7 +1153,7 @@ export default function HomeScreen() {
         <AccountSummary profile={activeServer} tvMode={tvMode} onPress={handleOpenAccount} />
       </View>
     </>
-  ), [activeServer, handleOpenAccount, handleOpenSearch, showTiles, tvMode]);
+  )), [activeServer, handleNavigate, handleOpenAccount, handleOpenSearch, showTiles, tvMode]);
 
   const renderContinueRail = (items: PlayHistory[]) => (
     <View>
@@ -1065,6 +1188,18 @@ export default function HomeScreen() {
     </View>
   );
 
+  // Parar sobre um pôster leva o título ao destaque (só TV). A troca espera
+  // o usuário parar: rolar rápido pela fileira não busca imagem nenhuma.
+  const heroFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRailFocus = useCallback((item: HeroContent) => {
+    if (!tvMode) return;
+    if (heroFocusTimer.current) clearTimeout(heroFocusTimer.current);
+    heroFocusTimer.current = setTimeout(() => useHeroFocus.getState().setItem(item), HERO_FOCUS_DELAY_MS);
+  }, [tvMode]);
+  useEffect(() => () => { if (heroFocusTimer.current) clearTimeout(heroFocusTimer.current); }, []);
+  // Outra lista: o título em foco não existe mais nela.
+  useEffect(() => { useHeroFocus.getState().setItem(null); }, [activeServerIdForTotals]);
+
   const renderTitlesRail = (title: string, subtitle: string, items: HeroContent[], onSeeAll: () => void) => (
     <View>
       <SectionHeader
@@ -1083,6 +1218,7 @@ export default function HomeScreen() {
             quality={item.quality}
             width={posterWidth}
             onPress={() => handleContent(item.id)}
+            onFocused={tvMode ? () => handleRailFocus(item) : undefined}
           />
         ))}
       </HorizontalScroller>
@@ -1132,7 +1268,7 @@ export default function HomeScreen() {
         </View>
         ) : null}
 
-        <View style={[styles.rails, { paddingHorizontal: sidePadding }, tvMode && styles.tvRails, !showTiles && heroSlides.length > 0 && styles.railsAfterHero]}>
+        <View style={[styles.rails, { paddingHorizontal: sidePadding }, tvMode && styles.tvRails, !showTiles && heroSlides.length > 0 && (tvMode ? styles.tvRailsAfterHero : styles.railsAfterHero)]}>
           {tvMode ? (
             <>
               {recentTitles.length > 0
@@ -1331,6 +1467,20 @@ const styles = StyleSheet.create({
   rails: { gap: 22, marginTop: 26 },
   tvRails: { gap: 16, marginTop: 22 },
   railsAfterHero: { marginTop: 4 },
+  tvRailsAfterHero: { marginTop: -34 },
+
+  // Menu da TV: pílulas com ícone; ativa em fundo elevado com ícone ciano,
+  // em foco em pílula branca (mesma regra no Roku, LG e MSX).
+  tvNav: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4 },
+  tvNavWordmark: { marginRight: 18 },
+  tvNavItem: { height: 30, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: 15 },
+  tvNavItemActive: { backgroundColor: "#1A2438" },
+  tvNavItemFocused: { backgroundColor: "#F4F8FF", borderWidth: 0, transform: [] },
+  tvNavText: { fontFamily: "Inter_500Medium", fontSize: 11 },
+  tvNavTextActive: { fontFamily: "Inter_600SemiBold" },
+  tvNavSpacer: { flex: 1 },
+  tvNavIcon: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 15 },
+  tvClock: { marginLeft: 12, fontFamily: "Inter_500Medium", fontSize: 12, color: "#9AA6BD" },
   cardPressed: { opacity: 0.84, transform: [{ scale: 0.98 }] },
   cardFocused: { borderWidth: 2, borderColor: Colors.blueBright, transform: [{ scale: 1.05 }] },
   continueCard: { width: 232, borderRadius: 14, borderWidth: 1, borderColor: "transparent" },

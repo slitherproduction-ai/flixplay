@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.61] — 2026-11-14
+
+- **Menu da TV com ícones** (redesign aprovado no canvas "Proposta visual TV"): os seis blocos da Início saem e o topo do destaque vira o menu — marca, pílulas com ícone para Início, TV ao Vivo, Filmes, Séries e Minha Lista, Ajustes só com ícone e o relógio (`TvHomeNav`, `TvClock`, que só redesenha a si mesmo uma vez por minuto). Sem o atalho de Busca, a pedido do usuário (a busca segue dentro de Filmes e Séries). Aba ativa em fundo elevado `#1A2438` com ícone ciano; foco em pílula branca, sem ampliar. No tablet os blocos continuam.
+- **Destaque segue o pôster em foco** (TV): parar 300 ms sobre um pôster de "Novidades para você" leva o título ao destaque, que reaproveita `useHeroBackdrop` (mesma imagem do TMDB, mesmo cache). Estado em `features/home/heroFocus.ts`, assinado só pelo carrossel — as fileiras não são redesenhadas. A rotação automática para enquanto há um título em foco. `PosterCard` ganhou `onFocused`.
+- **Fundo da TV sem o logo**: `CatalogBackground` na TV deixa de carregar `ELVANOQ_background_tv.png` (logo e anéis atrás das grades) e usa o azul-marinho com uma luz suave no topo, só degradê. Capas e pôsteres não mudam em nenhum aparelho.
+- Build Android `20261079`.
+
 ## [2.17.60] — 2026-11-14
 
 - **Foco ao voltar de Detalhes** (relato do usuário: o Voltar levava o foco ao campo de busca das categorias). A grade de Filmes/Séries continua montada embaixo de Detalhes, e o `hasTVPreferredFocus` do título lembrado só age quando o item aparece — então, ao voltar, o Android dava o foco ao primeiro item da tela. Agora os itens com `restoreFocus` se registram (`registerTvFocusTarget`) e `useTvFocusRestoration`, quando a tela volta a ficar ativa (não na primeira abertura), rola até a linha e foca o título lembrado (`focusRememberedTvTarget`, tentativas em 60, 220 e 480 ms). Vale para Filmes, Séries, o catálogo da TV e TV ao Vivo (volta do player).

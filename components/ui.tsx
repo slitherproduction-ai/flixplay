@@ -312,6 +312,7 @@ function PosterCardBase({
   focusScope,
   focusIndex,
   restoreFocus = false,
+  onFocused,
 }: {
   title: string;
   image: string;
@@ -326,6 +327,8 @@ function PosterCardBase({
   focusScope?: string;
   focusIndex?: number;
   restoreFocus?: boolean;
+  /** Chamado quando o pôster recebe foco (ex.: a Início troca o destaque). */
+  onFocused?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -344,7 +347,7 @@ function PosterCardBase({
       focusIndex={focusIndex}
       restoreFocus={restoreFocus}
       onPress={onPress}
-      onFocus={() => setFocused(true)}
+      onFocus={() => { setFocused(true); onFocused?.(); }}
       onBlur={() => setFocused(false)}
       // O destaque do foco fica só no pôster (como na Apple TV e no Prime),
       // não num retângulo em volta do pôster e do texto.

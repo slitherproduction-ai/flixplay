@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { appLocale } from "@/core/i18n";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -82,7 +83,7 @@ function yearMeta(year: number): string {
 }
 
 function formatCount(value: number, singular: string, plural: string): string {
-  return `${value.toLocaleString("pt-BR")} ${value === 1 ? singular : plural}`;
+  return `${value.toLocaleString(appLocale())} ${value === 1 ? singular : plural}`;
 }
 
 function remainingLabel(item: PlayHistory): string {

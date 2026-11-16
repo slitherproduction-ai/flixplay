@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { tr } from "@/core/i18n";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +37,7 @@ export function TvCategoryPanel({
 
   return (
     <View style={styles.categoryPane}>
-      <SearchField value={filter} onChangeText={onFilterChange} placeholder="Pesquisar categoria" />
+      <SearchField value={filter} onChangeText={onFilterChange} placeholder={tr("Pesquisar categoria")} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
         {filteredCategories.map((item, index) => {
           const selected = item === activeCategory;

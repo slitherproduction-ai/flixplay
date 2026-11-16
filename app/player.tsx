@@ -1,4 +1,5 @@
 import { useTvVideo } from "@/hooks/use-tv-video";
+import { appLocale } from "@/core/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { dialogStyles } from "@/components/app-dialog";
 import { Image } from "expo-image";
@@ -2519,7 +2520,7 @@ function PlayerBottomPanel({
 
   const leftLabel = isLive
     ? currentTime > 0
-      ? new Date().toLocaleTimeString("pt-BR", {
+      ? new Date().toLocaleTimeString(appLocale(), {
           hour: "2-digit",
           minute: "2-digit",
         })

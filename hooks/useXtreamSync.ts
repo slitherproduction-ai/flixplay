@@ -1,4 +1,5 @@
 import { waitForCatalogIdle } from "@/core/navigation/tv-catalog-activity";
+import { appLocale } from "@/core/i18n";
 import { useCallback, useEffect, useRef } from "react";
 import {
   getLiveCategories,
@@ -476,7 +477,7 @@ async function fetchAndCacheContent(
     assertSafeCatalogReplacement("vodCategories", mapped.length, await catalogDatabase.count(profile.id, "vodCategories"));
     let result: { items: VodMovie[]; revision?: number; saved: boolean };
     const native = await syncVideoNative<VodMovie>(profile, "vodMovies", categories, isCurrent,
-      (count) => setSyncState({ syncProgress: `Baixando filmes: ${count.toLocaleString("pt-BR")} títulos...` }));
+      (count) => setSyncState({ syncProgress: `Baixando filmes: ${count.toLocaleString(appLocale())} títulos...` }));
     if (!isCurrent()) return;
     const byCategory = native ? null : LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
       ? await syncVideoByCategory<XtreamVodStream, VodMovie>(profile, "vodMovies", categories,
@@ -544,7 +545,7 @@ async function fetchAndCacheContent(
     assertSafeCatalogReplacement("seriesCategories", mapped.length, await catalogDatabase.count(profile.id, "seriesCategories"));
     let result: { items: SeriesItem[]; revision?: number; saved: boolean };
     const native = await syncVideoNative<SeriesItem>(profile, "seriesList", categories, isCurrent,
-      (count) => setSyncState({ syncProgress: `Baixando séries: ${count.toLocaleString("pt-BR")} títulos...` }));
+      (count) => setSyncState({ syncProgress: `Baixando séries: ${count.toLocaleString(appLocale())} títulos...` }));
     if (!isCurrent()) return;
     const byCategory = native ? null : LOW_MEMORY_CATEGORY_SYNC && catalogDatabase.supportsTvPages() && categories.length > 1
       ? await syncVideoByCategory<XtreamSeriesStream, SeriesItem>(profile, "seriesList", categories,

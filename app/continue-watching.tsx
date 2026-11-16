@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { appLocale } from "@/core/i18n";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -31,7 +32,7 @@ function formatRelativeTime(iso: string): string {
     const days = Math.floor(hrs / 24);
     if (days === 1) return "ontem";
     if (days < 7) return `há ${days} dias`;
-    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+    return new Date(iso).toLocaleDateString(appLocale(), { day: "2-digit", month: "short" });
   } catch {
     return "";
   }

@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router";
+import { tr, useAppLanguage } from "@/core/i18n";
 import { AppIcon } from "@/components/app-icon";
 import type React from "react";
 import { Platform, StyleSheet, View, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
@@ -62,6 +63,7 @@ const tabBarButton: ((props: TabButtonProps) => React.ReactNode) | undefined = P
   : undefined;
 
 export default function TabsLayout() {
+  useAppLanguage();
   const insets = useSafeAreaInsets();
   const tvMode = useTVMode();
   // Trigger real server sync as soon as tabs are mounted
@@ -111,14 +113,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Início",
+          title: tr("Início"),
           tabBarIcon: ({ color, size, focused }) => <AppIcon name="home" color={focused ? Colors.blueBright : color} size={size - 2} />,
         }}
       />
       <Tabs.Screen
         name="live"
         options={{
-          title: "TV ao Vivo",
+          title: tr("TV ao Vivo"),
           // Sem congelar: na TV a seção é descarregada ao voltar à Início
           // (withTvTabEviction), o que um congelamento impediria.
           freezeOnBlur: false,
@@ -128,7 +130,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="movies"
         options={{
-          title: "Filmes",
+          title: tr("Filmes"),
           // Sem congelar: na TV a seção é descarregada ao voltar à Início
           // (withTvTabEviction), o que um congelamento impediria.
           freezeOnBlur: false,
@@ -138,7 +140,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="series"
         options={{
-          title: "Séries",
+          title: tr("Séries"),
           // Sem congelar: na TV a seção é descarregada ao voltar à Início
           // (withTvTabEviction), o que um congelamento impediria.
           freezeOnBlur: false,
@@ -148,7 +150,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Ajustes",
+          title: tr("Ajustes"),
           tabBarIcon: ({ color, size, focused }) => <AppIcon name="settings" color={focused ? Colors.blueBright : color} size={size - 2} />,
         }}
       />

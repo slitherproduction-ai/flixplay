@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { appLocale, tr } from "@/core/i18n";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useDeferredValue, useState } from "react";
@@ -392,7 +393,7 @@ function LiveHeader({
       ) : (
         // Celular/tablet: só a contagem (o título fica no topo, como em Filmes).
         <AppText style={styles.mobileResultCount}>
-          {isSyncing ? "Carregando…" : `${filteredCount.toLocaleString("pt-BR")} ${filteredCount === 1 ? "canal" : "canais"}${category === FAVORITES_LABEL ? " favoritos" : ""}`}
+          {isSyncing ? "Carregando…" : `${filteredCount.toLocaleString(appLocale())} ${filteredCount === 1 ? "canal" : "canais"}${category === FAVORITES_LABEL ? " favoritos" : ""}`}
         </AppText>
       )}
     </View>
@@ -408,7 +409,7 @@ function TvLiveUtility() {
   return (
     <View style={styles.tvUtility}>
       <Ionicons name="radio-outline" size={18} color={Colors.text} />
-      <AppText style={styles.tvUtilityTime}>{clock.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</AppText>
+      <AppText style={styles.tvUtilityTime}>{clock.toLocaleTimeString(appLocale(), { hour: "2-digit", minute: "2-digit" })}</AppText>
       <Ionicons name="settings-outline" size={19} color={Colors.muted} />
     </View>
   );
@@ -802,7 +803,7 @@ function LiveScreen() {
             onSelect={handleCategoryChange}
           />
           <View style={styles.tvChannelPane}>
-            <View style={styles.tvChannelSearch}><SearchField value={query} onChangeText={setQuery} placeholder="Pesquisar canais" /></View>
+            <View style={styles.tvChannelSearch}><SearchField value={query} onChangeText={setQuery} placeholder={tr("Pesquisar canais")} /></View>
             {channelList}
           </View>
           <View style={[styles.tvPreviewPane, { width: tvPreviewWidth }]}>
@@ -823,7 +824,7 @@ function LiveScreen() {
         <View style={styles.mobileTitleRow}>
           <AppText style={styles.mobileTitle}>TV ao Vivo</AppText>
           <AppText style={styles.mobileTotal}>
-            {isSyncing && channels.length === 0 ? (syncProgress ?? "Carregando…") : `${channels.length.toLocaleString("pt-BR")} canais`}
+            {isSyncing && channels.length === 0 ? (syncProgress ?? "Carregando…") : `${channels.length.toLocaleString(appLocale())} canais`}
           </AppText>
           <TVFocusable
             accessibilityRole="button"
@@ -847,7 +848,7 @@ function LiveScreen() {
         <SearchField
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar canal ou número"
+          placeholder={tr("Buscar canal ou número")}
         />
       </View>
       {channelList}

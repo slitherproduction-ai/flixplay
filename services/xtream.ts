@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { appLocale } from "@/core/i18n";
 import type { ChannelItem, EpgProgram, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 import { logTechnicalError } from "@/services/security/sanitize";
 
@@ -106,7 +107,7 @@ function parseEpgTimestamp(value: string | undefined, fallback: string): number 
 }
 
 function formatEpgTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString("pt-BR", {
+  return new Date(timestamp).toLocaleTimeString(appLocale(), {
     hour: "2-digit",
     minute: "2-digit",
   });

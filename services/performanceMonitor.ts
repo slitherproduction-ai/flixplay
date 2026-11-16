@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { appLocale } from "@/core/i18n";
 import { AppState, NativeModules, Platform, type AppStateStatus } from "react-native";
 import { APP_INFO } from "@/constants/app";
 import { deviceTier } from "@/services/deviceProfile";
@@ -440,7 +441,7 @@ export function describePause(pause: UiPause): string {
 }
 
 export function describeSync(timing: SyncTiming): string {
-  return `${seconds(timing.ms)} · ${timing.items.toLocaleString("pt-BR")} itens · ${timing.mode}`;
+  return `${seconds(timing.ms)} · ${timing.items.toLocaleString(appLocale())} itens · ${timing.mode}`;
 }
 
 /** Texto para "Compartilhar relatório" (sem dados da conta). */

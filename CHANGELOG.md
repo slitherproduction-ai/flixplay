@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.72] — 2026-11-16
+
+- **Idioma do aplicativo: Português, English ou Automático** (canvas "Idioma do aplicativo", telas 9 a 12). No login, botão com globo no topo — na TV "Português (Brasil)" ao lado do relógio, no celular "PT" ao lado do logo — que abre a escolha (janela no centro na TV, folha que sobe no celular), com ✓ no idioma em uso. Também em Ajustes (linha "Idioma" no celular e item "Idioma" no menu da TV). Automático segue o idioma do aparelho. A escolha fica salva.
+- `core/i18n`: os textos continuam em português no código; em inglês, `AppText`, janelas, placeholders, abas e avisos passam pelo dicionário `core/i18n/en.ts` (texto exato ou modelo com partes variáveis). Datas e números no formato do idioma; dados do TMDB (sinopse, elenco) em inglês com cache separado. Com o app em português nada muda. Ícones novos `globe`, `chevronDown` e `check` no `AppIcon`.
+- Build Android `20261090`.
+
 ## [2.17.71] — 2026-11-15
 
 - **Ativação da TV no layout do canvas** ("Proposta visual Login e Ativação", tela 3), após o teste em que só as cores tinham mudado: coluna de 380 dp à esquerda (título 36, passos com número ciano, legenda "MAC E CHAVE DESTE APARELHO" dentro do cartão escuro, botão claro "Entrar com código do servidor" mais baixo e atalhos menores) e o QR code num cartão `#0E1524` à direita, centralizado na altura. Celular e tablet não mudam.

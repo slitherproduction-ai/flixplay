@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { tr } from "@/core/i18n";
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -95,7 +96,7 @@ export function MobileCatalogHeader<S extends string>({
         </View>
       ) : null}
 
-      {!onFavorites ? <SearchField value={query} onChangeText={setQuery} placeholder={searchPlaceholder} /> : null}
+      {!onFavorites ? <SearchField value={query} onChangeText={setQuery} placeholder={tr(searchPlaceholder)} /> : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroller} contentContainerStyle={styles.chipContent}>
         {categories.map((item) => (

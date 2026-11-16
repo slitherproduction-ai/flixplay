@@ -1,3 +1,4 @@
+import { appLocale } from "@/core/i18n";
 // ---------------------------------------------------------------------------
 // Exibição de títulos e categorias vindos da lista IPTV.
 //
@@ -294,5 +295,5 @@ export function warmTitleKeys(titles: string[], batchSize = 1200): { promise: Pr
 }
 
 export function formatNumber(value: number): string {
-  return value.toLocaleString("pt-BR");
+  return value.toLocaleString(appLocale());
 }

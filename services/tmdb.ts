@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { appLanguage } from "@/core/i18n";
 import Constants from "expo-constants";
 import { deviceTier } from "@/services/deviceProfile";
 
@@ -89,9 +90,14 @@ async function tmdbFetch(path: string) {
   return response.json() as Promise<Record<string, unknown>>;
 }
 
+function tmdbLanguage() {
+  return appLanguage() === "en" ? "en-US" : "pt-BR";
+}
+
 function cacheKey(title: string, mediaType: "movie" | "tv", year?: number) {
   const suffix = year && year > 0 ? `_${year}` : "";
-  return `${CACHE_PREFIX}${mediaType}_${normalizeCatalogTitle(title)}${suffix}`;
+  // Em inglês, sinopse e dados do TMDB em inglês, com cache separado.
+  return `${CACHE_PREFIX}${mediaType}_${normalizeCatalogTitle(title)}${suffix}${appLanguage() === "en" ? "_en" : ""}`;
 }
 
 function imageUrl(path: unknown, size: "w342" | "w780" | "w1280") {
@@ -194,11 +200,11 @@ export async function fetchTmdbMetadata(title: string, mediaType: "movie" | "tv"
 
   try {
     const query = encodeURIComponent(cleanCatalogTitle(title));
-    const search = await tmdbFetch(`/search/${mediaType}?query=${query}&language=pt-BR&include_adult=false`);
+    const search = await tmdbFetch(`/search/${mediaType}?query=${query}&language=${tmdbLanguage()}&include_adult=false`);
     const results = Array.isArray(search.results) ? search.results as Record<string, unknown>[] : [];
     const match = pickMatch(results, title, year);
     if (!match) return null;
-    const detail = await tmdbFetch(`/${mediaType}/${match.item.id}?language=pt-BR&append_to_response=credits,videos,recommendations`);
+    const detail = await tmdbFetch(`/${mediaType}/${match.item.id}?language=${tmdbLanguage()}&append_to_response=credits,videos,recommendations`);
     const metadata = toMetadata(detail, match.confident);
     try {
       await AsyncStorage.setItem(key, JSON.stringify({ expiresAt: Date.now() + CACHE_TTL_MS, metadata } satisfies CacheEntry));
@@ -217,7 +223,7 @@ export async function fetchTmdbMetadata(title: string, mediaType: "movie" | "tv"
 export async function fetchTmdbPersonFilmography(query: string, mediaType: "movie" | "tv"): Promise<TmdbPersonFilmography | null> {
   const term = query.trim();
   if (!isTmdbConfigured() || term.length < 3) return null;
-  const key = `${PERSON_CACHE_PREFIX}${mediaType}_${normalizeCatalogTitle(term)}`;
+  const key = `${PERSON_CACHE_PREFIX}${mediaType}_${normalizeCatalogTitle(term)}${appLanguage() === "en" ? "_en" : ""}`;
   try {
     const cached = await AsyncStorage.getItem(key);
     if (cached) {
@@ -227,7 +233,7 @@ export async function fetchTmdbPersonFilmography(query: string, mediaType: "movi
   } catch { /* cache is optional */ }
 
   try {
-    const search = await tmdbFetch(`/search/person?query=${encodeURIComponent(term)}&language=pt-BR&include_adult=false`);
+    const search = await tmdbFetch(`/search/person?query=${encodeURIComponent(term)}&language=${tmdbLanguage()}&include_adult=false`);
     const people = Array.isArray(search.results) ? search.results as Record<string, unknown>[] : [];
     const wanted = normalizeCatalogTitle(term);
     // Só considera ator quando o nome confere; títulos comuns seguem pela busca normal.
@@ -235,7 +241,7 @@ export async function fetchTmdbPersonFilmography(query: string, mediaType: "movi
       ?? people.find((item) => typeof item.name === "string" && normalizeCatalogTitle(item.name).startsWith(wanted) && Number(item.popularity ?? 0) >= 5);
     let result: TmdbPersonFilmography | null = null;
     if (person && typeof person.id === "number" && typeof person.name === "string") {
-      const credits = await tmdbFetch(`/person/${person.id}/${mediaType === "movie" ? "movie_credits" : "tv_credits"}?language=pt-BR`);
+      const credits = await tmdbFetch(`/person/${person.id}/${mediaType === "movie" ? "movie_credits" : "tv_credits"}?language=${tmdbLanguage()}`);
       const cast = Array.isArray(credits.cast) ? credits.cast as Record<string, unknown>[] : [];
       const titles = new Set<string>();
       for (const entry of cast) {

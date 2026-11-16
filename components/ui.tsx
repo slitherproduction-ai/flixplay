@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { trChildren, useAppLanguage } from "@/core/i18n";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -47,6 +48,9 @@ export function GlassBlurTargetProvider({
  *   linha de 20 do corpo de texto, que deixava legendas pequenas espaçadas.
  */
 export function AppText({ style, children, selectable = !Platform.isTV, maxFontSizeMultiplier = 1.3, ...props }: React.ComponentProps<typeof Text>) {
+  // Idioma: em inglês, os textos em português passam pelo dicionário.
+  const language = useAppLanguage();
+  if (language !== "pt") children = trChildren(children);
   let merged: StyleProp<TextStyle> = Type.body;
   if (style) {
     const flattened = StyleSheet.flatten(style) ?? {};

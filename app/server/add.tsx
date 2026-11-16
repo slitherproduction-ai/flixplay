@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { tr } from "@/core/i18n";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
@@ -111,7 +112,7 @@ export default function AddServerScreen() {
 
         <GroupLabel title="LISTA" />
         <Group style={styles.form}>
-          <Field label="Nome da lista" value={name} onChangeText={setName} placeholder="Ex.: Minha lista" />
+          <Field label="Nome da lista" value={name} onChangeText={setName} placeholder={tr("Ex.: Minha lista")} />
           <Field label={isM3u ? "URL M3U/M3U Plus" : "URL do servidor"} value={serverUrl} onChangeText={setServerUrl} placeholder={isM3u ? "https://servidor/lista.m3u" : "http://servidor.com:8080"} keyboardType="url" autoCapitalize="none" />
           {isM3u ? <Field label="URL XMLTV (opcional)" value={xmltvUrl} onChangeText={setXmltvUrl} placeholder="https://servidor/guia.xml" keyboardType="url" autoCapitalize="none" /> : null}
         </Group>
@@ -119,8 +120,8 @@ export default function AddServerScreen() {
         {!isM3u ? <>
           <GroupLabel title="ACESSO" />
           <Group style={styles.form}>
-            <Field label="Usuário" value={username} onChangeText={setUsername} placeholder="Seu usuário" autoCapitalize="none" />
-            <Field label="Senha" value={password} onChangeText={setPassword} placeholder="Sua senha" secureTextEntry autoCapitalize="none" />
+            <Field label="Usuário" value={username} onChangeText={setUsername} placeholder={tr("Seu usuário")} autoCapitalize="none" />
+            <Field label="Senha" value={password} onChangeText={setPassword} placeholder={tr("Sua senha")} secureTextEntry autoCapitalize="none" />
           </Group>
         </> : null}
 

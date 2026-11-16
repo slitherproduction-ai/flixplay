@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { appLocale, tr } from "@/core/i18n";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Modal, Platform, StyleSheet, TextInput, View } from "react-native";
@@ -16,8 +17,8 @@ const RECHECK_MS = 5 * 60_000;
 const NETWORK_GRACE_MS = 15 * 60_000;
 const PIX_POLL_MS = 15_000;
 
-function money(cents: number) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100); }
-function date(value: string | null) { return value ? new Date(value).toLocaleString("pt-BR") : "Não informado"; }
+function money(cents: number) { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: "BRL" }).format(cents / 100); }
+function date(value: string | null) { return value ? new Date(value).toLocaleString(appLocale()) : "Não informado"; }
 function isPending(status: string) { return ["pending", "processing", "creating", "unknown"].includes(status); }
 
 export function CodeAccessGate() {
@@ -145,7 +146,7 @@ export function CodeAccessGate() {
           <AppText style={styles.help}>MAC: {order.mac} · Vencimento: {date(order.expiresAt ?? order.dueDate)}</AppText>
           {access.snapshot?.state === "granted" ? <TVFocusable onPress={() => setPaymentOpen(false)} style={styles.primary}><AppText style={styles.primaryText}>Continuar</AppText></TVFocusable> : <TVFocusable onPress={() => void recheck()} style={styles.secondary}><AppText style={styles.secondaryText}>Já paguei, verificar acesso</AppText></TVFocusable>}</> : <>
           <AppText style={styles.copy}>{config?.enabled ? `Valor anual: ${money(config.amountCents)}` : "Consultando disponibilidade do Pix…"}</AppText>
-          <TextInput value={payerName} onChangeText={setPayerName} placeholder="Nome completo" placeholderTextColor={Colors.subtle} style={styles.input} /><TextInput value={payerEmail} onChangeText={setPayerEmail} placeholder="E-mail" keyboardType="email-address" autoCapitalize="none" placeholderTextColor={Colors.subtle} style={styles.input} /><TextInput value={payerDocument} onChangeText={setPayerDocument} placeholder="CPF ou CNPJ" keyboardType="numeric" placeholderTextColor={Colors.subtle} style={styles.input} />
+          <TextInput value={payerName} onChangeText={setPayerName} placeholder={tr("Nome completo")} placeholderTextColor={Colors.subtle} style={styles.input} /><TextInput value={payerEmail} onChangeText={setPayerEmail} placeholder={tr("E-mail")} keyboardType="email-address" autoCapitalize="none" placeholderTextColor={Colors.subtle} style={styles.input} /><TextInput value={payerDocument} onChangeText={setPayerDocument} placeholder={tr("CPF ou CNPJ")} keyboardType="numeric" placeholderTextColor={Colors.subtle} style={styles.input} />
           <TVFocusable onPress={() => setConsent((value) => !value)} style={styles.consent}><Ionicons name={consent ? "checkbox" : "square-outline"} size={20} color={Colors.blueBright} /><AppText style={styles.help}>Autorizo o envio destes dados à PagHiper para emitir o Pix.</AppText></TVFocusable>
           {paymentError ? <AppText style={styles.error}>{paymentError}</AppText> : null}
           <TVFocusable disabled={!config?.enabled || !payerName || !payerEmail || !payerDocument || !consent || issuing} onPress={() => void issuePix()} style={styles.primary}><AppText style={styles.primaryText}>{issuing ? "Emitindo…" : "Gerar Pix"}</AppText></TVFocusable></>}

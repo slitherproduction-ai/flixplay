@@ -1,4 +1,5 @@
 import { XtreamApiError, type XtreamUserInfo } from "@/services/xtream";
+import { appLocale } from "@/core/i18n";
 import type { ServerProfile } from "@/store/types";
 import { isValidServerCode, normalizeServerCode } from "@/services/device/serverCodeResolver";
 
@@ -50,7 +51,7 @@ export function parseExpiryDisplay(expDate: string | null): string {
   if (!expDate) return "Ilimitado";
   const timestamp = Number(expDate);
   return Number.isFinite(timestamp) && timestamp > 0
-    ? new Date(timestamp * 1000).toLocaleDateString("pt-BR")
+    ? new Date(timestamp * 1000).toLocaleDateString(appLocale())
     : "Ilimitado";
 }
 
@@ -77,7 +78,7 @@ export function getErrorMessage(error: unknown): string {
 export function formatAddedAt(iso?: string): string {
   if (!iso) return "Data desconhecida";
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "Data inválida" : date.toLocaleDateString("pt-BR");
+  return Number.isNaN(date.getTime()) ? "Data inválida" : date.toLocaleDateString(appLocale());
 }
 
 export function maskUsername(value: string): string {

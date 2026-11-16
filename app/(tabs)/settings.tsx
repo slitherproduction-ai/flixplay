@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LanguagePicker } from "@/components/language-selector";
+import { useLanguageStore } from "@/core/i18n";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
@@ -61,6 +63,9 @@ export default function SettingsScreen() {
   const activeServer = servers.find((server) => server.id === activeServerId);
 
   const [editingLists, setEditingLists] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const languagePreference = useLanguageStore((state) => state.preference);
+  const languageLabel = languagePreference === "en" ? "English" : languagePreference === "pt" ? "Português (Brasil)" : "Automático";
 
   const handleServer = useCallback((id: string) => {
     setActiveServer(id);
@@ -253,7 +258,9 @@ export default function SettingsScreen() {
           <GroupRow icon="play-circle-outline" title="Preferências do player" subtitle="Controles, salto no vídeo e formato" onPress={() => router.push("/settings/player")} />
           <GroupRow icon="lock-closed-outline" title="Controle parental" subtitle="PIN e categorias protegidas" onPress={() => router.push("/settings/parental")} divider />
           <GroupRow icon="eye-outline" title="Categorias visíveis" subtitle="Escolha o que aparece nas listas" onPress={() => router.push("/settings/categories")} divider />
+          <GroupRow icon="globe-outline" title="Idioma" subtitle={languageLabel} onPress={() => setLanguageOpen(true)} divider />
         </View>
+        {languageOpen ? <LanguagePicker tv={false} onClose={() => setLanguageOpen(false)} /> : null}
 
         <GroupLabel title="DADOS E SUPORTE" />
         <View style={styles.group}>

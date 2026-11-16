@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { tr } from "@/core/i18n";
 import { useCallback, useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -50,7 +51,7 @@ export default function PlayerSettingsScreen() {
       <Group>
         <View style={styles.agentRow}>
           <View style={premium.rowCopy}><AppText style={premium.rowTitle}>User-Agent</AppText><AppText style={premium.rowMeta}>Identificação enviada ao servidor pelo player</AppText></View>
-          <TextInput value={userAgent} onChangeText={setUserAgent} onBlur={saveUserAgent} onSubmitEditing={saveUserAgent} maxLength={160} autoCapitalize="none" autoCorrect={false} selectTextOnFocus placeholder="ELVANOQ Android Media Player" placeholderTextColor={Colors.subtle} accessibilityLabel="User-Agent do player" style={[premium.input, styles.agentInput]} />
+          <TextInput value={userAgent} onChangeText={setUserAgent} onBlur={saveUserAgent} onSubmitEditing={saveUserAgent} maxLength={160} autoCapitalize="none" autoCorrect={false} selectTextOnFocus placeholder={tr("ELVANOQ Android Media Player")} placeholderTextColor={Colors.subtle} accessibilityLabel="User-Agent do player" style={[premium.input, styles.agentInput]} />
         </View>
       </Group>
     </ScrollView>

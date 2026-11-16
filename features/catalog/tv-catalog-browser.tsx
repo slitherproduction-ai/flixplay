@@ -1,4 +1,5 @@
 import { useTvPages } from "./use-tv-pages";
+import { appLocale, tr } from "@/core/i18n";
 import { useHiddenCategoryNames } from "./hidden-categories";
 import { useAppStore } from "@/store/useAppStore";
 import { Ionicons } from "@expo/vector-icons";
@@ -78,7 +79,7 @@ type Props = {
 };
 
 function formatCount(value: number) {
-  return value.toLocaleString("pt-BR");
+  return value.toLocaleString(appLocale());
 }
 
 const PosterTile = memo(function PosterTile({
@@ -605,7 +606,7 @@ export function TvCatalogBrowser({
                 value={query}
                 onChangeText={setQuery}
                 onSubmitEditing={() => { void runSearch(query); }}
-                placeholder={`Nome ${kind === "movies" ? "do filme" : "da série"} ou de um ator`}
+                placeholder={tr(`Nome ${kind === "movies" ? "do filme" : "da série"} ou de um ator`)}
                 placeholderTextColor={Colors.subtle}
                 returnKeyType="search"
                 autoCorrect={false}

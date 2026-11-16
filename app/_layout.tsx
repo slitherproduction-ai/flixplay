@@ -1,4 +1,5 @@
 import { Stack, usePathname, useRouter } from "expo-router";
+import { tr, useLanguageStore } from "@/core/i18n";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { FontMap } from "@/constants/Typography";
@@ -63,12 +64,12 @@ class AppErrorBoundary extends React.Component<
           <View style={errStyles.icon}>
             <Text style={errStyles.iconText}>!</Text>
           </View>
-          <Text style={errStyles.title}>Algo deu errado</Text>
+          <Text style={errStyles.title}>{tr("Algo deu errado")}</Text>
           <Text selectable style={errStyles.message}>
             {this.state.message}
           </Text>
           <Pressable onPress={this.handleRetry} style={errStyles.btn}>
-            <Text style={errStyles.btnText}>Tentar novamente</Text>
+            <Text style={errStyles.btnText}>{tr("Tentar novamente")}</Text>
           </Pressable>
         </View>
       );
@@ -133,7 +134,7 @@ function RootExitGuard() {
       const now = Date.now();
       if (now - lastBackAt.current > 1800) {
         lastBackAt.current = now;
-        ToastAndroid.show("Pressione Voltar novamente para sair", ToastAndroid.SHORT);
+        ToastAndroid.show(tr("Pressione Voltar novamente para sair"), ToastAndroid.SHORT);
         return true;
       }
       lastBackAt.current = 0;
@@ -376,7 +377,7 @@ function PiPOverlay() {
           {pip.type === "live" ? (
             <View style={pipStyles.liveBadge}>
               <View style={pipStyles.liveDot} />
-              <Text style={pipStyles.liveText}>AO VIVO</Text>
+              <Text style={pipStyles.liveText}>{tr("AO VIVO")}</Text>
             </View>
           ) : null}
         </View>
@@ -385,7 +386,7 @@ function PiPOverlay() {
         <View style={pipStyles.info}>
           <Text style={pipStyles.titleText} numberOfLines={1}>{pip.title}</Text>
           <Text style={pipStyles.subtitleText} numberOfLines={1}>
-            {pip.subtitle || "Assistindo agora"}
+            {tr(pip.subtitle || "Assistindo agora")}
           </Text>
         </View>
       </Pressable>
@@ -520,6 +521,14 @@ const pipStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 export default function RootLayout() {
   const [loaded, error] = useFonts(FontMap);
+  // Idioma salvo: espera ler (é rápido) para não abrir em português e trocar.
+  const [languageReady, setLanguageReady] = useState(() => useLanguageStore.persist.hasHydrated());
+  useEffect(() => {
+    if (languageReady) return;
+    const unsubscribe = useLanguageStore.persist.onFinishHydration(() => setLanguageReady(true));
+    if (useLanguageStore.persist.hasHydrated()) setLanguageReady(true);
+    return unsubscribe;
+  }, [languageReady]);
 
   // Na TV a tela fica sempre ligada (como antes); no celular só no player.
   useEffect(() => {
@@ -527,12 +536,12 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (loaded || error) {
+    if ((loaded || error) && languageReady) {
       void SplashScreen.hideAsync();
     }
-  }, [loaded, error]);
+  }, [loaded, error, languageReady]);
 
-  if (!loaded && !error) {
+  if ((!loaded && !error) || !languageReady) {
     return null;
   }
 

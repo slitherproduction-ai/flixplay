@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { tr } from "@/core/i18n";
 import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { APP_INFO } from "@/constants/app";
@@ -825,7 +826,7 @@ export default function LoginScreen() {
                     {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
                     value={serverCode}
                     onChangeText={setServerCode}
-                    placeholder="Ex.: pfast"
+                    placeholder={tr("Ex.: pfast")}
                     placeholderTextColor={Colors.subtle}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -897,7 +898,7 @@ export default function LoginScreen() {
                       nextFocusDown: formFocusHandles.password || undefined,
                     } : {})}
                     onChangeText={setUsername}
-                    placeholder="Seu usuário"
+                    placeholder={tr("Seu usuário")}
                     placeholderTextColor={Colors.subtle}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -935,7 +936,7 @@ export default function LoginScreen() {
                       nextFocusDown: formFocusHandles.listName || undefined,
                     } : {})}
                     onChangeText={setPassword}
-                    placeholder="Sua senha"
+                    placeholder={tr("Sua senha")}
                     placeholderTextColor={Colors.subtle}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
@@ -979,7 +980,7 @@ export default function LoginScreen() {
                       nextFocusDown: formFocusHandles.connect || undefined,
                     } : {})}
                     onChangeText={setListName}
-                    placeholder="Ex.: Minha Lista IPTV"
+                    placeholder={tr("Ex.: Minha Lista IPTV")}
                     placeholderTextColor={Colors.subtle}
                     autoCapitalize="words"
                     returnKeyType="done"
@@ -1139,7 +1140,7 @@ export default function LoginScreen() {
             <Ionicons name="key-outline" size={24} color={Colors.blueBright} />
             <AppText style={styles.portalLinkTitle}>Vincular chave do Portal</AppText>
             <AppText style={styles.portalLinkBody}>Informe a chave usada no cadastro ou a chave gerada pelo Portal. A chave local do aplicativo não será alterada.</AppText>
-            <TextInput value={portalLinkKey} onChangeText={setPortalLinkKey} secureTextEntry autoCapitalize="none" autoCorrect={false} accessibilityLabel="Chave do Portal" placeholder="Chave do Portal" placeholderTextColor={Colors.subtle} style={styles.portalLinkInput} />
+            <TextInput value={portalLinkKey} onChangeText={setPortalLinkKey} secureTextEntry autoCapitalize="none" autoCorrect={false} accessibilityLabel="Chave do Portal" placeholder={tr("Chave do Portal")} placeholderTextColor={Colors.subtle} style={styles.portalLinkInput} />
             <View style={styles.portalLinkActions}>
               <TVFocusable accessibilityRole="button" onPress={() => setShowPortalLink(false)} style={({ pressed }) => [styles.portalLinkCancel, pressed && styles.pressed]}><AppText style={styles.portalLinkCancelText}>Cancelar</AppText></TVFocusable>
               <TVFocusable accessibilityRole="button" disabled={!portalLinkKey.trim() || portalSyncState === "syncing"} onPress={() => void handlePortalLink()} style={({ pressed }) => [styles.portalLinkConfirm, pressed && styles.pressed]}><AppText style={styles.portalLinkConfirmText}>{portalSyncState === "syncing" ? "Verificando…" : "Vincular"}</AppText></TVFocusable>

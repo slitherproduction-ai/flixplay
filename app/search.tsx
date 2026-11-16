@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { tr } from "@/core/i18n";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, StyleSheet, View } from "react-native";
@@ -206,7 +207,7 @@ export default function GlobalSearchScreen() {
         <TVFocusable accessibilityRole="button" accessibilityLabel="Voltar" onPress={() => router.back()} focusStyle={premium.backFocused} style={premium.backButton}>
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </TVFocusable>
-        <View style={styles.search}><SearchField value={query} onChangeText={setQuery} placeholder="Buscar canais, filmes e séries" /></View>
+        <View style={styles.search}><SearchField value={query} onChangeText={setQuery} placeholder={tr("Buscar canais, filmes e séries")} /></View>
       </View>
       <FlatList
         data={results}

@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { appLocale } from "@/core/i18n";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -182,7 +183,7 @@ export default function DiagnosticsScreen() {
           <Panel title="Conexão e aparelho" wide={columns}>
             <InfoRow label="Servidor" value={activeServer?.status ?? "Não informado"} />
             <InfoRow label="Latência" value={latencyMs === null ? "Não medida" : `${latencyMs} ms`} />
-            <InfoRow label="Última sincronização" value={cache.lastSyncedAt ? new Date(cache.lastSyncedAt).toLocaleString("pt-BR") : "Não informado"} />
+            <InfoRow label="Última sincronização" value={cache.lastSyncedAt ? new Date(cache.lastSyncedAt).toLocaleString(appLocale()) : "Não informado"} />
             <InfoRow label="Sincronização agora" value={syncNow} />
             <InfoRow label="Último erro" value={hasError ? sanitizeError(syncState.syncError) : "Nenhum"} alert={hasError} />
             <InfoRow label="Sistema" value={`${Platform.OS} ${String(Platform.Version)}`} />
@@ -269,7 +270,7 @@ function ActionChip({ icon, label, onPress, disabled, destructive, preferred }: 
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
-  return <View style={styles.metric}><AppText style={styles.metricValue}>{value.toLocaleString("pt-BR")}</AppText><AppText style={styles.metricLabel}>{label}</AppText></View>;
+  return <View style={styles.metric}><AppText style={styles.metricValue}>{value.toLocaleString(appLocale())}</AppText><AppText style={styles.metricLabel}>{label}</AppText></View>;
 }
 
 const styles = StyleSheet.create({

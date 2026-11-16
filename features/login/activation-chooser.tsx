@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import { appLanguage, useAppLanguage } from "@/core/i18n";
+import { LanguageButton } from "@/components/language-selector";
 import { Image } from "expo-image";
 import { memo, useEffect, useMemo, useState, type Ref } from "react";
 import { ActivityIndicator, Linking, StyleSheet, View, useWindowDimensions, type TextStyle } from "react-native";
@@ -24,6 +26,8 @@ const PORTAL_QR = require("@/assets/images/brand/ELVANOQ_portal_qr.png");
 const PORTAL_HOST = PORTAL_ORIGIN.replace(/^https?:\/\//, "");
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const DAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 type Props = {
   layout: "tv" | "phone";
@@ -51,13 +55,16 @@ function statusLabel(status: PortalDeviceStatus | null): string {
 
 /** Relógio do Roku/LG: "10:42" e "Sexta, 6 nov". Atualiza a cada 20 s. */
 const TvClock = memo(function TvClock({ timeStyle, dateStyle }: { timeStyle: TextStyle; dateStyle: TextStyle }) {
+  useAppLanguage();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 20_000);
     return () => clearInterval(timer);
   }, []);
   const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const date = `${DAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]}`;
+  const date = appLanguage() === "en"
+    ? `${DAYS_EN[now.getDay()]}, ${MONTHS_EN[now.getMonth()]} ${now.getDate()}`
+    : `${DAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]}`;
   return (
     <View style={styles.clock} accessibilityLabel={`${time}, ${date}`}>
       <AppText style={timeStyle}>{time}</AppText>
@@ -162,7 +169,14 @@ export function ActivationChooser({
           accessibilityLabel="ELVANOQ Play — Sua mídia. Sua experiência."
           style={tv ? t.logo : styles.logoPhone}
         />
-        {tv ? <TvClock timeStyle={t.clockTime} dateStyle={t.clockDate} /> : null}
+        {tv ? (
+          <View style={[styles.topRight, { gap: Math.round(18 * u) }]}>
+            <LanguageButton tv scale={u} />
+            <TvClock timeStyle={t.clockTime} dateStyle={t.clockDate} />
+          </View>
+        ) : (
+          <LanguageButton tv={false} />
+        )}
       </View>
 
       <View style={tv ? t.body : styles.body}>
@@ -267,6 +281,8 @@ export function ActivationChooser({
 const styles = StyleSheet.create({
   root: { gap: 18 },
   topRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  // Idioma ao lado do relógio (TV), como no canvas "Idioma do aplicativo".
+  topRight: { flexDirection: "row", alignItems: "center" },
   logoPhone: { width: 190, height: 46 },
   clock: { alignItems: "flex-end" },
   body: { gap: 18 },

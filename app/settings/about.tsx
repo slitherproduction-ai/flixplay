@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { appLocale } from "@/core/i18n";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
@@ -47,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.71",
+    version: "v2.17.72",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Tela de troca de idioma: Português, English ou Automático, no login e em Ajustes." },
+    ],
+  },
+  {
+    version: "v2.17.71",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Tela de ativação na TV no layout do novo visual: passos, MAC e chave num só cartão, botões menores e o QR code num cartão à direita." },
@@ -657,7 +665,7 @@ const TAG_COLORS: Record<ChangeTag, { backgroundColor: string; color: string }> 
 function formatPublishedAt(iso: string | null): string {
   if (!iso) return "";
   try {
-    return new Date(iso).toLocaleDateString("pt-BR", {
+    return new Date(iso).toLocaleDateString(appLocale(), {
       day: "2-digit",
       month: "short",
       year: "numeric",

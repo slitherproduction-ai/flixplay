@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LanguagePicker } from "@/components/language-selector";
 import { useRouter } from "expo-router";
-import { createContext, useCallback, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { TVFocusable } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
@@ -59,6 +60,7 @@ export function TvSettingsShell({ current, children }: { current: TvSettingsSect
   const tvMode = useTVMode();
   const router = useRouter();
   const logout = useAppStore((state) => state.logout);
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   const open = useCallback((item: (typeof ITEMS)[number]) => {
     if (item.key === current) return;
@@ -103,6 +105,10 @@ export function TvSettingsShell({ current, children }: { current: TvSettingsSect
               </TVFocusable>
             );
           })}
+          <TVFocusable accessibilityRole="menuitem" accessibilityLabel="Idioma" onPress={() => setLanguageOpen(true)} focusStyle={tvFocus.ring} style={styles.railItem}>
+            <Ionicons name="globe-outline" size={17} color={Colors.muted} />
+            <AppText numberOfLines={1} style={styles.railLabel}>Idioma</AppText>
+          </TVFocusable>
           <View style={styles.railSpacer} />
           <TVFocusable accessibilityRole="button" accessibilityLabel="Sair da conta" onPress={confirmLogout} focusStyle={tvFocus.ring} style={styles.railItem}>
             <Ionicons name="log-out-outline" size={17} color={TvTone.danger} />
@@ -112,6 +118,7 @@ export function TvSettingsShell({ current, children }: { current: TvSettingsSect
         </View>
         <View style={styles.content}>{children}</View>
       </View>
+      {languageOpen ? <LanguagePicker tv onClose={() => setLanguageOpen(false)} /> : null}
     </ShellContext.Provider>
   );
 }

@@ -665,7 +665,10 @@ export function useXtreamSync() {
       && catalogDatabase.isAvailable()
       && syncedAt > 0
       && Date.now() - syncedAt < catalogFreshMs();
-    const restoreStale = catalogDatabase.supportsTvPages() && syncedAt > 0 && server.sourceType !== "m3u";
+    // Catálogo salvo antigo: abre com ele e atualiza em segundo plano — na TV
+    // e também no celular e no tablet. Antes, no celular, passadas 6 h o app
+    // abria vazio e esperava baixar a lista inteira de novo.
+    const restoreStale = catalogDatabase.isAvailable() && syncedAt > 0 && server.sourceType !== "m3u";
     if (!fresh && !restoreStale) {
       logTechnicalEvent("Sync", "Abertura: sem catálogo salvo, baixando tudo");
       void doSync(server);

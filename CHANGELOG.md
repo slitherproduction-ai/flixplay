@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.73] — 2026-11-18
+
+- **Celular e tablet abrem com o catálogo salvo** (`hooks/useXtreamSync.ts`), após reclamações da demora para baixar o catálogo: com o catálogo salvo há mais de 6 h, o celular e o tablet abriam sem lista e esperavam baixar canais, filmes e séries inteiros de novo (`restoreStale` valia só para a TV). Agora, como na TV, o app mostra a lista do banco local na hora e atualiza em segundo plano depois da abertura (20 s, nunca durante um vídeo). A primeira sincronização de uma lista nova continua igual.
+- Build Android `20261091`.
+
 ## [2.17.72] — 2026-11-16
 
 - **Idioma do aplicativo: Português, English ou Automático** (canvas "Idioma do aplicativo", telas 9 a 12). No login, botão com globo no topo — na TV "Português (Brasil)" ao lado do relógio, no celular "PT" ao lado do logo — que abre a escolha (janela no centro na TV, folha que sobe no celular), com ✓ no idioma em uso. Também em Ajustes (linha "Idioma" no celular e item "Idioma" no menu da TV). Automático segue o idioma do aparelho. A escolha fica salva.

@@ -48,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.72",
+    version: "v2.17.73",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "No celular e no tablet, o app abre na hora com a lista salva e atualiza o catálogo em segundo plano, sem esperar baixar tudo de novo." },
+    ],
+  },
+  {
+    version: "v2.17.72",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Tela de troca de idioma: Português, English ou Automático, no login e em Ajustes." },

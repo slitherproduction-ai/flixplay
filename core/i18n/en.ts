@@ -1010,4 +1010,9 @@ export const EN: Record<string, string> = {
   "← Categorias e Busca • OK Detalhes e assistir": "← Categories and Search • OK Details and watch",
   "← Categorias e Busca • OK Temporadas e episódios": "← Categories and Search • OK Seasons and episodes",
   "◀ voltar ▶ avançar (segure apertando para ir mais rápido)": "◀ back ▶ forward (keep pressing to go faster)",
+  "Compatível": "Compatible",
+  "Modo de vídeo": "Video mode",
+  "Use Compatível só se a imagem não aparecer ou sair quebrada": "Use Compatible only if the picture does not show or looks broken",
+  "Formatos ao vivo": "Live formats",
+  "Ainda sem dados": "No data yet",
 };

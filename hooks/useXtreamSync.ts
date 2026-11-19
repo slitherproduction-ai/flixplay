@@ -257,7 +257,7 @@ async function syncVideoNative<T extends VideoItem>(
   categories: XtreamCategory[],
   current: () => boolean,
   onProgress: (count: number) => void,
-): Promise<{ items: T[]; revision: number; writeMs: number | null } | null> {
+): Promise<{ items: T[]; revision?: number; writeMs: number | null } | null> {
   if (!catalogDatabase.supportsNativeStream()) return null;
   const action = kind === "vodMovies" ? "get_vod_streams" : "get_series";
   const existing = await catalogDatabase.count(profile.id, kind);
@@ -270,7 +270,18 @@ async function syncVideoNative<T extends VideoItem>(
     );
     if (!current()) return { items: [], revision: 0, writeMs };
     assertSafeCatalogReplacement(kind, total, existing);
-    return { items: await homeVideos<T>(profile, kind), revision: Date.now(), writeMs };
+    if (catalogDatabase.supportsTvPages()) return { items: await homeVideos<T>(profile, kind), revision: Date.now(), writeMs };
+    // Celular e tablet: as telas usam a lista na memória. Ela é lida do banco
+    // em páginas, como na abertura com o catálogo salvo.
+    const stored = await readAllPages<T>(profile.id, kind);
+    if (!current()) return { items: [], revision: 0, writeMs };
+    const items = kind === "vodMovies"
+      ? stored.map((item) => {
+        const movie = item as unknown as VodMovie;
+        return { ...movie, streamUrl: createVodUrl(profile, movie.streamId, movie.containerExtension ?? "mp4") } as unknown as T;
+      })
+      : stored;
+    return { items, writeMs };
   } catch (error) {
     if (error instanceof NativeStreamUnsupportedError) {
       logTechnicalError(`Sync/${kind}-native`, error);

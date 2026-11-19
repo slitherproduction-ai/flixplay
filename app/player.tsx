@@ -75,6 +75,8 @@ import { isPlaybackBlocked } from "@/services/security/parentalPolicy";
 import { openInExternalPlayer } from "@/services/externalPlayer";
 import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
 import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
+import { readVideoMode, useVideoHealing, VIDEO_AUTO_FIX_KEY } from "@/features/player/videoHealing";
+import { noteLiveFormat, preferredLiveFormat } from "@/features/player/format-score";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
 import { deviceTier, playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
 import { setPlaybackActive } from "@/services/playbackActivity";
@@ -427,9 +429,12 @@ export default function PlayerScreen() {
   // Em "Auto", começa pelo formato que já funcionou nesta lista (HLS ou TS).
   // Lido uma vez por stream: gravar o formato não recria a fonte em reprodução.
   const fallbackUrls = useMemo(() => {
-    const key = formatMemoryKey(useAppStore.getState().activeServerId);
+    const serverId = useAppStore.getState().activeServerId;
+    const key = formatMemoryKey(serverId);
     const remembered = key ? useAppStore.getState().preferences[key] : null;
-    return buildFallbackUrls(streamUrl, contentType, effectiveStreamPreference(playerPreferences.streamPreference, remembered));
+    // Ajustado pelo desempenho de cada formato nesta lista (format-score).
+    const preferred = contentType === "live" ? preferredLiveFormat(serverId, remembered) : remembered;
+    return buildFallbackUrls(streamUrl, contentType, effectiveStreamPreference(playerPreferences.streamPreference, preferred));
   }, [streamUrl, contentType, playerPreferences.streamPreference]);
   // Rever programa: fila de endereços alternativos e endereço em uso.
   const catchupQueueRef = useRef<string[]>([]);
@@ -438,6 +443,9 @@ export default function PlayerScreen() {
   const lastProgressAtRef = useRef(Date.now());
   const lastObservedTimeRef = useRef(-1);
   const stallRecoveriesRef = useRef(0);
+  // Desempenho por formato (format-score): início da tentativa em curso e se a
+  // abertura dela ainda não foi registrada.
+  const formatAttemptRef = useRef({ at: Date.now(), pending: true });
   // Reconexões do ao vivo depois de "error" (rede caiu): até 3, com espera crescente.
   const liveErrorRetriesRef = useRef(0);
   const liveRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -479,6 +487,12 @@ export default function PlayerScreen() {
     },
   );
   const player = sharedPreviewPlayer ?? ownPlayer;
+  // Tela preta com som: recria a vista do vídeo no modo ajustado (ver videoHealing).
+  const videoHealing = useVideoHealing(player, {
+    mode: readVideoMode(preferences),
+    autoFix: preferences[VIDEO_AUTO_FIX_KEY] === true,
+    initiallyRendered: Boolean(sharedPreviewPlayer),
+  });
   // Player da prévia do ao vivo já chega tocando (não emite "readyToPlay" de novo).
   useEffect(() => {
     try { if (sharedPreviewPlayer || player.status === "readyToPlay") setVideoReady(true); } catch { /* opcional */ }
@@ -632,6 +646,7 @@ export default function PlayerScreen() {
     pendingSeekRef.current = null;
     openStartedAtRef.current = Date.now();
     openRecordedRef.current = false;
+    formatAttemptRef.current = { at: Date.now(), pending: true };
     setCurrentTime(0);
     setDuration(0);
     // Ao vivo troca de canal com o vídeo já na tela: a capa não volta.
@@ -730,8 +745,13 @@ export default function PlayerScreen() {
         return;
       }
       const nextAttempt = urlAttemptRef.current + 1;
+      if (contentType === "live" && !playbackStartedRef.current && formatAttemptRef.current.pending) {
+        formatAttemptRef.current = { ...formatAttemptRef.current, pending: false };
+        noteLiveFormat(useAppStore.getState().activeServerId, fallbackUrls[urlAttemptRef.current], { failed: true });
+      }
       if (nextAttempt < fallbackUrls.length) {
         urlAttemptRef.current = nextAttempt;
+        formatAttemptRef.current = { at: Date.now(), pending: true };
         try {
           setIsBuffering(true);
           player.replace({ uri: fallbackUrls[nextAttempt], headers: requestHeaders });
@@ -804,6 +824,10 @@ export default function PlayerScreen() {
           const format = detectLiveFormat(fallbackUrls[urlAttemptRef.current]);
           const state = useAppStore.getState();
           if (key && format && state.preferences[key] !== format) state.setPreference(key, format);
+          if (formatAttemptRef.current.pending) {
+            formatAttemptRef.current = { ...formatAttemptRef.current, pending: false };
+            noteLiveFormat(state.activeServerId, fallbackUrls[urlAttemptRef.current], { openMs: Date.now() - formatAttemptRef.current.at });
+          }
         }
         tryReadDuration(player, durationRefs, setDuration);
         const mediaDuration = player.duration;
@@ -968,6 +992,7 @@ export default function PlayerScreen() {
       const uri = catchupActiveRef.current ? null : fallbackUrls[urlAttemptRef.current] ?? fallbackUrls[0];
       if (!uri) return;
       stallRecoveriesRef.current += 1;
+      if (contentType === "live") noteLiveFormat(useAppStore.getState().activeServerId, uri, { stalled: true });
       lastProgressAtRef.current = Date.now();
       setReconnecting(true);
       setIsBuffering(true);
@@ -1290,12 +1315,17 @@ export default function PlayerScreen() {
         }
         currentChannelIdRef.current = channel.id;
         sessionGuardRef.current.invalidate();
-        const formatKey = formatMemoryKey(useAppStore.getState().activeServerId);
+        const zapServerId = useAppStore.getState().activeServerId;
+        const formatKey = formatMemoryKey(zapServerId);
         const preferredUrl = buildFallbackUrls(
           channel.streamUrl,
           "live",
-          effectiveStreamPreference(playerPreferences.streamPreference, formatKey ? useAppStore.getState().preferences[formatKey] : null),
+          effectiveStreamPreference(
+            playerPreferences.streamPreference,
+            preferredLiveFormat(zapServerId, formatKey ? useAppStore.getState().preferences[formatKey] : null),
+          ),
         )[0] ?? channel.streamUrl;
+        formatAttemptRef.current = { at: Date.now(), pending: true };
         catchupActiveRef.current = false;
         catchupQueueRef.current = [];
         stallRecoveriesRef.current = 0;
@@ -1665,8 +1695,12 @@ export default function PlayerScreen() {
         </>
       ) : null}
       <VideoView
+        key={videoHealing.key}
         ref={videoViewRef}
         player={player}
+        surfaceType={videoHealing.surfaceType}
+        useExoShutter={videoHealing.useExoShutter}
+        onFirstFrameRender={videoHealing.onFirstFrameRender}
         style={[
           StyleSheet.absoluteFill,
           selectedRatio.aspectRatio

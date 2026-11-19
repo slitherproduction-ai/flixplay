@@ -9,6 +9,7 @@ import { Group, GroupLabel, GroupRow, PremiumBackdrop, PremiumHeading, PremiumTo
 import { Colors } from "@/constants/theme";
 import { TvSettingsShell, TvTone, tvFocus } from "@/components/tv-settings-shell";
 import { readPlayerPreferences } from "@/features/player/playerConfig";
+import { readVideoMode, VIDEO_MODE_KEY } from "@/features/player/videoHealing";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
@@ -39,6 +40,7 @@ export default function PlayerSettingsScreen() {
         <ChoiceRow divider title="Tempo dos controles" subtitle="Ocultar após inatividade" value={player.osdTimeoutMs} options={[{ label: "3s", value: 3000 }, { label: "5s", value: 5000 }, { label: "7s", value: 7000 }]} onChange={(value) => setPreference("osdTimeoutMs", value)} />
         <ChoiceRow divider title="Salto no vídeo" subtitle="Avançar e voltar pelas setas" value={player.seekStepSeconds} options={[{ label: "10s", value: 10 }, { label: "30s", value: 30 }, { label: "60s", value: 60 }]} onChange={(value) => setPreference("seekStepSeconds", value)} />
         <ChoiceRow divider title="Formato ao vivo" subtitle="Prioridade, mantendo o fallback" value={player.streamPreference} options={[{ label: "Auto", value: "auto" }, { label: "HLS", value: "hls" }, { label: "TS", value: "ts" }]} onChange={(value) => setPreference("streamPreference", value)} />
+        <ChoiceRow divider title="Modo de vídeo" subtitle="Use Compatível só se a imagem não aparecer ou sair quebrada" value={readVideoMode(preferences)} options={[{ label: "Automático", value: "auto" }, { label: "Compatível", value: "compatible" }]} onChange={(value) => setPreference(VIDEO_MODE_KEY, value)} />
       </Group>
 
       <GroupLabel title="COMPORTAMENTO" />

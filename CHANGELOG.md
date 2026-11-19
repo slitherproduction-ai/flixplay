@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.74] — 2026-11-19
+
+Itens da análise do UTM Play 2.0.8 (`claude/analise-utmplay-2.0.8.md`); só ideias, nenhum código de terceiros.
+
+- **Celular e tablet com download nativo da lista** (`catalogDatabase.supportsNativeStream`, `syncVideoNative`): filmes e séries passam a ser baixados e gravados em fluxo pelo Android (CatalogStreamJob), como na TV, sem o JSON inteiro passar pelo JavaScript. No fim, a lista é lida do banco em páginas para a memória, como na abertura com catálogo salvo. Mais rápido na 1ª sincronização e sem travar a tela na atualização em segundo plano (2.17.73).
+- **Tela preta com som** (`features/player/videoHealing.ts`): o expo-video deixa a superfície invisível até o aviso de 1º quadro, que em alguns aparelhos e canais não chega. Se o vídeo anda 5 s sem o 1º quadro, a vista é recriada com a cortina do ExoPlayer (`useExoShutter`) e o aparelho fica marcado (`videoAutoFix`). Novo ajuste Player > Modo de vídeo: Automático ou Compatível (TextureView + cortina).
+- **HLS/TS pelo desempenho** (`features/player/format-score.ts`): por lista, guarda tempo médio de abertura, falhas e travadas de cada formato (`liveFormatStats:<servidor>`, sem endereços). No Auto, começa pelo formato com menor custo quando a diferença é clara (15%), e testa o outro quando o lembrado está lento ou travando. Diagnóstico mostra "Formatos ao vivo". Teste `__tests__/features/format-score.test.ts`.
+- Build Android `20261092`.
+
 ## [2.17.73] — 2026-11-18
 
 - **Celular e tablet abrem com o catálogo salvo** (`hooks/useXtreamSync.ts`), após reclamações da demora para baixar o catálogo: com o catálogo salvo há mais de 6 h, o celular e o tablet abriam sem lista e esperavam baixar canais, filmes e séries inteiros de novo (`restoreStale` valia só para a TV). Agora, como na TV, o app mostra a lista do banco local na hora e atualiza em segundo plano depois da abertura (20 s, nunca durante um vídeo). A primeira sincronização de uma lista nova continua igual.

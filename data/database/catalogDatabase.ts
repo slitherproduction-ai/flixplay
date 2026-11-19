@@ -195,7 +195,11 @@ export const catalogDatabase = {
   /** Sincronização nativa disponível (TV com banco por páginas e módulo novo). */
   supportsNativeStream(): boolean {
     const db = database();
-    return !!db?.streamCatalog && !!db.catalogStreamProgress && !!db.commitStaging && this.supportsTvPages();
+    // TV, celular e tablet: o Android baixa e grava a lista em fluxo, sem o
+    // JSON inteiro passar pelo JavaScript. Fora da TV a lista gravada é lida
+    // de volta em páginas (queryPage), por isso ela também é exigida.
+    return !!db?.streamCatalog && !!db.catalogStreamProgress && !!db.commitStaging
+      && (this.supportsTvPages() || typeof db.queryPage === "function");
   },
 
   /**

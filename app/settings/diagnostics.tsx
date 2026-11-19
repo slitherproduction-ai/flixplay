@@ -13,6 +13,7 @@ import { catalogDatabase } from "@/data/database/catalogDatabase";
 import { authenticateXtream } from "@/services/xtream";
 import { sanitizeError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
+import { describeFormatStats, formatStatsKey, readFormatStats } from "@/features/player/format-score";
 import {
   clearPerformanceHistory,
   describeExit,
@@ -40,6 +41,8 @@ export default function DiagnosticsScreen() {
   const { tvMode, isTablet } = useResponsiveLayout();
   const servers = useAppStore((state) => state.servers);
   const activeServerId = useAppStore((state) => state.activeServerId);
+  const formatStatsRaw = useAppStore((state) => { const key = formatStatsKey(state.activeServerId); return key ? state.preferences[key] : null; });
+  const liveFormats = describeFormatStats(readFormatStats(formatStatsRaw)) || "Ainda sem dados";
   const cache = useAppStore((state) => state.contentCache);
   const syncState = useAppStore((state) => state.syncState);
   const clearContentCache = useAppStore((state) => state.clearContentCache);
@@ -136,8 +139,9 @@ export default function DiagnosticsScreen() {
     `Séries: ${seriesTotal}`,
     `Cache: ${formatBytes(cacheBytes)}`,
     `Último erro: ${syncState.syncError ? sanitizeError(syncState.syncError) : "Nenhum"}`,
+    `Formatos ao vivo: ${liveFormats}`,
     ...(perf ? formatPerformanceReport(perf) : []),
-  ].join("\n"), [activeServer?.status, cache.lastSyncedAt, cacheBytes, latencyMs, liveTotal, moviesTotal, perf, seriesTotal, syncState.syncError]);
+  ].join("\n"), [activeServer?.status, cache.lastSyncedAt, cacheBytes, latencyMs, liveFormats, liveTotal, moviesTotal, perf, seriesTotal, syncState.syncError]);
 
   const shareReport = useCallback(async () => {
     await refreshPerformance();
@@ -201,6 +205,7 @@ export default function DiagnosticsScreen() {
               <InfoRow key={`s${timing.at}${timing.stage}`} label={`Sinc. ${timing.stage}`} value={describeSync(timing)} />
             ))}
             <InfoRow label="Abrir canal" value={perf ? describeOpens(perf.opens.live) : "…"} />
+            <InfoRow label="Formatos ao vivo" value={liveFormats} lines={2} />
             <InfoRow label="Abrir filme" value={perf ? describeOpens(perf.opens.movies) : "…"} />
             <InfoRow label="Abrir episódio" value={perf ? describeOpens(perf.opens.series) : "…"} />
             {describeLastCause() ? <InfoRow label="Causa" value={describeLastCause() ?? ""} alert lines={6} /> : null}

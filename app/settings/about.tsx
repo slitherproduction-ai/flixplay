@@ -48,8 +48,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.73",
+    version: "v2.17.74",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "No celular e no tablet, a lista de filmes e séries é baixada e gravada direto pelo Android: a primeira sincronização fica mais rápida, usa menos memória e a tela não trava enquanto o catálogo atualiza." },
+      { tag: "Correção", text: "Vídeo com som e sem imagem: o app percebe e ajusta o modo de vídeo sozinho, e o aparelho já abre assim nas próximas vezes. Novo ajuste Player > Modo de vídeo (Automático ou Compatível)." },
+      { tag: "Melhoria", text: "No formato Auto, o canal começa pelo formato (HLS ou TS) que abre mais rápido e trava menos na sua lista. Os números aparecem em Diagnóstico." },
+    ],
+  },
+  {
+    version: "v2.17.73",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "No celular e no tablet, o app abre na hora com a lista salva e atualiza o catálogo em segundo plano, sem esperar baixar tudo de novo." },

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.75] — 2026-11-19
+
+Itens 4, 5 e 6 da análise do UTM Play 2.0.8 (`claude/analise-utmplay-2.0.8.md`), com a mesma regra no Roku, LG e Samsung.
+
+- **Qualidades do mesmo canal numa linha** (`features/live/channelGroups.ts`): canais da mesma categoria cujo nome, sem as marcas de qualidade (4K/UHD, FHD, HD, SD, H265/HEVC, 1080p, ALT, Backup, Opção N, ᴴᴰ…), é igual viram uma linha com o nome limpo e "N fontes". Favoritar a linha vale para o grupo. No player, a pílula Fonte ("FHD · 1/3") troca de fonte; se o canal não abre em nenhum formato, a próxima fonte é tentada sozinha; as setas trocam de canal, não de qualidade.
+- **Erros da lista com motivo** (`features/login/listAccess.ts`): se a sincronização falha, uma consulta à conta diz se a lista venceu (com a data), está bloqueada ou recusou o usuário. Mensagens novas para HTTP 401/403, 5xx e resposta que não é JSON.
+- **Hora do servidor no guia** (`services/serverClock.ts`): diferença do relógio pelo cabeçalho `Date` (duas respostas que concordam) ou por `timestamp_now` (ignorado em horas exatas). Só a partir de 2 min. Usada no guia, no XMLTV e no Rever; Diagnóstico mostra "Relógio do aparelho".
+- Testes: `channel-groups`, `server-clock`. Build Android `20261093`.
+
 ## [2.17.74] — 2026-11-19
 
 Itens da análise do UTM Play 2.0.8 (`claude/analise-utmplay-2.0.8.md`); só ideias, nenhum código de terceiros.

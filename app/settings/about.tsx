@@ -48,8 +48,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.74",
+    version: "v2.17.75",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novo", text: "Qualidades do mesmo canal (FHD, HD, SD, ALT) aparecem numa linha só, com o número de fontes. No player, Fonte troca entre elas e, se uma não abre, o app tenta a próxima sozinho." },
+      { tag: "Melhoria", text: "Quando a lista não carrega, o app diz o motivo: lista vencida (com a data), bloqueada, usuário recusado, servidor fora do ar ou resposta que não é uma lista." },
+      { tag: "Correção", text: "Com o relógio do aparelho errado, o guia e o Rever usam a hora do servidor da lista. Diagnóstico mostra o Relógio do aparelho." },
+    ],
+  },
+  {
+    version: "v2.17.74",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "No celular e no tablet, a lista de filmes e séries é baixada e gravada direto pelo Android: a primeira sincronização fica mais rápida, usa menos memória e a tela não trava enquanto o catálogo atualiza." },

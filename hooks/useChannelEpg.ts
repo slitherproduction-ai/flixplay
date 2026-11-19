@@ -1,3 +1,4 @@
+import { serverNow } from "@/services/serverClock";
 import { useEffect, useMemo, useState } from "react";
 import {
   getShortEpg,
@@ -62,7 +63,7 @@ export function useChannelEpg(channelId: string | undefined) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const updateClock = () => setClock(Date.now());
+    const updateClock = () => setClock(serverNow());
     const timer = setTimeout(updateClock, 0);
     const interval = setInterval(updateClock, EPG_CLOCK_INTERVAL_MS);
     return () => { clearTimeout(timer); clearInterval(interval); };

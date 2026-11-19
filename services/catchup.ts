@@ -1,3 +1,4 @@
+import { serverNow } from "@/services/serverClock";
 import type { ChannelItem, EpgProgram, ServerProfile } from "@/store/types";
 
 function archiveDurationMinutes(program: EpgProgram): number | null {
@@ -41,7 +42,7 @@ export function buildCatchupCandidates(
 ): string[] {
   if (!channel || !profile || !channel.catchupDays || channel.catchupDays <= 0) return [];
   const duration = archiveDurationMinutes(program);
-  if (!duration || !program.startTimestamp || program.endTimestamp! > Date.now()) return [];
+  if (!duration || !program.startTimestamp || program.endTimestamp! > serverNow()) return [];
   const startUtc = Math.floor(program.startTimestamp / 1000);
 
   if (profile.sourceType === "m3u") {

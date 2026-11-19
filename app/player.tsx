@@ -77,6 +77,7 @@ import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
 import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
 import { readVideoMode, useVideoHealing, VIDEO_AUTO_FIX_KEY } from "@/features/player/videoHealing";
 import { noteLiveFormat, preferredLiveFormat } from "@/features/player/format-score";
+import { channelSources, groupChannels as groupChannelQualities } from "@/features/live/channelGroups";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
 import { deviceTier, playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
 import { setPlaybackActive } from "@/services/playbackActivity";
@@ -276,6 +277,17 @@ function computeProgressPct(
   if (contentType === "live") return 1;
   if (duration <= 0) return 0;
   return Math.min(1, currentTime / duration);
+}
+
+/** Próxima fonte do canal ainda não tentada nesta troca automática. */
+function nextUntriedSource(sources: { id: string; label: string }[], currentId: string, tried: Set<string>) {
+  if (sources.length < 2) return null;
+  const start = Math.max(0, sources.findIndex((source) => source.id === currentId));
+  for (let step = 1; step < sources.length; step++) {
+    const candidate = sources[(start + step) % sources.length];
+    if (!tried.has(candidate.id) && candidate.id !== currentId) return candidate;
+  }
+  return null;
 }
 
 export default function PlayerScreen() {
@@ -525,8 +537,26 @@ export default function PlayerScreen() {
   const [channelsOpen, setChannelsOpen] = useState(false);
   const groupChannels = useMemo(() => {
     if (!channelsOpen || !currentChannel) return [];
-    return allChannels.filter((ch) => ch.categoryId === currentChannel.categoryId).slice(0, 400);
+    return groupChannelQualities(allChannels.filter((ch) => ch.categoryId === currentChannel.categoryId)).slice(0, 400);
   }, [allChannels, channelsOpen, currentChannel]);
+  // Fontes do mesmo canal (FHD/HD/SD/ALT, channelGroups): "Fonte" troca entre
+  // elas e, se o canal não abre, o player passa para a próxima sozinho.
+  const qualitySources = useMemo(
+    () => (contentType === "live" && currentChannel ? channelSources(currentChannel, allChannels) : []),
+    [allChannels, contentType, currentChannel],
+  );
+  const qualitySourcesRef = useRef(qualitySources);
+  qualitySourcesRef.current = qualitySources;
+  const sourceIndex = qualitySources.findIndex((source) => source.id === id);
+  const sourceLabel = qualitySources.length > 1 && sourceIndex >= 0
+    ? `${qualitySources[sourceIndex].label} · ${sourceIndex + 1}/${qualitySources.length}`
+    : null;
+  // Fontes já tentadas na troca automática; zerado quando o usuário troca de canal.
+  const triedSourcesRef = useRef(new Set<string>());
+  const autoSourceSwitchRef = useRef(false);
+  const switchChannelRef = useRef<(channelId: string) => void>(() => undefined);
+  // Troca de canal pelas setas: uma parada por canal, não por qualidade.
+  const zapChannels = useMemo(() => (contentType === "live" ? groupChannelQualities(allChannels) : allChannels), [allChannels, contentType]);
   const currentSeries = sourceSeriesId
     ? cachedSeries.find((series) => series.id === sourceSeriesId)
     : undefined;
@@ -785,6 +815,12 @@ export default function PlayerScreen() {
             setPlayerError(mapPlayerError(status).message);
           }
         }, 3_000 * attempt);
+      } else if (contentType === "live" && !playbackStartedRef.current && nextUntriedSource(qualitySourcesRef.current, id, triedSourcesRef.current)) {
+        // O canal não abriu em nenhum formato: tenta a próxima fonte (outra qualidade).
+        const next = nextUntriedSource(qualitySourcesRef.current, id, triedSourcesRef.current)!;
+        logTechnicalEvent("Player", `fonte não abriu; tentando ${next.label}`);
+        autoSourceSwitchRef.current = true;
+        switchChannelRef.current(next.id);
       } else {
         logTechnicalError("Player/playback", status);
         setReconnecting(false);
@@ -1304,6 +1340,10 @@ export default function PlayerScreen() {
     (channelId: string, parentalApproved = false) => {
       const channel = allChannels.find((item) => item.id === channelId);
       if (!channel) return;
+      if (!autoSourceSwitchRef.current) triedSourcesRef.current = new Set();
+      autoSourceSwitchRef.current = false;
+      if (currentChannelIdRef.current) triedSourcesRef.current.add(currentChannelIdRef.current);
+      triedSourcesRef.current.add(channel.id);
       if (!parentalApproved && (isContentBlocked(channel.id) || isCategoryBlocked("live", channel.categoryId))) {
         setPendingProtectedChannelId(channel.id);
         return;
@@ -1358,6 +1398,14 @@ export default function PlayerScreen() {
     },
     [allChannels, isCategoryBlocked, isContentBlocked, player, playerPreferences.streamPreference, requestHeaders, router, showControlsWithTimer],
   );
+  switchChannelRef.current = handleSwitchChannel;
+  const handleCycleSource = useCallback(() => {
+    const sources = qualitySourcesRef.current;
+    if (sources.length < 2) return;
+    const index = sources.findIndex((source) => source.id === id);
+    handleSwitchChannel(sources[(index + 1) % sources.length].id);
+    showControlsWithTimer();
+  }, [handleSwitchChannel, id, showControlsWithTimer]);
 
   const switchAuthorizedChannel = useCallback(() => {
     const channelId = pendingProtectedChannelId;
@@ -1367,19 +1415,19 @@ export default function PlayerScreen() {
 
   const zapByOffset = useCallback(
     (offset: number) => {
-      if (allChannels.length === 0) return;
-      const currentIndex = allChannels.findIndex((channel) => channel.id === id);
+      if (zapChannels.length === 0) return;
+      const currentIndex = zapChannels.findIndex((channel) => channel.id === id || channel.sourceIds?.includes(id));
       const baseIndex = pendingChannelIndexRef.current ?? (currentIndex >= 0 ? currentIndex : 0);
-      const nextIndex = (baseIndex + offset + allChannels.length) % allChannels.length;
+      const nextIndex = (baseIndex + offset + zapChannels.length) % zapChannels.length;
       pendingChannelIndexRef.current = nextIndex;
       if (zapTimerRef.current) clearTimeout(zapTimerRef.current);
       zapTimerRef.current = setTimeout(() => {
         const targetIndex = pendingChannelIndexRef.current;
         pendingChannelIndexRef.current = null;
-        if (targetIndex !== null) handleSwitchChannel(allChannels[targetIndex].id);
+        if (targetIndex !== null && zapChannels[targetIndex]) handleSwitchChannel(zapChannels[targetIndex].id);
       }, 120);
     },
-    [allChannels, handleSwitchChannel, id],
+    [zapChannels, handleSwitchChannel, id],
   );
 
   const zapPrevious = useCallback(() => zapByOffset(-1), [zapByOffset]);
@@ -1828,6 +1876,17 @@ export default function PlayerScreen() {
                   <AppIcon name="list" size={15} color={channelsOpen ? Colors.background : Colors.white} />
                   <AppText style={[styles.phonePillText, channelsOpen && styles.phonePillTextActive]}>Canais</AppText>
                 </TVFocusable>
+                {sourceLabel ? (
+                  <TVFocusable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Fonte do canal: ${sourceLabel}. Trocar de fonte`}
+                    onPress={handleCycleSource}
+                    style={({ pressed }) => [styles.phonePill, pressed && styles.pressed]}
+                  >
+                    <AppIcon name="live" size={15} color={Colors.white} />
+                    <AppText style={styles.phonePillText}>{sourceLabel}</AppText>
+                  </TVFocusable>
+                ) : null}
               </View>
             ) : tvMode ? (
               <TvTransportRow
@@ -1841,6 +1900,8 @@ export default function PlayerScreen() {
                 onOpenTracks={handleOpenTracks}
                 onCycleRatio={handleCycleRatio}
                 ratioLabel={selectedRatio.label}
+                sourceLabel={sourceLabel}
+                onCycleSource={handleCycleSource}
                 favorite={isCurrentChannelFavorite}
                 onToggleFavorite={handleToggleChannelFavorite}
                 protectedContent={isCurrentContentBlocked}
@@ -2069,7 +2130,7 @@ function PhoneChannelsPanel({
   topInset,
   rightInset,
 }: {
-  channels: { id: string; name: string; number: string; logo: string; currentEpg: { title: string } }[];
+  channels: { id: string; name: string; number: string; logo: string; currentEpg: { title: string }; groupName?: string; sourceIds?: string[] }[];
   currentId: string;
   groupName: string;
   onSelect: (channelId: string) => void;
@@ -2094,7 +2155,7 @@ function PhoneChannelsPanel({
         windowSize={5}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
-          const current = item.id === currentId;
+          const current = item.id === currentId || Boolean(item.sourceIds?.includes(currentId));
           return (
             <Pressable
               accessibilityRole="button"
@@ -2106,7 +2167,7 @@ function PhoneChannelsPanel({
               <AppText style={styles.phoneChannelNumber}>{item.number}</AppText>
               <ChannelLogo image={item.logo} name={item.name} size={30} />
               <View style={styles.phoneChannelCopy}>
-                <AppText numberOfLines={1} style={styles.phoneChannelName}>{item.name}</AppText>
+                <AppText numberOfLines={1} style={styles.phoneChannelName}>{item.groupName ?? item.name}</AppText>
                 <AppText numberOfLines={1} style={styles.phoneChannelProgram}>{item.currentEpg?.title || "Programação não informada"}</AppText>
               </View>
             </Pressable>
@@ -2133,6 +2194,8 @@ function TvTransportRow({
   onOpenTracks,
   onCycleRatio,
   ratioLabel,
+  sourceLabel,
+  onCycleSource,
   favorite,
   onToggleFavorite,
   protectedContent,
@@ -2149,6 +2212,8 @@ function TvTransportRow({
   onOpenTracks: () => void;
   onCycleRatio: () => void;
   ratioLabel: string;
+  sourceLabel: string | null;
+  onCycleSource: () => void;
   favorite: boolean;
   onToggleFavorite: () => void;
   protectedContent: boolean;
@@ -2180,6 +2245,9 @@ function TvTransportRow({
       <View style={styles.topSpacer} />
       <TvPill ref={topControlsRef} appIcon="tracks" label="Áudio e legendas" accessibilityLabel="Faixas de áudio e legendas" onPress={onOpenTracks} />
       <TvPill appIcon="ratio" label={ratioLabel} accessibilityLabel={`Proporção de tela: ${ratioLabel}`} onPress={onCycleRatio} />
+      {isLive && sourceLabel ? (
+        <TvPill appIcon="live" label={sourceLabel} accessibilityLabel={`Fonte do canal: ${sourceLabel}. Trocar de fonte`} onPress={onCycleSource} />
+      ) : null}
       {isLive ? (
         <TvPill
           appIcon="heart"

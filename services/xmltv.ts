@@ -1,3 +1,4 @@
+import { serverNow } from "@/services/serverClock";
 import type { EpgProgram } from "@/store/types";
 
 export type XmltvProgramme = EpgProgram & { channelId: string };
@@ -40,7 +41,7 @@ export function parseXmltvTimestamp(value: string): number | null {
 }
 
 /** Tolerant XMLTV reader: ignores malformed programmes and preserves only usable EPG records. */
-export function parseXmltv(text: string, now = Date.now()): Map<string, XmltvProgramme[]> {
+export function parseXmltv(text: string, now = serverNow()): Map<string, XmltvProgramme[]> {
   const byChannel = new Map<string, XmltvProgramme[]>();
   const programmePattern = /<programme\b([^>]*)>([\s\S]*?)<\/programme>/gi;
   for (const match of text.matchAll(programmePattern)) {

@@ -1,3 +1,4 @@
+import { noteServerDate, noteServerTimestamp, serverNow } from "@/services/serverClock";
 import { Platform } from "react-native";
 import { appLocale } from "@/core/i18n";
 import type { ChannelItem, EpgProgram, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
@@ -115,7 +116,7 @@ function formatEpgTime(timestamp: number): string {
 
 export function normalizeEpgListings(
   listings: XtreamEpgItem[],
-  nowMs = Date.now(),
+  nowMs = serverNow(),
 ): EpgProgram[] {
   return listings
     .map((item): EpgProgram | null => {
@@ -148,7 +149,7 @@ export function normalizeEpgListings(
 
 export function refreshEpgProgress(
   programs: EpgProgram[],
-  nowMs = Date.now(),
+  nowMs = serverNow(),
 ): EpgProgram[] {
   return programs.map((program) => {
     const start = program.startTimestamp;
@@ -404,6 +405,8 @@ export function normalizeXtreamList<T>(body: unknown): T[] {
 
 /** Parse raw fetch Response into a typed body, throwing XtreamApiError on any anomaly. */
 async function parseXtreamResponse<T>(response: Response, action?: string): Promise<T> {
+  // Hora do servidor para o guia (relógio do aparelho errado): serverClock.
+  try { noteServerDate(response.headers?.get?.("date")); } catch { /* opcional */ }
   if (!response.ok) {
     const stage = describeXtreamStage(action);
     const denied = response.status === 401 || response.status === 403;
@@ -411,10 +414,12 @@ async function parseXtreamResponse<T>(response: Response, action?: string): Prom
     const msg = response.status === 404
       ? `A rota de ${stage} do servidor Xtream não foi encontrada (HTTP 404). Confirme o Host/DNS, a porta e se o painel fornece /player_api.php.`
       : denied
-        ? `Acesso negado pelo servidor durante ${stage} (HTTP ${response.status}). Usuário ou senha incorretos.`
+        ? `O servidor recusou o acesso durante ${stage} (HTTP ${response.status}). Confira o usuário e a senha da lista ou fale com a sua revenda.`
         : tlsGatewayFailure
           ? "O domínio do servidor falhou na conexão segura (TLS/SSL). A autenticação não foi enviada. Use o endereço e a porta Xtream fornecidos pelo provedor ou solicite a correção do certificado."
-          : `${stage.charAt(0).toUpperCase()}${stage.slice(1)} respondeu com status ${response.status}.`;
+          : response.status >= 500
+            ? `O servidor da lista está fora do ar ou sobrecarregado (HTTP ${response.status}). Tente novamente em alguns minutos.`
+            : `${stage.charAt(0).toUpperCase()}${stage.slice(1)} respondeu com status ${response.status}.`;
     throw new XtreamApiError(msg, response.status);
   }
 
@@ -439,7 +444,7 @@ async function parseXtreamResponse<T>(response: Response, action?: string): Prom
     body = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(start) : text);
   } catch {
     throw new XtreamApiError(
-      "Servidor retornou resposta inválida (não é JSON). Verifique o endereço do servidor.",
+      "O servidor respondeu algo que não é uma lista. Confira o endereço do servidor.",
     );
   }
 
@@ -541,7 +546,9 @@ function normalizeAuthResponse(raw: unknown): XtreamAuthResponse {
 
 export async function authenticateXtream(profile: ServerProfile): Promise<XtreamAuthResponse> {
   const raw = await requestXtream<unknown>(profile);
-  return normalizeAuthResponse(raw);
+  const result = normalizeAuthResponse(raw);
+  noteServerTimestamp(result.server_info?.timestamp_now);
+  return result;
 }
 
 export const getLiveCategories = (profile: ServerProfile, signal?: AbortSignal) =>

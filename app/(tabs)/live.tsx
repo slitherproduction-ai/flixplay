@@ -32,6 +32,7 @@ import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels"
 import { TvCategoryPanel, TvChannelPreview } from "@/features/live/tv-guide-panels";
 import { claimPreviewFor, consumeReturnedChannel } from "@/features/live/live-preview-handoff";
 import { isLazyLive, useLazyLiveCounts, useLazyLiveListing } from "@/features/live/lazyLive";
+import { groupChannels } from "@/features/live/channelGroups";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 import { showDialog } from "@/components/app-dialog";
@@ -107,10 +108,10 @@ function GridChannelCard({ channel, isFavorite, cardWidth, onPress, onFavorite, 
         </View>
         <View style={gridStyles.infoArea}>
           <AppText style={gridStyles.channelName} numberOfLines={1}>
-            {channel.name}
+            {channel.groupName ?? channel.name}
           </AppText>
           <AppText style={gridStyles.programName} numberOfLines={1}>
-            {channel.currentEpg.title}
+            {channel.sourceIds ? `${channel.sourceIds.length} fontes · ${channel.currentEpg.title}` : channel.currentEpg.title}
           </AppText>
           <View style={gridStyles.progressTrack}>
             <View
@@ -189,7 +190,8 @@ function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onF
           <View style={styles.channelDetails}>
             <View style={styles.channelTitleRow}>
               {!tvMode ? <AppText style={styles.channelNumber}>{channel.number}</AppText> : null}
-              <AppText numberOfLines={1} style={[styles.channelTitle, tvMode && styles.tvChannelTitle]}>{channel.name}</AppText>
+              <AppText numberOfLines={1} style={[styles.channelTitle, tvMode && styles.tvChannelTitle]}>{channel.groupName ?? channel.name}</AppText>
+              {channel.sourceIds ? <AppText numberOfLines={1} style={[styles.sourceCount, tvMode && styles.tvSourceCount]}>{`${channel.sourceIds.length} fontes`}</AppText> : null}
               {!tvMode ? (
                 <View style={styles.liveBadge}>
                   <View style={styles.liveDot} />
@@ -525,12 +527,13 @@ function LiveScreen() {
     query: category === FAVORITES_LABEL ? "" : query.trim(),
     sort: "channel_number",
   });
+  // Qualidades do mesmo canal (FHD/HD/SD/ALT) numa linha só (channelGroups).
   const visibleChannels = useMemo(
-    () => lazy
+    () => groupChannels(lazy
       ? hydratePagedChannelsWithEpg(listing.items, channels)
       : pager.enabled && category !== FAVORITES_LABEL
         ? hydratePagedChannelsWithEpg(withoutHidden(pager.items, hiddenCategories, (channel) => channel.categoryName), channels)
-        : filteredChannels,
+        : filteredChannels),
     [lazy, listing.items, pager.enabled, pager.items, category, filteredChannels, channels, hiddenCategories],
   );
   // Busca de um canal pelo id: a listagem aberta e o conjunto em memória.
@@ -653,9 +656,23 @@ function LiveScreen() {
   const activeColumns = effectiveViewMode === "grid" ? numGridColumns : 1;
   const { listRef, onScrollToIndexFailed } = useTvFocusRestoration<ChannelItem>(LIVE_FOCUS_SCOPE, tvMode, activeColumns);
 
+  // Linha agrupada: é favorita se alguma fonte for; desmarcar tira todas.
+  const sourceIdsByChannel = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const channel of visibleChannels) if (channel.sourceIds) map.set(channel.id, channel.sourceIds);
+    return map;
+  }, [visibleChannels]);
+  const handleFavorite = useCallback((channelId: string) => {
+    const ids = sourceIdsByChannel.get(channelId);
+    if (!ids) { toggleFavoriteChannel(channelId); return; }
+    const marked = ids.filter((sourceId) => favoriteChannelIds.includes(sourceId));
+    if (marked.length === 0) toggleFavoriteChannel(channelId);
+    else for (const sourceId of marked) toggleFavoriteChannel(sourceId);
+  }, [favoriteChannelIds, sourceIdsByChannel, toggleFavoriteChannel]);
+
   const renderItem = useCallback(
     ({ item: channel, index }: { item: ChannelItem; index: number }) => {
-      const isFavorite = favoriteChannelIds.includes(channel.id);
+      const isFavorite = (channel.sourceIds ?? [channel.id]).some((sourceId) => favoriteChannelIds.includes(sourceId));
       if (effectiveViewMode === "grid") {
         return (
           <GridChannelCard
@@ -663,7 +680,7 @@ function LiveScreen() {
             isFavorite={isFavorite}
             cardWidth={gridCardWidth}
             onPress={handleChannel}
-            onFavorite={toggleFavoriteChannel}
+            onFavorite={handleFavorite}
             focusIndex={index}
             restoreFocus={tvMode}
             onPreview={handlePreviewChannel}
@@ -677,14 +694,14 @@ function LiveScreen() {
           tvMode={tvMode}
           onPress={handleChannel}
           onLongPress={handleGuide}
-          onFavorite={toggleFavoriteChannel}
+          onFavorite={handleFavorite}
           focusIndex={index}
           restoreFocus={tvMode}
           onPreview={handlePreviewChannel}
         />
       );
     },
-    [favoriteChannelIds, effectiveViewMode, gridCardWidth, handleChannel, handleGuide, toggleFavoriteChannel, tvMode, handlePreviewChannel],
+    [favoriteChannelIds, effectiveViewMode, gridCardWidth, handleChannel, handleGuide, handleFavorite, tvMode, handlePreviewChannel],
   );
 
   const keyExtractor = useCallback((item: ChannelItem) => item.id, []);
@@ -1083,6 +1100,8 @@ const styles = StyleSheet.create({
   // while preserving a calm viewing distance on a 720p or 1080p panel.
   // TV/Fire TV: compact channel rows, matching the requested 12 px hierarchy.
   tvChannelTitle: { flex: 1, fontSize: 12, lineHeight: 15 },
+  sourceCount: { fontFamily: "Inter_600SemiBold", fontSize: 11, color: Colors.muted },
+  tvSourceCount: { fontSize: 10, lineHeight: 15 },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",

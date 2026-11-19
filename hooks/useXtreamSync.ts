@@ -35,6 +35,7 @@ import {
 import { homeVideos, type VideoItem, type VideoKind } from "@/data/database/tvCatalog";
 import { isLazyLive, keepLiveWorkingSet, loadPinnedLiveChannels } from "@/features/live/lazyLive";
 import { fetchM3uChannels } from "@/services/m3uImport";
+import { explainListAccess } from "@/features/login/listAccess";
 
 /**
  * Index an array of objects by category_id, normalising both sides to string.
@@ -592,10 +593,13 @@ async function fetchAndCacheContent(
     if (failures.length === 0 && persisted && catalogDatabase.isAvailable()) {
       useAppStore.getState().setPreference(catalogSyncedAtKey(profile.id), Date.now());
     }
+    // Falhou algo: a conta diz se a lista venceu, foi bloqueada ou recusada.
+    const accessReason = failures.length ? await explainListAccess(profile) : null;
+    if (!isCurrent()) return;
     const currentStages = useAppStore.getState().syncState.stages;
     setSyncState({
       isSyncing: false,
-      syncError: failures.length ? failures.join(" ") : null,
+      syncError: failures.length ? accessReason ?? failures.join(" ") : null,
       syncProgress: null,
       progressPercent: 0,
       stages: { ...currentStages, series: "complete" },
@@ -605,10 +609,12 @@ async function fetchAndCacheContent(
     logTechnicalError("Sync/series", err);
     const message = err instanceof Error ? err.message : "Falha ao carregar séries.";
     failures.push(`Séries: ${message}`);
+    const accessReason = await explainListAccess(profile);
+    if (!isCurrent()) return;
     const currentStages = useAppStore.getState().syncState.stages;
     setSyncState({
       isSyncing: false,
-      syncError: failures.join(" "),
+      syncError: accessReason ?? failures.join(" "),
       syncProgress: null,
       progressPercent: 0,
       stages: { ...currentStages, series: "error" },

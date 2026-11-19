@@ -14,6 +14,7 @@ import { authenticateXtream } from "@/services/xtream";
 import { sanitizeError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import { describeFormatStats, formatStatsKey, readFormatStats } from "@/features/player/format-score";
+import { serverClockOffsetMs } from "@/services/serverClock";
 import {
   clearPerformanceHistory,
   describeExit,
@@ -190,6 +191,7 @@ export default function DiagnosticsScreen() {
             <InfoRow label="Última sincronização" value={cache.lastSyncedAt ? new Date(cache.lastSyncedAt).toLocaleString(appLocale()) : "Não informado"} />
             <InfoRow label="Sincronização agora" value={syncNow} />
             <InfoRow label="Último erro" value={hasError ? sanitizeError(syncState.syncError) : "Nenhum"} alert={hasError} />
+            <InfoRow label="Relógio do aparelho" value={describeClock()} />
             <InfoRow label="Sistema" value={`${Platform.OS} ${String(Platform.Version)}`} />
             <InfoRow label="Dispositivo" value={Constants.deviceName ?? "Não informado"} />
             <InfoRow label="Cache local" value={formatBytes(cacheBytes)} />
@@ -307,3 +309,12 @@ const styles = StyleSheet.create({
   empty: { fontSize: 12, color: Colors.muted, paddingVertical: 6 },
   alert: { color: "#FF8B91" },
 });
+
+/** Relógio do aparelho comparado ao do servidor da lista (serverClock). */
+function describeClock(): string {
+  const offset = serverClockOffsetMs();
+  if (offset === 0) return "Certo";
+  const minutes = Math.round(Math.abs(offset) / 60_000);
+  const amount = minutes >= 120 ? `${Math.round(minutes / 60)} h` : `${minutes} min`;
+  return `${offset > 0 ? "Atrasado" : "Adiantado"} ${amount}; o guia usa a hora do servidor`;
+}

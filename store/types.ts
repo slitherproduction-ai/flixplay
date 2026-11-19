@@ -73,6 +73,9 @@ export interface ChannelItem {
   /** M3U catchup-source template. Kept in memory only; catalog persistence strips it. */
   catchupSource?: string;
   streamUrl: string;
+  /** Linha agrupada (channelGroups): nome sem a qualidade e ids de todas as fontes. Só em memória. */
+  groupName?: string;
+  sourceIds?: string[];
 }
 
 export interface VodMovie {

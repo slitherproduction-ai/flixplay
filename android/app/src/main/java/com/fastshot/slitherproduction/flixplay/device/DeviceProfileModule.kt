@@ -181,6 +181,45 @@ class DeviceProfileModule(private val context: ReactApplicationContext) :
     }
   }
 
+  /**
+   * Diagnóstico de conexão da lista (2.17.77): o DNS deste aparelho encontra o
+   * servidor? E a conexão com ele abre? Só o nome e a porta; nada de usuário,
+   * senha ou endereço completo. Roda fora da thread da interface.
+   * Resultado: { resolved, connect: "ok" | "timeout" | "refused" | "error" | "skipped" }.
+   */
+  @ReactMethod
+  fun probeHost(host: String, port: Int, timeoutMs: Int, promise: Promise) {
+    Thread {
+      val result = Arguments.createMap()
+      val addresses = try {
+        java.net.InetAddress.getAllByName(host).toList()
+      } catch (_: java.net.UnknownHostException) {
+        emptyList()
+      } catch (_: Exception) {
+        emptyList()
+      }
+      result.putBoolean("resolved", addresses.isNotEmpty())
+      if (addresses.isEmpty()) {
+        result.putString("connect", "skipped")
+      } else {
+        val outcome = try {
+          java.net.Socket().use { socket ->
+            socket.connect(java.net.InetSocketAddress(addresses.first(), port), timeoutMs.coerceIn(1000, 10000))
+          }
+          "ok"
+        } catch (_: java.net.SocketTimeoutException) {
+          "timeout"
+        } catch (_: java.net.ConnectException) {
+          "refused"
+        } catch (_: Exception) {
+          "error"
+        }
+        result.putString("connect", outcome)
+      }
+      promise.resolve(result)
+    }.start()
+  }
+
   private companion object {
     /** Tempo para a tela fechar e o registro de saída limpa ser gravado. */
     const val EXIT_DELAY_MS = 300L

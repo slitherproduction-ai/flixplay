@@ -48,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.76",
+    version: "v2.17.77",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Quando a lista não abre, o app descobre o motivo: bloqueio de DNS da operadora (com a dica de trocar o DNS), endereço que não existe, servidor que não responde ou aparelho sem internet. Diagnóstico mostra a Conexão com a lista." },
+    ],
+  },
+  {
+    version: "v2.17.76",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Canais abrem mais rápido: o vídeo começa a tocar com menos espera (1 s no ao vivo, 1,5 s em filmes e séries)." },

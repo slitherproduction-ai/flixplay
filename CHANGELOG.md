@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.77] — 2026-11-19
+
+- **Por que a lista não abre** (`services/connectionDiagnosis.ts`): quando a conexão com o servidor da lista falha (sem resposta HTTP), o app pergunta ao DNS do aparelho se o servidor existe e tenta abrir a conexão na porta da lista (novo `probeHost` em `DeviceProfileModule.kt`, só nome e porta). Ao mesmo tempo consulta o DNS público do Google por HTTPS. Resultado:
+  - não encontra, mas existe: bloqueio de DNS provável, com a dica de trocar o DNS;
+  - não existe: endereço errado;
+  - encontra e não conecta: servidor fora do ar ou bloqueado;
+  - nem o DNS público responde: sem internet.
+  Vale no login, na sincronização (`explainListAccess`) e no Testar conexão; resultado guardado 60 s por servidor. Diagnóstico mostra "Conexão com a lista". Teste `__tests__/services/connection-diagnosis.test.ts`.
+- Build Android `20261095`.
+
 ## [2.17.76] — 2026-11-19
 
 Da análise do Lord Play 1.0.14 (`claude/analise-lordplay-1.0.14.md`); só ideias, nenhum código de terceiros.

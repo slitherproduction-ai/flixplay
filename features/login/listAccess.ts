@@ -1,5 +1,6 @@
 import { appLocale } from "@/core/i18n";
-import { authenticateXtream, type XtreamUserInfo } from "@/services/xtream";
+import { CONNECTION_MESSAGES } from "@/services/connectionDiagnosis";
+import { authenticateXtream, XtreamApiError, type XtreamUserInfo } from "@/services/xtream";
 import type { ServerProfile } from "@/store/types";
 
 /**
@@ -41,7 +42,9 @@ export async function explainListAccess(profile: ServerProfile): Promise<string 
   try {
     const result = await authenticateXtream(profile);
     return describeAccountProblem(result.user_info);
-  } catch {
-    return null;
+  } catch (error) {
+    // Sem resposta do servidor: o diagnóstico de conexão já explica o motivo.
+    const message = error instanceof XtreamApiError ? error.message : "";
+    return (Object.values(CONNECTION_MESSAGES) as string[]).includes(message) ? message : null;
   }
 }

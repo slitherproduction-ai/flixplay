@@ -1,4 +1,5 @@
 import { noteServerDate, noteServerTimestamp, serverNow } from "@/services/serverClock";
+import { diagnoseListConnection } from "@/services/connectionDiagnosis";
 import { Platform } from "react-native";
 import { appLocale } from "@/core/i18n";
 import type { ChannelItem, EpgProgram, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
@@ -493,7 +494,18 @@ async function requestXtream<T>(
   const url = buildXtreamApiUrl(profile, action, params);
   const timeoutMs = getXtreamRequestTimeoutMs(action);
   try {
-    const response = await fetchWithConfiguredProtocol(url, timeoutMs, signal);
+    let response: Response;
+    try {
+      response = await fetchWithConfiguredProtocol(url, timeoutMs, signal);
+    } catch (connectionError) {
+      // Sem resposta do servidor: diz se é bloqueio de DNS, endereço errado,
+      // servidor fora do ar ou aparelho sem internet (connectionDiagnosis).
+      if (!signal?.aborted && !(connectionError instanceof XtreamApiError && connectionError.status > 0)) {
+        const diagnosis = await diagnoseListConnection(profile.serverUrl).catch(() => null);
+        if (diagnosis) throw new XtreamApiError(diagnosis.message, 0, profile.serverUrl);
+      }
+      throw connectionError;
+    }
     return await parseXtreamResponse<T>(response, action);
   } catch (err) {
     logTechnicalError("Xtream", createSafeEndpointDiagnostic(url, err instanceof XtreamApiError ? err.status : 0));

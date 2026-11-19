@@ -15,6 +15,7 @@ import { sanitizeError } from "@/services/security/sanitize";
 import { useAppStore } from "@/store/useAppStore";
 import { describeFormatStats, formatStatsKey, readFormatStats } from "@/features/player/format-score";
 import { serverClockOffsetMs } from "@/services/serverClock";
+import { lastConnectionDiagnosis, VERDICT_LABELS } from "@/services/connectionDiagnosis";
 import {
   clearPerformanceHistory,
   describeExit,
@@ -141,6 +142,7 @@ export default function DiagnosticsScreen() {
     `Cache: ${formatBytes(cacheBytes)}`,
     `Último erro: ${syncState.syncError ? sanitizeError(syncState.syncError) : "Nenhum"}`,
     `Formatos ao vivo: ${liveFormats}`,
+    `Conexão com a lista: ${describeListConnection()}`,
     ...(perf ? formatPerformanceReport(perf) : []),
   ].join("\n"), [activeServer?.status, cache.lastSyncedAt, cacheBytes, latencyMs, liveFormats, liveTotal, moviesTotal, perf, seriesTotal, syncState.syncError]);
 
@@ -192,6 +194,7 @@ export default function DiagnosticsScreen() {
             <InfoRow label="Sincronização agora" value={syncNow} />
             <InfoRow label="Último erro" value={hasError ? sanitizeError(syncState.syncError) : "Nenhum"} alert={hasError} />
             <InfoRow label="Relógio do aparelho" value={describeClock()} />
+            <InfoRow label="Conexão com a lista" value={describeListConnection()} alert={Boolean(lastConnectionDiagnosis()?.verdict)} />
             <InfoRow label="Sistema" value={`${Platform.OS} ${String(Platform.Version)}`} />
             <InfoRow label="Dispositivo" value={Constants.deviceName ?? "Não informado"} />
             <InfoRow label="Cache local" value={formatBytes(cacheBytes)} />
@@ -317,4 +320,12 @@ function describeClock(): string {
   const minutes = Math.round(Math.abs(offset) / 60_000);
   const amount = minutes >= 120 ? `${Math.round(minutes / 60)} h` : `${minutes} min`;
   return `${offset > 0 ? "Atrasado" : "Adiantado"} ${amount}; o guia usa a hora do servidor`;
+}
+
+/** Último diagnóstico de conexão com o servidor da lista (connectionDiagnosis). */
+function describeListConnection(): string {
+  const last = lastConnectionDiagnosis();
+  if (!last) return "Sem falhas nesta sessão";
+  const time = new Date(last.at).toLocaleTimeString(appLocale(), { hour: "2-digit", minute: "2-digit" });
+  return last.verdict ? `${VERDICT_LABELS[last.verdict]} (às ${time})` : `Conexão abriu no teste das ${time}`;
 }

@@ -77,7 +77,7 @@ import { buildCatchupCandidates, buildCatchupUrl } from "@/services/catchup";
 import { detectLiveFormat, effectiveStreamPreference, formatMemoryKey } from "@/features/player/format-memory";
 import { readVideoMode, useVideoHealing, VIDEO_AUTO_FIX_KEY } from "@/features/player/videoHealing";
 import { noteLiveFormat, preferredLiveFormat } from "@/features/player/format-score";
-import { channelSources, groupChannels as groupChannelQualities } from "@/features/live/channelGroups";
+import { channelSources, groupChannels as groupChannelQualities, joinQualitiesEnabled } from "@/features/live/channelGroups";
 import { createSeriesEpisodeUrl, getSeriesInfo } from "@/services/xtream";
 import { deviceTier, playerBufferProfile, setPlaybackKeepAwake } from "@/services/deviceProfile";
 import { setPlaybackActive } from "@/services/playbackActivity";
@@ -537,13 +537,15 @@ export default function PlayerScreen() {
   const [channelsOpen, setChannelsOpen] = useState(false);
   const groupChannels = useMemo(() => {
     if (!channelsOpen || !currentChannel) return [];
-    return groupChannelQualities(allChannels.filter((ch) => ch.categoryId === currentChannel.categoryId)).slice(0, 400);
+    const inCategory = allChannels.filter((ch) => ch.categoryId === currentChannel.categoryId);
+    return (joinQualitiesEnabled(useAppStore.getState().preferences) ? groupChannelQualities(inCategory) : inCategory).slice(0, 400);
   }, [allChannels, channelsOpen, currentChannel]);
   // Fontes do mesmo canal (FHD/HD/SD/ALT, channelGroups): "Fonte" troca entre
   // elas e, se o canal não abre, o player passa para a próxima sozinho.
+  const joinQualities = joinQualitiesEnabled(preferences);
   const qualitySources = useMemo(
-    () => (contentType === "live" && currentChannel ? channelSources(currentChannel, allChannels) : []),
-    [allChannels, contentType, currentChannel],
+    () => (joinQualities && contentType === "live" && currentChannel ? channelSources(currentChannel, allChannels) : []),
+    [allChannels, contentType, currentChannel, joinQualities],
   );
   const qualitySourcesRef = useRef(qualitySources);
   qualitySourcesRef.current = qualitySources;
@@ -556,7 +558,7 @@ export default function PlayerScreen() {
   const autoSourceSwitchRef = useRef(false);
   const switchChannelRef = useRef<(channelId: string) => void>(() => undefined);
   // Troca de canal pelas setas: uma parada por canal, não por qualidade.
-  const zapChannels = useMemo(() => (contentType === "live" ? groupChannelQualities(allChannels) : allChannels), [allChannels, contentType]);
+  const zapChannels = useMemo(() => (joinQualities && contentType === "live" ? groupChannelQualities(allChannels) : allChannels), [allChannels, contentType, joinQualities]);
   const currentSeries = sourceSeriesId
     ? cachedSeries.find((series) => series.id === sourceSeriesId)
     : undefined;

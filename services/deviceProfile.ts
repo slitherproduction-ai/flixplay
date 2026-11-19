@@ -53,14 +53,16 @@ export type PlayerBufferProfile = {
 /** Buffer do player por perfil: menos memória em aparelho fraco, mais folga em aparelho forte. */
 export function playerBufferProfile(live: boolean, tvMode: boolean, tier: DeviceTier = deviceTier): PlayerBufferProfile {
   const MB = 1024 * 1024;
+  // Começar a tocar com menos vídeo guardado (2.17.76): o canal abre mais
+  // rápido. Ao vivo 1 s (1,5 s em aparelho fraco), filme 1,5 s (2 s). Antes
+  // era 2 s em tudo. Vale também para voltar depois de uma travada.
   if (tier === "low") {
-    return { preferredForwardBufferDuration: live ? 10 : 20, minBufferForPlayback: 2, maxBufferBytes: 32 * MB };
+    return { preferredForwardBufferDuration: live ? 10 : 20, minBufferForPlayback: live ? 1.5 : 2, maxBufferBytes: 32 * MB };
   }
   if (tier === "high") {
-    return { preferredForwardBufferDuration: live ? 30 : 60, minBufferForPlayback: 2, maxBufferBytes: (tvMode ? 96 : 128) * MB };
+    return { preferredForwardBufferDuration: live ? 30 : 60, minBufferForPlayback: live ? 1 : 1.5, maxBufferBytes: (tvMode ? 96 : 128) * MB };
   }
-  // Valores usados até a 2.17.32.
-  return { preferredForwardBufferDuration: live ? 15 : 30, minBufferForPlayback: 2, maxBufferBytes: (tvMode ? 48 : 64) * MB };
+  return { preferredForwardBufferDuration: live ? 15 : 30, minBufferForPlayback: live ? 1 : 1.5, maxBufferBytes: (tvMode ? 48 : 64) * MB };
 }
 
 /** Largura do pôster pedida ao TMDB conforme o aparelho. */

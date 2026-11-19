@@ -32,7 +32,7 @@ import { hydratePagedChannelsWithEpg } from "@/core/live/hydrate-paged-channels"
 import { TvCategoryPanel, TvChannelPreview } from "@/features/live/tv-guide-panels";
 import { claimPreviewFor, consumeReturnedChannel } from "@/features/live/live-preview-handoff";
 import { isLazyLive, useLazyLiveCounts, useLazyLiveListing } from "@/features/live/lazyLive";
-import { groupChannels } from "@/features/live/channelGroups";
+import { groupChannels, JOIN_QUALITIES_KEY } from "@/features/live/channelGroups";
 
 import { useHiddenCategoryNames, withoutHidden } from "@/features/catalog/hidden-categories";
 import { showDialog } from "@/components/app-dialog";
@@ -150,6 +150,8 @@ interface ListRowProps {
   restoreFocus: boolean;
   onPreview: (channel: ChannelItem) => void;
 }
+
+const identityChannels = (channels: ChannelItem[]) => channels;
 
 function ListChannelRow({ channel, isFavorite, tvMode, onPress, onLongPress, onFavorite, focusIndex, restoreFocus, onPreview }: ListRowProps) {
   const handlePress = useCallback(() => onPress(channel.id), [channel.id, onPress]);
@@ -527,14 +529,16 @@ function LiveScreen() {
     query: category === FAVORITES_LABEL ? "" : query.trim(),
     sort: "channel_number",
   });
-  // Qualidades do mesmo canal (FHD/HD/SD/ALT) numa linha só (channelGroups).
+  // Qualidades do mesmo canal (FHD/HD/SD/ALT) numa linha só (channelGroups),
+  // a menos que o usuário desligue em Ajustes › Player › Juntar qualidades.
+  const joinQualities = useAppStore((state) => state.preferences[JOIN_QUALITIES_KEY] !== false);
   const visibleChannels = useMemo(
-    () => groupChannels(lazy
+    () => (joinQualities ? groupChannels : identityChannels)(lazy
       ? hydratePagedChannelsWithEpg(listing.items, channels)
       : pager.enabled && category !== FAVORITES_LABEL
         ? hydratePagedChannelsWithEpg(withoutHidden(pager.items, hiddenCategories, (channel) => channel.categoryName), channels)
         : filteredChannels),
-    [lazy, listing.items, pager.enabled, pager.items, category, filteredChannels, channels, hiddenCategories],
+    [joinQualities, lazy, listing.items, pager.enabled, pager.items, category, filteredChannels, channels, hiddenCategories],
   );
   // Busca de um canal pelo id: a listagem aberta e o conjunto em memória.
   const findChannel = useCallback(

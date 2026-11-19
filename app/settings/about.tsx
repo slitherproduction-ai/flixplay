@@ -48,8 +48,16 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.75",
+    version: "v2.17.76",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "Canais abrem mais rápido: o vídeo começa a tocar com menos espera (1 s no ao vivo, 1,5 s em filmes e séries)." },
+      { tag: "Novo", text: "Ajuste Player › Juntar qualidades: desligue se algum canal for agrupado errado e cada canal da lista volta a ter a sua linha." },
+    ],
+  },
+  {
+    version: "v2.17.75",
     date: "2026.11",
     changes: [
       { tag: "Novo", text: "Qualidades do mesmo canal (FHD, HD, SD, ALT) aparecem numa linha só, com o número de fontes. No player, Fonte troca entre elas e, se uma não abre, o app tenta a próxima sozinho." },

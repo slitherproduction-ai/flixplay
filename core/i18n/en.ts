@@ -1028,4 +1028,6 @@ export const EN: Record<string, string> = {
   "Certo": "Correct",
   "Atrasado {0}; o guia usa a hora do servidor": "Behind by {0}; the guide uses the server time",
   "Adiantado {0}; o guia usa a hora do servidor": "Ahead by {0}; the guide uses the server time",
+  "Juntar qualidades": "Group qualities",
+  "FHD, HD e SD do mesmo canal numa linha, com troca de fonte. Desligue se algum canal juntar errado": "FHD, HD and SD of the same channel in one row, with source switching. Turn off if some channels are grouped wrongly",
 };

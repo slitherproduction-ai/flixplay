@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.17.76] — 2026-11-19
+
+Da análise do Lord Play 1.0.14 (`claude/analise-lordplay-1.0.14.md`); só ideias, nenhum código de terceiros.
+
+- **Canal abre mais rápido** (`services/deviceProfile.ts`): o vídeo começa a tocar com 1 s guardado no ao vivo (1,5 s em aparelho fraco) e 1,5 s em filmes e séries (2 s em aparelho fraco). Antes era 2 s em tudo. A TV ao Vivo (prévia) já usava 1 s.
+- **Juntar qualidades com interruptor** (`JOIN_QUALITIES_KEY`, Ajustes › Player): ligado por padrão. Desligado, a TV ao Vivo, as setas do player, a lista de canais do celular e o botão Fonte voltam a tratar cada canal da lista separado.
+- Build Android `20261094`.
+
 ## [2.17.75] — 2026-11-19
 
 Itens 4, 5 e 6 da análise do UTM Play 2.0.8 (`claude/analise-utmplay-2.0.8.md`), com a mesma regra no Roku, LG e Samsung.

@@ -10,6 +10,7 @@ import { Colors } from "@/constants/theme";
 import { TvSettingsShell, TvTone, tvFocus } from "@/components/tv-settings-shell";
 import { readPlayerPreferences } from "@/features/player/playerConfig";
 import { readVideoMode, VIDEO_MODE_KEY } from "@/features/player/videoHealing";
+import { JOIN_QUALITIES_KEY, joinQualitiesEnabled } from "@/features/live/channelGroups";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useResponsiveLayout } from "@/hooks/use-responsive-layout";
 import { useAppStore } from "@/store/useAppStore";
@@ -23,6 +24,7 @@ export default function PlayerSettingsScreen() {
   const player = readPlayerPreferences(preferences);
   const [userAgent, setUserAgent] = useState(player.userAgent);
   const autoOpen = preferences.autoOpenLastChannel === true;
+  const joinQualities = joinQualitiesEnabled(preferences);
 
   useEffect(() => setUserAgent(player.userAgent), [player.userAgent]);
   const saveUserAgent = useCallback(() => setPreference("playerUserAgent", userAgent.trim()), [setPreference, userAgent]);
@@ -46,6 +48,7 @@ export default function PlayerSettingsScreen() {
       <GroupLabel title="COMPORTAMENTO" />
       <Group>
         <ToggleRow icon="radio-outline" title="Abrir último canal" subtitle="Retomar ao abrir o aplicativo" value={autoOpen} onPress={() => setPreference("autoOpenLastChannel", !autoOpen)} />
+        <ToggleRow divider icon="layers-outline" title="Juntar qualidades" subtitle="FHD, HD e SD do mesmo canal numa linha, com troca de fonte. Desligue se algum canal juntar errado" value={joinQualities} onPress={() => setPreference(JOIN_QUALITIES_KEY, !joinQualities)} />
         <ToggleRow divider icon="tv-outline" title="Modo Android TV" subtitle={Platform.isTV ? "Detectado automaticamente neste aparelho" : tvMode ? "Ativado manualmente" : "Navegação por controle remoto"} value={tvMode} disabled={Platform.isTV} onPress={() => { if (!Platform.isTV) setPreference("tvModeEnabled", !tvMode); }} />
       </Group>
 

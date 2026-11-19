@@ -1,4 +1,10 @@
-import type { ChannelItem } from "@/store/types";
+import type { ChannelItem, Preferences } from "@/store/types";
+
+/** Ajustes › Juntar qualidades (ligado por padrão). Desligado: cada canal da lista numa linha. */
+export const JOIN_QUALITIES_KEY = "joinQualities";
+export function joinQualitiesEnabled(preferences: Preferences): boolean {
+  return preferences[JOIN_QUALITIES_KEY] !== false;
+}
 
 /**
  * Qualidades do mesmo canal numa linha só.

@@ -84,6 +84,8 @@ interface AppStore {
   /** Updates migration metadata only; never changes endpoints, credentials or active list. */
   setServerPortalMigrationStates: (states: Record<string, "confirmed" | "pending">) => void;
   setActiveServer: (id: string) => void;
+  /** Novo nome de uma lista salva (Listas salvas › Renomear). */
+  renameServer: (id: string, name: string) => void;
   removeServer: (id: string) => Promise<void>;
   removeAllServers: () => Promise<void>;
   logout: () => void;
@@ -265,6 +267,13 @@ export const useAppStore = create<AppStore>()(
             return portalMigrationState ? { ...server, portalMigrationState } : server;
           }),
         })),
+
+      renameServer: (id, name) =>
+        set((state) => {
+          const clean = name.trim().slice(0, 40);
+          if (!clean) return {};
+          return { servers: state.servers.map((server) => (server.id === id ? { ...server, name: clean } : server)) };
+        }),
 
       setActiveServer: (id) =>
         set((state) => {

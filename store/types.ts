@@ -16,6 +16,8 @@ export interface ServerProfile {
   password: string;
   isActive: boolean;
   expiryDate: string;
+  /** Vencimento da conta em ms (exp_date do Xtream); null = sem vencimento. */
+  expiresAt?: number | null;
   maxConnections: number | null;
   activeConnections: number | null;
   format: "TS" | "HLS" | "M3U8" | null;

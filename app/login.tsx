@@ -54,6 +54,11 @@ import {
 } from "@/features/login/loginValidation";
 import { markAppReady } from "@/services/performanceMonitor";
 import { showDialog } from "@/components/app-dialog";
+import { ListProblemDialog } from "@/components/list-problem-dialog";
+import { listProblemFromMessage } from "@/features/login/listProblem";
+import { describeAccountProblem } from "@/features/login/listAccess";
+import { TvLoginForm, type ConnectProgress } from "@/features/login/tv-login-form";
+import { TvSavedLists } from "@/features/lists/tv-saved-lists";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -281,6 +286,13 @@ export default function LoginScreen() {
   const [portalSyncMessage, setPortalSyncMessage] = useState<string | null>(null);
   const [showPortalLink, setShowPortalLink] = useState(false);
   const [portalLinkKey, setPortalLinkKey] = useState("");
+  // TV: etapas da conexão (servidor, conta, catálogo) e cancelamento pelo Voltar.
+  const [progress, setProgress] = useState<ConnectProgress>({ phase: "idle" });
+  const connectGen = useRef(0);
+  const lastAttempt = useRef<(() => void) | null>(null);
+  const renameServer = useAppStore((state) => state.renameServer);
+  const forceResync = useAppStore((state) => state.forceResync);
+  const activeSyncedAt = useAppStore((state) => state.contentCache.lastSyncedAt);
 
   const hostRef = useRef<TextInput>(null);
   const serverCodeRef = useRef<TextInput>(null);
@@ -398,6 +410,7 @@ export default function LoginScreen() {
   const performConnect = useCallback(async (effectiveHost: string) => {
     setError(null);
     setDiagInfo(null);
+    lastAttempt.current = () => { void performConnect(effectiveHost); };
 
     const validationError = validateLoginFields(effectiveHost, username, password);
     if (validationError) {
@@ -405,7 +418,11 @@ export default function LoginScreen() {
       return;
     }
 
+    const gen = ++connectGen.current;
+    const stale = () => gen !== connectGen.current;
     setLoading(true);
+    setProgress({ phase: "server" });
+    const startedAt = Date.now();
     try {
       const profile: ServerProfile = {
         id: `server-${Date.now()}`,
@@ -423,34 +440,49 @@ export default function LoginScreen() {
       };
 
       const authResult = await authenticateXtream(profile);
+      if (stale()) return;
       const userInfo = authResult.user_info;
 
       if (!checkXtreamAuth(userInfo)) {
-        setError("Usuário ou senha incorretos. Verifique suas credenciais e o endereço do servidor.");
+        setError(describeAccountProblem(userInfo) ?? "Usuário ou senha incorretos. Verifique suas credenciais e o endereço do servidor.");
         return;
       }
 
-      const statusError = getUserStatusError(userInfo.status);
+      const statusError = describeAccountProblem(userInfo) ?? getUserStatusError(userInfo.status);
       if (statusError) {
         setError(statusError);
         return;
       }
 
-      addServer({ ...profile, ...buildProfileUpdate(userInfo) });
+      const update = buildProfileUpdate(userInfo);
+      if (tvMode) {
+        setProgress({ phase: "account", serverMs: Date.now() - startedAt, expiry: update.expiryDate, screens: update.maxConnections });
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        if (stale()) return;
+        setProgress((current) => ({ ...current, phase: "catalog" }));
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (stale()) return;
+      }
+      addServer({ ...profile, ...update });
       router.replace("/(tabs)");
     } catch (connectError) {
+      if (stale()) return;
       logTechnicalError("Login Xtream", connectError);
       setError(mapConnectError(connectError));
       const diag = buildDiagInfoFromError(connectError);
       if (diag) setDiagInfo(diag);
     } finally {
-      setLoading(false);
+      if (!stale()) {
+        setLoading(false);
+        setProgress({ phase: "idle" });
+      }
     }
-  }, [addServer, listName, password, router, username]);
+  }, [addServer, listName, password, router, tvMode, username]);
 
   const performCodeConnect = useCallback(async () => {
     setError(null);
     setDiagInfo(null);
+    lastAttempt.current = () => { void performCodeConnect(); };
 
     // Keep TextInput's native editing buffer untouched while the user types.
     // Samsung/Android IMEs can terminate a Fabric surface when a controlled
@@ -463,11 +495,16 @@ export default function LoginScreen() {
       return;
     }
 
+    const gen = ++connectGen.current;
+    const stale = () => gen !== connectGen.current;
     setLoading(true);
+    setProgress({ phase: "server" });
+    const startedAt = Date.now();
     try {
       // Only the normalized administrator code is sent to the Portal. IPTV
       // credentials are used exclusively by authenticateXtream below.
       const resolved = await resolveServerCode(normalizedCode);
+      if (stale()) return;
       const profile: ServerProfile = {
         id: `server-code-${resolved.code}`,
         name: listName.trim() || username.trim(),
@@ -486,39 +523,54 @@ export default function LoginScreen() {
         addedAt: new Date().toISOString(),
       };
       const authResult = await authenticateXtream(profile);
+      if (stale()) return;
       const userInfo = authResult.user_info;
 
       if (!checkXtreamAuth(userInfo)) {
-        setError("Usuário ou senha incorretos. Verifique suas credenciais IPTV.");
+        setError(describeAccountProblem(userInfo) ?? "Usuário ou senha incorretos. Verifique suas credenciais IPTV.");
         return;
       }
-      const statusError = getUserStatusError(userInfo.status);
+      const statusError = describeAccountProblem(userInfo) ?? getUserStatusError(userInfo.status);
       if (statusError) {
         setError(statusError);
         return;
       }
+      const update = buildProfileUpdate(userInfo);
+      if (tvMode) setProgress({ phase: "account", serverMs: Date.now() - startedAt, expiry: update.expiryDate, screens: update.maxConnections });
 
       // The Portal receives only installation identity and code, never the
       // IPTV credentials that authenticated above.
       const identity = await getDeviceIdentity();
       const access = await revalidateCodeDevice(identity, resolved.code);
+      if (stale()) return;
       setCodeAccessSnapshot(access);
       if (!access.canPlay || !access.canConnect) {
         setError(access.message ?? "Este dispositivo não está autorizado para este código.");
         return;
       }
 
+      if (tvMode) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        if (stale()) return;
+        setProgress((current) => ({ ...current, phase: "catalog" }));
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (stale()) return;
+      }
       // The code is the stable identity: refresh a changed DNS without
       // duplicating this saved list or changing unrelated saved lists.
-      upsertCodeServer({ ...profile, ...buildProfileUpdate(userInfo) });
+      upsertCodeServer({ ...profile, ...update });
       router.replace("/(tabs)");
     } catch (connectError) {
+      if (stale()) return;
       logTechnicalError("Login Xtream por código", connectError);
       setError(mapConnectError(connectError));
     } finally {
-      setLoading(false);
+      if (!stale()) {
+        setLoading(false);
+        setProgress({ phase: "idle" });
+      }
     }
-  }, [listName, password, router, serverCode, username, upsertCodeServer, setCodeAccessSnapshot]);
+  }, [listName, password, router, serverCode, tvMode, username, upsertCodeServer, setCodeAccessSnapshot]);
 
   const handleConnect = useCallback(
     () => {
@@ -546,6 +598,7 @@ export default function LoginScreen() {
       setError(null);
       setDiagInfo(null);
       setShowSavedLists(false);
+      lastAttempt.current = () => { void handleSelectSaved(server); };
 
       if (server.portalManaged) {
         setLoading(true);
@@ -707,8 +760,56 @@ export default function LoginScreen() {
     );
   }, [closeSavedLists, removeAllServers]);
 
+  const cancelConnect = useCallback(() => {
+    connectGen.current += 1;
+    setLoading(false);
+    setProgress({ phase: "idle" });
+  }, []);
+
+  const handleRefreshSaved = useCallback((server: ServerProfile) => {
+    void handleSelectSaved(server).then(() => forceResync());
+  }, [forceResync, handleSelectSaved]);
+
+  const backToChooser = useCallback(() => {
+    setError(null);
+    setDiagInfo(null);
+    setAccessMethod("chooser");
+  }, []);
+
+  // TV: a lista que não abriu vira a janela com o motivo (canvas, tela 4).
+  const tvProblem = tvMode && error ? listProblemFromMessage(error) : null;
+  const tvForm = tvMode && accessMethod !== "chooser";
+
   return (
     <View style={styles.screen}>
+      {tvForm ? (
+        <TvLoginForm
+          method={accessMethod === "xtream" ? "xtream" : "xtream-code"}
+          onMethod={(method) => { setError(null); setAccessMethod(method); }}
+          serverCode={serverCode}
+          onServerCode={setServerCode}
+          host={host}
+          onHost={setHost}
+          username={username}
+          onUsername={setUsername}
+          password={password}
+          onPassword={setPassword}
+          listName={listName}
+          onListName={setListName}
+          showPassword={showPassword}
+          onTogglePassword={() => setShowPassword((value) => !value)}
+          loading={loading}
+          progress={progress}
+          onConnect={handleConnect}
+          onCancel={cancelConnect}
+          onBack={backToChooser}
+          savedCount={servers.length}
+          onOpenSaved={openSavedLists}
+          identity={deviceIdentity}
+          refs={{ code: serverCodeRef, host: hostRef, username: usernameRef, password: passwordRef, listName: listNameRef, connect: connectButtonRef }}
+        />
+      ) : (
+      <>
       <View collapsable={false} style={styles.loginBackdrop} pointerEvents="none">
         <Image
           // O tablet na horizontal tem a mesma composição da TV (cartão à
@@ -1087,18 +1188,42 @@ export default function LoginScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      </>
+      )}
 
-      {tvMode && accessMethod !== "chooser" ? <View pointerEvents="none" style={[styles.tvDeviceIdentity, { right: Math.max(28, insets.right + 22), bottom: Math.max(22, insets.bottom + 16) }]}><DeviceIdentityPanel identity={deviceIdentity} status={portalDeviceStatus} compact /></View> : null}
+      <ListProblemDialog
+        problem={tvProblem}
+        onClose={() => { setError(null); setDiagInfo(null); }}
+        onRetry={() => lastAttempt.current?.()}
+        onEdit={() => {
+          if (accessMethod === "chooser") setAccessMethod("xtream-code");
+          setTimeout(() => (accessMethod === "xtream" ? hostRef : serverCodeRef).current?.focus(), 250);
+        }}
+        onOtherList={servers.length ? openSavedLists : undefined}
+      />
 
       {/* Saved Lists Modal */}
       <Modal
         visible={showSavedLists}
-        animationType="slide"
+        animationType={tvMode ? "fade" : "slide"}
         presentationStyle={Platform.OS === "ios" ? "pageSheet" : "overFullScreen"}
         transparent={Platform.OS !== "ios"}
         onRequestClose={closeSavedLists}
       >
-        {Platform.OS !== "ios" ? (
+        {tvMode ? (
+          <TvSavedLists
+            servers={servers}
+            activeSyncedAt={activeSyncedAt}
+            onSelect={handleSelectSaved}
+            onRefresh={handleRefreshSaved}
+            onRename={(server, name) => renameServer(server.id, name)}
+            onDelete={handleDeleteServer}
+            onAdd={closeSavedLists}
+            onClose={closeSavedLists}
+            onManagePortal={handleManagePortal}
+            onLinkPortal={portalSyncState === "pending" ? () => setShowPortalLink(true) : undefined}
+          />
+        ) : Platform.OS !== "ios" ? (
           <View
             accessibilityViewIsModal
             importantForAccessibility="yes"

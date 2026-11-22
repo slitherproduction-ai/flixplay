@@ -49,12 +49,15 @@ class MainApplication : Application(), ReactApplication {
     } catch (e: IllegalArgumentException) {
       ReleaseLevel.STABLE
     }
+    // Antes do React Native: a TV já começa com a tela lógica de 960 dp.
+    com.fastshot.slitherproduction.flixplay.device.TvDensity.apply(this)
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
+    com.fastshot.slitherproduction.flixplay.device.TvDensity.apply(this)
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
   }
 }

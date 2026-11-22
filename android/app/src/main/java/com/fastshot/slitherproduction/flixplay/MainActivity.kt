@@ -1,6 +1,7 @@
 package com.fastshot.slitherproduction.flixplay
 import expo.modules.splashscreen.SplashScreenManager
 
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -12,6 +13,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnable
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 import expo.modules.ReactActivityDelegateWrapper
+import com.fastshot.slitherproduction.flixplay.device.TvDensity
 
 class MainActivity : ReactActivity() {
   /**
@@ -58,7 +60,19 @@ class MainActivity : ReactActivity() {
     // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
+    // Tela lógica de 960×540 dp em toda TV (Android TV/Google TV como o Fire TV).
+    TvDensity.apply(this)
     super.onCreate(null)
+  }
+
+  override fun onResume() {
+    super.onResume()
+    TvDensity.apply(this)
+  }
+
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    TvDensity.apply(this)
   }
 
   /**

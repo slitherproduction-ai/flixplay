@@ -62,6 +62,7 @@ export function buildProfileUpdate(userInfo: XtreamUserInfo) {
   const format = formats.includes("m3u8") ? "HLS" : formats.includes("ts") ? "TS" : null;
   return {
     expiryDate: parseExpiryDisplay(userInfo.exp_date ?? null),
+    expiresAt: Number(userInfo.exp_date) > 0 ? Number(userInfo.exp_date) * 1000 : null,
     maxConnections: userInfo.max_connections ? Number(userInfo.max_connections) : null,
     activeConnections: userInfo.active_cons ? Number(userInfo.active_cons) : null,
     format: format as ServerProfile["format"],

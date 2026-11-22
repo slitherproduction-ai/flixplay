@@ -48,8 +48,18 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.77",
+    version: "v2.17.78",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Melhoria", text: "TVs e boxes Android e Google TV com outra resolução passam a mostrar tudo no mesmo tamanho do Fire TV: textos, botões e menus deixam de ficar pequenos." },
+      { tag: "Novidade", text: "Login da TV redesenhado: código do servidor e Xtream por Host na mesma tela, campos grandes, QR para digitar pelo celular e as etapas da conexão (servidor, conta com vencimento e telas, catálogo)." },
+      { tag: "Novidade", text: "Listas salvas na TV em cartões: lista em uso, vencimento, e Usar, Atualizar, Renomear e Excluir no cartão em foco." },
+      { tag: "Novidade", text: "Quando a lista não abre, uma janela mostra o motivo, o que foi verificado e o que fazer, com Tentar de novo, Editar dados e Outra lista." },
+    ],
+  },
+  {
+    version: "v2.17.77",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Quando a lista não abre, o app descobre o motivo: bloqueio de DNS da operadora (com a dica de trocar o DNS), endereço que não existe, servidor que não responde ou aparelho sem internet. Diagnóstico mostra a Conexão com a lista." },
@@ -60,14 +70,14 @@ const VERSION_HISTORY: VersionEntry[] = [
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "Canais abrem mais rápido: o vídeo começa a tocar com menos espera (1 s no ao vivo, 1,5 s em filmes e séries)." },
-      { tag: "Novo", text: "Ajuste Player › Juntar qualidades: desligue se algum canal for agrupado errado e cada canal da lista volta a ter a sua linha." },
+      { tag: "Novidade", text: "Ajuste Player › Juntar qualidades: desligue se algum canal for agrupado errado e cada canal da lista volta a ter a sua linha." },
     ],
   },
   {
     version: "v2.17.75",
     date: "2026.11",
     changes: [
-      { tag: "Novo", text: "Qualidades do mesmo canal (FHD, HD, SD, ALT) aparecem numa linha só, com o número de fontes. No player, Fonte troca entre elas e, se uma não abre, o app tenta a próxima sozinho." },
+      { tag: "Novidade", text: "Qualidades do mesmo canal (FHD, HD, SD, ALT) aparecem numa linha só, com o número de fontes. No player, Fonte troca entre elas e, se uma não abre, o app tenta a próxima sozinho." },
       { tag: "Melhoria", text: "Quando a lista não carrega, o app diz o motivo: lista vencida (com a data), bloqueada, usuário recusado, servidor fora do ar ou resposta que não é uma lista." },
       { tag: "Correção", text: "Com o relógio do aparelho errado, o guia e o Rever usam a hora do servidor da lista. Diagnóstico mostra o Relógio do aparelho." },
     ],

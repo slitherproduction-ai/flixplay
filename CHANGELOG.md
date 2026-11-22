@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.78] — 2026-11-22
+
+Redesign "ELVANOQ Play TV" (canvas de 22/11/2026, telas 1 a 4). A tela de ativação não muda.
+
+- **Mesma tela em toda TV** (`device/TvDensity.kt`): em modo televisão a densidade é ajustada para a largura lógica de 960 dp (a do Fire TV). Em TVs/boxes Android e Google TV que informavam 1280×720 ou 1920×1080 dp, textos, botões e menus ficavam de 25% a 50% menores. Aplicado no `MainApplication` (antes do React Native), no `MainActivity` (criação, retorno e mudança de configuração) e no `DisplayMetricsHolder` do RN. No Fire TV o cálculo dá a mesma densidade e nada muda.
+- **Login da TV por código e por Host** (`features/login/tv-login-form.tsx`, `features/tv/tv-kit.tsx`): seletor Código do servidor / Xtream por Host, campos de 48 dp com foco em anel branco e halo, Mostrar senha, selo HTTP/HTTPS, QR "Digite pelo celular" com MAC e chave, e etapas da conexão (servidor encontrado com o tempo, conta ativa com vencimento e telas, catálogo, Início). Voltar cancela a conexão ou volta à ativação.
+- **Listas salvas na TV** (`features/lists/tv-saved-lists.tsx`): cartões com iniciais, origem, usuário mascarado, Em uso, Vence em / Venceu em e "Catálogo atualizado há…"; no cartão em foco, Usar, Atualizar, Renomear (novo `renameServer`) e Excluir. O vencimento passa a ser guardado em `expiresAt`.
+- **"A lista não abriu"** (`components/list-problem-dialog.tsx`, regras em `features/login/listProblem.ts`): motivo, verificações (internet, endereço, conexão ou conta), o que fazer e Tentar de novo / Editar dados / Outra lista. No login da TV, nas listas salvas e quando a lista em uso não carrega nada (`app/(tabs)/_layout.tsx`, celular e TV). Login usa `describeAccountProblem` (lista vencida com a data, bloqueada, recusada). Teste `__tests__/features/list-problem.test.ts`.
+- Build Android `20261096`.
+
 ## [2.17.77] — 2026-11-19
 
 - **Por que a lista não abre** (`services/connectionDiagnosis.ts`): quando a conexão com o servidor da lista falha (sem resposta HTTP), o app pergunta ao DNS do aparelho se o servidor existe e tenta abrir a conexão na porta da lista (novo `probeHost` em `DeviceProfileModule.kt`, só nome e porta). Ao mesmo tempo consulta o DNS público do Google por HTTPS. Resultado:

@@ -1,4 +1,8 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
+import { useState } from "react";
+import { ListProblemDialog } from "@/components/list-problem-dialog";
+import { listProblemFromMessage } from "@/features/login/listProblem";
+import { useAppStore } from "@/store/useAppStore";
 import { tr, useAppLanguage } from "@/core/i18n";
 import { AppIcon } from "@/components/app-icon";
 import type React from "react";
@@ -160,6 +164,33 @@ export default function TabsLayout() {
   // Como no Roku, na LG e no Samsung, a navegação da TV parte da Início:
   // seus blocos levam às seções e Voltar retorna a ela (backBehavior padrão
   // do Tabs: firstRoute). Sem menu lateral.
-  return navigator;
+  return (
+    <>
+      {navigator}
+      <ActiveListProblem />
+    </>
+  );
+}
+
+/**
+ * A lista em uso não abriu (nenhuma categoria carregada e a sincronização
+ * terminou com erro): janela com o motivo e o que fazer, como no login.
+ */
+function ActiveListProblem() {
+  const router = useRouter();
+  const syncError = useAppStore((state) => state.syncState.syncError);
+  const isSyncing = useAppStore((state) => state.syncState.isSyncing);
+  const empty = useAppStore((state) => !state.contentCache.liveCategories.length && !state.contentCache.vodCategories.length && !state.contentCache.seriesCategories.length);
+  const forceResync = useAppStore((state) => state.forceResync);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const show = Boolean(syncError) && !isSyncing && empty && dismissed !== syncError;
+  return (
+    <ListProblemDialog
+      problem={show ? listProblemFromMessage(syncError) : null}
+      onClose={() => setDismissed(syncError)}
+      onRetry={forceResync}
+      onOtherList={() => router.replace("/login")}
+    />
+  );
 }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.79] — 2026-11-22
+
+Celular e tablet no redesign "ELVANOQ Play" (canvas, telas M1 a M4). A ativação não muda.
+
+- **Login por código e por Host** (`features/login/mobile-login-form.tsx`): seletor Código do servidor / Xtream por Host, campos de 60 pt com o nome do campo dentro e foco ciano, olho para mostrar a senha, selo HTTP/HTTPS, atalho "Listas salvas · N", cartão "Cadastrar pelo Portal" e, ao conectar, progresso no botão e as etapas (servidor, conta, catálogo, Início). Voltar do Android cancela ou volta à ativação. Substitui o cartão antigo do login no celular.
+- **Listas salvas** (`features/lists/mobile-saved-lists.tsx`): tela cheia com cartões (iniciais, origem, usuário mascarado, Em uso, Vence em / Venceu em, "atualizado há…"), tocar usa a lista; Atualizar (lista em uso), Renomear e Excluir no cartão; Adicionar lista e Gerenciar no Portal.
+- **"A lista não abriu"** no celular vira um painel que sobe de baixo (`components/list-problem-dialog.tsx`): motivo, verificações em linhas, o que fazer, Tentar de novo / Editar dados / Outra lista e, quando cabe, "Tentar com HTTPS/HTTP". Substitui o texto de erro e o cartão de diagnóstico do login.
+- As etapas da conexão valem também no celular (o login espera ~1 s para mostrar a conta antes de abrir o Início).
+- Build Android `20261097`.
+
 ## [2.17.78] — 2026-11-22
 
 Redesign "ELVANOQ Play TV" (canvas de 22/11/2026, telas 1 a 4). A tela de ativação não muda.

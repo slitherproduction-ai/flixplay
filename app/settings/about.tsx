@@ -48,8 +48,17 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.78",
+    version: "v2.17.79",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Login no celular redesenhado: código do servidor e Xtream por Host na mesma tela, campos maiores, atalho para as Listas salvas e as etapas da conexão (servidor, conta com vencimento e telas, catálogo)." },
+      { tag: "Novidade", text: "Listas salvas no celular em cartões: lista em uso, vencimento e Atualizar, Renomear e Excluir no próprio cartão." },
+      { tag: "Melhoria", text: "No celular, quando a lista não abre, um painel mostra o motivo, o que foi verificado e o que fazer, com Tentar de novo, Editar dados e Outra lista." },
+    ],
+  },
+  {
+    version: "v2.17.78",
     date: "2026.11",
     changes: [
       { tag: "Melhoria", text: "TVs e boxes Android e Google TV com outra resolução passam a mostrar tudo no mesmo tamanho do Fire TV: textos, botões e menus deixam de ficar pequenos." },

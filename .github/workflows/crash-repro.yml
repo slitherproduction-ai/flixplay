@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { variant: v77, ref: 6b6333b6 }
+          - { variant: v77, ref: 6b6333b22067c24802bf07bbcf18e6b64f6135ac }
           - { variant: v78, ref: 1f4439c15033463836126e0a861f5dfe2abaf28e }
           - { variant: noclip, ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc }
     timeout-minutes: 90

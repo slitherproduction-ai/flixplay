@@ -32,6 +32,7 @@ jobs:
         working-directory: app
         run: |
           npm ci --no-audit --no-fund
+          [ -f android/app/debug.keystore ] || keytool -genkeypair -v -keystore android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
           bash tools/prepare-android-offline-compat.sh
           chmod +x android/gradlew
           cd android && ./gradlew --no-daemon --max-workers=2 :app:assembleRelease -PreactNativeArchitectures=x86_64 > ../../gradle.log 2>&1 || { tail -80 ../../gradle.log; exit 1; }

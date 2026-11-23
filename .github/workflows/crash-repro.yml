@@ -7,6 +7,10 @@ permissions:
 jobs:
   repro:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [base, nobar, noalp]
     timeout-minutes: 90
     env:
       CI: '1'
@@ -31,6 +35,7 @@ jobs:
       - name: Build x86_64 release (assinatura debug)
         working-directory: app
         run: |
+          python3 ../tools-ci/ci/patch.py ${{ matrix.variant }}
           npm ci --no-audit --no-fund
           [ -f android/app/debug.keystore ] || keytool -genkeypair -v -keystore android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
           bash tools/prepare-android-offline-compat.sh

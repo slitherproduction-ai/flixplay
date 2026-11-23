@@ -58,7 +58,10 @@ import { ListProblemDialog } from "@/components/list-problem-dialog";
 import { listProblemFromMessage } from "@/features/login/listProblem";
 import { describeAccountProblem } from "@/features/login/listAccess";
 import { TvLoginForm, type ConnectProgress } from "@/features/login/tv-login-form";
+import { tf } from "@/features/tv/tv-kit";
 import { TvSavedLists } from "@/features/lists/tv-saved-lists";
+import { MobileSavedLists } from "@/features/lists/mobile-saved-lists";
+import { MobileLoginForm } from "@/features/login/mobile-login-form";
 
 const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? APP_INFO.version;
 const APP_BUILD = Constants.nativeBuildVersion ?? APP_INFO.build;
@@ -455,14 +458,12 @@ export default function LoginScreen() {
       }
 
       const update = buildProfileUpdate(userInfo);
-      if (tvMode) {
-        setProgress({ phase: "account", serverMs: Date.now() - startedAt, expiry: update.expiryDate, screens: update.maxConnections });
-        await new Promise((resolve) => setTimeout(resolve, 700));
-        if (stale()) return;
-        setProgress((current) => ({ ...current, phase: "catalog" }));
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        if (stale()) return;
-      }
+      setProgress({ phase: "account", serverMs: Date.now() - startedAt, expiry: update.expiryDate, screens: update.maxConnections });
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      if (stale()) return;
+      setProgress((current) => ({ ...current, phase: "catalog" }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (stale()) return;
       addServer({ ...profile, ...update });
       router.replace("/(tabs)");
     } catch (connectError) {
@@ -536,7 +537,7 @@ export default function LoginScreen() {
         return;
       }
       const update = buildProfileUpdate(userInfo);
-      if (tvMode) setProgress({ phase: "account", serverMs: Date.now() - startedAt, expiry: update.expiryDate, screens: update.maxConnections });
+      setProgress({ phase: "account", serverMs: Date.now() - startedAt, expiry: update.expiryDate, screens: update.maxConnections });
 
       // The Portal receives only installation identity and code, never the
       // IPTV credentials that authenticated above.
@@ -549,13 +550,11 @@ export default function LoginScreen() {
         return;
       }
 
-      if (tvMode) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        if (stale()) return;
-        setProgress((current) => ({ ...current, phase: "catalog" }));
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        if (stale()) return;
-      }
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      if (stale()) return;
+      setProgress((current) => ({ ...current, phase: "catalog" }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (stale()) return;
       // The code is the stable identity: refresh a changed DNS without
       // duplicating this saved list or changing unrelated saved lists.
       upsertCodeServer({ ...profile, ...update });
@@ -777,8 +776,9 @@ export default function LoginScreen() {
   }, []);
 
   // TV: a lista que não abriu vira a janela com o motivo (canvas, tela 4).
-  const tvProblem = tvMode && error ? listProblemFromMessage(error) : null;
+  const listProblem = error ? listProblemFromMessage(error) : null;
   const tvForm = tvMode && accessMethod !== "chooser";
+  const mobileForm = !tvMode && accessMethod !== "chooser";
 
   return (
     <View style={styles.screen}>
@@ -807,6 +807,29 @@ export default function LoginScreen() {
           onOpenSaved={openSavedLists}
           identity={deviceIdentity}
           refs={{ code: serverCodeRef, host: hostRef, username: usernameRef, password: passwordRef, listName: listNameRef, connect: connectButtonRef }}
+        />
+      ) : mobileForm ? (
+        <MobileLoginForm
+          method={accessMethod === "xtream" ? "xtream" : "xtream-code"}
+          onMethod={(method) => { setError(null); setDiagInfo(null); setAccessMethod(method); }}
+          serverCode={serverCode}
+          onServerCode={setServerCode}
+          host={host}
+          onHost={setHost}
+          username={username}
+          onUsername={setUsername}
+          password={password}
+          onPassword={setPassword}
+          showPassword={showPassword}
+          onTogglePassword={() => setShowPassword((value) => !value)}
+          loading={loading}
+          progress={progress}
+          onConnect={handleConnect}
+          onCancel={cancelConnect}
+          onBack={backToChooser}
+          savedCount={servers.length}
+          onOpenSaved={openSavedLists}
+          refs={{ code: serverCodeRef, host: hostRef, username: usernameRef, password: passwordRef }}
         />
       ) : (
       <>
@@ -872,327 +895,15 @@ export default function LoginScreen() {
               onXtreamHost={() => { setError(null); setAccessMethod("xtream"); }}
               onSavedLists={openSavedLists}
             />
-          ) : (
-          <>
-          {/* Logo section */}
-          <View style={[styles.logoArea, tvMode && styles.tvLogoArea, isTablet && styles.tabletLogoArea, compactTv && styles.tvCompactLogoArea]}>
-            <View style={styles.logoKicker}>
-              <Ionicons name="shield-checkmark-outline" size={12} color={Colors.blueBright} />
-              <AppText style={styles.logoKickerText}>ACESSO SEGURO</AppText>
-            </View>
-            <BrandLogo variant="loginWordmark" accessibilityLabel="ELVANOQ" style={[styles.brandLogo, tvMode ? (compactTv ? styles.brandLogoTvCompact : styles.brandLogoTv) : compactMobile && styles.brandLogoMobile]} />
-          </View>
-
-          {/* Glass card */}
-          <View
-            style={[styles.card, tvMode && styles.tvCard, isTablet && styles.tabletCard, isTabletLandscape && styles.tabletLandscapeCard, compactTv && styles.tvCompactCard]}
-            onLayout={tvMode ? resolveFormFocusHandles : undefined}
-          >
-            {Platform.OS === "ios" ? (
-              <BlurView intensity={72} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
-            ) : (
-              <View style={styles.androidCardBackdrop} pointerEvents="none" />
-            )}
-            <View style={styles.cardHighlight} pointerEvents="none" />
-            <View style={[styles.cardInner, tvMode && styles.tvCardInner, compactTv && styles.tvCompactCardInner]}>
-              <AppText style={styles.cardEyebrow}>COMECE AQUI</AppText>
-              <AppText style={styles.cardTitle}>Configure sua lista{`\n`}para começar</AppText>
-              <AppText style={styles.cardSubtitle}>
-                {accessMethod === "xtream-code"
-                    ? "Informe o código recebido, seu usuário e sua senha IPTV."
-                    : "Informe os dados do seu acesso Xtream Codes para conectar seu conteúdo."}
-              </AppText>
-
-              {(
-                <>
-                  <TVFocusable
-                    accessibilityRole="button"
-                    accessibilityLabel="Voltar para métodos de conexão"
-                    onPress={() => { setError(null); setDiagInfo(null); setAccessMethod("chooser"); }}
-                    style={({ pressed }) => [styles.methodBackButton, pressed && styles.pressed]}
-                  >
-                    <Ionicons name="chevron-back" size={15} color={Colors.blueBright} />
-                    <AppText style={styles.methodBackText}>Métodos de conexão</AppText>
-                  </TVFocusable>
-
-              {accessMethod === "xtream-code" ? (
-              <View style={styles.fieldGroup}>
-                <AppText style={styles.fieldLabel}>CÓDIGO</AppText>
-                <View style={[styles.inputWrapper, focusedField === "code" && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIconBox}><Ionicons name="key-outline" size={16} color={Colors.blueBright} /></View>
-                  <TextInput
-                    ref={serverCodeRef}
-                    {...(tvMode && accessMethod === "xtream-code" ? { autoFocus: true, hasTVPreferredFocus: true } : {})}
-                    accessibilityLabel="Código do servidor"
-                    {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
-                    value={serverCode}
-                    onChangeText={setServerCode}
-                    placeholder={tr("Ex.: pfast")}
-                    placeholderTextColor={Colors.subtle}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => usernameRef.current?.focus()}
-                    onFocus={() => setFocusedField("code")}
-                    onBlur={() => setFocusedField(null)}
-                    style={styles.input}
-                  />
-                  {tvMode && serverCode.length > 0 ? <TVFocusable onPress={() => setServerCode("")} style={styles.inputClearBtn} accessibilityLabel="Limpar código"><Ionicons name="close-circle" size={17} color={Colors.muted} /></TVFocusable> : null}
-                </View>
-                <AppText style={styles.fieldHint}>O código localiza o servidor cadastrado pelo administrador.</AppText>
-              </View>
-              ) : null}
-
-              {/* Host field remains available for existing direct Xtream logins. */}
-              {accessMethod === "xtream" ? <View style={styles.fieldGroup}>
-                <AppText style={styles.fieldLabel}>HOST / URL DO SERVIDOR</AppText>
-                <View style={[styles.inputWrapper, focusedField === "host" && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIconBox}>
-                    <Ionicons name="server-outline" size={16} color={Colors.blueBright} />
-                  </View>
-                  <TextInput
-                    ref={hostRef}
-                    {...(tvMode && accessMethod === "xtream" ? { autoFocus: true, hasTVPreferredFocus: true } : {})}
-                    accessibilityLabel="Host ou URL do servidor"
-                    {...(tvMode ? { nextFocusDown: formFocusHandles.username || undefined } : {})}
-                    value={host}
-                    onChangeText={setHost}
-                    placeholder="http://servidor.tv:8080"
-                    placeholderTextColor={Colors.subtle}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    returnKeyType="next"
-                    onSubmitEditing={() => usernameRef.current?.focus()}
-                    onFocus={() => setFocusedField("host")}
-                    onBlur={() => setFocusedField(null)}
-                    style={styles.input}
-                  />
-                  {host.length > 0 ? (
-                    <TVFocusable
-                      onPress={() => setHost("")}
-                      style={styles.inputClearBtn}
-                      accessibilityLabel="Limpar host"
-                    >
-                      <Ionicons name="close-circle" size={17} color={Colors.muted} />
-                    </TVFocusable>
-                  ) : null}
-                </View>
-                <AppText style={styles.fieldHint}>
-                  HTTP e HTTPS suportados · Portas personalizadas aceitas
-                </AppText>
-              </View> : null}
-
-              {/* Username field */}
-              <View style={styles.fieldGroup}>
-                <AppText style={styles.fieldLabel}>USUÁRIO</AppText>
-                <View style={[styles.inputWrapper, focusedField === "username" && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIconBox}>
-                    <Ionicons name="person-outline" size={16} color={Colors.blueBright} />
-                  </View>
-                  <TextInput
-                    ref={usernameRef}
-                    value={username}
-                    accessibilityLabel="Usuário"
-                    {...(tvMode ? {
-                      nextFocusUp: (accessMethod === "xtream-code" ? formFocusHandles.code : formFocusHandles.host) || undefined,
-                      nextFocusDown: formFocusHandles.password || undefined,
-                    } : {})}
-                    onChangeText={setUsername}
-                    placeholder={tr("Seu usuário")}
-                    placeholderTextColor={Colors.subtle}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                    onFocus={() => setFocusedField("username")}
-                    onBlur={() => setFocusedField(null)}
-                    style={styles.input}
-                  />
-                  {username.length > 0 ? (
-                    <TVFocusable
-                      onPress={() => setUsername("")}
-                      style={styles.inputClearBtn}
-                      accessibilityLabel="Limpar usuário"
-                    >
-                      <Ionicons name="close-circle" size={17} color={Colors.muted} />
-                    </TVFocusable>
-                  ) : null}
-                </View>
-              </View>
-
-              {/* Password field */}
-              <View style={styles.fieldGroup}>
-                <AppText style={styles.fieldLabel}>SENHA</AppText>
-                <View style={[styles.inputWrapper, focusedField === "password" && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIconBox}>
-                    <Ionicons name="lock-closed-outline" size={16} color={Colors.blueBright} />
-                  </View>
-                  <TextInput
-                    ref={passwordRef}
-                    value={password}
-                    accessibilityLabel="Senha"
-                    {...(tvMode ? {
-                      nextFocusUp: formFocusHandles.username || undefined,
-                      nextFocusDown: formFocusHandles.listName || undefined,
-                    } : {})}
-                    onChangeText={setPassword}
-                    placeholder={tr("Sua senha")}
-                    placeholderTextColor={Colors.subtle}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => listNameRef.current?.focus()}
-                    onFocus={() => setFocusedField("password")}
-                    onBlur={() => setFocusedField(null)}
-                    style={styles.input}
-                  />
-                  <TVFocusable
-                    onPress={() => setShowPassword((v) => !v)}
-                    style={styles.inputClearBtn}
-                    accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={17}
-                      color={Colors.muted}
-                    />
-                  </TVFocusable>
-                </View>
-              </View>
-
-              {/* Optional name field */}
-              <View style={styles.fieldGroup}>
-                <AppText style={styles.fieldLabel}>
-                  NOME DA LISTA{" "}
-                  <AppText style={styles.optionalTag}>(OPCIONAL)</AppText>
-                </AppText>
-                <View style={[styles.inputWrapper, focusedField === "listName" && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIconBox}>
-                    <Ionicons name="bookmark-outline" size={16} color={Colors.blueBright} />
-                  </View>
-                  <TextInput
-                    ref={listNameRef}
-                    value={listName}
-                    accessibilityLabel="Nome da lista, opcional"
-                    {...(tvMode ? {
-                      nextFocusUp: formFocusHandles.password || undefined,
-                      nextFocusDown: formFocusHandles.connect || undefined,
-                    } : {})}
-                    onChangeText={setListName}
-                    placeholder={tr("Ex.: Minha Lista IPTV")}
-                    placeholderTextColor={Colors.subtle}
-                    autoCapitalize="words"
-                    returnKeyType="done"
-                    onSubmitEditing={handleConnect}
-                    onFocus={() => setFocusedField("listName")}
-                    onBlur={() => setFocusedField(null)}
-                    style={styles.input}
-                  />
-                  {listName.length > 0 ? (
-                    <TVFocusable
-                      onPress={() => setListName("")}
-                      style={styles.inputClearBtn}
-                      accessibilityLabel="Limpar nome da lista"
-                    >
-                      <Ionicons name="close-circle" size={17} color={Colors.muted} />
-                    </TVFocusable>
-                  ) : null}
-                </View>
-              </View>
-
-              {/* Error box */}
-              {error ? (
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle" size={17} color="#FF8B91" />
-                  <AppText style={styles.errorText} selectable>{error}</AppText>
-                </View>
-              ) : null}
-
-              {/* Diagnostic card — shown after a connection error */}
-              {diagInfo ? (
-                <View style={styles.diagCard}>
-                  <View style={styles.diagHeader}>
-                    <Ionicons name="analytics-outline" size={14} color={Colors.amber} />
-                    <AppText style={styles.diagTitle}>Diagnóstico de Conexão</AppText>
-                  </View>
-                  <View style={styles.diagUrlRow}>
-                    <AppText style={styles.diagUrlLabel}>URL testada:</AppText>
-                    <AppText style={styles.diagUrl} selectable numberOfLines={1}>
-                      {diagInfo.testedUrl}
-                    </AppText>
-                  </View>
-                  <TVFocusable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Tentar com ${diagInfo.alternateProtocol}`}
-                    onPress={() => handleTryAlternateProtocol(diagInfo.alternateUrl)}
-                    style={({ pressed }) => [styles.diagBtn, pressed && styles.pressed]}
-                  >
-                    <Ionicons name="swap-horizontal-outline" size={14} color={Colors.blueBright} />
-                    <AppText style={styles.diagBtnText}>
-                      Tentar com {diagInfo.alternateProtocol}{" "}
-                      <AppText style={styles.diagBtnHint}>
-                        ({diagInfo.alternateUrl})
-                      </AppText>
-                    </AppText>
-                  </TVFocusable>
-                </View>
-              ) : null}
-
-              {/* Connect button */}
-              <TVFocusable
-                ref={connectButtonRef}
-                accessibilityRole="button"
-                accessibilityLabel="Conectar e Carregar Lista"
-                disabled={loading}
-                onPress={handleConnect}
-                hasTVPreferredFocus={!tvMode}
-                {...(tvMode ? { nextFocusUp: formFocusHandles.listName || undefined } : {})}
-                style={({ pressed }) => [
-                  styles.connectBtn,
-                  pressed && styles.pressed,
-                  loading && styles.btnDisabled,
-                ]}
-              >
-                {loading ? (
-                  <ActivityIndicator color={Colors.background} size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="link" size={17} color={Colors.background} />
-                    <AppText style={styles.connectBtnText}>
-                      Conectar e Carregar Lista
-                    </AppText>
-                  </>
-                )}
-              </TVFocusable>
-
-              <View style={styles.securityRow}>
-                <Ionicons name="lock-closed" size={12} color={Colors.subtle} />
-                <AppText style={styles.securityText}>
-                  Credenciais salvas apenas neste dispositivo
-                </AppText>
-              </View>
-                </>
-              )}
-            </View>
-          </View>
-
-          <View style={[styles.releaseFooter, tvMode && styles.tvReleaseFooter, compactTv && styles.tvCompactReleaseFooter]}>
-            {!tvMode ? <DeviceIdentityPanel identity={deviceIdentity} status={portalDeviceStatus} /> : null}
-            <AppText style={styles.releaseFooterText}>
-              ELVANOQ · Versão {APP_VERSION} · Build {APP_BUILD}
-            </AppText>
-          </View>
-          </>
-          )}
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
       </>
       )}
 
       <ListProblemDialog
-        problem={tvProblem}
+        problem={listProblem}
+        extra={!tvMode && diagInfo ? { label: tf("Tentar com {0}", diagInfo.alternateProtocol), onPress: () => handleTryAlternateProtocol(diagInfo.alternateUrl) } : undefined}
         onClose={() => { setError(null); setDiagInfo(null); }}
         onRetry={() => lastAttempt.current?.()}
         onEdit={() => {
@@ -1206,8 +917,7 @@ export default function LoginScreen() {
       <Modal
         visible={showSavedLists}
         animationType={tvMode ? "fade" : "slide"}
-        presentationStyle={Platform.OS === "ios" ? "pageSheet" : "overFullScreen"}
-        transparent={Platform.OS !== "ios"}
+        transparent={false}
         onRequestClose={closeSavedLists}
       >
         {tvMode ? (
@@ -1223,38 +933,18 @@ export default function LoginScreen() {
             onManagePortal={handleManagePortal}
             onLinkPortal={portalSyncState === "pending" ? () => setShowPortalLink(true) : undefined}
           />
-        ) : Platform.OS !== "ios" ? (
-          <View
-            accessibilityViewIsModal
-            importantForAccessibility="yes"
-            onAccessibilityEscape={closeSavedLists}
-            style={[styles.modalOverlay, largeModalSurface && styles.largeModalOverlay]}
-          >
-            <SavedListsModal
-              servers={servers}
-              onSelect={handleSelectSaved}
-              onDelete={handleDeleteServer}
-              onDeleteAll={handleDeleteAll}
-              onClose={closeSavedLists}
-              portalState={portalSyncState}
-              portalMessage={portalSyncMessage}
-              onSyncPortal={handlePortalSync}
-              onLinkPortal={() => setShowPortalLink(true)}
-              onManagePortal={handleManagePortal}
-            />
-          </View>
         ) : (
-          <SavedListsModal
+          <MobileSavedLists
             servers={servers}
+            activeSyncedAt={activeSyncedAt}
             onSelect={handleSelectSaved}
+            onRefresh={handleRefreshSaved}
+            onRename={(server, name) => renameServer(server.id, name)}
             onDelete={handleDeleteServer}
-            onDeleteAll={handleDeleteAll}
+            onAdd={closeSavedLists}
             onClose={closeSavedLists}
-            portalState={portalSyncState}
-            portalMessage={portalSyncMessage}
-            onSyncPortal={handlePortalSync}
-            onLinkPortal={() => setShowPortalLink(true)}
             onManagePortal={handleManagePortal}
+            onLinkPortal={portalSyncState === "pending" ? () => setShowPortalLink(true) : undefined}
           />
         )}
       </Modal>

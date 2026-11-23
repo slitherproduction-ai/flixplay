@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Modal, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { BackHandler, Modal, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { tr } from "@/core/i18n";
@@ -35,7 +35,7 @@ const TONES: Record<Tone, { bg: string; fg: string }> = {
   amber: { bg: "#3A2A0B", fg: TV.warning },
 };
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter((word) => /[A-Za-z0-9À-ÿ]/.test(word));
   const letters = words.length > 1
     ? `${words[0][0]}${words[words.length - 1][0]}`
@@ -43,22 +43,22 @@ function initials(name: string): string {
   return letters.toUpperCase();
 }
 
-function hasDate(value?: string | null): value is string {
+export function hasDate(value?: string | null): value is string {
   return Boolean(value && value !== "Ilimitado" && value !== "Não informado");
 }
 
-function isExpired(server: ServerProfile): boolean {
+export function isExpired(server: ServerProfile): boolean {
   if (String(server.status ?? "").toLowerCase() === "expired") return true;
   return typeof server.expiresAt === "number" && server.expiresAt > 0 && server.expiresAt < Date.now();
 }
 
-function origin(server: ServerProfile): string {
+export function origin(server: ServerProfile): string {
   if (server.portalManaged) return `${tr("Recebida do Portal")} · ${server.sourceType === "m3u" ? "M3U" : "Xtream"}`;
   const kind = server.sourceType === "xtream-code" ? tr("Código do servidor") : server.sourceType === "m3u" ? "M3U" : tr("Xtream por Host");
   return server.username ? `${kind} · ${maskUsername(server.username)}` : kind;
 }
 
-function updatedAgo(iso: string | null): string {
+export function updatedAgo(iso: string | null): string {
   const at = Date.parse(iso ?? "");
   if (!Number.isFinite(at)) return "";
   const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000));
@@ -280,17 +280,18 @@ function AddCard({ onPress, preferred }: { onPress: () => void; preferred: boole
   );
 }
 
-function RenameDialog({ server, onCancel, onSave }: { server: ServerProfile | null; onCancel: () => void; onSave: (name: string) => void }) {
+export function RenameDialog({ server, onCancel, onSave }: { server: ServerProfile | null; onCancel: () => void; onSave: (name: string) => void }) {
   const [name, setName] = useState("");
   const [focused, setFocused] = useState(false);
   const saveRef = useRef<TVFocusableHandle>(null);
+  const { width } = useWindowDimensions();
   useEffect(() => { setName(server?.name ?? ""); }, [server]);
   if (!server) return null;
   const clean = name.trim();
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.renameOverlay}>
-        <View style={styles.renameCard}>
+        <View style={[styles.renameCard, { width: Math.min(420, width - 32) }]}>
           <TvEyebrow>RENOMEAR</TvEyebrow>
           <AppText style={styles.renameTitle}>Nome da lista</AppText>
           <View style={[styles.renameField, focused && styles.renameFieldFocus]}>

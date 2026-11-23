@@ -1,0 +1,21 @@
+name: tv-premium-check (temporário)
+on:
+  push:
+    branches: [ci/tv-premium-check]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck (só os arquivos novos/alterados)
+        run: |
+          npx tsc --noEmit -p . > tsc.log || true
+          grep "error TS" tsc.log || true
+          if grep -E "^(features/tv|features/lists|features/login/(tv-login-form|mobile-login-form|listProblem|loginValidation)|components/list-problem-dialog|app/login|store/|core/i18n)" tsc.log; then exit 1; fi
+      - name: Testes
+        run: npx jest --no-cache __tests__/features/list-problem.test.ts __tests__/services/connection-diagnosis.test.ts

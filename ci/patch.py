@@ -7,3 +7,8 @@ if v in ("noalp", "both"):
     sub("app/(tabs)/_layout.tsx", "      <ActiveListProblem />\n", "")
 if v in ("nobar", "both"):
     sub("features/login/mobile-login-form.tsx", "        {bar ? <LoadingBar /> : null}\n", "")
+if v == "noclip":
+    import subprocess
+    for f in subprocess.run(["grep","-rl","removeClippedSubviews","app","components","features"],capture_output=True,text=True).stdout.split():
+        t=pathlib.Path(f).read_text(); n=t.replace('removeClippedSubviews={Platform.OS === "android"}','removeClippedSubviews={false}').replace("removeClippedSubviews\n","removeClippedSubviews={false}\n")
+        if n!=t: pathlib.Path(f).write_text(n); print("noclip", f)

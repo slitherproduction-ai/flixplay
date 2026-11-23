@@ -10,7 +10,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [base, nobar, noalp]
+        include:
+          - { variant: v77, ref: 6b6333b6 }
+          - { variant: v78, ref: 1f4439c1 }
+          - { variant: noclip, ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc }
     timeout-minutes: 90
     env:
       CI: '1'
@@ -18,7 +21,7 @@ jobs:
       NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
-        with: { ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc, path: app }
+        with: { ref: '${{ matrix.ref }}', path: app, fetch-depth: 0 }
       - uses: actions/checkout@v4
         with: { path: tools-ci }
       - uses: actions/setup-node@v4

@@ -4,18 +4,38 @@ on:
     branches: [ci/crash-repro]
 permissions:
   contents: read
-  actions: read
 jobs:
   repro:
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
-      - name: Baixar APK 2.17.79
-        env: { GH_TOKEN: "${{ github.token }}" }
+        with: { ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc, path: app }
+      - uses: actions/checkout@v4
+        with: { path: tools-ci }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: app/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+        with: { packages: '' }
+      - name: SDK
         run: |
-          gh run download 45091456875 -n ELVANOQ-signed-release -D apk --repo ${{ github.repository }}
-          ls -la apk
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+      - name: Build x86_64 release (assinatura debug)
+        working-directory: app
+        run: |
+          npm ci --no-audit --no-fund
+          bash tools/prepare-android-offline-compat.sh
+          chmod +x android/gradlew
+          cd android && ./gradlew --no-daemon --max-workers=2 :app:assembleRelease -PreactNativeArchitectures=x86_64 > ../../gradle.log 2>&1 || { tail -80 ../../gradle.log; exit 1; }
+          ls -la app/build/outputs/apk/release
       - name: KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -28,7 +48,4 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash ci/run.sh
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with: { name: repro-logs, path: out/ }
+          script: bash tools-ci/ci/run.sh

@@ -48,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.79",
+    version: "v2.17.80",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "O app não fecha mais ao abrir o Início depois de entrar com código, Xtream por Host ou uma lista salva." },
+    ],
+  },
+  {
+    version: "v2.17.79",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Login no celular redesenhado: código do servidor e Xtream por Host na mesma tela, campos maiores, atalho para as Listas salvas e as etapas da conexão (servidor, conta com vencimento e telas, catálogo)." },

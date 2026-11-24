@@ -292,6 +292,15 @@ export default function LoginScreen() {
   // TV: etapas da conexão (servidor, conta, catálogo) e cancelamento pelo Voltar.
   const [progress, setProgress] = useState<ConnectProgress>({ phase: "idle" });
   const connectGen = useRef(0);
+  // Ao abrir o Início, a tela de login fica como está (conectando) até sair.
+  // Voltar o formulário ao estado inicial durante a troca de tela derrubava o
+  // app no Android (Fabric: "The specified child already has a parent").
+  const leavingRef = useRef(false);
+  const openHome = useCallback(() => {
+    leavingRef.current = true;
+    connectGen.current += 1;
+    router.replace("/(tabs)");
+  }, [router]);
   const lastAttempt = useRef<(() => void) | null>(null);
   const renameServer = useAppStore((state) => state.renameServer);
   const forceResync = useAppStore((state) => state.forceResync);
@@ -465,7 +474,7 @@ export default function LoginScreen() {
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (stale()) return;
       addServer({ ...profile, ...update });
-      router.replace("/(tabs)");
+      openHome();
     } catch (connectError) {
       if (stale()) return;
       logTechnicalError("Login Xtream", connectError);
@@ -478,7 +487,7 @@ export default function LoginScreen() {
         setProgress({ phase: "idle" });
       }
     }
-  }, [addServer, listName, password, router, tvMode, username]);
+  }, [addServer, listName, openHome, password, tvMode, username]);
 
   const performCodeConnect = useCallback(async () => {
     setError(null);
@@ -558,7 +567,7 @@ export default function LoginScreen() {
       // The code is the stable identity: refresh a changed DNS without
       // duplicating this saved list or changing unrelated saved lists.
       upsertCodeServer({ ...profile, ...update });
-      router.replace("/(tabs)");
+      openHome();
     } catch (connectError) {
       if (stale()) return;
       logTechnicalError("Login Xtream por código", connectError);
@@ -569,7 +578,7 @@ export default function LoginScreen() {
         setProgress({ phase: "idle" });
       }
     }
-  }, [listName, password, router, serverCode, tvMode, username, upsertCodeServer, setCodeAccessSnapshot]);
+  }, [listName, openHome, password, serverCode, tvMode, username, upsertCodeServer, setCodeAccessSnapshot]);
 
   const handleConnect = useCallback(
     () => {
@@ -610,17 +619,19 @@ export default function LoginScreen() {
             return;
           }
           setActiveServer(server.id);
-          router.replace("/(tabs)");
+          openHome();
         } catch (connectError) {
           logTechnicalError("Reconexão de lista Portal", connectError);
           setError(mapConnectError(connectError));
-        } finally { setLoading(false); }
+        } finally { if (!leavingRef.current) setLoading(false); }
         return;
       }
 
       if (server.sourceType !== "xtream-code" || !server.serverCode) {
         setActiveServer(server.id);
-        router.replace("/(tabs)");
+        // Fecha a janela das listas antes de trocar de tela.
+        leavingRef.current = true;
+        setTimeout(openHome, 60);
         return;
       }
 
@@ -641,7 +652,7 @@ export default function LoginScreen() {
             return;
           }
           setActiveServer(server.id);
-          router.replace("/(tabs)");
+          openHome();
           return;
         }
 
@@ -672,15 +683,15 @@ export default function LoginScreen() {
           return;
         }
         upsertCodeServer({ ...refreshed, ...buildProfileUpdate(authResult.user_info) });
-        router.replace("/(tabs)");
+        openHome();
       } catch (connectError) {
         logTechnicalError("Reconexão Xtream por código", connectError);
         setError(mapConnectError(connectError));
       } finally {
-        setLoading(false);
+        if (!leavingRef.current) setLoading(false);
       }
     },
-    [router, setActiveServer, upsertCodeServer, setCodeAccessSnapshot]
+    [openHome, setActiveServer, upsertCodeServer, setCodeAccessSnapshot]
   );
 
   const openSavedLists = useCallback(() => {

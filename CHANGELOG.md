@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.80] — 2026-11-23
+
+- **Correção do fechamento ao entrar** (`app/login.tsx`): na 2.17.79, ao conectar (código, Xtream por Host ou lista salva), o login voltava ao estado inicial no mesmo instante em que o Início abria, e o Android encerrava o app (Fabric: `addViewAt … The specified child already has a parent`). Agora o login fica como está (conectando) até sair da tela, e a janela das Listas salvas fecha antes da troca de tela. Reproduzido e conferido em emulador Android 12 com a lista demo.
+- Build Android `20261098`.
+
 ## [2.17.79] — 2026-11-22
 
 Celular e tablet no redesign "ELVANOQ Play" (canvas, telas M1 a M4). A ativação não muda.

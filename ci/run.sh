@@ -13,13 +13,13 @@ sleep 3
 adb shell pidof $PKG || echo "PROCESS GONE AT START"
 $UI tap "Xtream por Host"
 sleep 3; $UI labels
-$UI tap "SERVIDOR" || $UI tap "Ex.: http://servidor.com:8080"
+$UI tap "SERVIDOR" || $UI tap "Host ou URL do servidor"
 $UI type "https://demo.elvanoqplay.app"
-$UI tap "USUÁRIO" || $UI tap "Seu usuário"; $UI type demo
-$UI tap "SENHA" || $UI tap "Sua senha"; $UI type demo
+$UI tap "USUÁRIO" || $UI tap "Usuário"; $UI type demo
+$UI tap "SENHA" || $UI tap "Senha"; $UI type demo
 adb shell input keyevent 111; sleep 1
 $UI labels
-$UI tap "Conectar"
+$UI tap "Conectar" || $UI tap "Conectar e Carregar Lista"
 for i in $(seq 1 16); do sleep 3; adb shell pidof $PKG >/dev/null || echo "PROCESS GONE at $((i*3))s"; done
 $UI labels
 kill %1

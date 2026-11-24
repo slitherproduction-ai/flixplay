@@ -22,3 +22,10 @@ if v in ("mark", "nophase"):
         s = s.replace('      console.log("REPRO account");\n      setProgress({', '      console.log("REPRO account");\n      if (0) setProgress({', 1)
         s = s.replace('      console.log("REPRO catalog");\n      setProgress(', '      console.log("REPRO catalog");\n      if (0) setProgress(', 1)
     p.write_text(s); print(v, s.count("REPRO"))
+if v == "keepload":
+    sub("app/login.tsx", '      addServer({ ...profile, ...update });\n      router.replace("/(tabs)");', '      addServer({ ...profile, ...update });\n      router.replace("/(tabs)");\n      connectGen.current++;')
+if v == "footer":
+    p = pathlib.Path("features/login/mobile-login-form.tsx"); s = p.read_text()
+    a = s.index("            <View style={styles.footer}>"); b = s.index("            </View>\n          </View>\n        </ScrollView>", a)
+    s = s[:a] + "            <View style={styles.footer}>\n              <AppText style={styles.footerText}>x</AppText>\n" + s[b:]
+    p.write_text(s); print("footer static")

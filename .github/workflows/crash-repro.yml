@@ -12,8 +12,8 @@ jobs:
       matrix:
         include:
           - { variant: v78, ref: 1f4439c15033463836126e0a861f5dfe2abaf28e }
-          - { variant: mark, ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc }
-          - { variant: nophase, ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc }
+          - { variant: keepload, ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc }
+          - { variant: footer, ref: b57a9aba008faa2f6113c480fd835cf24f0a6abc }
     timeout-minutes: 90
     env:
       CI: '1'

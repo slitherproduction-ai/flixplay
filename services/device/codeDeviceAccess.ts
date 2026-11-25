@@ -100,6 +100,7 @@ export async function registerCodeDevice(identity: DeviceIdentity, code: string)
     if (error instanceof PortalRequestError) throw new CodeDeviceAccessError("network", error.message);
     throw error;
   }
+  if (response.status === 429 || response.status >= 500) throw new CodeDeviceAccessError("network", portalServiceMessage(response.status, response.retryAfterSeconds, "Portal temporariamente indisponível."));
   if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
   if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Código de servidor não encontrado.");
   if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de acesso é inválida.");
@@ -119,6 +120,7 @@ export async function resolveCodeDeviceAccess(identity: DeviceIdentity, code: st
     throw error;
   }
   if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Código de servidor não encontrado.");
+  if (response.status === 429 || response.status >= 500) throw new CodeDeviceAccessError("network", portalServiceMessage(response.status, response.retryAfterSeconds, "Portal temporariamente indisponível."));
   if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
   if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de acesso é inválida.");
   if (response.status === 403 || response.status === 200) return snapshotFrom(response.payload, identity);
@@ -141,6 +143,7 @@ export async function revalidatePortalManagedDevice(identity: DeviceIdentity): P
     if (error instanceof PortalRequestError) throw new CodeDeviceAccessError("network", error.message);
     throw error;
   }
+  if (response.status === 429 || response.status >= 500) throw new CodeDeviceAccessError("network", portalServiceMessage(response.status, response.retryAfterSeconds, "Portal temporariamente indisponível."));
   if (response.status === 409) throw new CodeDeviceAccessError("identity-conflict", "Este MAC já está vinculado a outra chave. Solicite uma vinculação explícita ao responsável.");
   if (response.status === 404) throw new CodeDeviceAccessError("not-found", "Este dispositivo não foi encontrado no Portal.");
   if (!response.payload) throw new CodeDeviceAccessError("invalid-response", "A resposta de licença é inválida.");
@@ -148,3 +151,4 @@ export async function revalidatePortalManagedDevice(identity: DeviceIdentity): P
   // Rate limiting and service failures are network failures, never an inferred expiry.
   throw new CodeDeviceAccessError("network", portalServiceMessage(response.status, response.retryAfterSeconds, "Não foi possível consultar a licença agora."));
 }
+

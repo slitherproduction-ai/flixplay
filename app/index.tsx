@@ -92,11 +92,12 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
-  // TV: "Bem-vindo de volta" por ~1,2 s e entra sozinho na lista (uma vez por
-  // abertura do app; Voltar leva ao login para trocar de lista).
-  if (tvMode && shouldShowWelcomeBack()) {
+  // "Bem-vindo de volta" (celular, tablet e TV): licença → servidor → catálogo
+  // salvo e entra sozinho na lista (uma vez por abertura do app; Voltar leva ao
+  // login para trocar de lista).
+  if (shouldShowWelcomeBack()) {
     const server = servers.find((s) => s.id === activeServerId);
-    if (server) return <WelcomeBack server={server} />;
+    if (server) return <WelcomeBack server={server} tvMode={tvMode} />;
   }
 
   return <Redirect href="/(tabs)" />;

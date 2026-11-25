@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.81] — 2026-11-25
+
+- **Bem-vindo de volta** (canvas aprovado em 25/11/2026; igual a Roku, LG, Samsung, MSX e Whale; `features/login/welcome-back.tsx`): agora no celular, tablet e TV. Centralizado no fundo do login, com carregamento em volta do símbolo do ELVANOQ Play (`assets/images/brand/ELVANOQ_mark.png`): anel que avança com as etapas (licença → servidor → catálogo salvo), cometa, órbita e satélite girando, símbolo "respirando", saudação pela hora, nome da lista, etapa atual e dicas (de controle remoto na TV, de toque no celular). "Tudo pronto" esmaece para o Início. Licença bloqueada ou sem catálogo salvo: vai direto ao Início, que mostra o aviso de acesso / a sincronização como antes. Voltar leva ao login. Substitui a barra de 1,2 s.
+- Build Android `20261099`.
+
 ## [2.17.80] — 2026-11-23
 
 - **Correção do fechamento ao entrar** (`app/login.tsx`): na 2.17.79, ao conectar (código, Xtream por Host ou lista salva), o login voltava ao estado inicial no mesmo instante em que o Início abria, e o Android encerrava o app (Fabric: `addViewAt … The specified child already has a parent`). Agora o login fica como está (conectando) até sair da tela, e a janela das Listas salvas fecha antes da troca de tela. Reproduzido e conferido em emulador Android 12 com a lista demo.

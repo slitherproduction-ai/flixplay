@@ -48,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.80",
+    version: "v2.17.81",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "Nova tela Bem-vindo de volta: ao abrir o app com a lista ativa, uma animação em volta do símbolo do ELVANOQ Play mostra as etapas (licença, servidor e catálogo) e entra sozinha no Início. Agora também no celular e no tablet." },
+    ],
+  },
+  {
+    version: "v2.17.80",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "O app não fecha mais ao abrir o Início depois de entrar com código, Xtream por Host ou uma lista salva." },

@@ -1,5 +1,6 @@
 /* Dicionário Português → English. Chave = texto exato em português (modelos com {0}, {1}…). Gerado a partir do código. */
 export const EN: Record<string, string> = {
+  "Nova tela Bem-vindo de volta: ao abrir o app com a lista ativa, uma animação em volta do símbolo do ELVANOQ Play mostra as etapas (licença, servidor e catálogo) e entra sozinha no Início. Agora também no celular e no tablet.": "New Welcome back screen: when you open the app with an active list, an animation around the ELVANOQ Play symbol shows the steps (license, server and catalog) and goes into Home by itself. Now also on phones and tablets.",
   "Bom dia,": "Good morning,",
   "Boa tarde,": "Good afternoon,",
   "Boa noite,": "Good evening,",

@@ -4,6 +4,7 @@ APK=$(find app/android/app/build/outputs/apk/release -name "*.apk" | head -1)
 adb install -r "$APK" || exit 0
 PKG=com.fastshot.slitherproduction.flixplay
 adb logcat -c
+for ime in $(adb shell ime list -s); do adb shell ime disable $ime; done
 adb shell monkey -p $PKG -c android.intent.category.LEANBACK_LAUNCHER 1 || adb shell monkey -p $PKG 1
 sleep 30
 $UI labels
@@ -14,7 +15,7 @@ $UI tap "SENHA" || $UI tap "Sua senha"; $UI type demo
 sleep 1; $UI labels
 $UI tap "Conectar"
 sleep 25; $UI labels; $UI focused
-$UI tap "Filmes"; sleep 12; $UI labels; $UI focused
+$UI tap "Filmes" || $UI tap "Movies"; sleep 12; $UI labels; $UI focused
 k() { adb shell input keyevent $1; sleep ${2:-1.5}; $UI focused; }
 k KEYCODE_DPAD_RIGHT; k KEYCODE_DPAD_RIGHT; k KEYCODE_DPAD_DOWN
 k KEYCODE_DPAD_CENTER 8

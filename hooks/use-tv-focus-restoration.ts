@@ -1,7 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef } from "react";
 import { FlatList, type FlatListProps } from "react-native";
-import { focusRememberedTvTarget, getRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
+import { beginTvFocusReturn, endTvFocusReturn, focusRememberedTvTarget, getRememberedTvFocus, needsTvFocusRestore } from "@/core/navigation/tv-focus-memory";
 
 /** Scrolls a virtualized grid back to the row containing its last focused item. */
 export function useTvFocusRestoration<T>(scope: string, enabled: boolean, columns = 1) {
@@ -41,15 +41,21 @@ export function useTvFocusRestoration<T>(scope: string, enabled: boolean, column
     // sendo desenhada depois da rolagem.
     const returning = !firstFocus.current;
     firstFocus.current = false;
-    if (returning && enabled) {
-      for (const delay of [60, 220, 480]) {
-        focusTimers.current.push(setTimeout(() => { focusRememberedTvTarget(scope); }, delay));
+    if (returning && enabled && getRememberedTvFocus(scope)) {
+      // Em TVs lentas Detalhes demora a sair e o Android ainda move o foco
+      // depois: continua tentando até o título lembrado estar com o foco.
+      beginTvFocusReturn(scope);
+      for (const delay of [60, 220, 480, 800, 1150, 1500]) {
+        focusTimers.current.push(setTimeout(() => {
+          if (needsTvFocusRestore(scope)) focusRememberedTvTarget(scope);
+        }, delay));
       }
     }
     return () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
       focusTimers.current.forEach(clearTimeout);
       focusTimers.current = [];
+      endTvFocusReturn(scope);
     };
   }, [enabled, restore, scope]));
 

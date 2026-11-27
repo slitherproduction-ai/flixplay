@@ -1,0 +1,48 @@
+name: tv-focus (temporário)
+on:
+  push:
+    branches: [ci/tv-focus]
+permissions:
+  contents: read
+jobs:
+  repro:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env: { CI: '1', EXPO_NO_TELEMETRY: '1', NODE_ENV: production }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, path: app }
+      - uses: actions/checkout@v4
+        with: { path: tools-ci }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: app/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+        with: { packages: '' }
+      - name: SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+      - name: Build x86 release
+        working-directory: app
+        run: |
+          npm ci --no-audit --no-fund
+          [ -f android/app/debug.keystore ] || keytool -genkeypair -v -keystore android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+          bash tools/prepare-android-offline-compat.sh
+          chmod +x android/gradlew
+          cd android && ./gradlew --no-daemon --max-workers=2 :app:assembleRelease -PreactNativeArchitectures=x86 > ../../gradle.log 2>&1 || { tail -80 ../../gradle.log; exit 1; }
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86
+          target: android-tv
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash tools-ci/ci/run.sh

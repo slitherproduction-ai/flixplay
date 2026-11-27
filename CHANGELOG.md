@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.17.82] — 2026-11-27
+
+- **TV: foco ao voltar de Detalhes** (relato do usuário: o foco voltou a ir para a busca). A restauração da 2.17.60 tentava focar o título só até 480 ms; em TVs mais lentas a tela de Detalhes sai depois disso e o Android entrega o foco à primeira categoria ("Buscar título ou ator"). Agora, por até 1,8 s após voltar, as tentativas continuam até o título receber o foco (60 a 1500 ms) e, se o foco cair na categoria Buscar ou no campo de busca, ele volta ao título sem trocar de categoria (`core/navigation/tv-focus-memory.ts`, `hooks/use-tv-focus-restoration.ts`, `features/catalog/tv-catalog-browser.tsx`, `components/tv-focusable.tsx`). Movimentos do controle logo depois de voltar não são desfeitos. Conferido em emulador Android TV 11 com a lista demo.
+- Build Android `20261100`.
+
 ## [2.17.81] — 2026-11-25
 
 - **Bem-vindo de volta** (canvas aprovado em 25/11/2026; igual a Roku, LG, Samsung, MSX e Whale; `features/login/welcome-back.tsx`): agora no celular, tablet e TV. Centralizado no fundo do login, com carregamento em volta do símbolo do ELVANOQ Play (`assets/images/brand/ELVANOQ_mark.png`): anel que avança com as etapas (licença → servidor → catálogo salvo), cometa, órbita e satélite girando, símbolo "respirando", saudação pela hora, nome da lista, etapa atual e dicas (de controle remoto na TV, de toque no celular). "Tudo pronto" esmaece para o Início. Licença bloqueada ou sem catálogo salvo: vai direto ao Início, que mostra o aviso de acesso / a sincronização como antes. Voltar leva ao login. Substitui a barra de 1,2 s.

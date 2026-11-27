@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { findNodeHandle, Platform, Pressable, StyleSheet, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
 import { Colors } from "@/constants/theme";
 import { getTVRemoteEvent, type TVKeyDownEvent, type TVRemoteEvent } from "@/hooks/use-tv-remote";
-import { getRememberedTvFocus, registerTvFocusTarget, rememberTvFocus } from "@/core/navigation/tv-focus-memory";
+import { getRememberedTvFocus, markTvFocusRestored, registerTvFocusTarget, rememberTvFocus } from "@/core/navigation/tv-focus-memory";
 
 export type TVFocusableHandle = {
   focus: () => void;
@@ -70,10 +70,14 @@ export const TVFocusable = forwardRef<TVFocusableHandle, TVFocusableProps>(funct
     if (Platform.isTV) {
       recordCatalogNavigation();
       setFocused(true);
-      if (focusScope && focusId) rememberTvFocus(focusScope, focusId, focusIndex);
+      if (focusScope && focusId) {
+        // O título lembrado recebeu o foco de volta.
+        if (restoreFocus && getRememberedTvFocus(focusScope)?.itemId === focusId) markTvFocusRestored(focusScope);
+        rememberTvFocus(focusScope, focusId, focusIndex);
+      }
     }
     onFocus?.(event);
-  }, [focusId, focusIndex, focusScope, onFocus]);
+  }, [focusId, focusIndex, focusScope, onFocus, restoreFocus]);
 
   const handleBlur = useCallback((event: Parameters<NonNullable<PressableProps["onBlur"]>>[0]) => {
     if (Platform.isTV) setFocused(false);

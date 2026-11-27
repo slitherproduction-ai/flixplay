@@ -11,7 +11,7 @@ import { Colors } from "@/constants/theme";
 import { TVFocusable, type TVFocusableHandle } from "@/components/tv-focusable";
 import { AppText } from "@/components/ui";
 import { CatalogBackground } from "@/components/catalog-background";
-import { hasRememberedTvFocus } from "@/core/navigation/tv-focus-memory";
+import { focusRememberedTvTarget, hasRememberedTvFocus, isTvFocusReturning } from "@/core/navigation/tv-focus-memory";
 import { useTvFocusRestoration } from "@/hooks/use-tv-focus-restoration";
 import { useTVMode } from "@/hooks/use-tv-mode";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -420,6 +420,9 @@ export function TvCatalogBrowser({
   }, [onCategoryDemand]);
 
   const handleCategoryFocus = useCallback((category: CategoryRow) => {
+    // Voltando de Detalhes, o Android pode dar o foco à primeira categoria
+    // ("Buscar título ou ator"): devolve ao título e não troca de categoria.
+    if (category.key === SEARCH_KEY && isTvFocusReturning(focusScope) && focusRememberedTvTarget(focusScope)) return;
     footerStore.set({ kind: "category", category });
     // Foco inicial em "Todas" enquanto os títulos carregam não desliga o foco
     // automático da grade; qualquer outro movimento nas categorias desliga.
@@ -427,7 +430,7 @@ export function TvCatalogBrowser({
     if (!initialAll) setGridMayFocus(false);
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => selectCategory(category), CATEGORY_SETTLE_MS);
-  }, [footerStore, selectCategory]);
+  }, [focusScope, footerStore, selectCategory]);
 
   const handleCategoryPress = useCallback((category: CategoryRow) => {
     if (settleTimer.current) clearTimeout(settleTimer.current);
@@ -603,6 +606,7 @@ export function TvCatalogBrowser({
               <Ionicons name="search" size={14} color={Colors.blueBright} />
               <TextInput
                 ref={inputRef}
+                onFocus={() => { if (isTvFocusReturning(focusScope)) focusRememberedTvTarget(focusScope); }}
                 value={query}
                 onChangeText={setQuery}
                 onSubmitEditing={() => { void runSearch(query); }}

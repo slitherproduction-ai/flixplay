@@ -48,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.81",
+    version: "v2.17.82",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Correção", text: "Na TV, ao voltar de um filme ou série, o foco fica no título que estava selecionado e não vai mais para a busca, mesmo em aparelhos mais lentos." },
+    ],
+  },
+  {
+    version: "v2.17.81",
     date: "2026.11",
     changes: [
       { tag: "Novidade", text: "Nova tela Bem-vindo de volta: ao abrir o app com a lista ativa, uma animação em volta do símbolo do ELVANOQ Play mostra as etapas (licença, servidor e catálogo) e entra sozinha no Início. Agora também no celular e no tablet." },

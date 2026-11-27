@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.17.83] — 2026-11-27
+
+- **DNS seguro / anti-bloqueio de DNS** (`services/dnsFallback.ts`; especificação em `claude/dns-alternativo.md` do Projeto). Quando a chamada Xtream falha por erro de rede no DNS do sistema, o app pergunta o IP ao Google (`https://8.8.8.8/resolve`), à Cloudflare (`https://1.1.1.1/dns-query`) e ao Portal (função `dns-resolve` do Supabase), repete pelo IP com o cabeçalho `Host` original e lembra do servidor por 6 h. Respostas de bloqueio (`0.0.0.0`, `127.x`) são descartadas. Só em `http://`; HTTPS segue como antes. Pedido do dono do servidor: nada passa por servidor de terceiros, a conexão continua saindo do aparelho (`services/xtream.ts`).
+- **Player** (`app/player.tsx`): com o servidor marcado, os endereços pelo IP vêm primeiro e os originais ficam de reserva, com o `Host` original. Sem marcação a lista de formatos não muda.
+- **Ajustes › Player › Conexão › DNS seguro**: Automático (padrão), Google, Cloudflare, Desligado (`app/settings/player.tsx`, modo aplicado em `app/_layout.tsx`).
+- Não testado em aparelho: o `Host` trocado no `expo-video` e no `fetch` precisa ser conferido com um bloqueio simulado. O desvio por redirecionamento (302) ainda usa o DNS do sistema.
+- Build Android `20261101`.
+
 ## [2.17.82] — 2026-11-27
 
 - **TV: foco ao voltar de Detalhes** (relato do usuário: o foco voltou a ir para a busca). A restauração da 2.17.60 tentava focar o título só até 480 ms; em TVs mais lentas a tela de Detalhes sai depois disso e o Android entrega o foco à primeira categoria ("Buscar título ou ator"). Agora, por até 1,8 s após voltar, as tentativas continuam até o título receber o foco (60 a 1500 ms) e, se o foco cair na categoria Buscar ou no campo de busca, ele volta ao título sem trocar de categoria (`core/navigation/tv-focus-memory.ts`, `hooks/use-tv-focus-restoration.ts`, `features/catalog/tv-catalog-browser.tsx`, `components/tv-focusable.tsx`). Movimentos do controle logo depois de voltar não são desfeitos. Conferido em emulador Android TV 11 com a lista demo.

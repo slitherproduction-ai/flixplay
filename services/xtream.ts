@@ -4,6 +4,7 @@ import { Platform } from "react-native";
 import { appLocale } from "@/core/i18n";
 import type { ChannelItem, EpgProgram, SeriesItem, ServerProfile, VodMovie } from "@/store/types";
 import { logTechnicalError } from "@/services/security/sanitize";
+import { markDnsFailure, prewarmHost, readDnsMode, rewriteWithIp, shouldUseIp } from "@/services/dnsFallback";
 
 export interface XtreamCategory {
   category_id: string;
@@ -254,13 +255,19 @@ export function getSafeTransportCandidates(url: string): string[] {
 }
 
 /** Fetch with an independent AbortController timeout so retries get a fresh clock. */
-async function timedFetch(url: string, ms: number, externalSignal?: AbortSignal): Promise<Response> {
+async function timedFetch(
+  url: string,
+  ms: number,
+  externalSignal?: AbortSignal,
+  extraHeaders?: Record<string, string>,
+): Promise<Response> {
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), ms);
   const abortFromCaller = () => ctrl.abort();
   externalSignal?.addEventListener("abort", abortFromCaller, { once: true });
   try {
-    const res = await fetch(url, { headers: XTREAM_HEADERS, signal: ctrl.signal });
+    const headers = extraHeaders ? { ...XTREAM_HEADERS, ...extraHeaders } : XTREAM_HEADERS;
+    const res = await fetch(url, { headers, signal: ctrl.signal });
     return res;
   } finally {
     clearTimeout(tid);
@@ -310,13 +317,45 @@ function isCleartextBlockError(err: unknown): boolean {
  * server code or by the user. Retrying HTTP as HTTPS changes the destination
  * contract and can turn a valid Xtream endpoint into an unrelated 404.
  */
+/**
+ * DNS alternativo: com o host marcado (falhou pelo DNS do sistema) vai direto
+ * pelo IP; numa falha de rede pelo caminho normal, marca e repete pelo IP.
+ * Só troca o endereço que o app consulta — a conexão continua saindo do aparelho.
+ */
+async function fetchNativeWithDnsFallback(url: string, timeoutMs: number, signal?: AbortSignal): Promise<Response> {
+  if (shouldUseIp(url)) {
+    const viaIp = await rewriteWithIp(url).catch(() => null);
+    if (viaIp) {
+      try {
+        return await timedFetch(viaIp.url, timeoutMs, signal, { Host: viaIp.host });
+      } catch (ipErr) {
+        if (isAbortError(ipErr) || signal?.aborted) throw ipErr;
+        // IP também falhou: tenta o caminho normal uma última vez.
+      }
+    }
+    return timedFetch(url, timeoutMs, signal);
+  }
+  try {
+    const res = await timedFetch(url, timeoutMs, signal);
+    prewarmHost(url);
+    return res;
+  } catch (err) {
+    if (isAbortError(err) || signal?.aborted || isCleartextBlockError(err) || readDnsMode() === "off") throw err;
+    const viaIp = await rewriteWithIp(url).catch(() => null);
+    if (!viaIp) throw err;
+    const res = await timedFetch(viaIp.url, timeoutMs, signal, { Host: viaIp.host });
+    markDnsFailure(url);
+    return res;
+  }
+}
+
 async function fetchNativeWithConfiguredProtocol(
   url: string,
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<Response> {
   try {
-    return await timedFetch(url, timeoutMs, signal);
+    return await fetchNativeWithDnsFallback(url, timeoutMs, signal);
   } catch (err) {
     if (isAbortError(err)) {
       throw new XtreamApiError(

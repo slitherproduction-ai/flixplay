@@ -48,8 +48,15 @@ type VersionEntry = {
 
 const VERSION_HISTORY: VersionEntry[] = [
   {
-    version: "v2.17.82",
+    version: "v2.17.83",
     label: "Atual",
+    date: "2026.11",
+    changes: [
+      { tag: "Novidade", text: "DNS seguro (Ajustes › Player › Conexão): se a sua internet não encontrar o servidor da lista, o app descobre o endereço pelo Google, pela Cloudflare ou pelo Portal e conecta mesmo assim. A conexão continua saindo do seu aparelho." },
+    ],
+  },
+  {
+    version: "v2.17.82",
     date: "2026.11",
     changes: [
       { tag: "Correção", text: "Na TV, ao voltar de um filme ou série, o foco fica no título que estava selecionado e não vai mais para a busca, mesmo em aparelhos mais lentos." },

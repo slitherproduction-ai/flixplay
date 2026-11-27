@@ -13,6 +13,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
+import { DNS_MODE_KEY, parseDnsMode, setDnsMode } from "@/services/dnsFallback";
 import { TVFocusable } from "@/components/tv-focusable";
 import { UpdateAvailableNotice } from "@/components/update-available-notice";
 import { CodeAccessGate } from "@/components/code-access-gate";
@@ -534,6 +535,12 @@ export default function RootLayout() {
   useEffect(() => {
     applyStartupKeepAwake();
   }, []);
+
+  // DNS alternativo: o serviço de rede lê o modo escolhido em Ajustes › Player.
+  const dnsModePreference = useAppStore((state) => state.preferences[DNS_MODE_KEY]);
+  useEffect(() => {
+    setDnsMode(parseDnsMode(dnsModePreference));
+  }, [dnsModePreference]);
 
   useEffect(() => {
     if ((loaded || error) && languageReady) {

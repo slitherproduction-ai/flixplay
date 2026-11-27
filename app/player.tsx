@@ -1,3 +1,4 @@
+import { applyDnsToPlaybackUrls } from "@/services/dnsFallback";
 import { useTvVideo } from "@/hooks/use-tv-video";
 import { appLocale } from "@/core/i18n";
 import { Ionicons } from "@expo/vector-icons";
@@ -339,7 +340,7 @@ export default function PlayerScreen() {
   const activatePip = useAppStore((state) => state.activatePip);
   const preferences = useAppStore((state) => state.preferences);
   const playerPreferences = useMemo(() => readPlayerPreferences(preferences), [preferences]);
-  const requestHeaders = useMemo(
+  const baseRequestHeaders = useMemo(
     () => buildPlayerHeaders(playerPreferences.userAgent),
     [playerPreferences.userAgent],
   );
@@ -440,14 +441,22 @@ export default function PlayerScreen() {
 
   // Em "Auto", começa pelo formato que já funcionou nesta lista (HLS ou TS).
   // Lido uma vez por stream: gravar o formato não recria a fonte em reprodução.
-  const fallbackUrls = useMemo(() => {
+  const dnsPlayback = useMemo(() => {
     const serverId = useAppStore.getState().activeServerId;
     const key = formatMemoryKey(serverId);
     const remembered = key ? useAppStore.getState().preferences[key] : null;
     // Ajustado pelo desempenho de cada formato nesta lista (format-score).
     const preferred = contentType === "live" ? preferredLiveFormat(serverId, remembered) : remembered;
-    return buildFallbackUrls(streamUrl, contentType, effectiveStreamPreference(playerPreferences.streamPreference, preferred));
+    const urls = buildFallbackUrls(streamUrl, contentType, effectiveStreamPreference(playerPreferences.streamPreference, preferred));
+    // DNS alternativo: endereços pelo IP (já em cache) entram como alternativas,
+    // ou na frente quando o DNS da operadora já falhou para este servidor.
+    return applyDnsToPlaybackUrls(urls);
   }, [streamUrl, contentType, playerPreferences.streamPreference]);
+  const fallbackUrls = dnsPlayback.urls;
+  const requestHeaders = useMemo(
+    () => (dnsPlayback.hostHeader ? { ...baseRequestHeaders, Host: dnsPlayback.hostHeader } : baseRequestHeaders),
+    [baseRequestHeaders, dnsPlayback.hostHeader],
+  );
   // Rever programa: fila de endereços alternativos e endereço em uso.
   const catchupQueueRef = useRef<string[]>([]);
   const catchupActiveRef = useRef(false);

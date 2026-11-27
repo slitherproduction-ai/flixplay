@@ -22,6 +22,13 @@ k KEYCODE_DPAD_CENTER 8
 k KEYCODE_BACK 1
 sleep 2; $UI focused
 k KEYCODE_DPAD_RIGHT
+echo "== esquerda logo depois de voltar"
+k KEYCODE_DPAD_CENTER 8
+k KEYCODE_BACK 0.3
+k KEYCODE_DPAD_LEFT 0.3
+k KEYCODE_DPAD_LEFT 0.3
+sleep 2; $UI focused
+k KEYCODE_DPAD_RIGHT
 echo "== segunda volta"
 k KEYCODE_DPAD_CENTER 8
 k KEYCODE_BACK 3
